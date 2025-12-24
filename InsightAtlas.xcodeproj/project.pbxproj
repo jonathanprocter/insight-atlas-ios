@@ -1,0 +1,819 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */; };
+		3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */; };
+		48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */; };
+		65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */; };
+		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
+		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
+		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
+		C21355A72EE6360100B6662D /* CormorantGaramond-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */; };
+		C21355A82EE6360100B6662D /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559C2EE6360100B6662D /* Inter-Regular.ttf */; };
+		C21355A92EE6360100B6662D /* CormorantGaramond-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355922EE6360100B6662D /* CormorantGaramond-Italic.ttf */; };
+		C21355AA2EE6360100B6662D /* CormorantGaramond-LightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355942EE6360100B6662D /* CormorantGaramond-LightItalic.ttf */; };
+		C21355AB2EE6360100B6662D /* CormorantGaramond-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355972EE6360100B6662D /* CormorantGaramond-Regular.ttf */; };
+		C21355AD2EE6360100B6662D /* CormorantGaramond-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355952EE6360100B6662D /* CormorantGaramond-Medium.ttf */; };
+		C21355AE2EE6360100B6662D /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559A2EE6360100B6662D /* Inter-Bold.ttf */; };
+		C21355B02EE6360100B6662D /* CormorantGaramond-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355932EE6360100B6662D /* CormorantGaramond-Light.ttf */; };
+		C21355B12EE6360100B6662D /* Inter-VariableItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559F2EE6360100B6662D /* Inter-VariableItalic.ttf */; };
+		C21355B22EE6360100B6662D /* Inter-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559B2EE6360100B6662D /* Inter-Medium.ttf */; };
+		C21355B32EE6360100B6662D /* CormorantGaramond-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355982EE6360100B6662D /* CormorantGaramond-SemiBold.ttf */; };
+		C21355B42EE6360100B6662D /* Inter-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559D2EE6360100B6662D /* Inter-SemiBold.ttf */; };
+		C21355B62EE6360100B6662D /* Caveat.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213558F2EE6360100B6662D /* Caveat.ttf */; };
+		C21355B82EE6360100B6662D /* CormorantGaramond-SemiBoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355992EE6360100B6662D /* CormorantGaramond-SemiBoldItalic.ttf */; };
+		C21355B92EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355962EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf */; };
+		C21355BA2EE6360100B6662D /* Inter-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559E2EE6360100B6662D /* Inter-Variable.ttf */; };
+		C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */; };
+		C21355C02EE63B9400B6662D /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C21355BF2EE63B9400B6662D /* ZIPFoundation */; };
+		C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C12EE63E0800B6662D /* AnalysisComponents.swift */; };
+		C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */; };
+		C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C52EE63E3500B6662D /* AnalysisTheme.swift */; };
+		C240CEEE2EE5393F00C97BB8 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C240CEED2EE5393F00C97BB8 /* ZIPFoundation */; };
+		E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00002D000001007AAAAA /* InsightAtlasApp.swift */; };
+		E81A00032D000001007AAAAA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00022D000001007AAAAA /* ContentView.swift */; };
+		E81A00052D000001007AAAAA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E81A00042D000001007AAAAA /* Assets.xcassets */; };
+		E81A00062D000001007AAAAA /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E81A00072D000001007AAAAA /* Preview Assets.xcassets */; };
+		E81A00102D000002007AAAAA /* InsightAtlasPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */; };
+		E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */; };
+		E81A00122D000003007AAAAA /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00132D000003007AAAAA /* AIService.swift */; };
+		E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00152D000004007AAAAA /* BookProcessor.swift */; };
+		E81A00162D000005007AAAAA /* GuideModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00172D000005007AAAAA /* GuideModels.swift */; };
+		E81A00182D000006007AAAAA /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00192D000006007AAAAA /* LibraryView.swift */; };
+		E81A001A2D000007007AAAAA /* GuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A001B2D000007007AAAAA /* GuideView.swift */; };
+		E81A001C2D000008007AAAAA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A001D2D000008007AAAAA /* SettingsView.swift */; };
+		E81A001E2D000009007AAAAA /* GenerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A001F2D000009007AAAAA /* GenerationView.swift */; };
+		E81A00202D000010007AAAAA /* DataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00212D000010007AAAAA /* DataManager.swift */; };
+		E81A00222D000011007AAAAA /* QuickGlanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00232D000011007AAAAA /* QuickGlanceView.swift */; };
+		E81A00242D000012007AAAAA /* ActionBoxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00252D000012007AAAAA /* ActionBoxView.swift */; };
+		E81A00262D000013007AAAAA /* InsightNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00272D000013007AAAAA /* InsightNoteView.swift */; };
+		E81A00282D000014007AAAAA /* ExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00292D000014007AAAAA /* ExerciseView.swift */; };
+		E81A002A2D000015007AAAAA /* VisualFrameworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A002B2D000015007AAAAA /* VisualFrameworkView.swift */; };
+		E81A002C2D000016007AAAAA /* InsightAtlasStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A002D2D000016007AAAAA /* InsightAtlasStyle.swift */; };
+		E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A002F2D000017007AAAAA /* QualityAuditService.swift */; };
+		E81A00302D000018007AAAAB /* RegenerateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00312D000018007AAAAB /* RegenerateView.swift */; };
+		F1A10D85767648BCB0B41E5F /* PDFAnalysisDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */; };
+		IAAPI0001AAAAAAAAAAAAAA1 /* InsightAtlasAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */; };
+		IAAPI0003AAAAAAAAAAAAAA3 /* GenerateGuideRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0004AAAAAAAAAAAAAA4 /* GenerateGuideRequest.swift */; };
+		IAAPI0005AAAAAAAAAAAAAA5 /* GenerateGuideResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0006AAAAAAAAAAAAAA6 /* GenerateGuideResponse.swift */; };
+		IAAPI0007AAAAAAAAAAAAAA7 /* GuideGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0008AAAAAAAAAAAAAA8 /* GuideGenerationService.swift */; };
+		IAAPI0009AAAAAAAAAAAAAA9 /* InsightAtlasConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI000AAAAAAAAAAAAAAAA /* InsightAtlasConfig.swift */; };
+		IABGGEN001AAAAAAAAAA001 /* BackgroundGenerationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABGGEN002AAAAAAAAAA002 /* BackgroundGenerationCoordinator.swift */; };
+		IABULK0001AAAAAAAAAA001 /* BulkExportCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0002AAAAAAAAAA002 /* BulkExportCoordinator.swift */; };
+		IABULK0003AAAAAAAAAA003 /* LibraryComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */; };
+		IABULK0005AAAAAAAAAA005 /* BulkExportComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */; };
+		IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */; };
+		IAEDIT001AAAAAAAAAA001 /* EditorialBlockTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */; };
+		IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */; };
+		IAEDITPACE01AAAAAA001 /* ReaderProfilePacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */; };
+		IAELAUDIOSVC01AAA001 /* ElevenLabsAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */; };
+		IAGOVDET01AAAAAAAA001 /* SummaryGovernorDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVDET02AAAAAAAA002 /* SummaryGovernorDetection.swift */; };
+		IAGOVENG01AAAAAAAA001 /* SummaryGovernorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVENG02AAAAAAAA002 /* SummaryGovernorEngine.swift */; };
+		IAGOVPRES01AAAAAAA001 /* SummaryGovernorPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVPRES02AAAAAAA002 /* SummaryGovernorPresets.swift */; };
+		IAGOVSYN01AAAAAAAA001 /* SummaryGovernorSynthesis.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVSYN02AAAAAAAA002 /* SummaryGovernorSynthesis.swift */; };
+		IAGOVTYPE01AAAAAAA001 /* SummaryTypeGovernor.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVTYPE02AAAAAAA002 /* SummaryTypeGovernor.swift */; };
+		IAKEYCHNSVC01AAA001 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAKEYCHNSVC02AAA002 /* KeychainService.swift */; };
+		IALAYOUT001AAAAAAAAA001 /* LayoutScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = IALAYOUT002AAAAAAAAA002 /* LayoutScore.swift */; };
+		IAOUTVAL01AAAAAAAAA01 /* OutputContractValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */; };
+		IASEMNORM01AAAAAAAAA01 /* SemanticNormalizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */; };
+		IATHEME001AAAAAAAAAA001 /* VisualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */; };
+		IAVISBRIDGE01AAAA001 /* AudioVisualBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */; };
+		IAVISSEL01AAAAAAAAA001 /* VisualSelectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISSEL02AAAAAAAAA002 /* VisualSelectionService.swift */; };
+		IAVISUAL001AAAAAAAAAA001 /* GuideVisual.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL002AAAAAAAAAA002 /* GuideVisual.swift */; };
+		IAVISUAL003AAAAAAAAAA003 /* GuideVisualType.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL004AAAAAAAAAA004 /* GuideVisualType.swift */; };
+		IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */; };
+		IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */; };
+		IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKVW02AAA002 /* VoicePickerView.swift */; };
+		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAnalysisDocument.swift; sourceTree = "<group>"; };
+		54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPDFRenderer.swift; sourceTree = "<group>"; };
+		829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDiagramRenderer.swift; sourceTree = "<group>"; };
+		9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFStyleConfiguration.swift; sourceTree = "<group>"; };
+		9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFCoverPageRenderer.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixer.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = PDFTextFixerPatterns.json; sourceTree = "<group>"; };
+		AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFContentBlockRenderer.swift; sourceTree = "<group>"; };
+		C213558F2EE6360100B6662D /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
+		C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
+		C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-BoldItalic.ttf"; sourceTree = "<group>"; };
+		C21355922EE6360100B6662D /* CormorantGaramond-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Italic.ttf"; sourceTree = "<group>"; };
+		C21355932EE6360100B6662D /* CormorantGaramond-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Light.ttf"; sourceTree = "<group>"; };
+		C21355942EE6360100B6662D /* CormorantGaramond-LightItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-LightItalic.ttf"; sourceTree = "<group>"; };
+		C21355952EE6360100B6662D /* CormorantGaramond-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Medium.ttf"; sourceTree = "<group>"; };
+		C21355962EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-MediumItalic.ttf"; sourceTree = "<group>"; };
+		C21355972EE6360100B6662D /* CormorantGaramond-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Regular.ttf"; sourceTree = "<group>"; };
+		C21355982EE6360100B6662D /* CormorantGaramond-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-SemiBold.ttf"; sourceTree = "<group>"; };
+		C21355992EE6360100B6662D /* CormorantGaramond-SemiBoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-SemiBoldItalic.ttf"; sourceTree = "<group>"; };
+		C213559A2EE6360100B6662D /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
+		C213559B2EE6360100B6662D /* Inter-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Medium.ttf"; sourceTree = "<group>"; };
+		C213559C2EE6360100B6662D /* Inter-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Regular.ttf"; sourceTree = "<group>"; };
+		C213559D2EE6360100B6662D /* Inter-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-SemiBold.ttf"; sourceTree = "<group>"; };
+		C213559E2EE6360100B6662D /* Inter-Variable.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Variable.ttf"; sourceTree = "<group>"; };
+		C213559F2EE6360100B6662D /* Inter-VariableItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-VariableItalic.ttf"; sourceTree = "<group>"; };
+		C21355A12EE6360100B6662D /* Font_Installation_Guide.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Font_Installation_Guide.md; sourceTree = "<group>"; };
+		C21355A22EE6360100B6662D /* Info_plist_Configuration.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info_plist_Configuration.xml; sourceTree = "<group>"; };
+		C21355A42EE6360100B6662D /* Info_plist_Configuration.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info_plist_Configuration.xml; sourceTree = "<group>"; };
+		C21355A52EE6360100B6662D /* Insight Atlas_ Custom Font Installation Guide.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Insight Atlas_ Custom Font Installation Guide.md"; sourceTree = "<group>"; };
+		C21355BE2EE6375A00B6662D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = InsightAtlas/Info.plist; sourceTree = "<group>"; };
+		C21355C12EE63E0800B6662D /* AnalysisComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisComponents.swift; path = InsightAtlas/Views/AnalysisComponents.swift; sourceTree = "<group>"; };
+		C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailView.swift; path = InsightAtlas/Views/AnalysisDetailView.swift; sourceTree = "<group>"; };
+		C21355C52EE63E3500B6662D /* AnalysisTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisTheme.swift; path = InsightAtlas/Services/AnalysisTheme.swift; sourceTree = "<group>"; };
+		E81A00002D000001007AAAAA /* InsightAtlasApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasApp.swift; sourceTree = "<group>"; };
+		E81A00022D000001007AAAAA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E81A00042D000001007AAAAA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E81A00072D000001007AAAAA /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		E81A00092D000001007AAAAA /* InsightAtlas.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InsightAtlas.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPrompt.swift; sourceTree = "<group>"; };
+		E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPatternLibrary.swift; sourceTree = "<group>"; };
+		E81A00132D000003007AAAAA /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		E81A00152D000004007AAAAA /* BookProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessor.swift; sourceTree = "<group>"; };
+		E81A00172D000005007AAAAA /* GuideModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideModels.swift; sourceTree = "<group>"; };
+		E81A00192D000006007AAAAA /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		E81A001B2D000007007AAAAA /* GuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideView.swift; sourceTree = "<group>"; };
+		E81A001D2D000008007AAAAA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E81A001F2D000009007AAAAA /* GenerationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationView.swift; sourceTree = "<group>"; };
+		E81A00212D000010007AAAAA /* DataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataManager.swift; sourceTree = "<group>"; };
+		E81A00232D000011007AAAAA /* QuickGlanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickGlanceView.swift; sourceTree = "<group>"; };
+		E81A00252D000012007AAAAA /* ActionBoxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionBoxView.swift; sourceTree = "<group>"; };
+		E81A00272D000013007AAAAA /* InsightNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightNoteView.swift; sourceTree = "<group>"; };
+		E81A00292D000014007AAAAA /* ExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseView.swift; sourceTree = "<group>"; };
+		E81A002B2D000015007AAAAA /* VisualFrameworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualFrameworkView.swift; sourceTree = "<group>"; };
+		E81A002D2D000016007AAAAA /* InsightAtlasStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasStyle.swift; sourceTree = "<group>"; };
+		E81A002F2D000017007AAAAA /* QualityAuditService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualityAuditService.swift; sourceTree = "<group>"; };
+		E81A00312D000018007AAAAB /* RegenerateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegenerateView.swift; sourceTree = "<group>"; };
+		IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasAPI.swift; sourceTree = "<group>"; };
+		IAAPI0004AAAAAAAAAAAAAA4 /* GenerateGuideRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateGuideRequest.swift; sourceTree = "<group>"; };
+		IAAPI0006AAAAAAAAAAAAAA6 /* GenerateGuideResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateGuideResponse.swift; sourceTree = "<group>"; };
+		IAAPI0008AAAAAAAAAAAAAA8 /* GuideGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideGenerationService.swift; sourceTree = "<group>"; };
+		IAAPI000AAAAAAAAAAAAAAAA /* InsightAtlasConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasConfig.swift; sourceTree = "<group>"; };
+		IABGGEN002AAAAAAAAAA002 /* BackgroundGenerationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundGenerationCoordinator.swift; sourceTree = "<group>"; };
+		IABULK0002AAAAAAAAAA002 /* BulkExportCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExportCoordinator.swift; sourceTree = "<group>"; };
+		IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryComponents.swift; sourceTree = "<group>"; };
+		IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExportComponents.swift; sourceTree = "<group>"; };
+		IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualAssetCache.swift; sourceTree = "<group>"; };
+		IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialBlockTypes.swift; sourceTree = "<group>"; };
+		IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioNarrationPlan.swift; sourceTree = "<group>"; };
+		IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderProfilePacing.swift; sourceTree = "<group>"; };
+		IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsAudioService.swift; sourceTree = "<group>"; };
+		IAGOVDET02AAAAAAAA002 /* SummaryGovernorDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorDetection.swift; sourceTree = "<group>"; };
+		IAGOVENG02AAAAAAAA002 /* SummaryGovernorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorEngine.swift; sourceTree = "<group>"; };
+		IAGOVPRES02AAAAAAA002 /* SummaryGovernorPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorPresets.swift; sourceTree = "<group>"; };
+		IAGOVSYN02AAAAAAAA002 /* SummaryGovernorSynthesis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorSynthesis.swift; sourceTree = "<group>"; };
+		IAGOVTYPE02AAAAAAA002 /* SummaryTypeGovernor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryTypeGovernor.swift; sourceTree = "<group>"; };
+		IAKEYCHNSVC02AAA002 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		IALAYOUT002AAAAAAAAA002 /* LayoutScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutScore.swift; sourceTree = "<group>"; };
+		IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputContractValidator.swift; sourceTree = "<group>"; };
+		IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticNormalizationService.swift; sourceTree = "<group>"; };
+		IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualTheme.swift; sourceTree = "<group>"; };
+		IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVisualBridge.swift; sourceTree = "<group>"; };
+		IAVISSEL02AAAAAAAAA002 /* VisualSelectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualSelectionService.swift; sourceTree = "<group>"; };
+		IAVISUAL002AAAAAAAAAA002 /* GuideVisual.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisual.swift; sourceTree = "<group>"; };
+		IAVISUAL004AAAAAAAAAA004 /* GuideVisualType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisualType.swift; sourceTree = "<group>"; };
+		IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisualView.swift; sourceTree = "<group>"; };
+		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
+		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
+		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E81AFFFD2D000001007AAAAA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C240CEEE2EE5393F00C97BB8 /* ZIPFoundation in Frameworks */,
+				C21355C02EE63B9400B6662D /* ZIPFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C092D0231E3E4446B1B094E3 /* PDFRenderer */ = {
+			isa = PBXGroup;
+			children = (
+				9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */,
+				9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */,
+				AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */,
+				829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */,
+				54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */,
+				0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */,
+			);
+			path = PDFRenderer;
+			sourceTree = "<group>";
+		};
+		C21355A02EE6360100B6662D /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				C213558F2EE6360100B6662D /* Caveat.ttf */,
+				C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */,
+				C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */,
+				C21355922EE6360100B6662D /* CormorantGaramond-Italic.ttf */,
+				C21355932EE6360100B6662D /* CormorantGaramond-Light.ttf */,
+				C21355942EE6360100B6662D /* CormorantGaramond-LightItalic.ttf */,
+				C21355952EE6360100B6662D /* CormorantGaramond-Medium.ttf */,
+				C21355962EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf */,
+				C21355972EE6360100B6662D /* CormorantGaramond-Regular.ttf */,
+				C21355982EE6360100B6662D /* CormorantGaramond-SemiBold.ttf */,
+				C21355992EE6360100B6662D /* CormorantGaramond-SemiBoldItalic.ttf */,
+				C213559A2EE6360100B6662D /* Inter-Bold.ttf */,
+				C213559B2EE6360100B6662D /* Inter-Medium.ttf */,
+				C213559C2EE6360100B6662D /* Inter-Regular.ttf */,
+				C213559D2EE6360100B6662D /* Inter-SemiBold.ttf */,
+				C213559E2EE6360100B6662D /* Inter-Variable.ttf */,
+				C213559F2EE6360100B6662D /* Inter-VariableItalic.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		C21355A32EE6360100B6662D /* InsightAtlas_Premium_Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				C21355A02EE6360100B6662D /* Fonts */,
+				C21355A12EE6360100B6662D /* Font_Installation_Guide.md */,
+				C21355A22EE6360100B6662D /* Info_plist_Configuration.xml */,
+			);
+			path = InsightAtlas_Premium_Fonts;
+			sourceTree = "<group>";
+		};
+		C21355A62EE6360100B6662D /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				C21355A32EE6360100B6662D /* InsightAtlas_Premium_Fonts */,
+				C21355A42EE6360100B6662D /* Info_plist_Configuration.xml */,
+				C21355A52EE6360100B6662D /* Insight Atlas_ Custom Font Installation Guide.md */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		E81A00082D000001007AAAAA /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				E81A00072D000001007AAAAA /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		E81A00302D000020007AAAAA /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				IABULK0007AAAAAAAAAA007 /* Library */,
+				E81A00192D000006007AAAAA /* LibraryView.swift */,
+				E81A001B2D000007007AAAAA /* GuideView.swift */,
+				E81A001D2D000008007AAAAA /* SettingsView.swift */,
+				E81A001F2D000009007AAAAA /* GenerationView.swift */,
+				E81A00232D000011007AAAAA /* QuickGlanceView.swift */,
+				E81A00252D000012007AAAAA /* ActionBoxView.swift */,
+				E81A00272D000013007AAAAA /* InsightNoteView.swift */,
+				E81A00292D000014007AAAAA /* ExerciseView.swift */,
+				E81A002B2D000015007AAAAA /* VisualFrameworkView.swift */,
+				E81A00312D000018007AAAAB /* RegenerateView.swift */,
+				IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */,
+				IAVOICEPKVW02AAA002 /* VoicePickerView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		E81A00312D000021007AAAAA /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				C092D0231E3E4446B1B094E3 /* PDFRenderer */,
+				E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */,
+				E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */,
+				E81A00132D000003007AAAAA /* AIService.swift */,
+				E81A00152D000004007AAAAA /* BookProcessor.swift */,
+				E81A00212D000010007AAAAA /* DataManager.swift */,
+				E81A002D2D000016007AAAAA /* InsightAtlasStyle.swift */,
+				E81A002F2D000017007AAAAA /* QualityAuditService.swift */,
+				A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */,
+				A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */,
+				IAAPI0008AAAAAAAAAAAAAA8 /* GuideGenerationService.swift */,
+				IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */,
+				IABULK0002AAAAAAAAAA002 /* BulkExportCoordinator.swift */,
+				IABGGEN002AAAAAAAAAA002 /* BackgroundGenerationCoordinator.swift */,
+				IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */,
+				IAVISSEL02AAAAAAAAA002 /* VisualSelectionService.swift */,
+				IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */,
+				IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */,
+				IAKEYCHNSVC02AAA002 /* KeychainService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		E81A00322D000022007AAAAA /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				E81A00172D000005007AAAAA /* GuideModels.swift */,
+				IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		E81AFFF02D000001007AAAAA /* InsightAtlas */ = {
+			isa = PBXGroup;
+			children = (
+				E81A00002D000001007AAAAA /* InsightAtlasApp.swift */,
+				E81A00022D000001007AAAAA /* ContentView.swift */,
+				E81A00302D000020007AAAAA /* Views */,
+				E81A00312D000021007AAAAA /* Services */,
+				E81A00322D000022007AAAAA /* Models */,
+				IAAPI000BAAAAAAAAAAAABBB /* Networking */,
+				IAAPI000DAAAAAAAAAAAADDD /* Config */,
+				IATHEME000AAAAAAAAAA000 /* Theme */,
+				IAEDITORIAL00AAAAAA000 /* Editorial */,
+				E81A00042D000001007AAAAA /* Assets.xcassets */,
+				E81A00082D000001007AAAAA /* Preview Content */,
+			);
+			path = InsightAtlas;
+			sourceTree = "<group>";
+		};
+		E81AFFF72D000001007AAAAA = {
+			isa = PBXGroup;
+			children = (
+				C21355C52EE63E3500B6662D /* AnalysisTheme.swift */,
+				C21355C12EE63E0800B6662D /* AnalysisComponents.swift */,
+				C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */,
+				C21355BE2EE6375A00B6662D /* Info.plist */,
+				C21355A62EE6360100B6662D /* Fonts */,
+				E81AFFF02D000001007AAAAA /* InsightAtlas */,
+				E81AFFFE2D000001007AAAAA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E81AFFFE2D000001007AAAAA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E81A00092D000001007AAAAA /* InsightAtlas.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		IAAPI000BAAAAAAAAAAAABBB /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */,
+				IAAPI000CAAAAAAAAAAAACCC /* Models */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		IAAPI000CAAAAAAAAAAAACCC /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				IAAPI0004AAAAAAAAAAAAAA4 /* GenerateGuideRequest.swift */,
+				IAAPI0006AAAAAAAAAAAAAA6 /* GenerateGuideResponse.swift */,
+				IAVISUAL002AAAAAAAAAA002 /* GuideVisual.swift */,
+				IAVISUAL004AAAAAAAAAA004 /* GuideVisualType.swift */,
+				IALAYOUT002AAAAAAAAA002 /* LayoutScore.swift */,
+				IAGOVTYPE02AAAAAAA002 /* SummaryTypeGovernor.swift */,
+				IAGOVPRES02AAAAAAA002 /* SummaryGovernorPresets.swift */,
+				IAGOVENG02AAAAAAAA002 /* SummaryGovernorEngine.swift */,
+				IAGOVDET02AAAAAAAA002 /* SummaryGovernorDetection.swift */,
+				IAGOVSYN02AAAAAAAA002 /* SummaryGovernorSynthesis.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		IAAPI000DAAAAAAAAAAAADDD /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				IAAPI000AAAAAAAAAAAAAAAA /* InsightAtlasConfig.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		IABULK0007AAAAAAAAAA007 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */,
+				IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		IAEDITORIAL00AAAAAA000 /* Editorial */ = {
+			isa = PBXGroup;
+			children = (
+				IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */,
+				IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */,
+				IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */,
+				IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */,
+				IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */,
+			);
+			path = Editorial;
+			sourceTree = "<group>";
+		};
+		IATHEME000AAAAAAAAAA000 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E81AFFFA2D000001007AAAAA /* InsightAtlas */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E81A000A2D000001007AAAAA /* Build configuration list for PBXNativeTarget "InsightAtlas" */;
+			buildPhases = (
+				E81AFFFC2D000001007AAAAA /* Sources */,
+				E81AFFFD2D000001007AAAAA /* Frameworks */,
+				E81AFFFE2D000002007AAAAA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = InsightAtlas;
+			productName = InsightAtlas;
+			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E81AFFF82D000001007AAAAA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+					E81AFFFA2D000001007AAAAA = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = E81AFFF92D000001007AAAAA /* Build configuration list for PBXProject "InsightAtlas" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E81AFFF72D000001007AAAAA;
+			packageReferences = (
+				C240CEEC2EE5393F00C97BB8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+			);
+			productRefGroup = E81AFFFE2D000001007AAAAA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E81AFFFA2D000001007AAAAA /* InsightAtlas */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E81AFFFE2D000002007AAAAA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C21355A72EE6360100B6662D /* CormorantGaramond-Bold.ttf in Resources */,
+				C21355A82EE6360100B6662D /* Inter-Regular.ttf in Resources */,
+				C21355A92EE6360100B6662D /* CormorantGaramond-Italic.ttf in Resources */,
+				C21355AA2EE6360100B6662D /* CormorantGaramond-LightItalic.ttf in Resources */,
+				C21355AB2EE6360100B6662D /* CormorantGaramond-Regular.ttf in Resources */,
+				C21355AD2EE6360100B6662D /* CormorantGaramond-Medium.ttf in Resources */,
+				C21355AE2EE6360100B6662D /* Inter-Bold.ttf in Resources */,
+				C21355B02EE6360100B6662D /* CormorantGaramond-Light.ttf in Resources */,
+				C21355B12EE6360100B6662D /* Inter-VariableItalic.ttf in Resources */,
+				C21355B22EE6360100B6662D /* Inter-Medium.ttf in Resources */,
+				C21355B32EE6360100B6662D /* CormorantGaramond-SemiBold.ttf in Resources */,
+				C21355B42EE6360100B6662D /* Inter-SemiBold.ttf in Resources */,
+				C21355B62EE6360100B6662D /* Caveat.ttf in Resources */,
+				C21355B82EE6360100B6662D /* CormorantGaramond-SemiBoldItalic.ttf in Resources */,
+				C21355B92EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf in Resources */,
+				C21355BA2EE6360100B6662D /* Inter-Variable.ttf in Resources */,
+				C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */,
+				E81A00052D000001007AAAAA /* Assets.xcassets in Resources */,
+				E81A00062D000001007AAAAA /* Preview Assets.xcassets in Resources */,
+				A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E81AFFFC2D000001007AAAAA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */,
+				012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */,
+				65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */,
+				B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */,
+				3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */,
+				F1A10D85767648BCB0B41E5F /* PDFAnalysisDocument.swift in Sources */,
+				E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */,
+				E81A00032D000001007AAAAA /* ContentView.swift in Sources */,
+				E81A00102D000002007AAAAA /* InsightAtlasPrompt.swift in Sources */,
+				E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */,
+				E81A00122D000003007AAAAA /* AIService.swift in Sources */,
+				E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */,
+				C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */,
+				E81A00162D000005007AAAAA /* GuideModels.swift in Sources */,
+				E81A00182D000006007AAAAA /* LibraryView.swift in Sources */,
+				E81A001A2D000007007AAAAA /* GuideView.swift in Sources */,
+				E81A001C2D000008007AAAAA /* SettingsView.swift in Sources */,
+				E81A001E2D000009007AAAAA /* GenerationView.swift in Sources */,
+				E81A00202D000010007AAAAA /* DataManager.swift in Sources */,
+				E81A00222D000011007AAAAA /* QuickGlanceView.swift in Sources */,
+				E81A00242D000012007AAAAA /* ActionBoxView.swift in Sources */,
+				E81A00262D000013007AAAAA /* InsightNoteView.swift in Sources */,
+				E81A00282D000014007AAAAA /* ExerciseView.swift in Sources */,
+				E81A002A2D000015007AAAAA /* VisualFrameworkView.swift in Sources */,
+				E81A002C2D000016007AAAAA /* InsightAtlasStyle.swift in Sources */,
+				E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */,
+				C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */,
+				C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */,
+				E81A00302D000018007AAAAB /* RegenerateView.swift in Sources */,
+				A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */,
+				IAAPI0001AAAAAAAAAAAAAA1 /* InsightAtlasAPI.swift in Sources */,
+				IAAPI0003AAAAAAAAAAAAAA3 /* GenerateGuideRequest.swift in Sources */,
+				IAAPI0005AAAAAAAAAAAAAA5 /* GenerateGuideResponse.swift in Sources */,
+				IAAPI0007AAAAAAAAAAAAAA7 /* GuideGenerationService.swift in Sources */,
+				IAAPI0009AAAAAAAAAAAAAA9 /* InsightAtlasConfig.swift in Sources */,
+				IAVISUAL001AAAAAAAAAA001 /* GuideVisual.swift in Sources */,
+				IAVISUAL003AAAAAAAAAA003 /* GuideVisualType.swift in Sources */,
+				IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */,
+				IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */,
+				IATHEME001AAAAAAAAAA001 /* VisualTheme.swift in Sources */,
+				IALAYOUT001AAAAAAAAA001 /* LayoutScore.swift in Sources */,
+				IABULK0001AAAAAAAAAA001 /* BulkExportCoordinator.swift in Sources */,
+				IABULK0003AAAAAAAAAA003 /* LibraryComponents.swift in Sources */,
+				IABULK0005AAAAAAAAAA005 /* BulkExportComponents.swift in Sources */,
+				IABGGEN001AAAAAAAAAA001 /* BackgroundGenerationCoordinator.swift in Sources */,
+				IAEDIT001AAAAAAAAAA001 /* EditorialBlockTypes.swift in Sources */,
+				IASEMNORM01AAAAAAAAA01 /* SemanticNormalizationService.swift in Sources */,
+				IAVISSEL01AAAAAAAAA001 /* VisualSelectionService.swift in Sources */,
+				IAOUTVAL01AAAAAAAAA01 /* OutputContractValidator.swift in Sources */,
+				IAEDITPACE01AAAAAA001 /* ReaderProfilePacing.swift in Sources */,
+				IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */,
+				IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */,
+				IAVISBRIDGE01AAAA001 /* AudioVisualBridge.swift in Sources */,
+				IAELAUDIOSVC01AAA001 /* ElevenLabsAudioService.swift in Sources */,
+				IAKEYCHNSVC01AAA001 /* KeychainService.swift in Sources */,
+				IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */,
+				IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */,
+				IAGOVTYPE01AAAAAAA001 /* SummaryTypeGovernor.swift in Sources */,
+				IAGOVPRES01AAAAAAA001 /* SummaryGovernorPresets.swift in Sources */,
+				IAGOVENG01AAAAAAAA001 /* SummaryGovernorEngine.swift in Sources */,
+				IAGOVDET01AAAAAAAA001 /* SummaryGovernorDetection.swift in Sources */,
+				IAGOVSYN01AAAAAAAA001 /* SummaryGovernorSynthesis.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		E81A000B2D000001007AAAAA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = N866QDJBQX;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				"INFOPLIST_FILE[sdk=*]" = InsightAtlas/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		E81A000C2D000001007AAAAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = N866QDJBQX;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				"INFOPLIST_FILE[sdk=*]" = InsightAtlas/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E81A000D2D000001007AAAAA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
+				DEVELOPMENT_TEAM = N866QDJBQX;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				"INFOPLIST_FILE[sdk=*]" = InsightAtlas/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlas;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E81A000E2D000001007AAAAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
+				DEVELOPMENT_TEAM = N866QDJBQX;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				"INFOPLIST_FILE[sdk=*]" = InsightAtlas/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlas;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E81A000A2D000001007AAAAA /* Build configuration list for PBXNativeTarget "InsightAtlas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E81A000D2D000001007AAAAA /* Debug */,
+				E81A000E2D000001007AAAAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E81AFFF92D000001007AAAAA /* Build configuration list for PBXProject "InsightAtlas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E81A000B2D000001007AAAAA /* Debug */,
+				E81A000C2D000001007AAAAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C240CEEC2EE5393F00C97BB8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.20;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C21355BF2EE63B9400B6662D /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ZIPFoundation;
+		};
+		C240CEED2EE5393F00C97BB8 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C240CEEC2EE5393F00C97BB8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = E81AFFF82D000001007AAAAA /* Project object */;
+}
