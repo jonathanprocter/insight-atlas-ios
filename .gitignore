@@ -1,0 +1,12 @@
+.DS_Store
+._*
+*.xcresult
+*.xcuserstate
+*.xccheckout
+*.xcuserdatad
+DerivedData/
+build/
+node_modules/
+dist/
+archive_output/
+extracted_project/

@@ -42,6 +42,13 @@
 		E81A00062D000001007AAAAA /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E81A00072D000001007AAAAA /* Preview Assets.xcassets */; };
 		E81A00102D000002007AAAAA /* InsightAtlasPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */; };
 		E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */; };
+		7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */; };
+		7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */; };
+		7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */; };
+		7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */; };
+		7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */; };
+		7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */; };
+		7A1B2C3D4E5F678901234581 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234580 /* XCTest.framework */; };
 		E81A00122D000003007AAAAA /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00132D000003007AAAAA /* AIService.swift */; };
 		E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00152D000004007AAAAA /* BookProcessor.swift */; };
 		E81A00162D000005007AAAAA /* GuideModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00172D000005007AAAAA /* GuideModels.swift */; };
@@ -134,6 +141,15 @@
 		E81A00092D000001007AAAAA /* InsightAtlas.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InsightAtlas.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPrompt.swift; sourceTree = "<group>"; };
 		E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPatternLibrary.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessorTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderHierarchyTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainServiceTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixerTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234596 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7A1B2C3D4E5F67890123456E /* InsightAtlasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InsightAtlasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A1B2C3D4E5F678901234580 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		E81A00132D000003007AAAAA /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
 		E81A00152D000004007AAAAA /* BookProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessor.swift; sourceTree = "<group>"; };
 		E81A00172D000005007AAAAA /* GuideModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideModels.swift; sourceTree = "<group>"; };
@@ -191,6 +207,14 @@
 			files = (
 				C240CEEE2EE5393F00C97BB8 /* ZIPFoundation in Frameworks */,
 				C21355C02EE63B9400B6662D /* ZIPFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A1B2C3D4E5F67890123456C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A1B2C3D4E5F678901234581 /* XCTest.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,14 +368,30 @@
 				C21355BE2EE6375A00B6662D /* Info.plist */,
 				C21355A62EE6360100B6662D /* Fonts */,
 				E81AFFF02D000001007AAAAA /* InsightAtlas */,
+				7A1B2C3D4E5F67890123456F /* InsightAtlasTests */,
 				E81AFFFE2D000001007AAAAA /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		7A1B2C3D4E5F67890123456F /* InsightAtlasTests */ = {
+			isa = PBXGroup;
+			children = (
+				7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */,
+				7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */,
+				7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */,
+				7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */,
+				7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */,
+				7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */,
+				7A1B2C3D4E5F678901234596 /* Info.plist */,
+			);
+			path = InsightAtlasTests;
 			sourceTree = "<group>";
 		};
 		E81AFFFE2D000001007AAAAA /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				E81A00092D000001007AAAAA /* InsightAtlas.app */,
+				7A1B2C3D4E5F67890123456E /* InsightAtlasTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -439,6 +479,24 @@
 			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
 			productType = "com.apple.product-type.application";
 		};
+		7A1B2C3D4E5F678901234567 /* InsightAtlasTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A1B2C3D4E5F678901234568 /* Build configuration list for PBXNativeTarget "InsightAtlasTests" */;
+			buildPhases = (
+				7A1B2C3D4E5F67890123456B /* Sources */,
+				7A1B2C3D4E5F67890123456C /* Frameworks */,
+				7A1B2C3D4E5F67890123456D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7A1B2C3D4E5F678901234583 /* PBXTargetDependency */,
+			);
+			name = InsightAtlasTests;
+			productName = InsightAtlasTests;
+			productReference = 7A1B2C3D4E5F67890123456E /* InsightAtlasTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -450,6 +508,9 @@
 				LastUpgradeCheck = 2610;
 				TargetAttributes = {
 					E81AFFFA2D000001007AAAAA = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					7A1B2C3D4E5F678901234567 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -471,6 +532,7 @@
 			projectRoot = "";
 			targets = (
 				E81AFFFA2D000001007AAAAA /* InsightAtlas */,
+				7A1B2C3D4E5F678901234567 /* InsightAtlasTests */,
 			);
 		};
 /* End PBXProject section */
@@ -500,6 +562,13 @@
 				E81A00052D000001007AAAAA /* Assets.xcassets in Resources */,
 				E81A00062D000001007AAAAA /* Preview Assets.xcassets in Resources */,
 				A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A1B2C3D4E5F67890123456D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -575,9 +644,70 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A1B2C3D4E5F67890123456B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		7A1B2C3D4E5F678901234583 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E81AFFFA2D000001007AAAAA /* InsightAtlas */;
+			targetProxy = 7A1B2C3D4E5F678901234582 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		7A1B2C3D4E5F678901234582 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E81AFFF82D000001007AAAAA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E81AFFFA2D000001007AAAAA;
+			remoteInfo = InsightAtlas;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin XCBuildConfiguration section */
+		7A1B2C3D4E5F678901234569 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				INFOPLIST_FILE = InsightAtlasTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlasTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/InsightAtlas.app/InsightAtlas";
+			};
+			name = Debug;
+		};
+		7A1B2C3D4E5F67890123456A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				INFOPLIST_FILE = InsightAtlasTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlasTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/InsightAtlas.app/InsightAtlas";
+			};
+			name = Release;
+		};
 		E81A000B2D000001007AAAAA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -777,6 +907,15 @@
 			buildConfigurations = (
 				E81A000D2D000001007AAAAA /* Debug */,
 				E81A000E2D000001007AAAAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A1B2C3D4E5F678901234568 /* Build configuration list for PBXNativeTarget "InsightAtlasTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A1B2C3D4E5F678901234569 /* Debug */,
+				7A1B2C3D4E5F67890123456A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
