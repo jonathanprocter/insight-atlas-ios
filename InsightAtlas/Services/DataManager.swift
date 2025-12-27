@@ -2,7 +2,9 @@ import Foundation
 import SwiftUI
 import PDFKit
 import UIKit
-import ZIPFoundation
+import os.log
+
+private let logger = Logger(subsystem: "com.insightatlas", category: "DataManager")
 
 /// Manages persistent data storage for the app
 @MainActor
@@ -61,6 +63,7 @@ class DataManager: ObservableObject {
     func deleteLibraryItem(_ item: LibraryItem) {
         // Clean up associated audio file if it exists
         cleanupAudioFile(for: item)
+        cleanupCoverImage(for: item)
         libraryItems.removeAll { $0.id == item.id }
         saveLibrary()
     }
@@ -71,6 +74,7 @@ class DataManager: ObservableObject {
         for index in offsets {
             if index < libraryItems.count {
                 cleanupAudioFile(for: libraryItems[index])
+                cleanupCoverImage(for: libraryItems[index])
             }
         }
         libraryItems.remove(atOffsets: offsets)
@@ -91,7 +95,43 @@ class DataManager: ObservableObject {
                 try fileManager.removeItem(at: audioFileURL)
             } catch {
                 // Log error but don't fail the deletion
-                print("Warning: Failed to delete audio file \(audioFileName): \(error.localizedDescription)")
+                logger.warning("Failed to delete audio file \(audioFileName, privacy: .public): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Save cover image data to disk and return the relative path.
+    func storeCoverImageData(_ data: Data, for itemID: UUID) -> String? {
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let coversDir = documentsDir.appendingPathComponent("covers", isDirectory: true)
+        do {
+            if !fileManager.fileExists(atPath: coversDir.path) {
+                try fileManager.createDirectory(at: coversDir, withIntermediateDirectories: true)
+            }
+            let filename = "\(itemID.uuidString).jpg"
+            let fileURL = coversDir.appendingPathComponent(filename)
+            try data.write(to: fileURL, options: .atomic)
+            return "covers/\(filename)"
+        } catch {
+            logger.warning("Failed to store cover image: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Clean up cover image file associated with a library item.
+    private func cleanupCoverImage(for item: LibraryItem) {
+        guard let coverPath = item.coverImagePath, !coverPath.isEmpty else { return }
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let coverURL = documentsDir.appendingPathComponent(coverPath)
+
+        if fileManager.fileExists(atPath: coverURL.path) {
+            do {
+                try fileManager.removeItem(at: coverURL)
+            } catch {
+                logger.warning("Failed to delete cover image \(coverPath, privacy: .public): \(error.localizedDescription)")
             }
         }
     }
@@ -181,28 +221,62 @@ class DataManager: ObservableObject {
     }
 
     private func loadLibrary() {
-        if let data = UserDefaults.standard.data(forKey: libraryKey),
-           let items = try? JSONDecoder().decode([LibraryItem].self, from: data) {
+        guard let data = UserDefaults.standard.data(forKey: libraryKey) else {
+            // No library data yet - this is normal for first launch
+            logger.debug("No library data found in UserDefaults")
+            return
+        }
+
+        do {
+            let items = try JSONDecoder().decode([LibraryItem].self, from: data)
             libraryItems = items.sorted { $0.updatedAt > $1.updatedAt }
+            logger.info("Loaded \(items.count) library items")
+        } catch {
+            logger.error("Failed to decode library: \(error.localizedDescription)")
+
+            // Attempt recovery: backup the corrupted data
+            let backupKey = "\(libraryKey)_backup_\(Int(Date().timeIntervalSince1970))"
+            UserDefaults.standard.set(data, forKey: backupKey)
+            logger.warning("Corrupted library data backed up to '\(backupKey)'")
+
+            // Post notification so UI can inform user
+            NotificationCenter.default.post(
+                name: .libraryLoadFailed,
+                object: nil,
+                userInfo: ["error": error.localizedDescription]
+            )
         }
     }
 
     private func saveLibrary() {
-        if let data = try? JSONEncoder().encode(libraryItems) {
+        do {
+            let data = try JSONEncoder().encode(libraryItems)
             UserDefaults.standard.set(data, forKey: libraryKey)
+        } catch {
+            logger.error("Failed to encode library: \(error.localizedDescription)")
         }
     }
 
     private func loadSettings() {
-        if let data = UserDefaults.standard.data(forKey: settingsKey),
-           let settings = try? JSONDecoder().decode(UserSettings.self, from: data) {
-            userSettings = settings
+        guard let data = UserDefaults.standard.data(forKey: settingsKey) else {
+            // No settings data yet - use defaults
+            return
+        }
+
+        do {
+            userSettings = try JSONDecoder().decode(UserSettings.self, from: data)
+        } catch {
+            logger.error("Failed to decode settings: \(error.localizedDescription)")
+            // Keep default settings rather than crashing
         }
     }
 
     func saveSettings() {
-        if let data = try? JSONEncoder().encode(userSettings) {
+        do {
+            let data = try JSONEncoder().encode(userSettings)
             UserDefaults.standard.set(data, forKey: settingsKey)
+        } catch {
+            logger.error("Failed to encode settings: \(error.localizedDescription)")
         }
     }
 
@@ -428,10 +502,21 @@ class DataManager: ObservableObject {
                 return type
             }
         }
+
+        if line.hasPrefix("[VISUAL_"),
+           !line.hasPrefix("[VISUAL_FLOWCHART"),
+           !line.hasPrefix("[VISUAL_TABLE") {
+            let inner = line.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            let tag = inner.split(separator: ":", maxSplits: 1).first.map(String.init)
+            return tag
+        }
         return nil
     }
 
     private func detectBlockEnd(_ line: String) -> Bool {
+        if line.hasPrefix("[/VISUAL_") {
+            return true
+        }
         let endMarkers = ["[/QUICK_GLANCE]", "[/INSIGHT_NOTE]", "[/ACTION_BOX]", "[/QUOTE]",
                           "[/VISUAL_FLOWCHART]", "[/VISUAL_TABLE]", "[/EXERCISE_",
                           "[/FOUNDATIONAL_NARRATIVE]", "[/STRUCTURE_MAP]", "[/TAKEAWAYS]",
@@ -543,6 +628,10 @@ class DataManager: ObservableObject {
             return renderInsightNoteHTML(content: content)
         }
 
+        if type.hasPrefix("VISUAL_") {
+            return renderGenericVisualHTML(tag: type, content: content)
+        }
+
         let header = headers[type] ?? ("", type.uppercased())
         var contentHTML: String
 
@@ -585,6 +674,265 @@ class DataManager: ObservableObject {
             <div class="block-content">\(contentHTML)</div>
         </div>
         """
+    }
+
+    private func renderGenericVisualHTML(tag: String, content: [String]) -> String {
+        let canonicalTag = canonicalizeVisualTag(tag)
+        guard let visual = InsightVisualParser.parse(tag: canonicalTag, title: nil, lines: content) else {
+            let fallbackBody = renderBlockContent(content)
+            return """
+            <div class="visual-generic">
+                <div class="block-header">📌 VISUAL</div>
+                <div class="block-content">\(fallbackBody)</div>
+            </div>
+            """
+        }
+
+        let header = visualHeader(for: visual.type)
+        let body = renderVisualBodyHTML(for: visual)
+
+        return """
+        <div class="visual-generic">
+            <div class="block-header">\(header.icon) \(header.title)</div>
+            <div class="block-content">\(body)</div>
+        </div>
+        """
+    }
+
+    private func canonicalizeVisualTag(_ tag: String) -> String {
+        switch tag {
+        case "VISUAL_TABLE", "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
+            return "VISUAL_COMPARISON_MATRIX"
+        case "VISUAL_FLOW_DIAGRAM":
+            return "VISUAL_FLOWCHART"
+        case "PROCESS_TIMELINE":
+            return "VISUAL_TIMELINE"
+        case "HIERARCHY_DIAGRAM":
+            return "VISUAL_HIERARCHY"
+        default:
+            return tag
+        }
+    }
+
+    private func visualHeader(for type: InsightVisualType) -> (icon: String, title: String) {
+        switch type {
+        case .timeline: return ("📅", "TIMELINE")
+        case .flowchart: return ("🔀", "PROCESS FLOW")
+        case .comparisonMatrix: return ("📊", "COMPARISON")
+        case .conceptMap: return ("🗺️", "CONCEPT MAP")
+        case .radarChart: return ("🧭", "ASSESSMENT")
+        case .hierarchy: return ("🧱", "HIERARCHY")
+        case .networkGraph: return ("🧩", "NETWORK")
+        case .barChart: return ("📈", "BAR CHART")
+        case .quadrant: return ("⊞", "QUADRANT")
+        case .pieChart: return ("🥧", "DISTRIBUTION")
+        case .lineChart: return ("📉", "TREND")
+        case .areaChart: return ("🌊", "CUMULATIVE TREND")
+        case .scatterPlot: return ("🪶", "CORRELATION")
+        case .vennDiagram: return ("◐", "VENN DIAGRAM")
+        case .ganttChart: return ("🗓", "TIMELINE")
+        case .funnelDiagram: return ("🔻", "FUNNEL")
+        case .pyramidDiagram: return ("🔺", "PYRAMID")
+        case .cycleDiagram: return ("♻️", "CYCLE")
+        case .fishboneDiagram: return ("🐟", "CAUSE & EFFECT")
+        case .swotMatrix: return ("🎯", "SWOT")
+        case .sankeyDiagram: return ("➡️", "FLOW")
+        case .treemap: return ("🧮", "TREEMAP")
+        case .heatmap: return ("🔥", "HEATMAP")
+        case .bubbleChart: return ("🫧", "BUBBLE CHART")
+        case .infographic: return ("🧾", "INFOGRAPHIC")
+        case .storyboard: return ("🎬", "STORYBOARD")
+        case .journeyMap: return ("🧭", "JOURNEY MAP")
+        case .barChartStacked: return ("📊", "STACKED BARS")
+        case .barChartGrouped: return ("📊", "GROUPED BARS")
+        case .generic: return ("📌", "VISUAL")
+        }
+    }
+
+    private func renderVisualBodyHTML(for visual: InsightVisual) -> String {
+        func formatNumber(_ value: Double) -> String {
+            if value.rounded() == value {
+                return String(Int(value))
+            }
+            return String(format: "%.2f", value)
+        }
+
+        func listHTML(_ items: [String]) -> String {
+            let lines = items.map { "- \($0)" }
+            return renderBlockContent(lines)
+        }
+
+        switch visual.payload {
+        case .timeline(let data):
+            let lines = data.events.map { event in
+                if event.date.isEmpty { return event.title }
+                return "\(event.date): \(event.title)"
+            }
+            return renderProcessTimelineContent(lines)
+
+        case .flowchart(let data):
+            return renderFlowchartContent(data.nodes)
+
+        case .comparison(let data):
+            let table = data.columns.isEmpty ? data.rows : [data.columns] + data.rows
+            return renderTable(rows: table)
+
+        case .conceptMap(let data):
+            let mapLines = ["Central: \(data.center)"] + data.branches.map { "- \($0)" }
+            return renderConceptMapContent(mapLines.joined(separator: "\n"))
+
+        case .radar(let data):
+            return listHTML(data.dimensions)
+
+        case .hierarchy(let data):
+            let header = renderBlockContent([data.root])
+            return header + listHTML(data.children)
+
+        case .network(let data):
+            let nodes = data.nodes.map { node in
+                [node.id, node.label, node.type ?? ""]
+            }
+            let connections = data.connections.map { connection in
+                [connection.from, connection.to, connection.type ?? ""]
+            }
+            return renderTable(rows: [["ID", "Label", "Type"]] + nodes) +
+                renderTable(rows: [["From", "To", "Type"]] + connections)
+
+        case .barChart(let data):
+            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
+            return renderTable(rows: [["Label", "Value"]] + rows)
+
+        case .quadrant(let data):
+            let rows = data.quadrants.map { [$0.name, $0.items.joined(separator: " • ")] }
+            return renderTable(rows: [["Quadrant", "Items"]] + rows)
+
+        case .pieChart(let data):
+            let total = data.segments.map { $0.value }.reduce(0, +)
+            let rows = data.segments.map { segment in
+                let percent = total > 0 ? (segment.value / total) * 100 : 0
+                return [segment.label, "\(formatNumber(percent))%"]
+            }
+            return renderTable(rows: [["Segment", "Share"]] + rows)
+
+        case .lineChart(let data):
+            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
+            return renderTable(rows: [["Point", "Value"]] + rows)
+
+        case .areaChart(let data):
+            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
+            return renderTable(rows: [["Point", "Value"]] + rows)
+
+        case .scatterPlot(let data):
+            let rows = data.points.map { [formatNumber($0.x), formatNumber($0.y), $0.label ?? ""] }
+            return renderTable(rows: [["X", "Y", "Label"]] + rows)
+
+        case .vennDiagram(let data):
+            let rows = data.sets.map { [$0.label, $0.items.joined(separator: " • ")] }
+            let table = renderTable(rows: [["Set", "Items"]] + rows)
+            if data.intersection.isEmpty {
+                return table
+            }
+            let intersection = renderBlockContent(["Intersection: \(data.intersection.joined(separator: ", "))"])
+            return table + intersection
+
+        case .ganttChart(let data):
+            let rows = data.tasks.map { [$0.name, formatNumber($0.start), formatNumber($0.duration), $0.status ?? ""] }
+            return renderTable(rows: [["Task", "Start", "Duration", "Status"]] + rows)
+
+        case .funnelDiagram(let data):
+            let rows = data.stages.map { [$0.label, formatNumber($0.value)] }
+            return renderTable(rows: [["Stage", "Value"]] + rows)
+
+        case .pyramidDiagram(let data):
+            let items = data.levels.map { level in
+                if let description = level.description, !description.isEmpty {
+                    return "\(level.label): \(description)"
+                }
+                return level.label
+            }
+            return listHTML(items)
+
+        case .cycleDiagram(let data):
+            return listHTML(data.stages)
+
+        case .fishboneDiagram(let data):
+            let header = renderBlockContent(["Effect: \(data.effect)"])
+            let items = data.causes.map { "\($0.category): \($0.items.joined(separator: ", "))" }
+            return header + listHTML(items)
+
+        case .swotMatrix(let data):
+            let rows = [
+                [data.strengths.joined(separator: " • "), data.weaknesses.joined(separator: " • ")],
+                [data.opportunities.joined(separator: " • "), data.threats.joined(separator: " • ")]
+            ]
+            return renderTable(rows: [["Strengths", "Weaknesses"]] + rows)
+
+        case .sankeyDiagram(let data):
+            let rows = data.flows.map { [$0.from, $0.to, formatNumber($0.value)] }
+            return renderTable(rows: [["From", "To", "Value"]] + rows)
+
+        case .treemap(let data):
+            let rows = data.items.map { [$0.label, formatNumber($0.value)] }
+            return renderTable(rows: [["Label", "Value"]] + rows)
+
+        case .heatmap(let data):
+            var table: [[String]] = []
+            table.append([""] + data.cols)
+            for (rowIndex, row) in data.rows.enumerated() {
+                let values = rowIndex < data.values.count ? data.values[rowIndex] : []
+                let rowValues = values.prefix(data.cols.count).map { formatNumber($0) }
+                table.append([row] + rowValues)
+            }
+            return renderTable(rows: table)
+
+        case .bubbleChart(let data):
+            let rows = data.bubbles.map { [$0.label, formatNumber($0.x), formatNumber($0.y), formatNumber($0.size)] }
+            return renderTable(rows: [["Label", "X", "Y", "Size"]] + rows)
+
+        case .infographic(let data):
+            let rows = data.stats.map { [$0.label, $0.value] }
+            let table = renderTable(rows: [["Stat", "Value"]] + rows)
+            if data.highlights.isEmpty {
+                return table
+            }
+            return table + listHTML(data.highlights)
+
+        case .storyboard(let data):
+            let rows = data.scenes.map { [$0.title, $0.description] }
+            return renderTable(rows: [["Scene", "Description"]] + rows)
+
+        case .journeyMap(let data):
+            let rows = data.stages.map {
+                let emotion = $0.emotion?.capitalized ?? ""
+                return [$0.name, $0.touchpoints.joined(separator: " • "), emotion]
+            }
+            return renderTable(rows: [["Stage", "Touchpoints", "Emotion"]] + rows)
+
+        case .barChartStacked(let data):
+            var table: [[String]] = []
+            table.append([""] + data.seriesLabels)
+            for (index, label) in data.labels.enumerated() {
+                let values = data.series.map { series in
+                    series.indices.contains(index) ? formatNumber(series[index]) : ""
+                }
+                table.append([label] + values)
+            }
+            return renderTable(rows: table)
+
+        case .barChartGrouped(let data):
+            var table: [[String]] = []
+            table.append([""] + data.seriesLabels)
+            for (index, label) in data.labels.enumerated() {
+                let values = data.series.map { series in
+                    series.indices.contains(index) ? formatNumber(series[index]) : ""
+                }
+                table.append([label] + values)
+            }
+            return renderTable(rows: table)
+
+        case .generic(let data):
+            return renderBlockContent([data])
+        }
     }
 
     // MARK: - Premium Block HTML Renderers
@@ -817,7 +1165,10 @@ class DataManager: ObservableObject {
             }
 
             if line.hasPrefix("|") {
-                let cells = line.dropFirst().dropLast()
+                var row = line.trimmingCharacters(in: .whitespaces)
+                if row.hasPrefix("|") { row.removeFirst() }
+                if row.hasSuffix("|") { row.removeLast() }
+                let cells = row
                     .components(separatedBy: "|")
                     .map { $0.trimmingCharacters(in: .whitespaces) }
 
@@ -927,7 +1278,11 @@ class DataManager: ObservableObject {
             // Detect central concept (usually first line or marked with "Central:" or similar)
             if centralConcept.isEmpty {
                 if cleaned.lowercased().hasPrefix("central:") || cleaned.lowercased().hasPrefix("main:") || cleaned.lowercased().hasPrefix("core:") {
-                    centralConcept = String(cleaned.dropFirst(cleaned.firstIndex(of: ":")!.utf16Offset(in: cleaned) + 1)).trimmingCharacters(in: .whitespaces)
+                    if let colonIndex = cleaned.firstIndex(of: ":") {
+                        centralConcept = String(cleaned[cleaned.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
+                    } else {
+                        centralConcept = cleaned
+                    }
                 } else {
                     centralConcept = cleaned
                 }
@@ -988,7 +1343,10 @@ class DataManager: ObservableObject {
         var tableHTML = "<table class=\"styled-table\"><tbody>"
         for line in lines {
             if line.hasPrefix("|") {
-                let cells = line.dropFirst().dropLast()
+                var row = line.trimmingCharacters(in: .whitespaces)
+                if row.hasPrefix("|") { row.removeFirst() }
+                if row.hasSuffix("|") { row.removeLast() }
+                let cells = row
                     .components(separatedBy: "|")
                     .map { $0.trimmingCharacters(in: .whitespaces) }
                 if !cells.allSatisfy({ $0.contains("---") || $0.contains("-") && $0.count < 5 }) {
@@ -1054,7 +1412,7 @@ class DataManager: ObservableObject {
 
         for line in lines {
             // Skip redundant headers inside blocks
-            if line.hasPrefix("##") || line.hasPrefix("INSIGHT ATLAS NOTE") ||
+            if line.hasPrefix("#") || line.hasPrefix("INSIGHT ATLAS NOTE") ||
                line.hasPrefix("APPLY IT") || line.hasPrefix("Quick Glance") {
                 continue
             }
@@ -1301,6 +1659,57 @@ class DataManager: ObservableObject {
             }
         }
 
+        func isNewBlockStartLine(_ trimmed: String) -> Bool {
+            if trimmed.hasPrefix("#") {
+                return true
+            }
+            return detectBlockStart(trimmed) != nil
+        }
+
+        func parseInlineBlock(_ trimmed: String) -> (type: String, content: [String])? {
+            let patterns: [(tag: String, type: String)] = [
+                ("QUICK_GLANCE", "quick-glance"),
+                ("INSIGHT_NOTE", "insight-note"),
+                ("ACTION_BOX", "action-box"),
+                ("FOUNDATIONAL_NARRATIVE", "foundational-narrative"),
+                ("TAKEAWAYS", "takeaways"),
+                ("PREMIUM_QUOTE", "premium-quote"),
+                ("AUTHOR_SPOTLIGHT", "author-spotlight"),
+                ("ALTERNATIVE_PERSPECTIVE", "alternative-perspective"),
+                ("RESEARCH_INSIGHT", "research-insight"),
+                ("PREMIUM_H1", "premium-h1"),
+                ("PREMIUM_H2", "premium-h2")
+            ]
+
+            for pattern in patterns {
+                let openTag = "[\(pattern.tag)"
+                let closeTag = "[/\(pattern.tag)]"
+                guard let openRange = trimmed.range(of: openTag),
+                      let closeRange = trimmed.range(of: closeTag) else {
+                    continue
+                }
+                guard let openEnd = trimmed[openRange.lowerBound...].firstIndex(of: "]") else {
+                    continue
+                }
+                let contentRange = trimmed.index(after: openEnd)..<closeRange.lowerBound
+                let content = String(trimmed[contentRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let lines = content.components(separatedBy: "\n")
+                return (type: pattern.type, content: lines)
+            }
+
+            if trimmed.contains("[EXERCISE_"), let closeRange = trimmed.range(of: "[/EXERCISE_") {
+                guard let openStart = trimmed.range(of: "[EXERCISE_"),
+                      let openEnd = trimmed[openStart.lowerBound...].firstIndex(of: "]") else {
+                    return nil
+                }
+                let contentRange = trimmed.index(after: openEnd)..<closeRange.lowerBound
+                let content = String(trimmed[contentRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                return (type: "exercise", content: content.components(separatedBy: "\n"))
+            }
+
+            return nil
+        }
+
         for line in lines {
             var processedLine = line
 
@@ -1310,6 +1719,20 @@ class DataManager: ObservableObject {
             }
 
             let trimmed = processedLine.trimmingCharacters(in: .whitespaces)
+
+            if let inlineBlock = parseInlineBlock(trimmed) {
+                let blockHTML = renderSpecialBlock(type: inlineBlock.type, content: inlineBlock.content, fullContent: markdown)
+                htmlLines.append(blockHTML)
+                continue
+            }
+
+            if inSpecialBlock && !detectBlockEnd(trimmed) && isNewBlockStartLine(trimmed) {
+                let blockHTML = renderSpecialBlock(type: specialBlockType, content: specialBlockContent, fullContent: markdown)
+                htmlLines.append(blockHTML)
+                inSpecialBlock = false
+                specialBlockType = ""
+                specialBlockContent = []
+            }
 
             // Skip empty lines in special blocks
             if inSpecialBlock && trimmed.isEmpty {
@@ -2503,6 +2926,20 @@ class DataManager: ObservableObject {
                 }
                 .visual-table .block-header::before { content: '📋'; font-size: 1.125rem; }
 
+                /* ═══ GENERIC VISUAL ═══ */
+                .visual-generic {
+                    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+                    border: 1px solid var(--border-medium);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-generic .block-header {
+                    color: var(--primary-gold-dark);
+                    border-bottom: 1px solid var(--border-light);
+                }
+                .visual-generic .block-header::before { content: '📌'; font-size: 1.125rem; }
+
                 /* ═══ PROCESS TIMELINE ═══ */
                 .process-timeline {
                     background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
@@ -3243,13 +3680,24 @@ class DataManager: ObservableObject {
         options.logoImage = getLogoImage()
 
         do {
-            try pdfRenderer.generatePDF(
-                from: content,
-                title: title,
-                author: author,
-                to: url,
-                options: options
-            )
+            let parsedContent = ParsedAnalysisContent.parse(from: content)
+            if !parsedContent.sections.isEmpty || parsedContent.quickGlance != nil {
+                let pdfData = try pdfRenderer.generatePDFData(
+                    from: parsedContent,
+                    title: title,
+                    author: author,
+                    options: options
+                )
+                try pdfData.write(to: url)
+            } else {
+                try pdfRenderer.generatePDF(
+                    from: content,
+                    title: title,
+                    author: author,
+                    to: url,
+                    options: options
+                )
+            }
         } catch {
             // Fall back to legacy PDF generation if new renderer fails
             try generateLegacyPDF(content: content, title: title, author: author, to: url)
@@ -4028,6 +4476,7 @@ class DataManager: ObservableObject {
 
         let tempDir = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try fileManager.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: tempDir) }
 
         // Create directory structure
         let wordDir = tempDir.appendingPathComponent("word")
@@ -4079,8 +4528,6 @@ class DataManager: ObservableObject {
         // Create ZIP archive
         try createZipArchive(from: tempDir, to: url)
 
-        // Cleanup
-        try? fileManager.removeItem(at: tempDir)
     }
 
     private func createDOCXStyles() -> String {
@@ -5334,26 +5781,21 @@ class DataManager: ObservableObject {
             try fileManager.removeItem(at: destinationURL)
         }
 
-        // Use ZIPFoundation to create proper DOCX archive
-        do {
-            try fileManager.zipItem(at: sourceDir, to: destinationURL, shouldKeepParent: false)
-        } catch {
-            // Fallback to NSFileCoordinator if ZIPFoundation fails
-            let coordinator = NSFileCoordinator()
-            var coordinatorError: NSError?
+        // Use NSFileCoordinator to create proper DOCX archive (native iOS API)
+        let coordinator = NSFileCoordinator()
+        var coordinatorError: NSError?
 
-            coordinator.coordinate(readingItemAt: sourceDir, options: .forUploading, error: &coordinatorError) { zipURL in
-                do {
-                    try FileManager.default.copyItem(at: zipURL, to: destinationURL)
-                } catch {
-                    // If copy fails, try moving
-                    try? FileManager.default.moveItem(at: zipURL, to: destinationURL)
-                }
+        coordinator.coordinate(readingItemAt: sourceDir, options: .forUploading, error: &coordinatorError) { zipURL in
+            do {
+                try FileManager.default.copyItem(at: zipURL, to: destinationURL)
+            } catch {
+                // If copy fails, try moving
+                try? FileManager.default.moveItem(at: zipURL, to: destinationURL)
             }
+        }
 
-            if let coordinatorError = coordinatorError {
-                throw DataManagerError.zipArchiveFailed(reason: coordinatorError.localizedDescription)
-            }
+        if let coordinatorError = coordinatorError {
+            throw DataManagerError.zipArchiveFailed(reason: coordinatorError.localizedDescription)
         }
     }
 }

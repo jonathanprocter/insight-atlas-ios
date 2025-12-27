@@ -8,79 +8,109 @@
 
 import SwiftUI
 
-// MARK: - Color Palette (Premium Cream/Gold Aesthetic)
+// MARK: - Premium Color Palette (Reading-Optimized Editorial)
+//
+// Design Philosophy:
+// - Warm dominance (70-80%) for reading comfort and premium feel
+// - Cool accents (20-30%) for UI clarity and professional structure
+// - Muted, complex colors for sophistication over trendiness
+// - High contrast (>10:1) for extended reading comfort
+//
 
 struct InsightAtlasColors {
 
-    // MARK: Primary Gold (Master Template 2026)
-    static let gold = Color(hex: "#CBA135")         // Master Template 2026 gold
-    static let goldLight = Color(hex: "#DCBE5E")    // Light gold for backgrounds
-    static let goldDark = Color(hex: "#A88A1F")     // Dark gold for emphasis
+    // === READING SURFACES (Warm - Primary 70%) ===
+    static let readingBgPrimary = Color(hex: "#F9F8F7")    // Sepia White
+    static let readingBgSecondary = Color(hex: "#F5F3EF")  // Parchment
+    static let readingBgTertiary = Color(hex: "#EBE8E3")   // Warm Linen
+    static let readingBgAccent = Color(hex: "#E7E3DA")     // Soft Sand
 
-    // MARK: Text Colors (Master Template 2026 - Brown/Sepia)
-    static let heading = Color(hex: "#2D2520")      // Deep brown for headings
-    static let body = Color(hex: "#3D3229")         // Ink for body text
-    static let muted = Color(hex: "#5C5248")        // Muted brown for secondary
-    static let subtle = Color(hex: "#7A7168")       // Subtle brown for hints
+    // === UI CHROME (Cool - Secondary 20-30%) ===
+    static let uiBgPrimary = Color(hex: "#F9F9F9")         // Slate White
+    static let uiBgSecondary = Color(hex: "#E8E9EE")       // Silver Mist
 
-    // MARK: Premium Backgrounds (Master Template 2026)
-    static let background = Color(hex: "#FDFCFA")   // Primary background
-    static let backgroundAlt = Color(hex: "#F5F3ED") // Parchment cream - secondary
-    static let cream = Color(hex: "#FEFCE8")        // Premium cream for cards
-    static let card = Color(hex: "#FFFFFF")         // Card background
-    static let parchment = Color(hex: "#F5F3ED")    // Classic parchment
-    static let ivory = Color(hex: "#FDFCFA")        // Primary background
+    // === PREMIUM ACCENT COLORS (Sophisticated, Muted - 10%) ===
+    static let accentPrimary = Color(hex: "#0D7377")       // Deep Teal - Primary CTAs
+    static let accentSuccess = Color(hex: "#7A9B7F")       // Sage Green - Success states
+    static let accentHighlight = Color(hex: "#9B6B4F")     // Burnt Umber - Highlights
+    static let accentInfo = Color(hex: "#5B7C99")          // Slate Blue - Information
+    static let accentPremium = Color(hex: "#8B4049")       // Deep Burgundy - Premium
 
-    // MARK: Borders & Rules
-    static let rule = Color(hex: "#D4CFC5")         // Medium border
-    static let ruleLight = Color(hex: "#E8E4DC")    // Light border
-    static let ruleDark = Color(hex: "#B8B0A3")     // Dark border
+    // === SEMANTIC COLORS ===
+    static let semanticWarning = Color(hex: "#C89B5A")     // Amber
+    static let semanticError = Color(hex: "#B85C5C")       // Muted Red
+    static let semanticHighlightBg = Color(hex: "#F4E8C1") // Soft Yellow
 
-    // MARK: Accent Colors (Premium Palette)
-    static let burgundy = Color(hex: "#582534")     // Deep burgundy
-    static let burgundyLight = Color(hex: "#8A5066") // Light burgundy
-    static let coral = Color(hex: "#E76F51")        // Warm coral
-    static let coralLight = Color(hex: "#E08B73")   // Light coral
-    static let teal = Color(hex: "#2A8B7F")         // Rich teal
-    static let tealLight = Color(hex: "#3BA396")    // Light teal
-    static let orange = Color(hex: "#E89B5A")       // Warm orange
-    static let orangeLight = Color(hex: "#F0B07A")  // Light orange
+    // === LEGACY ALIASES (For backwards compatibility) ===
+    // Primary "Gold" - Now Deep Teal for sophistication
+    static let gold = Color(hex: "#0D7377")                // Deep Teal
+    static let goldLight = Color(hex: "#2A9D8F")           // Lighter Teal
+    static let goldDark = Color(hex: "#0B6166")            // Darker Teal
 
-    // MARK: Brand Colors (Sepia/Ink)
-    static let brandSepia = Color(hex: "#5C4A3D")   // Sepia brown
-    static let brandSepiaLight = Color(hex: "#7A6A5D") // Light sepia
-    static let brandInk = Color(hex: "#3D3229")     // Deep ink
+    // MARK: Text Colors (Maximum Readability AAA+)
+    static let heading = Color(hex: "#625E58")             // Warm Charcoal
+    static let body = Color(hex: "#2B2826")                // Ink Black (14.5:1 contrast)
+    static let muted = Color(hex: "#A6A6A4")               // Warm Gray
+    static let subtle = Color(hex: "#979C9F")              // Graphite
 
-    // MARK: Shadow Colors (Master Template 2026 - Brown-based)
-    static let shadow = Color(hex: "#2D2520").opacity(0.08)
-    static let shadowMedium = Color(hex: "#2D2520").opacity(0.12)
+    // MARK: Backgrounds (Warm Reading Surfaces)
+    static let background = Color(hex: "#F9F8F7")          // Sepia White
+    static let backgroundAlt = Color(hex: "#F5F3EF")       // Parchment
+    static let cream = Color(hex: "#F9F8F7")               // Sepia White
+    static let card = Color(hex: "#FFFFFF")                // Pure White for elevated cards
+    static let parchment = Color(hex: "#F5F3EF")           // Parchment
+    static let ivory = Color(hex: "#F9F8F7")               // Sepia White
+
+    // MARK: Borders & Rules (Cool for UI separation)
+    static let rule = Color(hex: "#D4D5D8")                // Steel
+    static let ruleLight = Color(hex: "#E7E3DA")           // Soft Sand
+    static let ruleDark = Color(hex: "#979C9F")            // Graphite
+
+    // MARK: Accent Colors (Refined Premium Palette)
+    static let burgundy = Color(hex: "#8B4049")            // Deep Burgundy
+    static let burgundyLight = Color(hex: "#A55560")       // Lighter Burgundy
+    static let coral = Color(hex: "#9B6B4F")               // Burnt Umber
+    static let coralLight = Color(hex: "#B8845F")          // Lighter Umber
+    static let teal = Color(hex: "#0D7377")                // Deep Teal
+    static let tealLight = Color(hex: "#2A9D8F")           // Lighter Teal
+    static let orange = Color(hex: "#C89B5A")              // Amber
+    static let orangeLight = Color(hex: "#D4AC6B")         // Lighter Amber
+
+    // MARK: Brand Colors (Warm Editorial)
+    static let brandSepia = Color(hex: "#625E58")          // Warm Charcoal
+    static let brandSepiaLight = Color(hex: "#A6A6A4")     // Warm Gray
+    static let brandInk = Color(hex: "#2B2826")            // Ink Black
+
+    // MARK: Shadow Colors (Warm-tinted for editorial feel)
+    static let shadow = Color(hex: "#625E58").opacity(0.06)
+    static let shadowMedium = Color(hex: "#625E58").opacity(0.12)
 }
 
-// MARK: - Typography (iOS optimized sizes)
+// MARK: - Typography (Editorial hierarchy)
 
 struct InsightAtlasTypography {
 
-    // Headings - Sans Serif
-    static let largeTitle = Font.system(size: 34, weight: .bold, design: .default)
-    static let h1 = Font.system(size: 28, weight: .bold, design: .default)
-    static let h2 = Font.system(size: 22, weight: .bold, design: .default)
+    // Headings
+    static let largeTitle = Font.system(size: 30, weight: .bold, design: .default)
+    static let h1 = Font.system(size: 24, weight: .bold, design: .default)
+    static let h2 = Font.system(size: 20, weight: .bold, design: .default)
     static let h3 = Font.system(size: 18, weight: .semibold, design: .default)
     static let h4 = Font.system(size: 16, weight: .semibold, design: .default)
 
-    // Body - Serif (for reading content)
-    static let body = Font.system(size: 17, weight: .regular, design: .serif)
-    static let bodyBold = Font.system(size: 17, weight: .bold, design: .serif)
-    static let bodyItalic = Font.system(size: 17, weight: .regular, design: .serif).italic()
-    static let bodySmall = Font.system(size: 15, weight: .regular, design: .serif)
+    // Body
+    static let body = Font.system(size: 16, weight: .regular, design: .default)
+    static let bodyBold = Font.system(size: 16, weight: .bold, design: .default)
+    static let bodyItalic = Font.system(size: 16, weight: .regular, design: .default).italic()
+    static let bodySmall = Font.system(size: 14, weight: .regular, design: .default)
 
-    // UI Elements - Sans Serif
-    static let uiBody = Font.system(size: 17, weight: .regular, design: .default)
-    static let uiSubheadline = Font.system(size: 15, weight: .regular, design: .default)
-    static let caption = Font.system(size: 12, weight: .regular, design: .default)
-    static let captionBold = Font.system(size: 12, weight: .semibold, design: .default)
-    static let footnote = Font.system(size: 13, weight: .regular, design: .default)
-    static let button = Font.system(size: 17, weight: .semibold, design: .default)
-    static let buttonSmall = Font.system(size: 15, weight: .semibold, design: .default)
+    // UI Elements
+    static let uiBody = Font.system(size: 15, weight: .regular, design: .default)
+    static let uiSubheadline = Font.system(size: 13, weight: .regular, design: .default)
+    static let caption = Font.system(size: 11, weight: .regular, design: .default)
+    static let captionBold = Font.system(size: 11, weight: .semibold, design: .default)
+    static let footnote = Font.system(size: 12, weight: .regular, design: .default)
+    static let button = Font.system(size: 15, weight: .semibold, design: .default)
+    static let buttonSmall = Font.system(size: 13, weight: .semibold, design: .default)
 }
 
 // MARK: - Spacing
@@ -91,6 +121,17 @@ struct InsightAtlasSpacing {
     static let md: CGFloat = 16
     static let lg: CGFloat = 22
     static let xl: CGFloat = 32
+    static let xxl: CGFloat = 44
+}
+
+// MARK: - Layout
+
+struct InsightAtlasLayout {
+    static let maxContentWidth: CGFloat = 720
+    static let sectionSpacing: CGFloat = 32
+    static let paragraphSpacing: CGFloat = 20
+    static let blockSpacing: CGFloat = 24
+    static let intraBlockSpacing: CGFloat = 12
 }
 
 // MARK: - Brand Assets
@@ -146,36 +187,48 @@ extension Color {
 import UIKit
 
 extension UIColor {
-    // Primary Gold (Master Template 2026)
-    static let iaGold = UIColor(hex: "#C9A227")
-    static let iaGoldLight = UIColor(hex: "#DCBE5E")
-    static let iaGoldDark = UIColor(hex: "#A88A1F")
+    // === PREMIUM ACCENT COLORS ===
+    static let iaAccentPrimary = UIColor(hex: "#0D7377")   // Deep Teal - Primary CTAs
+    static let iaAccentSuccess = UIColor(hex: "#7A9B7F")   // Sage Green - Success
+    static let iaAccentHighlight = UIColor(hex: "#9B6B4F") // Burnt Umber - Highlights
+    static let iaAccentInfo = UIColor(hex: "#5B7C99")      // Slate Blue - Information
+    static let iaAccentPremium = UIColor(hex: "#8B4049")   // Deep Burgundy - Premium
 
-    // Text Colors (Master Template 2026 - Brown/Sepia)
-    static let iaHeading = UIColor(hex: "#2D2520")
-    static let iaBody = UIColor(hex: "#3D3229")
-    static let iaMuted = UIColor(hex: "#5C5248")
-    static let iaSubtle = UIColor(hex: "#7A7168")
+    // === LEGACY "GOLD" - Now Deep Teal ===
+    static let iaGold = UIColor(hex: "#0D7377")            // Deep Teal
+    static let iaGoldLight = UIColor(hex: "#2A9D8F")       // Lighter Teal
+    static let iaGoldDark = UIColor(hex: "#0B6166")        // Darker Teal
 
-    // Premium Backgrounds (Master Template 2026)
-    static let iaBackground = UIColor(hex: "#FDFCFA")
-    static let iaCream = UIColor(hex: "#FEFCE8")
-    static let iaCard = UIColor(hex: "#FFFFFF")
-    static let iaIvory = UIColor(hex: "#FDFCFA")
-    static let iaParchment = UIColor(hex: "#F5F3ED")
+    // === TEXT COLORS (Maximum Readability AAA+) ===
+    static let iaHeading = UIColor(hex: "#625E58")         // Warm Charcoal
+    static let iaBody = UIColor(hex: "#2B2826")            // Ink Black
+    static let iaMuted = UIColor(hex: "#A6A6A4")           // Warm Gray
+    static let iaSubtle = UIColor(hex: "#979C9F")          // Graphite
 
-    // Borders
-    static let iaRule = UIColor(hex: "#D4CFC5")
-    static let iaRuleLight = UIColor(hex: "#E8E4DC")
+    // === READING BACKGROUNDS (Warm Surfaces) ===
+    static let iaBackground = UIColor(hex: "#F9F8F7")      // Sepia White
+    static let iaCream = UIColor(hex: "#F9F8F7")           // Sepia White
+    static let iaCard = UIColor(hex: "#FFFFFF")            // Pure White
+    static let iaIvory = UIColor(hex: "#F9F8F7")           // Sepia White
+    static let iaParchment = UIColor(hex: "#F5F3EF")       // Parchment
 
-    // Accent Colors
-    static let iaBurgundy = UIColor(hex: "#6B3A4A")
-    static let iaCoral = UIColor(hex: "#D4735C")
-    static let iaTeal = UIColor(hex: "#2A8B7F")
-    static let iaOrange = UIColor(hex: "#E89B5A")
+    // === BORDERS (Cool for UI separation) ===
+    static let iaRule = UIColor(hex: "#D4D5D8")            // Steel
+    static let iaRuleLight = UIColor(hex: "#E7E3DA")       // Soft Sand
 
-    // Brand
-    static let iaSepia = UIColor(hex: "#5C4A3D")
+    // === REFINED ACCENT COLORS ===
+    static let iaBurgundy = UIColor(hex: "#8B4049")        // Deep Burgundy
+    static let iaCoral = UIColor(hex: "#9B6B4F")           // Burnt Umber
+    static let iaTeal = UIColor(hex: "#0D7377")            // Deep Teal
+    static let iaOrange = UIColor(hex: "#C89B5A")          // Amber
+
+    // === BRAND ===
+    static let iaSepia = UIColor(hex: "#625E58")           // Warm Charcoal
+
+    // === SEMANTIC COLORS ===
+    static let iaWarning = UIColor(hex: "#C89B5A")         // Amber
+    static let iaError = UIColor(hex: "#B85C5C")           // Muted Red
+    static let iaHighlightBg = UIColor(hex: "#F4E8C1")     // Soft Yellow
 
     convenience init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -209,13 +262,12 @@ struct InsightAtlasCardStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(InsightAtlasSpacing.md)
-            .background(InsightAtlasColors.cream)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(InsightAtlasColors.card)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(InsightAtlasColors.rule, lineWidth: 1)
             )
-            .shadow(color: InsightAtlasColors.shadow, radius: 4, x: 0, y: 2)
     }
 }
 
@@ -336,191 +388,10 @@ extension View {
     }
 }
 
-// MARK: - Book Cover Service
-
-actor BookCoverService {
-    static let shared = BookCoverService()
-
-    private var cache: [String: UIImage] = [:]
-    private var inFlightTasks: [String: Task<UIImage?, Never>] = [:]
-
-    private init() {}
-
-    // MARK: - Cover Size
-
-    enum CoverSize: String {
-        case small = "S"   // ~45px
-        case medium = "M"  // ~180px
-        case large = "L"   // ~450px
-    }
-
-    // MARK: - Public API
-
-    /// Fetch a book cover by title and author
-    func fetchCover(title: String, author: String, size: CoverSize = .medium) async -> UIImage? {
-        let cacheKey = "\(title)|\(author)|\(size.rawValue)"
-
-        // Check cache first
-        if let cached = cache[cacheKey] {
-            return cached
-        }
-
-        // Check if there's already a request in flight
-        if let existingTask = inFlightTasks[cacheKey] {
-            return await existingTask.value
-        }
-
-        // Create new fetch task
-        let task = Task<UIImage?, Never> {
-            let image = await performFetch(title: title, author: author, size: size)
-            if let image = image {
-                cache[cacheKey] = image
-            }
-            inFlightTasks.removeValue(forKey: cacheKey)
-            return image
-        }
-
-        inFlightTasks[cacheKey] = task
-        return await task.value
-    }
-
-    /// Clear the cache
-    func clearCache() {
-        cache.removeAll()
-    }
-
-    // MARK: - Private Methods
-
-    private func performFetch(title: String, author: String, size: CoverSize) async -> UIImage? {
-        // First try to search for the book to get an OLID or ISBN
-        guard let searchResult = await searchBook(title: title, author: author) else {
-            return nil
-        }
-
-        // Try fetching by OLID first (most reliable)
-        if let olid = searchResult.olid {
-            if let image = await fetchCoverByOLID(olid: olid, size: size) {
-                return image
-            }
-        }
-
-        // Try ISBN if available
-        if let isbn = searchResult.isbn {
-            if let image = await fetchCoverByISBN(isbn: isbn, size: size) {
-                return image
-            }
-        }
-
-        // Try cover ID as last resort
-        if let coverId = searchResult.coverId {
-            if let image = await fetchCoverByCoverId(coverId: coverId, size: size) {
-                return image
-            }
-        }
-
-        return nil
-    }
-
-    private func searchBook(title: String, author: String) async -> BookSearchResult? {
-        // Clean and encode search terms
-        let cleanTitle = title.replacingOccurrences(of: ":", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let cleanAuthor = author.components(separatedBy: ",").first?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? author
-
-        let searchQuery = "\(cleanTitle) \(cleanAuthor)"
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-
-        let urlString = "https://openlibrary.org/search.json?q=\(searchQuery)&limit=1&fields=key,title,author_name,isbn,cover_i,edition_key"
-
-        guard let url = URL(string: urlString) else { return nil }
-
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                return nil
-            }
-
-            let searchResponse = try JSONDecoder().decode(OpenLibrarySearchResponse.self, from: data)
-
-            guard let firstDoc = searchResponse.docs.first else { return nil }
-
-            return BookSearchResult(
-                olid: firstDoc.edition_key?.first,
-                isbn: firstDoc.isbn?.first(where: { $0.count == 13 }) ?? firstDoc.isbn?.first,
-                coverId: firstDoc.cover_i
-            )
-        } catch {
-            print("BookCoverService: Search error - \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    private func fetchCoverByOLID(olid: String, size: CoverSize) async -> UIImage? {
-        let urlString = "https://covers.openlibrary.org/b/olid/\(olid)-\(size.rawValue).jpg"
-        return await downloadImage(from: urlString)
-    }
-
-    private func fetchCoverByISBN(isbn: String, size: CoverSize) async -> UIImage? {
-        let urlString = "https://covers.openlibrary.org/b/isbn/\(isbn)-\(size.rawValue).jpg"
-        return await downloadImage(from: urlString)
-    }
-
-    private func fetchCoverByCoverId(coverId: Int, size: CoverSize) async -> UIImage? {
-        let urlString = "https://covers.openlibrary.org/b/id/\(coverId)-\(size.rawValue).jpg"
-        return await downloadImage(from: urlString)
-    }
-
-    private func downloadImage(from urlString: String) async -> UIImage? {
-        guard let url = URL(string: urlString) else { return nil }
-
-        do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                return nil
-            }
-
-            // Open Library returns a 1x1 pixel transparent GIF for missing covers
-            // Check if the data is too small to be a real cover
-            guard data.count > 1000 else { return nil }
-
-            return UIImage(data: data)
-        } catch {
-            print("BookCoverService: Download error - \(error.localizedDescription)")
-            return nil
-        }
-    }
-}
-
-// MARK: - Search Models
-
-private struct BookSearchResult {
-    let olid: String?
-    let isbn: String?
-    let coverId: Int?
-}
-
-private struct OpenLibrarySearchResponse: Codable {
-    let docs: [OpenLibraryDoc]
-}
-
-private struct OpenLibraryDoc: Codable {
-    let key: String?
-    let title: String?
-    let author_name: [String]?
-    let isbn: [String]?
-    let cover_i: Int?
-    let edition_key: [String]?
-}
-
 // MARK: - Async Book Cover Image View
+// NOTE: Commented out until BookCoverService is implemented
 
+/*
 struct AsyncBookCoverImage: View {
     let title: String
     let author: String
@@ -592,3 +463,4 @@ struct AsyncBookCoverImage: View {
         }
     }
 }
+*/

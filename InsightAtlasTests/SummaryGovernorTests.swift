@@ -656,7 +656,6 @@ final class SummaryGovernorTests: XCTestCase {
     }
 
     func testSynthesisTemplateGeneration() throws {
-        throw XCTSkip("Synthesis template expectations are being updated.")
         let generator = SynthesisGenerator(sourceType: .argumentative, maxPerSection: 2)
 
         let cutEvent = CutEvent(
@@ -737,7 +736,6 @@ final class SummaryGovernorTests: XCTestCase {
     }
 
     func testIntegration100PageSource() throws {
-        throw XCTSkip("Integration thresholds for 100-page source are being updated.")
         // Simulate a 100-page source (~25,000 words)
         let sourceWordCount = 25_000
 

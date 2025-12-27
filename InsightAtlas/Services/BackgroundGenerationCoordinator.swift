@@ -22,6 +22,11 @@ import BackgroundTasks
 import Combine
 import UIKit
 import AVFoundation
+import os.log
+
+// MARK: - Logger
+
+private let logger = Logger(subsystem: "com.insightatlas", category: "BackgroundGeneration")
 
 // MARK: - Background Task Identifiers
 
@@ -34,12 +39,16 @@ enum BackgroundTaskIdentifier {
 
 /// Debug logging for Summary Type Governors v1.0 verification
 private func governorLog(_ message: String) {
-    print("🔒 [Governor] \(message)")
+    #if DEBUG
+    logger.debug("[Governor] \(message)")
+    #endif
 }
 
 /// Debug logging for audio generation
 private func audioLog(_ message: String) {
-    print("🔊 [Audio] \(message)")
+    #if DEBUG
+    logger.debug("[Audio] \(message)")
+    #endif
 }
 
 // MARK: - Generation State
@@ -147,7 +156,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
     // MARK: - Published State
 
     @Published private(set) var isGenerating: Bool = false
-    @Published private(set) var progress: GenerationProgress = .initial
+    @Published internal var progress: GenerationProgress = .initial
     @Published private(set) var currentGenerationId: UUID?
     @Published private(set) var lastResult: GenerationResult?
 
@@ -158,6 +167,9 @@ final class BackgroundGenerationCoordinator: ObservableObject {
     private let fileManager = FileManager.default
     private var generationTask: Task<String, Error>?
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+
+    /// Selected voice ID for audio generation (user-selected or nil for profile default)
+    private var selectedVoiceID: String?
 
     /// Storage keys for UserDefaults
     private let stateStorageKey = "background_generation_state"
@@ -191,8 +203,11 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         author: String,
         settings: UserSettings,
         existingItemId: UUID? = nil,
-        summaryType: SummaryType? = nil
+        summaryType: SummaryType? = nil,
+        voiceID: String? = nil
     ) async throws -> String {
+        // Store the voice ID for audio generation
+        self.selectedVoiceID = voiceID
         // Use passed summaryType or fall back to user's preferred setting
         let effectiveSummaryType = summaryType ?? settings.preferredSummaryType
 
@@ -293,7 +308,14 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
             // MARK: - Quality Validation & Improvement Pass
 
-            let qualityIssues = validateOutputQuality(content: finalResult.content, governor: governor)
+            let allowImprovementPass = settings.preferredMode == .deepResearch ||
+                settings.preferredSummaryType == .deepResearch
+            let improvementThreshold = Int(Double(governor.maxWordCeiling) * 0.7)
+            let shouldSkipImprovementPass = !allowImprovementPass ||
+                finalResult.cutPolicyActivated ||
+                finalResult.wordCount >= governor.maxWordCeiling ||
+                finalResult.wordCount >= improvementThreshold
+            let qualityIssues = shouldSkipImprovementPass ? [] : validateOutputQuality(content: finalResult.content, governor: governor)
 
             if !qualityIssues.isEmpty {
                 governorLog("⚠️ Quality issues detected: \(qualityIssues.count)")
@@ -373,6 +395,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 content: finalResult.content,
                 title: title,
                 generationId: generationId,
+                libraryItemId: existingItemId,
                 readerProfile: settings.preferredReaderProfile
             )
 
@@ -548,6 +571,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                     content: result,
                     title: state.title,
                     generationId: state.id,
+                    libraryItemId: state.existingItemId,
                     readerProfile: settings.preferredReaderProfile
                 )
 
@@ -626,93 +650,47 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         processingState.lastUpdated = Date()
         persistState(processingState)
 
-        // Track content for UI (governor context tracks authoritative content)
-        var displayContent = resumeFromContent ?? ""
+        // Use a dedicated state container to manage streaming updates safely
+        // This avoids race conditions from multiple concurrent Task creations
+        let streamState = StreamingState(
+            initialContent: resumeFromContent ?? "",
+            governor: governorContext,
+            state: state,
+            coordinator: self
+        )
 
-        // Reference to governor for streaming enforcement
-        let governor = governorContext
-
-        // Flag to signal early termination
-        var shouldTerminateGeneration = false
-
-        // Determine hints - use provided hints, or default for resumption
-        let effectiveHints = improvementHints ?? (resumeFromContent != nil ? "Continue from where generation was interrupted." : nil)
+        // Determine hints - use provided hints (resume uses a continuation prompt in AIService)
+        let effectiveHints = improvementHints
 
         // Generate guide using AIService
-        let result = try await aiService.generateGuide(
-            bookText: bookText,
-            title: state.title,
-            author: state.author,
-            settings: settings,
-            previousContent: resumeFromContent,
-            improvementHints: effectiveHints,
-            onChunk: { [weak self] chunk in
-                Task { @MainActor in
-                    guard let self = self else { return }
-
-                    // Check if we should stop
-                    if shouldTerminateGeneration {
-                        return
+        var result: String
+        do {
+            result = try await aiService.generateGuide(
+                bookText: bookText,
+                title: state.title,
+                author: state.author,
+                settings: settings,
+                previousContent: resumeFromContent,
+                improvementHints: effectiveHints,
+                onChunk: { [weak self, weak streamState] chunk in
+                    // Process on MainActor to avoid race conditions
+                    // The StreamingState class is @MainActor isolated
+                    Task { @MainActor in
+                        guard let self = self, let streamState = streamState else { return }
+                        streamState.processChunk(chunk, coordinator: self)
                     }
-
-                    // Process chunk through governor if available
-                    if let gov = governor {
-                        _ = gov.processChunk(chunk)
-
-                        // Check if governor signals termination
-                        if gov.shouldTerminate {
-                            shouldTerminateGeneration = true
-                            governorLog("Early termination signaled by governor")
-                        }
-
-                        // Use governor's accumulated content for display
-                        displayContent = gov.accumulatedContent
-                    } else {
-                        // No governor - accumulate directly
-                        displayContent += chunk
+                },
+                onStatus: { [weak self, weak streamState] status in
+                    Task { @MainActor in
+                        guard let self = self, let streamState = streamState else { return }
+                        streamState.processStatus(status, coordinator: self)
                     }
-
-                    // Update progress
-                    let wordCount = displayContent.split(separator: " ").count
-                    let budget = governor?.totalBudget ?? 8000
-                    self.progress = GenerationProgress(
-                        phase: governor != nil ? "Generating (governed)..." : "Generating...",
-                        percentComplete: min(Double(wordCount) / Double(budget), 0.95),
-                        wordCount: wordCount,
-                        model: state.provider.displayName,
-                        content: displayContent
-                    )
-
-                    // Persist accumulated content periodically (every 500 words)
-                    if wordCount % 500 == 0 {
-                        var updatedState = state
-                        updatedState.phase = .streaming
-                        updatedState.accumulatedContent = displayContent
-                        updatedState.lastUpdated = Date()
-                        self.persistState(updatedState)
-                    }
-                }
-            },
-            onStatus: { [weak self] status in
-                Task { @MainActor in
-                    guard let self = self else { return }
-
-                    self.progress = GenerationProgress(
-                        phase: status.phase.rawValue,
-                        percentComplete: status.progress,
-                        wordCount: status.wordCount,
-                        model: status.model,
-                        content: displayContent
-                    )
-                }
-            },
-            onReset: { [weak self] in
-                Task { @MainActor in
-                    guard let self = self else { return }
-                    displayContent = ""
-                    shouldTerminateGeneration = false
-                    governor?.resetForNewPass()
-                    self.progress = GenerationProgress(
+                },
+                onReset: { [weak self, weak streamState] in
+                    Task { @MainActor in
+                        guard let self = self, let streamState = streamState else { return }
+                        streamState.processReset(coordinator: self)
+                        self.progress = GenerationProgress(
                         phase: "Refining with secondary model...",
                         percentComplete: 0.0,
                         wordCount: 0,
@@ -720,19 +698,40 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                         content: ""
                     )
                 }
+            },
+            shouldTerminate: { [weak streamState] in
+                streamState?.shouldTerminate ?? false
             }
         )
+        } catch {
+            if streamState.shouldTerminate {
+                let finalContent = streamState.governor?.finalize() ?? streamState.displayContent
+                return (finalContent, streamState.governor?.enforcementResult)
+            }
+            throw error
+        }
+
+        // Handle reset recovery
+        let resetState = streamState.getResetState()
+        if resetState.didReset,
+           (streamState.governor?.accumulatedContent.isEmpty ?? true),
+           let preserved = resetState.preservedContent,
+           !preserved.isEmpty {
+            streamState.governor?.restoreFromContent(preserved)
+            streamState.setDisplayContent(preserved)
+            result = preserved
+        }
 
         // Finalize governor context if present
         let finalContent: String
         let governorResult: GovernorEnforcementResult?
 
-        if let gov = governor {
-            finalContent = gov.finalize()
+        if let gov = streamState.governor {
+            finalContent = sanitizeGeneratedContent(gov.finalize())
             governorResult = gov.enforcementResult
             governorLog("Generation complete with governor enforcement")
         } else {
-            finalContent = result
+            finalContent = sanitizeGeneratedContent(result)
             governorResult = nil
         }
 
@@ -746,6 +745,139 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         )
 
         return (finalContent, governorResult)
+    }
+
+    private func sanitizeGeneratedContent(_ content: String) -> String {
+        let lines = content.components(separatedBy: "\n")
+        var output: [String] = []
+        var openTagStack: [String] = []
+        let closableTags: Set<String> = [
+            "QUICK_GLANCE",
+            "INSIGHT_NOTE",
+            "ACTION_BOX",
+            "FOUNDATIONAL_NARRATIVE",
+            "TAKEAWAYS",
+            "PREMIUM_QUOTE",
+            "AUTHOR_SPOTLIGHT",
+            "ALTERNATIVE_PERSPECTIVE",
+            "RESEARCH_INSIGHT",
+            "PREMIUM_H1",
+            "PREMIUM_H2",
+            "STRUCTURE_MAP"
+        ]
+        let knownTags: Set<String> = closableTags.union([
+            "PREMIUM_DIVIDER",
+            "PROCESS_TIMELINE",
+            "CONCEPT_MAP"
+        ])
+
+        func parseOpenTagName(_ line: String) -> String? {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("[") && trimmed.hasSuffix("]") else { return nil }
+            guard !trimmed.hasPrefix("[/") else { return nil }
+            let raw = trimmed.dropFirst().dropLast()
+            let tag = raw.split(separator: ":", maxSplits: 1).first.map { String($0) } ?? String(raw)
+            return tag.uppercased()
+        }
+
+        func parseCloseTagName(_ line: String) -> String? {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("[/") && trimmed.hasSuffix("]") else { return nil }
+            let raw = trimmed.dropFirst(2).dropLast()
+            return String(raw).uppercased()
+        }
+
+        func isBareTagLine(_ line: String) -> Bool {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.range(of: #"^\[[A-Z_]+(:[^\]]+)?\]$"#, options: .regularExpression) != nil {
+                return true
+            }
+            if trimmed.range(of: #"^\[/[A-Z_]+\]$"#, options: .regularExpression) != nil {
+                return true
+            }
+            return false
+        }
+
+        func isNewBlockStart(_ line: String) -> Bool {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("#") {
+                return true
+            }
+            return parseOpenTagName(trimmed) != nil
+        }
+
+        func convertMarkdownHeader(_ line: String) -> String? {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("### ") {
+                let title = trimmed.dropFirst(4).trimmingCharacters(in: .whitespaces)
+                return "[PREMIUM_H2]\(title)[/PREMIUM_H2]"
+            }
+            if trimmed.hasPrefix("## ") {
+                let title = trimmed.dropFirst(3).trimmingCharacters(in: .whitespaces)
+                return "[PREMIUM_H2]\(title)[/PREMIUM_H2]"
+            }
+            if trimmed.hasPrefix("# ") {
+                let title = trimmed.dropFirst(2).trimmingCharacters(in: .whitespaces)
+                return "[PREMIUM_H1]\(title)[/PREMIUM_H1]"
+            }
+            return nil
+        }
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if let open = openTagStack.last, isNewBlockStart(trimmed) {
+                output.append("[/\(open)]")
+                openTagStack.removeLast()
+            }
+
+            if !openTagStack.isEmpty, trimmed.hasPrefix("#") {
+                continue
+            }
+
+            if openTagStack.isEmpty, let headerLine = convertMarkdownHeader(trimmed) {
+                output.append(headerLine)
+                continue
+            }
+
+            if let tagName = parseOpenTagName(trimmed) {
+                if isBareTagLine(trimmed), !knownTags.contains(tagName), !tagName.hasPrefix("EXERCISE_") {
+                    continue
+                }
+                if tagName.hasPrefix("EXERCISE_") || closableTags.contains(tagName) {
+                    if isBareTagLine(trimmed) {
+                        openTagStack.append(tagName)
+                    }
+                }
+            } else if let tagName = parseCloseTagName(trimmed) {
+                if isBareTagLine(trimmed), !knownTags.contains(tagName), !tagName.hasPrefix("EXERCISE_") {
+                    continue
+                }
+                if let top = openTagStack.last, top == tagName {
+                    openTagStack.removeLast()
+                } else if let matchIndex = openTagStack.lastIndex(of: tagName) {
+                    // Auto-close any nested tags before this closing tag.
+                    while openTagStack.count - 1 > matchIndex {
+                        let orphan = openTagStack.removeLast()
+                        output.append("[/\(orphan)]")
+                    }
+                    openTagStack.removeLast()
+                } else {
+                    // Drop stray closing tags to avoid breaking downstream parsers.
+                    if isBareTagLine(trimmed) {
+                        continue
+                    }
+                }
+            }
+
+            output.append(line)
+        }
+
+        while let open = openTagStack.popLast() {
+            output.append("[/\(open)]")
+        }
+
+        return output.joined(separator: "\n")
     }
 
     /// Begin a UIKit background task for extended execution
@@ -791,7 +923,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {
-            print("⚠️ BackgroundGeneration: Failed to schedule background task: \(error)")
+            logger.error("Failed to schedule background task: \(error.localizedDescription)")
         }
     }
 
@@ -834,7 +966,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             task.setTaskCompleted(success: true)
 
         } catch {
-            print("⚠️ BackgroundGeneration: Background task failed: \(error)")
+            logger.error("Background task failed: \(error.localizedDescription)")
             task.setTaskCompleted(success: false)
         }
     }
@@ -869,12 +1001,35 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     // MARK: - State Persistence
 
-    private func persistState(_ state: GenerationState) {
+    /// Tracks whether state persistence has failed, to avoid repeated failures
+    private var statePersistenceHealthy = true
+
+    /// Persists generation state to UserDefaults.
+    /// Logs errors and tracks persistence health for monitoring.
+    /// Returns true if persistence succeeded, false otherwise.
+    @discardableResult
+    internal func persistState(_ state: GenerationState) -> Bool {
         do {
             let data = try JSONEncoder().encode(state)
             UserDefaults.standard.set(data, forKey: stateStorageKey)
+            UserDefaults.standard.synchronize() // Force immediate write
+            statePersistenceHealthy = true
+            return true
         } catch {
-            print("⚠️ BackgroundGeneration: Failed to persist state: \(error)")
+            logger.error("State persistence failed: \(error.localizedDescription). Generation ID: \(state.id.uuidString)")
+            statePersistenceHealthy = false
+
+            // Post notification so UI can warn user if needed
+            NotificationCenter.default.post(
+                name: .generationPersistenceWarning,
+                object: nil,
+                userInfo: [
+                    "generationId": state.id,
+                    "error": error.localizedDescription,
+                    "wordCount": state.accumulatedContent.split(separator: " ").count
+                ]
+            )
+            return false
         }
     }
 
@@ -882,34 +1037,69 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: stateStorageKey) else {
             return nil
         }
-        return try? JSONDecoder().decode(GenerationState.self, from: data)
+        do {
+            return try JSONDecoder().decode(GenerationState.self, from: data)
+        } catch {
+            logger.error("Failed to decode persisted state: \(error.localizedDescription)")
+            // State is corrupted, clear it
+            UserDefaults.standard.removeObject(forKey: stateStorageKey)
+            return nil
+        }
     }
 
     private func clearPersistedState() {
         if let state = loadPersistedState() {
             // Clear book text storage
             let bookTextURL = bookTextStorageURL(for: state)
-            try? fileManager.removeItem(at: bookTextURL)
+            do {
+                try fileManager.removeItem(at: bookTextURL)
+            } catch {
+                logger.warning("Failed to remove cached book text: \(error.localizedDescription)")
+                // Continue anyway - not critical
+            }
         }
         UserDefaults.standard.removeObject(forKey: stateStorageKey)
+        UserDefaults.standard.synchronize()
     }
 
-    private func persistBookText(_ text: String, for state: GenerationState) {
+    /// Persists book text to cache directory.
+    /// Returns true if persistence succeeded, false otherwise.
+    @discardableResult
+    private func persistBookText(_ text: String, for state: GenerationState) -> Bool {
         let url = bookTextStorageURL(for: state)
         do {
             try text.write(to: url, atomically: true, encoding: .utf8)
+            return true
         } catch {
-            print("⚠️ BackgroundGeneration: Failed to persist book text: \(error)")
+            logger.error("Failed to persist book text: \(error.localizedDescription). Generation ID: \(state.id.uuidString)")
+
+            // Post notification so UI can warn user
+            NotificationCenter.default.post(
+                name: .generationPersistenceWarning,
+                object: nil,
+                userInfo: [
+                    "generationId": state.id,
+                    "error": error.localizedDescription,
+                    "type": "bookText"
+                ]
+            )
+            return false
         }
     }
 
     private func loadBookText(for state: GenerationState) -> String? {
         let url = bookTextStorageURL(for: state)
-        return try? String(contentsOf: url, encoding: .utf8)
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            logger.error("Failed to load book text: \(error.localizedDescription). Generation ID: \(state.id.uuidString)")
+            return nil
+        }
     }
 
     private func bookTextStorageURL(for state: GenerationState) -> URL {
-        let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
         return cachesDir.appendingPathComponent(state.bookTextStorageKey)
     }
 
@@ -949,42 +1139,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         var issues: [String] = []
         let lowercased = content.lowercased()
 
-        // Check for minimum visual elements based on summary type
-        let minVisuals: Int
-        switch governor.summaryType {
-        case .quickReference:
-            minVisuals = 2
-        case .professional:
-            minVisuals = 5
-        case .accessible:
-            minVisuals = 8
-        case .deepResearch:
-            minVisuals = 12
-        }
-
-        // Count visual elements
-        let flowchartCount = content.components(separatedBy: "[VISUAL_FLOWCHART").count - 1
-        let tableCount = content.components(separatedBy: "[VISUAL_TABLE").count - 1
-        let conceptMapCount = content.components(separatedBy: "[CONCEPT_MAP").count - 1
-        let timelineCount = content.components(separatedBy: "[PROCESS_TIMELINE").count - 1
-        let hierarchyCount = content.components(separatedBy: "[HIERARCHY_DIAGRAM").count - 1
-        let totalVisuals = flowchartCount + tableCount + conceptMapCount + timelineCount + hierarchyCount
-
-        if totalVisuals < minVisuals {
-            issues.append("Insufficient visual elements: found \(totalVisuals), need at least \(minVisuals)")
-        }
-
-        // Check for visual type diversity (need at least 3 different types)
-        var visualTypesUsed = 0
-        if flowchartCount > 0 { visualTypesUsed += 1 }
-        if tableCount > 0 { visualTypesUsed += 1 }
-        if conceptMapCount > 0 { visualTypesUsed += 1 }
-        if timelineCount > 0 { visualTypesUsed += 1 }
-        if hierarchyCount > 0 { visualTypesUsed += 1 }
-
-        if visualTypesUsed < 3 && governor.summaryType != .quickReference {
-            issues.append("Need more visual diversity: only \(visualTypesUsed) types used, need at least 3 different types")
-        }
+        // Visuals are optional; do not enforce a minimum count or diversity.
 
         // Check for INSIGHT_NOTE with required components
         let insightNoteCount = content.components(separatedBy: "[INSIGHT_NOTE]").count - 1
@@ -1006,6 +1161,203 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
         if goDeeperCount < insightNoteCount {
             issues.append("INSIGHT_NOTEs missing Go Deeper recommendations")
+        }
+
+        // Require cross-book synthesis and avoid chapter-by-chapter framing
+        if !lowercased.contains("cross-book synthesis") && !lowercased.contains("cross book synthesis") {
+            issues.append("Missing Cross-Book Synthesis sections")
+        }
+        if lowercased.contains("chapter summary") || lowercased.contains("chapter-by-chapter") {
+            issues.append("Chapter-by-chapter framing is not allowed; use thematic synthesis")
+        }
+
+        if !lowercased.contains("[section: comparative analysis]") &&
+            !lowercased.contains("[premium_h2]comparative analysis[/premium_h2]") {
+            issues.append("Missing Comparative Analysis section")
+        }
+
+        if !lowercased.contains("[premium_h2]synthesis interlude[/premium_h2]") {
+            issues.append("Missing Synthesis Interlude sections")
+        }
+
+        if !lowercased.contains("[premium_h2]applied implications[/premium_h2]") {
+            issues.append("Missing Applied Implications section")
+        }
+
+        // Premium formatting blocks should appear in longer guides
+        let premiumMarkers = [
+            "[PREMIUM_H1]",
+            "[PREMIUM_H2]",
+            "[PREMIUM_DIVIDER]",
+            "[PREMIUM_QUOTE]",
+            "[AUTHOR_SPOTLIGHT]",
+            "[ALTERNATIVE_PERSPECTIVE]",
+            "[RESEARCH_INSIGHT]"
+        ]
+        let premiumCount = premiumMarkers.reduce(0) { count, marker in
+            count + (content.components(separatedBy: marker).count - 1)
+        }
+        if governor.summaryType != .quickReference && premiumCount < 4 {
+            issues.append("Insufficient premium formatting blocks: found \(premiumCount), need at least 4")
+        }
+
+        // Require diversity of premium callouts to avoid repetition
+        let premiumDiversityMarkers = [
+            "[PREMIUM_QUOTE]",
+            "[AUTHOR_SPOTLIGHT]",
+            "[ALTERNATIVE_PERSPECTIVE]",
+            "[RESEARCH_INSIGHT]",
+            "[INSIGHT_NOTE]"
+        ]
+        let premiumTypesUsed = premiumDiversityMarkers.filter { content.contains($0) }.count
+        if governor.summaryType != .quickReference && premiumTypesUsed < 3 {
+            issues.append("Insufficient premium callout diversity")
+        }
+
+        let premiumQuoteCount = content.components(separatedBy: "[PREMIUM_QUOTE]").count - 1
+        if governor.summaryType != .quickReference && premiumQuoteCount < 2 {
+            issues.append("Insufficient premium quotes")
+        }
+
+        let premiumDividerCount = content.components(separatedBy: "[PREMIUM_DIVIDER]").count - 1
+        if governor.summaryType != .quickReference && premiumDividerCount < 2 {
+            issues.append("Insufficient premium dividers between parts")
+        }
+
+        let flowchartCount = content.components(separatedBy: "[VISUAL_FLOWCHART").count - 1
+        let flowDiagramCount = content.components(separatedBy: "[VISUAL_FLOW_DIAGRAM").count - 1
+        _ = content.components(separatedBy: "[VISUAL_TABLE").count - 1
+        _ = content.components(separatedBy: "[VISUAL_COMPARISON_MATRIX").count - 1
+        _ = content.components(separatedBy: "[VISUAL_CONCEPT_MAP").count - 1
+        let conceptMapLegacy = content.components(separatedBy: "[CONCEPT_MAP").count - 1
+        _ = content.components(separatedBy: "[VISUAL_TIMELINE").count - 1
+        let timelineLegacy = content.components(separatedBy: "[PROCESS_TIMELINE").count - 1
+        _ = content.components(separatedBy: "[VISUAL_HIERARCHY").count - 1
+        let hierarchyLegacy = content.components(separatedBy: "[HIERARCHY_DIAGRAM").count - 1
+        let allVisualTagCount = content.components(separatedBy: "[VISUAL_").count - 1
+        let totalVisuals = allVisualTagCount + conceptMapLegacy + timelineLegacy + hierarchyLegacy
+        let totalFlowcharts = flowchartCount + flowDiagramCount
+        if totalVisuals >= 3 && totalFlowcharts > 1 {
+            issues.append("Overuse of flowcharts; limit to 1 unless indispensable")
+        } else if totalVisuals >= 4 && totalFlowcharts > max(2, totalVisuals / 2) {
+            issues.append("Overuse of flowcharts; increase visual variety")
+        }
+
+        let bannedNarrativePhrases = [
+            "see the diagram",
+            "see the chart",
+            "see the table",
+            "as shown in",
+            "diagram below",
+            "chart below",
+            "table below",
+            "flowchart above",
+            "the flowchart",
+            "the diagram"
+        ]
+        if bannedNarrativePhrases.contains(where: { lowercased.contains($0) }) {
+            issues.append("Visuals described as visuals; integrate them into narrative")
+        }
+
+        let leakageMarkers = [
+            "EXACT PROMPTS USED",
+            "SYSTEM MESSAGE",
+            "USER PROMPT",
+            "MODEL CONFIGURATION",
+            "HOW THE PROMPTS WORK",
+            "KEY DIFFERENCES",
+            "STAGE 1",
+            "STAGE 2",
+            "PROMPT (COMPLETE)"
+        ]
+        let uppercased = content.uppercased()
+        if leakageMarkers.contains(where: { uppercased.contains($0) }) {
+            issues.append("Prompt or system instructions leaked into output")
+        }
+
+        let authorSpotlightCount = content.components(separatedBy: "[AUTHOR_SPOTLIGHT]").count - 1
+        if governor.summaryType != .quickReference && authorSpotlightCount < 1 {
+            issues.append("Missing Author Spotlight block")
+        } else if authorSpotlightCount > 1 {
+            issues.append("Too many author spotlights (max 1)")
+        }
+
+        let paragraphs = content
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .filter { block in
+                let upper = block.uppercased()
+                return !upper.hasPrefix("[") &&
+                    !upper.hasPrefix("##") &&
+                    !upper.hasPrefix("#") &&
+                    !upper.hasPrefix("- ") &&
+                    !upper.hasPrefix("* ") &&
+                    !upper.hasPrefix("• ")
+            }
+        if governor.summaryType != .quickReference && paragraphs.count < 6 {
+            issues.append("Insufficient narrative paragraphs; expand prose between callouts")
+        }
+
+        // Avoid back-to-back identical callouts
+        let calloutMarkers = [
+            "[PREMIUM_QUOTE]",
+            "[AUTHOR_SPOTLIGHT]",
+            "[ALTERNATIVE_PERSPECTIVE]",
+            "[RESEARCH_INSIGHT]",
+            "[INSIGHT_NOTE]"
+        ]
+        let lines = content.components(separatedBy: "\n")
+        var lastCallout: String?
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { continue }
+            if let marker = calloutMarkers.first(where: { trimmed.hasPrefix($0) }) {
+                if marker == lastCallout {
+                    issues.append("Repeated callout type in adjacent sections")
+                    break
+                }
+                lastCallout = marker
+            } else {
+                lastCallout = nil
+            }
+        }
+
+        // Premium headers should be used for parts or chapters
+        if governor.summaryType != .quickReference {
+            if !lowercased.contains("[premium_h1]") && !lowercased.contains("[premium_h2]") {
+                issues.append("Missing premium headers for parts/chapters")
+            }
+        }
+
+        // Perspective/research notes required for synthesis
+        let perspectiveCount = content.components(separatedBy: "[ALTERNATIVE_PERSPECTIVE]").count - 1
+        let researchCount = content.components(separatedBy: "[RESEARCH_INSIGHT]").count - 1
+        if governor.summaryType != .quickReference && (perspectiveCount + researchCount) < 4 {
+            issues.append("Insufficient perspective/research notes")
+        }
+
+        if !lowercased.contains("1-page summary") && !lowercased.contains("1‑page summary") {
+            issues.append("Quick Glance missing 1-Page Summary label")
+        }
+
+        // Cross-disciplinary synthesis signals
+        let synthesisMarkers = [
+            "kahneman",
+            "dweck",
+            "cialdini",
+            "rosenberg",
+            "stoic",
+            "buddhist",
+            "neuroscience",
+            "neuroplasticity",
+            "behavioral",
+            "systems thinking",
+            "economics"
+        ]
+        let synthesisHits = synthesisMarkers.filter { lowercased.contains($0) }
+        if governor.summaryType != .quickReference && synthesisHits.count < 4 {
+            issues.append("Insufficient cross-disciplinary synthesis signals")
         }
 
         // Check for ACTION_BOX elements
@@ -1050,17 +1402,18 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         IMPORTANT INSTRUCTIONS FOR IMPROVEMENT:
         - DO NOT regenerate the entire guide from scratch
         - Keep ALL existing content that is already good
-        - ADD the missing visual elements (use VISUAL_FLOWCHART, VISUAL_TABLE, CONCEPT_MAP, PROCESS_TIMELINE, HIERARCHY_DIAGRAM)
+        - Only add visuals when they materially improve clarity (do NOT add visuals to hit a quota)
         - ADD cross-discipline INSIGHT_NOTEs with Key Distinction, Practical Implication, and Go Deeper
         - Ensure visual variety - use different visual types in consecutive sections
         - Insert new elements at appropriate locations within the existing structure
 
         For visuals, choose the type that best matches the content:
-        - VISUAL_TABLE for comparisons, before/after, contrasts
-        - VISUAL_FLOWCHART for processes, cycles, cause-effect chains
-        - CONCEPT_MAP for showing relationships between ideas
-        - PROCESS_TIMELINE for multi-phase approaches
-        - HIERARCHY_DIAGRAM for nested concepts, taxonomies
+        - VISUAL_COMPARISON_MATRIX for contrasts
+        - VISUAL_TIMELINE for phases or sequences
+        - VISUAL_CONCEPT_MAP for relationships
+        - VISUAL_BAR_CHART / VISUAL_PIE_CHART for distributions
+        - VISUAL_QUADRANT for trade-offs
+        - VISUAL_FLOWCHART only when branching logic is essential
 
         For INSIGHT_NOTEs, connect to authors like:
         - Kahneman (thinking/decision-making)
@@ -1086,8 +1439,22 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         content: String,
         title: String,
         generationId: UUID,
+        libraryItemId: UUID? = nil,
         readerProfile: ReaderProfile = .practitioner
     ) async -> AudioGenerationResult? {
+
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let audioContent = sanitizeAudioContent(trimmedContent)
+        guard !audioContent.isEmpty else {
+            audioLog("⚠️ Skipping audio generation: empty content")
+            return nil
+        }
+
+        let wordCount = audioContent.split(whereSeparator: { $0.isWhitespace }).count
+        if wordCount < 200 {
+            audioLog("⚠️ Skipping audio generation: content too short (\(wordCount) words)")
+            return nil
+        }
 
         // Check for ElevenLabs API key
         guard let apiKey = KeychainService.shared.elevenLabsApiKey,
@@ -1098,11 +1465,23 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
         audioLog("Starting audio generation for: \(title)")
 
-        // Use user's preferred reader profile to select voice
-        let voiceConfig = VoiceSelectionConfig.primary(for: readerProfile)
-        audioLog("Reader profile: \(readerProfile.rawValue)")
-
-        audioLog("Using voice: \(voiceConfig.voiceName) (\(voiceConfig.voiceID))")
+        // Determine voice to use: user-selected or profile default
+        var voiceConfig: VoiceSelectionConfig
+        if let userSelectedVoiceID = selectedVoiceID,
+           let selectedVoice = ElevenLabsVoiceRegistry.voice(byVoiceID: userSelectedVoiceID) {
+            // Use user-selected voice
+            voiceConfig = .custom(profile: readerProfile, voice: selectedVoice)
+            audioLog("Using user-selected voice: \(selectedVoice.name) (\(selectedVoice.voiceID))")
+        } else {
+            // Fall back to profile-based premium voice
+            voiceConfig = VoiceSelectionConfig.premium(for: readerProfile)
+            if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
+                let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile)
+                voiceConfig = .custom(profile: readerProfile, voice: fallback)
+            }
+            audioLog("Reader profile: \(readerProfile.rawValue)")
+            audioLog("Using profile voice: \(voiceConfig.voiceName) (\(voiceConfig.voiceID))")
+        }
 
         do {
             // Create audio service (retrieves API key from Keychain internally)
@@ -1111,13 +1490,17 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             // Generate audio for the content
             // For now, generate a single audio file for the entire summary
             let result = try await audioService.generateAudio(
-                text: content,
+                text: audioContent,
                 voiceID: voiceConfig.voiceID
             )
 
             // Save audio to documents directory
-            let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let audioFileName = "audio_\(generationId.uuidString).mp3"
+            guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                audioLog("❌ Unable to access documents directory for audio file storage")
+                return nil
+            }
+            let audioOwnerId = libraryItemId ?? generationId
+            let audioFileName = "audio_\(audioOwnerId.uuidString).mp3"
             let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
 
             try result.data.write(to: audioFileURL)
@@ -1154,6 +1537,19 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         let asset = AVURLAsset(url: url)
         let duration = try await asset.load(.duration)
         return CMTimeGetSeconds(duration)
+    }
+
+    private func sanitizeAudioContent(_ content: String) -> String {
+        var cleaned = content
+        // Remove bracketed tags (e.g., [PREMIUM_H1], [VISUAL_FLOWCHART], [/VISUAL_FLOWCHART])
+        cleaned = cleaned.replacingOccurrences(
+            of: "\\[[^\\]]+\\]",
+            with: "",
+            options: .regularExpression
+        )
+        // Collapse excessive whitespace
+        cleaned = cleaned.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -1200,6 +1596,114 @@ private struct AudioGenerationResult {
 }
 
 // MARK: - Streaming Governor Context
+
+// MARK: - Streaming State Actor
+
+/// Thread-safe container for streaming generation state.
+/// Uses actor isolation to prevent race conditions from concurrent callback execution.
+@MainActor
+private final class StreamingState {
+    // MARK: - Properties
+
+    private(set) var displayContent: String
+    let governor: StreamingGovernorContext?
+    private let generationState: GenerationState
+    private weak var coordinator: BackgroundGenerationCoordinator?
+
+    private(set) var shouldTerminate: Bool = false
+    private var didResetForNewPass: Bool = false
+    private var preservedGovernorContent: String?
+    private var lastPersistWordCount: Int = 0
+
+    // MARK: - Initialization
+
+    init(initialContent: String, governor: StreamingGovernorContext?, state: GenerationState, coordinator: BackgroundGenerationCoordinator) {
+        self.displayContent = initialContent
+        self.governor = governor
+        self.generationState = state
+        self.coordinator = coordinator
+    }
+
+    // MARK: - Chunk Processing
+
+    func processChunk(_ chunk: String, coordinator: BackgroundGenerationCoordinator) {
+        // Check if we should stop
+        guard !shouldTerminate else { return }
+
+        // Process chunk through governor if available
+        if let gov = governor {
+            _ = gov.processChunk(chunk)
+
+            // Check if governor signals termination
+            if gov.shouldTerminate {
+                shouldTerminate = true
+                governorLog("Early termination signaled by governor")
+            }
+
+            // Use governor's accumulated content for display
+            displayContent = gov.accumulatedContent
+        } else {
+            // No governor - accumulate directly
+            displayContent += chunk
+        }
+
+        // Update progress
+        let wordCount = displayContent.split(separator: " ").count
+        let budget = governor?.totalBudget ?? 8000
+        coordinator.progress = GenerationProgress(
+            phase: governor != nil ? "Generating (governed)..." : "Generating...",
+            percentComplete: min(Double(wordCount) / Double(budget), 0.95),
+            wordCount: wordCount,
+            model: generationState.provider.displayName,
+            content: displayContent
+        )
+
+        // Persist accumulated content periodically (every 500 words)
+        // Use threshold comparison to avoid multiple persists at same word count
+        let persistThreshold = (wordCount / 500) * 500
+        if persistThreshold > lastPersistWordCount && persistThreshold > 0 {
+            lastPersistWordCount = persistThreshold
+            var updatedState = generationState
+            updatedState.phase = .streaming
+            updatedState.accumulatedContent = displayContent
+            updatedState.lastUpdated = Date()
+            coordinator.persistState(updatedState)
+        }
+    }
+
+    // MARK: - Status Processing
+
+    func processStatus(_ status: GenerationStatus, coordinator: BackgroundGenerationCoordinator) {
+        coordinator.progress = GenerationProgress(
+            phase: status.phase.rawValue,
+            percentComplete: status.progress,
+            wordCount: status.wordCount,
+            model: status.model,
+            content: displayContent
+        )
+    }
+
+    // MARK: - Reset Processing
+
+    func processReset(coordinator: BackgroundGenerationCoordinator) {
+        preservedGovernorContent = governor?.accumulatedContent
+        didResetForNewPass = true
+        displayContent = ""
+        shouldTerminate = false
+        lastPersistWordCount = 0
+        governor?.resetForNewPass()
+    }
+
+    // MARK: - State Access
+
+    func setDisplayContent(_ content: String) {
+        displayContent = content
+    }
+
+    func getResetState() -> (didReset: Bool, preservedContent: String?) {
+        return (didResetForNewPass, preservedGovernorContent)
+    }
+}
 
 /// Manages governor enforcement during streaming generation.
 ///
@@ -1260,6 +1764,17 @@ private final class StreamingGovernorContext {
         synthesesPerSection.removeAll()
         currentSectionIndex = 0
         governorLog("StreamingGovernorContext reset for new pass")
+    }
+
+    func restoreFromContent(_ content: String) {
+        accumulatedContent = content
+        wordCount = content.split(whereSeparator: { $0.isWhitespace }).count
+        cutPolicyActivated = false
+        cutEventCount = 0
+        shouldTerminate = false
+        pendingBuffer = ""
+        synthesesPerSection.removeAll()
+        currentSectionIndex = 0
     }
 
     // MARK: - Chunk Processing
@@ -1527,7 +2042,8 @@ private final class StreamingGovernorContext {
             "# Part",
             "PART ",
             "## Chapter",
-            "# Chapter"
+            "# Chapter",
+            "Synthesis Arc"
         ]
 
         for pattern in patterns {
@@ -1538,4 +2054,24 @@ private final class StreamingGovernorContext {
             }
         }
     }
+}
+
+// MARK: - Notification Names
+// Centralized notification names for app-wide events
+
+extension Notification.Name {
+    /// Posted when generation persistence encounters a non-fatal warning
+    static let generationPersistenceWarning = Notification.Name("generationPersistenceWarning")
+
+    /// Posted when library data fails to load
+    static let libraryLoadFailed = Notification.Name("libraryLoadFailed")
+
+    /// Posted when audio playback finishes
+    static let audioPlaybackDidFinish = Notification.Name("audioPlaybackDidFinish")
+
+    /// Posted when audio generation completes
+    static let audioGenerationDidComplete = Notification.Name("audioGenerationDidComplete")
+
+    /// Posted when bulk export completes
+    static let bulkExportDidComplete = Notification.Name("bulkExportDidComplete")
 }

@@ -182,12 +182,9 @@ struct InsightAtlasPatternLibrary {
     static let visualTemplates = """
     ## VISUAL FRAMEWORK TEMPLATES
 
-    CRITICAL: Never use the same visual type twice in a row. Distribute across:
-    - 2-3 Flowcharts (processes, escalation patterns)
-    - 2-3 Comparison Tables (before/after, problem/solution)
-    - 1-2 Concept Maps (idea relationships)
-    - 1-2 Process Timelines (phased approaches)
-    - 1-2 Hierarchy Diagrams (nested concepts)
+    CRITICAL: Avoid repeating the same visual type back-to-back.
+    Visuals are optional and should appear only when they clarify complex ideas.
+    Favor comparison tables, concept maps, timelines, and hierarchies; use flowcharts sparingly.
 
     **Flowchart Template:**
     [VISUAL_FLOWCHART: The [Process Name] Cycle]
@@ -242,6 +239,45 @@ struct InsightAtlasPatternLibrary {
         ├── [Subcategory C1]
         └── [Subcategory C2]
     [/HIERARCHY_DIAGRAM]
+
+    JSON PAYLOAD FORMAT (PREFERRED FOR ALL VISUALS):
+    Put a single JSON object between the opening/closing tags.
+    Example:
+    [VISUAL_TIMELINE: The Three Shifts]
+    {"events":[{"date":"Phase 1","title":"Recognition","description":"Name the pattern"},{"date":"Phase 2","title":"Reframing","description":"Shift the lens"}]}
+    [/VISUAL_TIMELINE]
+
+    Supported visual tags:
+    - [VISUAL_TIMELINE] { "events": [{ "date": "", "title": "", "description": "" }] }
+    - [VISUAL_FLOWCHART] { "nodes": ["Start","Step","Outcome"] }
+    - [VISUAL_COMPARISON_MATRIX] { "columns": ["A","B"], "rows": [["x","y"],["m","n"]] }
+    - [VISUAL_CONCEPT_MAP] { "center": "", "branches": ["a","b","c"] }
+    - [VISUAL_RADAR] { "dimensions": ["d1","d2","d3"] }
+    - [VISUAL_HIERARCHY] { "root": "", "children": ["a","b","c"] }
+    - [VISUAL_NETWORK] { "nodes": [{"id":"","label":"","type":""}], "connections": [{"from":"","to":"","type":"","strength":""}] }
+    - [VISUAL_BAR_CHART] { "labels": ["l1","l2"], "values": [10, 20] }
+    - [VISUAL_QUADRANT] { "axesX": "", "axesY": "", "quadrants": [{"name":"","items":["a","b"]}] }
+    - [VISUAL_PIE_CHART] { "segments": [{"label":"","value": 40}] }
+    - [VISUAL_LINE_CHART] { "labels": ["p1","p2"], "values": [1,2] }
+    - [VISUAL_AREA_CHART] { "labels": ["p1","p2"], "values": [1,2] }
+    - [VISUAL_SCATTER_PLOT] { "points": [{"x": 10, "y": 20, "label": ""}], "xAxis": "", "yAxis": "" }
+    - [VISUAL_VENN] { "sets": [{"label":"","items":["a","b"]}], "intersection": ["x"] }
+    - [VISUAL_GANTT] { "tasks": [{"name":"","start": 10, "duration": 20, "status": ""}] }
+    - [VISUAL_FUNNEL] { "stages": [{"label":"","value": 100}] }
+    - [VISUAL_PYRAMID] { "levels": [{"label":"","description":""}] }
+    - [VISUAL_CYCLE] { "stages": ["a","b","c"] }
+    - [VISUAL_FISHBONE] { "effect": "", "causes": [{"category":"","items":["a","b"]}] }
+    - [VISUAL_SWOT] { "strengths":[], "weaknesses":[], "opportunities":[], "threats":[] }
+    - [VISUAL_SANKEY] { "flows": [{"from":"","to":"","value": 10}] }
+    - [VISUAL_TREEMAP] { "items": [{"label":"","value": 10}] }
+    - [VISUAL_HEATMAP] { "rows":["r1"], "cols":["c1"], "values": [[1]] }
+    - [VISUAL_BUBBLE] { "bubbles": [{"label":"","x": 30, "y": 50, "size": 6}] }
+    - [VISUAL_INFOGRAPHIC] { "title": "", "stats": [{"label":"","value":""}], "highlights": ["a","b"] }
+    - [VISUAL_STORYBOARD] { "scenes": [{"title":"","description":"","number": 1}] }
+    - [VISUAL_JOURNEY_MAP] { "stages": [{"name":"","touchpoints":["a"],"emotion":"positive"}] }
+    - [VISUAL_BAR_CHART_STACKED] { "labels":["l1"], "series":[[10],[5]], "seriesLabels":["A","B"] }
+    - [VISUAL_BAR_CHART_GROUPED] { "labels":["l1"], "series":[[10],[5]], "seriesLabels":["A","B"] }
+    - [VISUAL_GENERIC] { "note": "Only if a new visual type is required" }
     """
 
     // MARK: - Action Box Template

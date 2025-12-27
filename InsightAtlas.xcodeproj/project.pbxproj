@@ -11,6 +11,14 @@
 		3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */; };
 		48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */; };
 		65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */; };
+		A9D0E1F2A3B4C5D6E7F80103 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A9D0E1F2A3B4C5D6E7F80102 /* ZIPFoundation */; };
+		7A1B2C3D4E5F678901234581 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234580 /* XCTest.framework */; };
+		7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */; };
+		7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */; };
+		7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */; };
+		7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */; };
+		7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */; };
+		7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */; };
 		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
 		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
@@ -31,24 +39,14 @@
 		C21355B92EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355962EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf */; };
 		C21355BA2EE6360100B6662D /* Inter-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559E2EE6360100B6662D /* Inter-Variable.ttf */; };
 		C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */; };
-		C21355C02EE63B9400B6662D /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C21355BF2EE63B9400B6662D /* ZIPFoundation */; };
 		C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C12EE63E0800B6662D /* AnalysisComponents.swift */; };
 		C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */; };
 		C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C52EE63E3500B6662D /* AnalysisTheme.swift */; };
-		C240CEEE2EE5393F00C97BB8 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C240CEED2EE5393F00C97BB8 /* ZIPFoundation */; };
 		E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00002D000001007AAAAA /* InsightAtlasApp.swift */; };
 		E81A00032D000001007AAAAA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00022D000001007AAAAA /* ContentView.swift */; };
 		E81A00052D000001007AAAAA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E81A00042D000001007AAAAA /* Assets.xcassets */; };
 		E81A00062D000001007AAAAA /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E81A00072D000001007AAAAA /* Preview Assets.xcassets */; };
 		E81A00102D000002007AAAAA /* InsightAtlasPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */; };
-		E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */; };
-		7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */; };
-		7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */; };
-		7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */; };
-		7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */; };
-		7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */; };
-		7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */; };
-		7A1B2C3D4E5F678901234581 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234580 /* XCTest.framework */; };
 		E81A00122D000003007AAAAA /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00132D000003007AAAAA /* AIService.swift */; };
 		E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00152D000004007AAAAA /* BookProcessor.swift */; };
 		E81A00162D000005007AAAAA /* GuideModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00172D000005007AAAAA /* GuideModels.swift */; };
@@ -65,6 +63,8 @@
 		E81A002C2D000016007AAAAA /* InsightAtlasStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A002D2D000016007AAAAA /* InsightAtlasStyle.swift */; };
 		E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A002F2D000017007AAAAA /* QualityAuditService.swift */; };
 		E81A00302D000018007AAAAB /* RegenerateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00312D000018007AAAAB /* RegenerateView.swift */; };
+		E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */; };
+		E8THEMAT01F00000100ABCDE /* InsightAtlasThematicPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */; };
 		F1A10D85767648BCB0B41E5F /* PDFAnalysisDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */; };
 		IAAPI0001AAAAAAAAAAAAAA1 /* InsightAtlasAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */; };
 		IAAPI0003AAAAAAAAAAAAAA3 /* GenerateGuideRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0004AAAAAAAAAAAAAA4 /* GenerateGuideRequest.swift */; };
@@ -95,14 +95,34 @@
 		IAVISUAL001AAAAAAAAAA001 /* GuideVisual.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL002AAAAAAAAAA002 /* GuideVisual.swift */; };
 		IAVISUAL003AAAAAAAAAA003 /* GuideVisualType.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL004AAAAAAAAAA004 /* GuideVisualType.swift */; };
 		IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */; };
+		IAVISUALS02AAAAAAAAAA002 /* InsightVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */; };
 		IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */; };
 		IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKVW02AAA002 /* VoicePickerView.swift */; };
 		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		7A1B2C3D4E5F678901234582 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E81AFFF82D000001007AAAAA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E81AFFFA2D000001007AAAAA;
+			remoteInfo = InsightAtlas;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAnalysisDocument.swift; sourceTree = "<group>"; };
 		54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPDFRenderer.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F67890123456E /* InsightAtlasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InsightAtlasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A1B2C3D4E5F678901234580 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
+		7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessorTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderHierarchyTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainServiceTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixerTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorTests.swift; sourceTree = "<group>"; };
+		7A1B2C3D4E5F678901234596 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDiagramRenderer.swift; sourceTree = "<group>"; };
 		9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFStyleConfiguration.swift; sourceTree = "<group>"; };
 		9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFCoverPageRenderer.swift; sourceTree = "<group>"; };
@@ -140,16 +160,6 @@
 		E81A00072D000001007AAAAA /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		E81A00092D000001007AAAAA /* InsightAtlas.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InsightAtlas.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPrompt.swift; sourceTree = "<group>"; };
-		E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPatternLibrary.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceTests.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessorTests.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderHierarchyTests.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainServiceTests.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixerTests.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorTests.swift; sourceTree = "<group>"; };
-		7A1B2C3D4E5F678901234596 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		7A1B2C3D4E5F67890123456E /* InsightAtlasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InsightAtlasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		7A1B2C3D4E5F678901234580 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		E81A00132D000003007AAAAA /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
 		E81A00152D000004007AAAAA /* BookProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessor.swift; sourceTree = "<group>"; };
 		E81A00172D000005007AAAAA /* GuideModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideModels.swift; sourceTree = "<group>"; };
@@ -166,6 +176,8 @@
 		E81A002D2D000016007AAAAA /* InsightAtlasStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasStyle.swift; sourceTree = "<group>"; };
 		E81A002F2D000017007AAAAA /* QualityAuditService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualityAuditService.swift; sourceTree = "<group>"; };
 		E81A00312D000018007AAAAB /* RegenerateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegenerateView.swift; sourceTree = "<group>"; };
+		E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPatternLibrary.swift; sourceTree = "<group>"; };
+		E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasThematicPrompt.swift; sourceTree = "<group>"; };
 		IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasAPI.swift; sourceTree = "<group>"; };
 		IAAPI0004AAAAAAAAAAAAAA4 /* GenerateGuideRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateGuideRequest.swift; sourceTree = "<group>"; };
 		IAAPI0006AAAAAAAAAAAAAA6 /* GenerateGuideResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateGuideResponse.swift; sourceTree = "<group>"; };
@@ -195,21 +207,13 @@
 		IAVISUAL002AAAAAAAAAA002 /* GuideVisual.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisual.swift; sourceTree = "<group>"; };
 		IAVISUAL004AAAAAAAAAA004 /* GuideVisualType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisualType.swift; sourceTree = "<group>"; };
 		IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisualView.swift; sourceTree = "<group>"; };
+		IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisuals.swift; sourceTree = "<group>"; };
 		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
 		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		E81AFFFD2D000001007AAAAA /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C240CEEE2EE5393F00C97BB8 /* ZIPFoundation in Frameworks */,
-				C21355C02EE63B9400B6662D /* ZIPFoundation in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		7A1B2C3D4E5F67890123456C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -218,9 +222,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E81AFFFD2D000001007AAAAA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9D0E1F2A3B4C5D6E7F80103 /* ZIPFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		7A1B2C3D4E5F67890123456F /* InsightAtlasTests */ = {
+			isa = PBXGroup;
+			children = (
+				7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */,
+				7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */,
+				7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */,
+				7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */,
+				7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */,
+				7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */,
+				7A1B2C3D4E5F678901234596 /* Info.plist */,
+			);
+			path = InsightAtlasTests;
+			sourceTree = "<group>";
+		};
 		C092D0231E3E4446B1B094E3 /* PDFRenderer */ = {
 			isa = PBXGroup;
 			children = (
@@ -278,6 +304,14 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		C2BDBBB72EFCC9C300BE45F9 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				7A1B2C3D4E5F678901234580 /* XCTest.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		E81A00082D000001007AAAAA /* Preview Content */ = {
 			isa = PBXGroup;
 			children = (
@@ -299,6 +333,7 @@
 				E81A00272D000013007AAAAA /* InsightNoteView.swift */,
 				E81A00292D000014007AAAAA /* ExerciseView.swift */,
 				E81A002B2D000015007AAAAA /* VisualFrameworkView.swift */,
+				IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */,
 				E81A00312D000018007AAAAB /* RegenerateView.swift */,
 				IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */,
 				IAVOICEPKVW02AAA002 /* VoicePickerView.swift */,
@@ -311,6 +346,7 @@
 			children = (
 				C092D0231E3E4446B1B094E3 /* PDFRenderer */,
 				E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */,
+				E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */,
 				E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */,
 				E81A00132D000003007AAAAA /* AIService.swift */,
 				E81A00152D000004007AAAAA /* BookProcessor.swift */,
@@ -370,21 +406,8 @@
 				E81AFFF02D000001007AAAAA /* InsightAtlas */,
 				7A1B2C3D4E5F67890123456F /* InsightAtlasTests */,
 				E81AFFFE2D000001007AAAAA /* Products */,
+				C2BDBBB72EFCC9C300BE45F9 /* Recovered References */,
 			);
-			sourceTree = "<group>";
-		};
-		7A1B2C3D4E5F67890123456F /* InsightAtlasTests */ = {
-			isa = PBXGroup;
-			children = (
-				7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */,
-				7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */,
-				7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */,
-				7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */,
-				7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */,
-				7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */,
-				7A1B2C3D4E5F678901234596 /* Info.plist */,
-			);
-			path = InsightAtlasTests;
 			sourceTree = "<group>";
 		};
 		E81AFFFE2D000001007AAAAA /* Products */ = {
@@ -462,23 +485,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E81AFFFA2D000001007AAAAA /* InsightAtlas */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = E81A000A2D000001007AAAAA /* Build configuration list for PBXNativeTarget "InsightAtlas" */;
-			buildPhases = (
-				E81AFFFC2D000001007AAAAA /* Sources */,
-				E81AFFFD2D000001007AAAAA /* Frameworks */,
-				E81AFFFE2D000002007AAAAA /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = InsightAtlas;
-			productName = InsightAtlas;
-			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
-			productType = "com.apple.product-type.application";
-		};
 		7A1B2C3D4E5F678901234567 /* InsightAtlasTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7A1B2C3D4E5F678901234568 /* Build configuration list for PBXNativeTarget "InsightAtlasTests" */;
@@ -497,6 +503,26 @@
 			productReference = 7A1B2C3D4E5F67890123456E /* InsightAtlasTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		E81AFFFA2D000001007AAAAA /* InsightAtlas */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E81A000A2D000001007AAAAA /* Build configuration list for PBXNativeTarget "InsightAtlas" */;
+			buildPhases = (
+				E81AFFFC2D000001007AAAAA /* Sources */,
+				E81AFFFD2D000001007AAAAA /* Frameworks */,
+				E81AFFFE2D000002007AAAAA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = InsightAtlas;
+			packageProductDependencies = (
+				A9D0E1F2A3B4C5D6E7F80102 /* ZIPFoundation */,
+			);
+			productName = InsightAtlas;
+			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -507,10 +533,10 @@
 				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 2610;
 				TargetAttributes = {
-					E81AFFFA2D000001007AAAAA = {
+					7A1B2C3D4E5F678901234567 = {
 						CreatedOnToolsVersion = 15.0;
 					};
-					7A1B2C3D4E5F678901234567 = {
+					E81AFFFA2D000001007AAAAA = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -525,7 +551,7 @@
 			);
 			mainGroup = E81AFFF72D000001007AAAAA;
 			packageReferences = (
-				C240CEEC2EE5393F00C97BB8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				A9D0E1F2A3B4C5D6E7F80101 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			);
 			productRefGroup = E81AFFFE2D000001007AAAAA /* Products */;
 			projectDirPath = "";
@@ -538,6 +564,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		7A1B2C3D4E5F67890123456D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E81AFFFE2D000002007AAAAA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -565,16 +598,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		7A1B2C3D4E5F67890123456D /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		7A1B2C3D4E5F67890123456B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */,
+				7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E81AFFFC2D000001007AAAAA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -588,6 +627,7 @@
 				E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */,
 				E81A00032D000001007AAAAA /* ContentView.swift in Sources */,
 				E81A00102D000002007AAAAA /* InsightAtlasPrompt.swift in Sources */,
+				E8THEMAT01F00000100ABCDE /* InsightAtlasThematicPrompt.swift in Sources */,
 				E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */,
 				E81A00122D000003007AAAAA /* AIService.swift in Sources */,
 				E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */,
@@ -603,6 +643,7 @@
 				E81A00262D000013007AAAAA /* InsightNoteView.swift in Sources */,
 				E81A00282D000014007AAAAA /* ExerciseView.swift in Sources */,
 				E81A002A2D000015007AAAAA /* VisualFrameworkView.swift in Sources */,
+				IAVISUALS02AAAAAAAAAA002 /* InsightVisuals.swift in Sources */,
 				E81A002C2D000016007AAAAA /* InsightAtlasStyle.swift in Sources */,
 				E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */,
 				C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */,
@@ -644,19 +685,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		7A1B2C3D4E5F67890123456B /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */,
-				7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */,
-				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
-				7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */,
-				7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */,
-				7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -666,16 +694,6 @@
 			targetProxy = 7A1B2C3D4E5F678901234582 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXContainerItemProxy section */
-		7A1B2C3D4E5F678901234582 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E81AFFF82D000001007AAAAA /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E81AFFFA2D000001007AAAAA;
-			remoteInfo = InsightAtlas;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		7A1B2C3D4E5F678901234569 /* Debug */ = {
@@ -902,20 +920,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		E81A000A2D000001007AAAAA /* Build configuration list for PBXNativeTarget "InsightAtlas" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E81A000D2D000001007AAAAA /* Debug */,
-				E81A000E2D000001007AAAAA /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		7A1B2C3D4E5F678901234568 /* Build configuration list for PBXNativeTarget "InsightAtlasTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7A1B2C3D4E5F678901234569 /* Debug */,
 				7A1B2C3D4E5F67890123456A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E81A000A2D000001007AAAAA /* Build configuration list for PBXNativeTarget "InsightAtlas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E81A000D2D000001007AAAAA /* Debug */,
+				E81A000E2D000001007AAAAA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -932,7 +950,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		C240CEEC2EE5393F00C97BB8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+		A9D0E1F2A3B4C5D6E7F80101 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
 			requirement = {
@@ -943,13 +961,9 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		C21355BF2EE63B9400B6662D /* ZIPFoundation */ = {
+		A9D0E1F2A3B4C5D6E7F80102 /* ZIPFoundation */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = ZIPFoundation;
-		};
-		C240CEED2EE5393F00C97BB8 /* ZIPFoundation */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C240CEEC2EE5393F00C97BB8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			package = A9D0E1F2A3B4C5D6E7F80101 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
 			productName = ZIPFoundation;
 		};
 /* End XCSwiftPackageProductDependency section */

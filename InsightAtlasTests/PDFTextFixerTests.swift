@@ -5,10 +5,6 @@ final class PDFTextFixerTests: XCTestCase {
 
     var fixer: PDFTextFixer!
 
-    override func setUpWithError() throws {
-        throw XCTSkip("PDFTextFixer behavior is being revised; skipping until expectations are updated.")
-    }
-
     override func setUp() {
         super.setUp()
         fixer = PDFTextFixer(options: .all, typographyMode: .normalize)
@@ -142,7 +138,6 @@ final class PDFTextFixerTests: XCTestCase {
     // MARK: - QU Pattern Tests
 
     func testQUPatterns() throws {
-        throw XCTSkip("QU pattern expectations are being recalibrated to current fixer output.")
         XCTAssertEqual(fixer.fix(" uestion"), "question")
         XCTAssertEqual(fixer.fix(" uestions"), "questions")
         XCTAssertEqual(fixer.fix("re uire"), "require")
@@ -162,7 +157,6 @@ final class PDFTextFixerTests: XCTestCase {
     // MARK: - TH Pattern Tests
 
     func testTHPatterns() throws {
-        throw XCTSkip("TH pattern expectations are being recalibrated to current fixer output.")
         XCTAssertEqual(fixer.fix("Th is"), "This")
         XCTAssertEqual(fixer.fix("Th at"), "That")
         XCTAssertEqual(fixer.fix("Th e"), "The")
@@ -175,7 +169,6 @@ final class PDFTextFixerTests: XCTestCase {
     // MARK: - Protected Terms Tests
 
     func testProtectedTermsNotModified() throws {
-        throw XCTSkip("Protected-term behavior is being updated to reflect current ligature handling.")
         // Wi-Fi and variants should not be modified
         XCTAssertEqual(fixer.fix("Wi-Fi"), "Wi-Fi")
         XCTAssertEqual(fixer.fix("wi-fi"), "wi-fi")
@@ -199,7 +192,6 @@ final class PDFTextFixerTests: XCTestCase {
     // MARK: - Typography Normalization Tests
 
     func testTypographyNormalization() throws {
-        throw XCTSkip("Typography normalization expectations are being updated.")
         // Em dash to hyphen
         XCTAssertEqual(fixer.fix("Hello\u{2014}World"), "Hello-World")
 
@@ -220,7 +212,6 @@ final class PDFTextFixerTests: XCTestCase {
     // MARK: - Spacing Cleanup Tests
 
     func testSpacingCleanup() throws {
-        throw XCTSkip("Spacing cleanup expectations are being updated.")
         // Multiple spaces to single
         XCTAssertEqual(fixer.fix("multiple   spaces"), "multiple spaces")
         XCTAssertEqual(fixer.fix("too     many      spaces"), "too many spaces")
@@ -375,7 +366,6 @@ final class PDFTextFixerTests: XCTestCase {
     }
 
     func testMultilineText() throws {
-        throw XCTSkip("Multiline ligature expectations are being updated.")
         let input = """
         Th is is line one.
         Th at is line two.
@@ -439,7 +429,6 @@ final class PDFTextFixerTests: XCTestCase {
     }
 
     func testPreviewChangesEmpty() throws {
-        throw XCTSkip("Preview change counting expectations are being updated.")
         let input = "This is perfectly clean text with no issues."
         let preview = fixer.previewChanges(input)
 
@@ -525,7 +514,6 @@ final class PDFTextFixerTests: XCTestCase {
     }
 
     func testFrenchLigaturesDisabledByDefault() throws {
-        throw XCTSkip("French ligature defaults are being updated.")
         // Standard fixer without French option
         let standardFixer = PDFTextFixer(options: .standard, typographyMode: .normalize)
 

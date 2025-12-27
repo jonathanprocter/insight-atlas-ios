@@ -427,7 +427,7 @@ struct RegenerateView: View {
                         phase = .complete
                         isGenerating = false
                     }
-                } else if iterationCount < maxIterations {
+                } else if iterationCount < maxIterations && allowImprovementPass {
                     await MainActor.run {
                         phase = .improving
                     }
@@ -464,7 +464,7 @@ struct RegenerateView: View {
         var improvementHints: String? = nil
         var previousContentForImprovement: String? = nil
 
-        if let report = auditReport, iterationCount > 1, !currentContent.isEmpty {
+        if let report = auditReport, iterationCount > 1, !currentContent.isEmpty && allowImprovementPass {
             // This is an improvement iteration - pass previous content to enhance
             previousContentForImprovement = currentContent
             improvementHints = "Previous attempt scored \(report.overallScore)%. Please ensure you include:\n"
@@ -503,6 +503,11 @@ struct RegenerateView: View {
         )
 
         return result
+    }
+
+    private var allowImprovementPass: Bool {
+        selectedMode == .deepResearch ||
+        dataManager.userSettings.preferredSummaryType == .deepResearch
     }
 }
 

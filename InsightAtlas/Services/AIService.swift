@@ -1,7 +1,12 @@
 import Foundation
+import os.log
 
 /// Service for generating Insight Atlas guides using AI providers
 actor AIService {
+
+    // MARK: - Logging
+
+    private static let logger = Logger(subsystem: "com.insightatlas", category: "AIService")
 
     // MARK: - Properties
 
@@ -32,6 +37,91 @@ actor AIService {
     /// Delay between retry attempts (in seconds)
     private let retryDelay: UInt64 = 2_000_000_000 // 2 seconds in nanoseconds
 
+    /// Context window limits (approximate, leaving room for output)
+    /// Claude Sonnet: ~200K context, we reserve 64K for output
+    private let claudeContextLimit = 120_000
+    /// OpenAI GPT-4o: ~128K context, we reserve 16K for output
+    private let openaiContextLimit = 100_000
+
+    // MARK: - Token Estimation
+
+    /// Estimates token count for text using a simple heuristic.
+    /// Approximately 4 characters per token for English text.
+    /// This is a conservative estimate (actual may be lower).
+    func estimateTokenCount(for text: String) -> Int {
+        // Simple heuristic: ~4 chars per token for English
+        // More conservative than the actual ~3.5-4 ratio to avoid surprises
+        return max(1, text.count / 4)
+    }
+
+    /// Estimates total input tokens for a generation request.
+    /// Includes system prompt, user message, and book text.
+    func estimateInputTokens(
+        bookText: String,
+        title: String,
+        author: String,
+        settings: UserSettings
+    ) -> TokenEstimate {
+        let systemPrompt = InsightAtlasPromptGenerator.generatePrompt(
+            title: title,
+            author: author,
+            mode: settings.preferredMode,
+            tone: settings.preferredTone,
+            format: settings.preferredFormat
+        )
+
+        let userMessage = InsightAtlasPromptGenerator.generateUserMessage(
+            title: title,
+            author: author,
+            bookText: bookText,
+            format: settings.preferredFormat
+        )
+
+        let systemTokens = estimateTokenCount(for: systemPrompt)
+        let userTokens = estimateTokenCount(for: userMessage)
+        let totalTokens = systemTokens + userTokens
+
+        let contextLimit = settings.preferredProvider == .openai ? openaiContextLimit : claudeContextLimit
+
+        return TokenEstimate(
+            systemPromptTokens: systemTokens,
+            userMessageTokens: userTokens,
+            totalInputTokens: totalTokens,
+            contextLimit: contextLimit,
+            exceedsLimit: totalTokens > contextLimit,
+            utilizationPercent: Double(totalTokens) / Double(contextLimit) * 100
+        )
+    }
+
+    /// Validates that the input will fit within context limits.
+    /// Throws if the input is too large for the selected provider.
+    func validateInputSize(
+        bookText: String,
+        title: String,
+        author: String,
+        settings: UserSettings
+    ) throws {
+        let estimate = estimateInputTokens(
+            bookText: bookText,
+            title: title,
+            author: author,
+            settings: settings
+        )
+
+        if estimate.exceedsLimit {
+            throw AIServiceError.inputTooLarge(
+                estimatedTokens: estimate.totalInputTokens,
+                limit: estimate.contextLimit,
+                provider: settings.preferredProvider == .openai ? "OpenAI" : "Claude"
+            )
+        }
+
+        // Warn if utilization is very high (>80%)
+        if estimate.utilizationPercent > 80 {
+            Self.logger.warning("High context utilization: \(String(format: "%.1f", estimate.utilizationPercent))% for \(title)")
+        }
+    }
+
     // MARK: - Public Interface
 
     /// Generate an Insight Atlas guide using the specified provider
@@ -44,8 +134,20 @@ actor AIService {
         improvementHints: String? = nil,
         onChunk: @escaping (String) -> Void,
         onStatus: @escaping (GenerationStatus) -> Void,
-        onReset: (() -> Void)? = nil
+        onReset: (() -> Void)? = nil,
+        shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
+
+        // Pre-flight validation: check input size before making API call
+        // Skip for continuation/improvement requests which use smaller input
+        if previousContent == nil {
+            try validateInputSize(
+                bookText: bookText,
+                title: title,
+                author: author,
+                settings: settings
+            )
+        }
 
         switch settings.preferredProvider {
         case .claude:
@@ -60,7 +162,8 @@ actor AIService {
                 previousContent: previousContent,
                 improvementHints: improvementHints,
                 onChunk: onChunk,
-                onStatus: onStatus
+                onStatus: onStatus,
+                shouldTerminate: shouldTerminate
             )
 
         case .openai:
@@ -75,47 +178,43 @@ actor AIService {
                 previousContent: previousContent,
                 improvementHints: improvementHints,
                 onChunk: onChunk,
-                onStatus: onStatus
+                onStatus: onStatus,
+                shouldTerminate: shouldTerminate
             )
 
         case .both:
-            // Generate with both and combine (primary: Claude, secondary: OpenAI for verification)
-            let claudeResult = try await streamWithClaude(
-                text: bookText,
-                title: title,
-                author: author,
-                mode: settings.preferredMode,
-                tone: settings.preferredTone,
-                format: settings.preferredFormat,
-                apiKey: settings.claudeApiKey ?? "",
-                previousContent: previousContent,
-                improvementHints: improvementHints,
-                onChunk: onChunk,
-                onStatus: onStatus
-            )
-
-            let refinementHints = buildRefinementHints(baseHints: improvementHints)
-            onStatus(GenerationStatus(
-                phase: .addingInsights,
-                progress: 0.0,
-                wordCount: 0,
-                model: "OpenAI (Refining)"
-            ))
-            onReset?()
-
-            return try await streamWithOpenAI(
-                text: bookText,
-                title: title,
-                author: author,
-                mode: settings.preferredMode,
-                tone: settings.preferredTone,
-                format: settings.preferredFormat,
-                apiKey: settings.openaiApiKey ?? "",
-                previousContent: claudeResult,
-                improvementHints: refinementHints,
-                onChunk: onChunk,
-                onStatus: onStatus
-            )
+            // Primary on Claude, fallback to OpenAI only if Claude fails.
+            do {
+                return try await streamWithClaude(
+                    text: bookText,
+                    title: title,
+                    author: author,
+                    mode: settings.preferredMode,
+                    tone: settings.preferredTone,
+                    format: settings.preferredFormat,
+                    apiKey: settings.claudeApiKey ?? "",
+                    previousContent: previousContent,
+                    improvementHints: improvementHints,
+                    onChunk: onChunk,
+                    onStatus: onStatus,
+                    shouldTerminate: shouldTerminate
+                )
+            } catch {
+                return try await streamWithOpenAI(
+                    text: bookText,
+                    title: title,
+                    author: author,
+                    mode: settings.preferredMode,
+                    tone: settings.preferredTone,
+                    format: settings.preferredFormat,
+                    apiKey: settings.openaiApiKey ?? "",
+                    previousContent: previousContent,
+                    improvementHints: improvementHints,
+                    onChunk: onChunk,
+                    onStatus: onStatus,
+                    shouldTerminate: shouldTerminate
+                )
+            }
         }
     }
 
@@ -132,7 +231,8 @@ actor AIService {
         previousContent: String? = nil,
         improvementHints: String? = nil,
         onChunk: @escaping (String) -> Void,
-        onStatus: @escaping (GenerationStatus) -> Void
+        onStatus: @escaping (GenerationStatus) -> Void,
+        shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
 
         guard !apiKey.isEmpty else {
@@ -158,30 +258,47 @@ actor AIService {
 
         // Build the user message - either fresh generation or improvement iteration
         var userMessage: String
-        if let previous = previousContent, let hints = improvementHints {
-            // Improvement iteration: ask to enhance the existing content
-            userMessage = """
-            I previously generated the following Insight Atlas guide for "\(title)" by \(author), but it didn't meet quality requirements.
+        if let previous = previousContent {
+            if let hints = improvementHints {
+                // Improvement iteration: ask to enhance the existing content
+                userMessage = """
+                I previously generated the following Insight Atlas guide for "\(title)" by \(author), but it didn't meet quality requirements.
 
-            \(hints)
+                \(hints)
 
-            Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
+                Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
 
-            ---PREVIOUS GUIDE START---
-            \(previous)
-            ---PREVIOUS GUIDE END---
+                ---PREVIOUS GUIDE START---
+                \(previous)
+                ---PREVIOUS GUIDE END---
 
-            Generate an improved, complete guide that addresses all the missing elements while preserving the valuable insights already present.
-            """
+                Generate an improved, complete guide that addresses all the missing elements while preserving the valuable insights already present.
+                """
+            } else {
+                // Resume continuation: continue from the last sentence without repeating
+                userMessage = """
+                Continue the following Insight Atlas guide for "\(title)" by \(author) from exactly where it left off.
+                Do NOT repeat prior content. Preserve the existing structure and block markers.
+                Continue after the last sentence and complete any remaining sections.
+
+                ---PREVIOUS GUIDE START---
+                \(previous)
+                ---PREVIOUS GUIDE END---
+                """
+            }
         } else {
             userMessage = InsightAtlasPromptGenerator.generateUserMessage(
                 title: title,
                 author: author,
-                bookText: text
+                bookText: text,
+                format: format
             )
         }
 
-        var request = URLRequest(url: URL(string: claudeEndpoint)!)
+        guard let claudeURL = URL(string: claudeEndpoint) else {
+            throw AIServiceError.invalidURL(provider: "Claude")
+        }
+        var request = URLRequest(url: claudeURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
@@ -204,14 +321,29 @@ actor AIService {
         var fullText = ""
 
         for attempt in 1...maxRetryAttempts {
-            do {
-                fullText = try await performClaudeStream(
-                    request: request,
-                    onChunk: onChunk,
-                    onStatus: onStatus
-                )
+            if shouldTerminate?() == true {
                 return fullText
+            }
+            do {
+                fullText = ""
+                let trackingOnChunk: (String) -> Void = { chunk in
+                    fullText += chunk
+                    onChunk(chunk)
+                }
+                let streamed = try await performClaudeStream(
+                    request: request,
+                    onChunk: trackingOnChunk,
+                    onStatus: onStatus,
+                    shouldTerminate: shouldTerminate
+                )
+                return streamed
             } catch let error as URLError where isRetryableError(error) {
+                if shouldTerminate?() == true {
+                    return fullText
+                }
+                if !fullText.isEmpty {
+                    return fullText
+                }
                 lastError = error
                 if attempt < maxRetryAttempts {
                     onStatus(GenerationStatus(
@@ -223,6 +355,9 @@ actor AIService {
                     try await Task.sleep(nanoseconds: retryDelay * UInt64(attempt))
                 }
             } catch {
+                if shouldTerminate?() == true {
+                    return fullText
+                }
                 throw error
             }
         }
@@ -234,7 +369,8 @@ actor AIService {
     private func performClaudeStream(
         request: URLRequest,
         onChunk: @escaping (String) -> Void,
-        onStatus: @escaping (GenerationStatus) -> Void
+        onStatus: @escaping (GenerationStatus) -> Void,
+        shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
 
         let (asyncBytes, response) = try await urlSession.bytes(for: request)
@@ -255,22 +391,43 @@ actor AIService {
 
         var fullText = ""
         var wordCount = 0
+        var lastCharWasWhitespace = true
         var lastPhaseUpdate = 0
 
         for try await line in asyncBytes.lines {
+            if shouldTerminate?() == true {
+                asyncBytes.task.cancel()
+                return fullText
+            }
             if line.hasPrefix("data: ") {
                 let data = String(line.dropFirst(6))
 
                 if data == "[DONE]" { continue }
 
-                if let jsonData = data.data(using: .utf8),
-                   let event = try? JSONDecoder().decode(ClaudeStreamEvent.self, from: jsonData),
-                   let text = event.delta?.text {
+                guard let jsonData = data.data(using: .utf8) else {
+                    Self.logger.warning("Claude stream: Failed to convert line to UTF-8 data: \(data.prefix(100))")
+                    continue
+                }
+
+                do {
+                    let event = try JSONDecoder().decode(ClaudeStreamEvent.self, from: jsonData)
+
+                    // Handle different event types
+                    guard let text = event.delta?.text else {
+                        // Not all events have delta text (e.g., message_start, content_block_start)
+                        // This is normal, not an error
+                        continue
+                    }
+
+                    if shouldTerminate?() == true {
+                        asyncBytes.task.cancel()
+                        return fullText
+                    }
 
                     fullText += text
                     onChunk(text)
 
-                    wordCount = fullText.split(separator: " ").count
+                    updateWordCount(for: text, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
 
                     if wordCount > lastPhaseUpdate + 1000 {
                         lastPhaseUpdate = wordCount
@@ -284,6 +441,10 @@ actor AIService {
                             model: "Claude"
                         ))
                     }
+                } catch {
+                    // Log the decode error with context for debugging
+                    Self.logger.error("Claude stream: JSON decode failed - \(error.localizedDescription). Data: \(data.prefix(200))")
+                    // Continue processing - don't fail the entire stream for one bad event
                 }
             }
         }
@@ -311,7 +472,8 @@ actor AIService {
         previousContent: String? = nil,
         improvementHints: String? = nil,
         onChunk: @escaping (String) -> Void,
-        onStatus: @escaping (GenerationStatus) -> Void
+        onStatus: @escaping (GenerationStatus) -> Void,
+        shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
 
         guard !apiKey.isEmpty else {
@@ -337,30 +499,47 @@ actor AIService {
 
         // Build the user message - either fresh generation or improvement iteration
         var userMessage: String
-        if let previous = previousContent, let hints = improvementHints {
-            // Improvement iteration: ask to enhance the existing content
-            userMessage = """
-            I previously generated the following Insight Atlas guide for "\(title)" by \(author), but it didn't meet quality requirements.
+        if let previous = previousContent {
+            if let hints = improvementHints {
+                // Improvement iteration: ask to enhance the existing content
+                userMessage = """
+                I previously generated the following Insight Atlas guide for "\(title)" by \(author), but it didn't meet quality requirements.
 
-            \(hints)
+                \(hints)
 
-            Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
+                Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
 
-            ---PREVIOUS GUIDE START---
-            \(previous)
-            ---PREVIOUS GUIDE END---
+                ---PREVIOUS GUIDE START---
+                \(previous)
+                ---PREVIOUS GUIDE END---
 
-            Generate an improved, complete guide that addresses all the missing elements while preserving the valuable insights already present.
-            """
+                Generate an improved, complete guide that addresses all the missing elements while preserving the valuable insights already present.
+                """
+            } else {
+                // Resume continuation: continue from the last sentence without repeating
+                userMessage = """
+                Continue the following Insight Atlas guide for "\(title)" by \(author) from exactly where it left off.
+                Do NOT repeat prior content. Preserve the existing structure and block markers.
+                Continue after the last sentence and complete any remaining sections.
+
+                ---PREVIOUS GUIDE START---
+                \(previous)
+                ---PREVIOUS GUIDE END---
+                """
+            }
         } else {
             userMessage = InsightAtlasPromptGenerator.generateUserMessage(
                 title: title,
                 author: author,
-                bookText: text
+                bookText: text,
+                format: format
             )
         }
 
-        var request = URLRequest(url: URL(string: openaiEndpoint)!)
+        guard let openaiURL = URL(string: openaiEndpoint) else {
+            throw AIServiceError.invalidURL(provider: "OpenAI")
+        }
+        var request = URLRequest(url: openaiURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -382,14 +561,29 @@ actor AIService {
         var fullText = ""
 
         for attempt in 1...maxRetryAttempts {
-            do {
-                fullText = try await performOpenAIStream(
-                    request: request,
-                    onChunk: onChunk,
-                    onStatus: onStatus
-                )
+            if shouldTerminate?() == true {
                 return fullText
+            }
+            do {
+                fullText = ""
+                let trackingOnChunk: (String) -> Void = { chunk in
+                    fullText += chunk
+                    onChunk(chunk)
+                }
+                let streamed = try await performOpenAIStream(
+                    request: request,
+                    onChunk: trackingOnChunk,
+                    onStatus: onStatus,
+                    shouldTerminate: shouldTerminate
+                )
+                return streamed
             } catch let error as URLError where isRetryableError(error) {
+                if shouldTerminate?() == true {
+                    return fullText
+                }
+                if !fullText.isEmpty {
+                    return fullText
+                }
                 lastError = error
                 if attempt < maxRetryAttempts {
                     onStatus(GenerationStatus(
@@ -401,6 +595,9 @@ actor AIService {
                     try await Task.sleep(nanoseconds: retryDelay * UInt64(attempt))
                 }
             } catch {
+                if shouldTerminate?() == true {
+                    return fullText
+                }
                 throw error
             }
         }
@@ -412,7 +609,8 @@ actor AIService {
     private func performOpenAIStream(
         request: URLRequest,
         onChunk: @escaping (String) -> Void,
-        onStatus: @escaping (GenerationStatus) -> Void
+        onStatus: @escaping (GenerationStatus) -> Void,
+        shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
 
         let (asyncBytes, response) = try await urlSession.bytes(for: request)
@@ -427,24 +625,57 @@ actor AIService {
 
         var fullText = ""
         var wordCount = 0
+        var lastCharWasWhitespace = true
         var lastPhaseUpdate = 0
 
         for try await line in asyncBytes.lines {
+            if shouldTerminate?() == true {
+                asyncBytes.task.cancel()
+                return fullText
+            }
             if line.hasPrefix("data: ") {
                 let data = String(line.dropFirst(6))
 
                 if data == "[DONE]" { continue }
 
-                if let jsonData = data.data(using: .utf8),
-                   let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                   let choices = json["choices"] as? [[String: Any]],
-                   let delta = choices.first?["delta"] as? [String: Any],
-                   let content = delta["content"] as? String {
+                guard let jsonData = data.data(using: .utf8) else {
+                    Self.logger.warning("OpenAI stream: Failed to convert line to UTF-8 data: \(data.prefix(100))")
+                    continue
+                }
+
+                do {
+                    guard let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                        Self.logger.warning("OpenAI stream: Response is not a dictionary")
+                        continue
+                    }
+
+                    // Check for error responses
+                    if let error = json["error"] as? [String: Any],
+                       let message = error["message"] as? String {
+                        Self.logger.error("OpenAI stream: API error - \(message)")
+                        continue
+                    }
+
+                    guard let choices = json["choices"] as? [[String: Any]],
+                          let delta = choices.first?["delta"] as? [String: Any] else {
+                        // Some events don't have choices (e.g., stream start)
+                        continue
+                    }
+
+                    // Content may be nil for role-only deltas
+                    guard let content = delta["content"] as? String else {
+                        continue
+                    }
+
+                    if shouldTerminate?() == true {
+                        asyncBytes.task.cancel()
+                        return fullText
+                    }
 
                     fullText += content
                     onChunk(content)
 
-                    wordCount = fullText.split(separator: " ").count
+                    updateWordCount(for: content, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
 
                     if wordCount > lastPhaseUpdate + 1000 {
                         lastPhaseUpdate = wordCount
@@ -458,6 +689,9 @@ actor AIService {
                             model: "OpenAI"
                         ))
                     }
+                } catch {
+                    Self.logger.error("OpenAI stream: JSON parse failed - \(error.localizedDescription). Data: \(data.prefix(200))")
+                    // Continue processing - don't fail the entire stream for one bad event
                 }
             }
         }
@@ -473,6 +707,17 @@ actor AIService {
     }
 
     // MARK: - Helpers
+
+    private func updateWordCount(for chunk: String, currentCount: inout Int, lastCharWasWhitespace: inout Bool) {
+        for character in chunk {
+            if character.isWhitespace {
+                lastCharWasWhitespace = true
+            } else if lastCharWasWhitespace {
+                currentCount += 1
+                lastCharWasWhitespace = false
+            }
+        }
+    }
 
     private func buildRefinementHints(baseHints: String?) -> String {
         let formattingHints = """
@@ -524,16 +769,20 @@ actor AIService {
 
 enum AIServiceError: LocalizedError {
     case missingApiKey(provider: String)
+    case invalidURL(provider: String)
     case invalidResponse
     case apiError(statusCode: Int)
     case apiErrorWithBody(statusCode: Int, body: String)
     case streamError(message: String)
     case networkError(message: String)
+    case inputTooLarge(estimatedTokens: Int, limit: Int, provider: String)
 
     var errorDescription: String? {
         switch self {
         case .missingApiKey(let provider):
             return "\(provider) API key is missing. Please add it in Settings."
+        case .invalidURL(let provider):
+            return "\(provider) API endpoint URL is invalid."
         case .invalidResponse:
             return "Received an invalid response from the API."
         case .apiError(let statusCode):
@@ -551,6 +800,39 @@ enum AIServiceError: LocalizedError {
             return "Stream error: \(message)"
         case .networkError(let message):
             return "Network error: \(message). Please check your internet connection and try again."
+        case .inputTooLarge(let estimatedTokens, let limit, let provider):
+            let formatted = NumberFormatter.localizedString(from: NSNumber(value: estimatedTokens), number: .decimal)
+            let limitFormatted = NumberFormatter.localizedString(from: NSNumber(value: limit), number: .decimal)
+            return "This book is too large for \(provider) (~\(formatted) tokens, limit: \(limitFormatted)). Try a shorter book or switch to Claude for larger context."
         }
+    }
+}
+
+// MARK: - Token Estimation Models
+
+/// Represents an estimate of token usage for an AI request
+struct TokenEstimate {
+    /// Estimated tokens in the system prompt
+    let systemPromptTokens: Int
+
+    /// Estimated tokens in the user message (includes book text)
+    let userMessageTokens: Int
+
+    /// Total estimated input tokens
+    let totalInputTokens: Int
+
+    /// Context window limit for the provider
+    let contextLimit: Int
+
+    /// Whether the input exceeds the context limit
+    let exceedsLimit: Bool
+
+    /// Percentage of context window being used (0-100+)
+    let utilizationPercent: Double
+
+    /// Formatted string describing the estimate
+    var description: String {
+        let formatted = NumberFormatter.localizedString(from: NSNumber(value: totalInputTokens), number: .decimal)
+        return "~\(formatted) tokens (\(String(format: "%.0f", utilizationPercent))% of limit)"
     }
 }

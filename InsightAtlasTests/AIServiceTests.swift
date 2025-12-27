@@ -25,7 +25,10 @@ final class AIServiceTests: XCTestCase {
     // MARK: - API Key Validation Tests
 
     func testMissingClaudeApiKey() async {
-        let settings = UserSettings(preferredProvider: .claude)
+        // Create test settings
+        var settings = UserSettings()
+        settings.preferredProvider = .claude
+        
         // Clear any existing key
         KeychainService.shared.claudeApiKey = nil
 
@@ -54,7 +57,10 @@ final class AIServiceTests: XCTestCase {
     }
 
     func testMissingOpenAIApiKey() async {
-        let settings = UserSettings(preferredProvider: .openai)
+        // Create test settings
+        var settings = UserSettings()
+        settings.preferredProvider = .openai
+        
         // Clear any existing key
         KeychainService.shared.openaiApiKey = nil
 
