@@ -1,0 +1,190 @@
+/*
+  Localizable.strings
+  InsightAtlas
+
+  English (Base) localization
+*/
+
+// MARK: - Common
+
+"common.cancel" = "Cancel";
+"common.save" = "Save";
+"common.delete" = "Delete";
+"common.done" = "Done";
+"common.edit" = "Edit";
+"common.close" = "Close";
+"common.ok" = "OK";
+"common.error" = "Error";
+"common.success" = "Success";
+"common.loading" = "Loading...";
+"common.retry" = "Retry";
+"common.share" = "Share";
+"common.export" = "Export";
+
+// MARK: - Tab Bar
+
+"tabs.library" = "Library";
+"tabs.settings" = "Settings";
+
+// MARK: - Library View
+
+"library.title" = "Library";
+"library.searchPlaceholder" = "Search guides...";
+"library.empty.title" = "No Guides Yet";
+"library.empty.message" = "Import a PDF or EPUB to generate your first Insight Atlas guide.";
+"library.import.button" = "Import Book";
+"library.delete.confirm.title" = "Delete Guide";
+"library.delete.confirm.message" = "Are you sure you want to delete this guide? This action cannot be undone.";
+"library.item.pages" = "%d pages";
+"library.item.updated" = "Updated %@";
+
+// MARK: - Settings View
+
+"settings.title" = "Settings";
+"settings.section.generation" = "Generation";
+"settings.section.apiConfiguration" = "API Configuration";
+"settings.section.about" = "About & Support";
+
+"settings.aiProvider.title" = "AI Provider";
+"settings.aiProvider.subtitle" = "Choose your AI model";
+
+"settings.generationMode.title" = "Generation Mode";
+"settings.generationMode.subtitle" = "Standard or detailed";
+
+"settings.outputTone.title" = "Output Tone";
+"settings.outputTone.subtitle" = "Professional or accessible";
+
+"settings.defaultFormat.title" = "Default Format";
+"settings.defaultFormat.subtitle" = "Full guide or summary";
+
+"settings.manageApiKeys.title" = "Manage API Keys";
+
+"settings.about.title" = "About";
+"settings.about.version" = "Version %@";
+
+// MARK: - API Keys
+
+"settings.apiKeys.title" = "API Keys";
+"settings.apiKeys.bothConfigured" = "Claude & OpenAI configured";
+"settings.apiKeys.claudeConfigured" = "Claude configured";
+"settings.apiKeys.openaiConfigured" = "OpenAI configured";
+"settings.apiKeys.addKeys" = "Add your API keys";
+"settings.apiKeys.securityNote" = "Your API keys are stored securely in the iOS Keychain and are never sent to our servers.";
+"settings.apiKeys.claude.title" = "Claude API Key";
+"settings.apiKeys.claude.placeholder" = "sk-ant-...";
+"settings.apiKeys.openai.title" = "OpenAI API Key";
+"settings.apiKeys.openai.placeholder" = "sk-...";
+
+// MARK: - AI Providers
+
+"provider.claude" = "Claude";
+"provider.claude.description" = "Anthropic's most capable model";
+"provider.openai" = "OpenAI";
+"provider.openai.description" = "GPT-4 powered generation";
+"provider.both" = "Both";
+"provider.both.description" = "Generate with both providers";
+
+// MARK: - Generation Modes
+
+"mode.standard" = "Standard";
+"mode.standard.description" = "Balanced depth and length";
+"mode.detailed" = "Detailed";
+"mode.detailed.description" = "Comprehensive analysis";
+
+// MARK: - Tone Modes
+
+"tone.accessible" = "Accessible";
+"tone.accessible.description" = "Clear and approachable";
+"tone.professional" = "Professional";
+"tone.professional.description" = "Formal and academic";
+
+// MARK: - Output Formats
+
+"format.fullGuide" = "Full Guide";
+"format.fullGuide.description" = "Complete Insight Atlas guide";
+"format.summary" = "Summary";
+"format.summary.description" = "Condensed key points";
+
+// MARK: - Generation View
+
+"generation.title" = "Generating Guide";
+"generation.analyzing" = "Analyzing content...";
+"generation.structuring" = "Analyzing structure...";
+"generation.writing" = "Writing summary...";
+"generation.addingInsights" = "Adding insights...";
+"generation.finalizing" = "Finalizing content...";
+"generation.complete" = "Complete";
+"generation.error" = "Error";
+"generation.words" = "%d words";
+"generation.progress" = "%d%% complete";
+"generation.cancel" = "Cancel Generation";
+"generation.cancel.confirm.title" = "Cancel Generation?";
+"generation.cancel.confirm.message" = "Your progress will be lost.";
+
+// MARK: - Guide View
+
+"guide.title" = "Guide";
+"guide.regenerate" = "Regenerate";
+"guide.share" = "Share";
+"guide.export" = "Export";
+
+// MARK: - Export
+
+"export.title" = "Export Guide";
+"export.format.markdown" = "Markdown";
+"export.format.plainText" = "Plain Text";
+"export.format.html" = "HTML";
+"export.format.pdf" = "PDF";
+"export.format.docx" = "Word Document";
+"export.success" = "Guide exported successfully";
+"export.error" = "Failed to export guide";
+
+// MARK: - Errors
+
+"error.noContent" = "No content to export";
+"error.networkError" = "Network error occurred";
+"error.apiKeyMissing" = "Please configure your %@ API key in Settings";
+"error.invalidResponse" = "Invalid response from server";
+"error.processingFailed" = "Failed to process the document";
+"error.exportFailed" = "Export failed";
+
+// MARK: - Accessibility
+
+"accessibility.library.item" = "%@ by %@, %d pages";
+"accessibility.library.delete" = "Delete %@";
+"accessibility.library.search" = "Search library";
+"accessibility.library.searchHint" = "Double tap to search your guides";
+"accessibility.library.importHint" = "Double tap to import a PDF or EPUB book";
+"accessibility.library.itemHint" = "Double tap to view guide";
+"accessibility.library.deleteHint" = "Double tap to delete this guide";
+"accessibility.settings.apiKeyToggle" = "Toggle %@ API key visibility";
+"accessibility.generation.progress" = "Generation progress: %d percent";
+"accessibility.generation.cancelHint" = "Double tap to cancel guide generation";
+"accessibility.guide.section" = "Section %d: %@";
+"accessibility.guide.exportHint" = "Double tap to export this guide";
+"accessibility.guide.shareHint" = "Double tap to share this guide";
+"accessibility.guide.regenerateHint" = "Double tap to regenerate this guide";
+
+// MARK: - Analysis Components
+
+"analysis.quickGlance.title" = "Quick Glance";
+"analysis.quickGlance.readTime" = "%d min read";
+"analysis.insightNote.title" = "Insight Atlas Note";
+"analysis.actionBox.title" = "Apply It";
+"analysis.takeaways.title" = "Key Takeaways";
+"analysis.quote.title" = "Quote";
+"analysis.alternativePerspective.title" = "Alternative Perspective";
+"analysis.researchInsight.title" = "Research Insight";
+"analysis.visualGuide.title" = "Visual Guide";
+"analysis.referenceTable.title" = "Reference Table";
+"analysis.processTimeline.title" = "Process Timeline";
+"analysis.conceptMap.title" = "Concept Map";
+"analysis.exercise.title" = "Exercise";
+"analysis.foundationalNarrative.title" = "The Story Behind the Ideas";
+"analysis.structureMap.title" = "Structure Map";
+
+// MARK: - Brand
+
+"brand.name" = "Insight Atlas";
+"brand.tagline" = "Where Understanding Illuminates the World";
+"brand.taglineShort" = "Transform how you learn";

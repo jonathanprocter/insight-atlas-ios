@@ -13,11 +13,11 @@ actor AIService {
     private let claudeEndpoint = "https://api.anthropic.com/v1/messages"
     private let openaiEndpoint = "https://api.openai.com/v1/chat/completions"
 
-    private let claudeModel = "claude-sonnet-4-5-20250929"
-    private let openaiModel = "gpt-4o"
+    private let claudeModel = "claude-sonnet-4-20250514"  // Sonnet 4: 64K output, excellent quality
+    private let openaiModel = "gpt-4.1-2025-04-14"  // Latest GPT-4.1 with 1M context
 
-    private let maxTokensClaude = 64000
-    private let maxTokensOpenAI = 16000
+    private let maxTokensClaude = 64000  // Claude Sonnet 4 max output tokens
+    private let maxTokensOpenAI = 32768  // GPT-4.1 max output tokens
 
     /// Custom URLSession with extended timeouts for long-running AI generation
     private lazy var urlSession: URLSession = {
@@ -38,10 +38,10 @@ actor AIService {
     private let retryDelay: UInt64 = 2_000_000_000 // 2 seconds in nanoseconds
 
     /// Context window limits (approximate, leaving room for output)
-    /// Claude Sonnet: ~200K context, we reserve 64K for output
-    private let claudeContextLimit = 120_000
-    /// OpenAI GPT-4o: ~128K context, we reserve 16K for output
-    private let openaiContextLimit = 100_000
+    /// Claude Opus 4: 200K context, we reserve 20K for output (max_tokens)
+    private let claudeContextLimit = 180_000
+    /// OpenAI GPT-4.1: 1M context, we reserve 32K for output
+    private let openaiContextLimit = 500_000
 
     // MARK: - Token Estimation
 
@@ -81,7 +81,14 @@ actor AIService {
         let userTokens = estimateTokenCount(for: userMessage)
         let totalTokens = systemTokens + userTokens
 
-        let contextLimit = settings.preferredProvider == .openai ? openaiContextLimit : claudeContextLimit
+        // For tandem mode (.both), use OpenAI's limit since GPT-4.1 analyzes the full book first
+        let contextLimit: Int
+        switch settings.preferredProvider {
+        case .openai, .both:
+            contextLimit = openaiContextLimit
+        case .claude:
+            contextLimit = claudeContextLimit
+        }
 
         return TokenEstimate(
             systemPromptTokens: systemTokens,
@@ -109,10 +116,19 @@ actor AIService {
         )
 
         if estimate.exceedsLimit {
+            let providerName: String
+            switch settings.preferredProvider {
+            case .openai:
+                providerName = "OpenAI"
+            case .claude:
+                providerName = "Claude"
+            case .both:
+                providerName = "GPT-4.1"  // GPT handles the full book in tandem mode
+            }
             throw AIServiceError.inputTooLarge(
                 estimatedTokens: estimate.totalInputTokens,
                 limit: estimate.contextLimit,
-                provider: settings.preferredProvider == .openai ? "OpenAI" : "Claude"
+                provider: providerName
             )
         }
 
@@ -137,15 +153,25 @@ actor AIService {
         onReset: (() -> Void)? = nil,
         shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
+        let hasClaudeKey = !(settings.claudeApiKey ?? "").isEmpty
+        let hasOpenAIKey = !(settings.openaiApiKey ?? "").isEmpty
 
         // Pre-flight validation: check input size before making API call
         // Skip for continuation/improvement requests which use smaller input
         if previousContent == nil {
+            var validationSettings = settings
+            if settings.preferredProvider == .both {
+                if hasClaudeKey && !hasOpenAIKey {
+                    validationSettings.preferredProvider = .claude
+                } else if hasOpenAIKey && !hasClaudeKey {
+                    validationSettings.preferredProvider = .openai
+                }
+            }
             try validateInputSize(
                 bookText: bookText,
                 title: title,
                 author: author,
-                settings: settings
+                settings: validationSettings
             )
         }
 
@@ -183,8 +209,15 @@ actor AIService {
             )
 
         case .both:
-            // Primary on Claude, fallback to OpenAI only if Claude fails.
-            do {
+            // Dual Provider Mode (Optimized): GPT-4.1 analyzes full book (1M context), Claude synthesizes premium prose.
+            // This leverages GPT's massive context for comprehensive analysis and Claude's superior prose quality.
+
+            guard hasClaudeKey || hasOpenAIKey else {
+                throw AIServiceError.missingApiKey(provider: "Claude or OpenAI")
+            }
+
+            // If only one key available, use single-provider mode
+            if !hasOpenAIKey {
                 return try await streamWithClaude(
                     text: bookText,
                     title: title,
@@ -199,7 +232,9 @@ actor AIService {
                     onStatus: onStatus,
                     shouldTerminate: shouldTerminate
                 )
-            } catch {
+            }
+
+            if !hasClaudeKey {
                 return try await streamWithOpenAI(
                     text: bookText,
                     title: title,
@@ -215,6 +250,71 @@ actor AIService {
                     shouldTerminate: shouldTerminate
                 )
             }
+
+            // PHASE 1: GPT-4.1 Deep Analysis (leverages 1M context window)
+            // GPT analyzes the ENTIRE book and extracts:
+            // - Author metadata from title/copyright pages
+            // - Book structure and chapter organization
+            // - Core thesis and key arguments
+            // - Notable quotes with locations
+            // - Key concepts and frameworks
+            onStatus(GenerationStatus(
+                phase: .analyzing,
+                progress: 0.05,
+                wordCount: 0,
+                model: "GPT-4.1 (Phase 1/2 - Deep Analysis)"
+            ))
+
+            let gptAnalysis = try await performGPTAnalysis(
+                bookText: bookText,
+                title: title,
+                author: author,
+                apiKey: settings.openaiApiKey ?? "",
+                onStatus: { status in
+                    var adjusted = status
+                    adjusted.model = "GPT-4.1 (Phase 1/2 - Analysis)"
+                    adjusted.progress = status.progress * 0.25  // First 25% is analysis
+                    onStatus(adjusted)
+                },
+                shouldTerminate: shouldTerminate
+            )
+
+            if shouldTerminate?() == true {
+                return gptAnalysis
+            }
+
+            Self.logger.info("GPT-4.1 analysis complete: \(gptAnalysis.count) characters")
+
+            // PHASE 2: Claude Premium Synthesis (superior prose quality)
+            // Claude receives GPT's comprehensive analysis + condensed book text
+            // and generates the final premium editorial guide
+            onStatus(GenerationStatus(
+                phase: .writing,
+                progress: 0.30,
+                wordCount: 0,
+                model: "Claude (Phase 2/2 - Premium Synthesis)"
+            ))
+
+            let finalResult = try await streamWithClaudeUsingAnalysis(
+                bookText: bookText,
+                title: title,
+                author: author,
+                gptAnalysis: gptAnalysis,
+                mode: settings.preferredMode,
+                tone: settings.preferredTone,
+                format: settings.preferredFormat,
+                apiKey: settings.claudeApiKey ?? "",
+                onChunk: onChunk,
+                onStatus: { status in
+                    var adjusted = status
+                    adjusted.model = "Claude (Phase 2/2 - Synthesis)"
+                    adjusted.progress = 0.30 + (status.progress * 0.70)  // Last 70% is synthesis
+                    onStatus(adjusted)
+                },
+                shouldTerminate: shouldTerminate
+            )
+
+            return finalResult
         }
     }
 
@@ -260,11 +360,24 @@ actor AIService {
         var userMessage: String
         if let previous = previousContent {
             if let hints = improvementHints {
+                let bookContext: String
+                if text.isEmpty {
+                    bookContext = ""
+                } else {
+                    bookContext = """
+
+                    ---BOOK TEXT START---
+                    \(text)
+                    ---BOOK TEXT END---
+                    """
+                }
                 // Improvement iteration: ask to enhance the existing content
                 userMessage = """
                 I previously generated the following Insight Atlas guide for "\(title)" by \(author), but it didn't meet quality requirements.
 
                 \(hints)
+
+                \(bookContext)
 
                 Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
 
@@ -501,11 +614,24 @@ actor AIService {
         var userMessage: String
         if let previous = previousContent {
             if let hints = improvementHints {
+                let bookContext: String
+                if text.isEmpty {
+                    bookContext = ""
+                } else {
+                    bookContext = """
+
+                    ---BOOK TEXT START---
+                    \(text)
+                    ---BOOK TEXT END---
+                    """
+                }
                 // Improvement iteration: ask to enhance the existing content
                 userMessage = """
                 I previously generated the following Insight Atlas guide for "\(title)" by \(author), but it didn't meet quality requirements.
 
                 \(hints)
+
+                \(bookContext)
 
                 Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
 
@@ -706,6 +832,347 @@ actor AIService {
         return fullText
     }
 
+    // MARK: - Tandem Mode: GPT Analysis Phase
+
+    /// Phase 1 of tandem mode: GPT-4.1 performs deep analysis of the book
+    /// Leverages GPT's 1M context window to analyze the entire book
+    private func performGPTAnalysis(
+        bookText: String,
+        title: String,
+        author: String,
+        apiKey: String,
+        onStatus: @escaping (GenerationStatus) -> Void,
+        shouldTerminate: (() -> Bool)? = nil
+    ) async throws -> String {
+
+        guard !apiKey.isEmpty else {
+            throw AIServiceError.missingApiKey(provider: "OpenAI")
+        }
+
+        onStatus(GenerationStatus(
+            phase: .analyzing,
+            progress: 0.0,
+            wordCount: 0,
+            model: "GPT-4.1 (Deep Analysis)"
+        ))
+
+        let analysisPrompt = """
+        You are an expert book analyst preparing a comprehensive analysis for a guide writer.
+        Your analysis will be used by another AI to create a reader's guide.
+
+        CRITICAL: Start by extracting exact metadata from the document.
+
+        Analyze this book thoroughly and provide:
+
+        ## METADATA (EXTRACT FROM DOCUMENT - DO NOT SKIP)
+        **Author Name:** [Extract the EXACT author name from title page, copyright page, or "About the Author" section. If "\(author)" shows as "Unknown", you MUST find the real author name in the document.]
+        **Publication Year:** [Extract from copyright page, e.g., "Copyright © 2023"]
+        **Publisher:** [Extract from copyright page if available]
+        **Full Title:** [Include subtitle if present]
+
+        ## BOOK STRUCTURE
+        - List all chapters/sections with their titles and page ranges (if identifiable)
+        - Identify the book's organizational pattern (chronological, thematic, problem-solution, etc.)
+        - Note any unique structural elements (case studies, exercises, frameworks)
+
+        ## CORE THESIS & ARGUMENTS
+        - State the book's central thesis in 2-3 sentences (this should be quotable)
+        - List the 5-7 main arguments or key points the author makes
+        - Identify the primary evidence or support for each argument
+
+        ## KEY CONCEPTS & FRAMEWORKS
+        - List and briefly explain all major concepts, models, or frameworks introduced
+        - Note any proprietary terminology the author uses (use their exact names)
+        - Identify relationships between concepts
+
+        ## NOTABLE QUOTES & PASSAGES
+        - Extract 8-12 of the most impactful quotes (with chapter/section location if possible)
+        - Note any recurring phrases or mantras the author emphasizes
+        - Include the quote text exactly as written
+
+        ## AUTHOR'S PERSPECTIVE
+        - Identify the author's background/credentials as presented in the book
+        - Note their philosophical or methodological approach
+        - Identify any biases or limitations acknowledged
+
+        ## TARGET AUDIENCE & APPLICATIONS
+        - Who is this book written for?
+        - What problems does it solve?
+        - What are the practical applications?
+
+        ## THEMATIC PATTERNS
+        - Identify recurring themes throughout the book
+        - Note any narrative arcs or progression of ideas
+        - Identify the emotional journey the reader is taken on
+
+        ## CRITICAL INSIGHTS
+        - What makes this book unique or valuable?
+        - What are its strongest contributions?
+        - Any notable weaknesses or gaps?
+
+        Be thorough and specific. Include chapter references or section locations where possible.
+        The METADATA section is CRITICAL - the guide writer needs accurate author and publication info.
+        """
+
+        guard let openaiURL = URL(string: openaiEndpoint) else {
+            throw AIServiceError.invalidURL(provider: "OpenAI")
+        }
+
+        var request = URLRequest(url: openaiURL)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let requestBody: [String: Any] = [
+            "model": openaiModel,
+            "max_tokens": maxTokensOpenAI,
+            "stream": false,  // Non-streaming for analysis phase
+            "messages": [
+                ["role": "system", "content": analysisPrompt],
+                ["role": "user", "content": """
+                    Please analyze the following book:
+
+                    Title: \(title)
+                    Author: \(author)
+
+                    ---BOOK CONTENT START---
+                    \(bookText)
+                    ---BOOK CONTENT END---
+
+                    Provide your comprehensive analysis following the structure outlined.
+                    """]
+            ]
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        // Non-streaming request for analysis
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AIServiceError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw AIServiceError.apiErrorWithBody(statusCode: httpResponse.statusCode, body: errorBody)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let content = message["content"] as? String else {
+            throw AIServiceError.invalidResponse
+        }
+
+        Self.logger.info("GPT Analysis complete: \(content.count) characters")
+
+        onStatus(GenerationStatus(
+            phase: .analyzing,
+            progress: 1.0,
+            wordCount: content.split(separator: " ").count,
+            model: "GPT-4.1 (Analysis Complete)"
+        ))
+
+        return content
+    }
+
+    // MARK: - Tandem Mode: Claude Synthesis Phase
+
+    /// Phase 2 of tandem mode: Claude synthesizes the guide using GPT's analysis
+    /// Receives condensed book content + comprehensive GPT analysis
+    private func streamWithClaudeUsingAnalysis(
+        bookText: String,
+        title: String,
+        author: String,
+        gptAnalysis: String,
+        mode: GenerationMode,
+        tone: ToneMode,
+        format: OutputFormat,
+        apiKey: String,
+        onChunk: @escaping (String) -> Void,
+        onStatus: @escaping (GenerationStatus) -> Void,
+        shouldTerminate: (() -> Bool)? = nil
+    ) async throws -> String {
+
+        guard !apiKey.isEmpty else {
+            throw AIServiceError.missingApiKey(provider: "Claude")
+        }
+
+        onStatus(GenerationStatus(
+            phase: .writing,
+            progress: 0.0,
+            wordCount: 0,
+            model: "Claude (Synthesis)"
+        ))
+
+        // Generate the standard system prompt for guide creation
+        let baseSystemPrompt = InsightAtlasPromptGenerator.generatePrompt(
+            title: title,
+            author: author,
+            mode: mode,
+            tone: tone,
+            format: format
+        )
+
+        // Enhance with analysis context
+        let systemPrompt = """
+        \(baseSystemPrompt)
+
+        IMPORTANT: You have been provided with a comprehensive analysis of this book performed by GPT-4.1.
+        Use this analysis to inform and enrich your guide. The analysis includes:
+        - Detailed chapter structure and organization
+        - Core thesis and arguments with supporting evidence
+        - Key concepts, frameworks, and terminology
+        - Notable quotes and passages
+        - Author perspective and methodology
+        - Target audience and applications
+        - Thematic patterns and critical insights
+
+        Integrate these insights throughout your guide. Reference specific concepts and quotes from the analysis.
+        Create a guide that demonstrates deep understanding of the book's content and structure.
+        """
+
+        // Condense book text to fit within Claude's context while keeping key parts
+        // Claude's total context is 200K. We need: input tokens + max_tokens (output) <= 200K
+        // So available input = 200K - 64K (max_tokens) = 136K tokens
+        // Reserve space for: system prompt + GPT analysis + user message wrapper + safety margin
+        let totalContextLimit = 200_000  // Claude's actual context window
+        let availableForInput = totalContextLimit - maxTokensClaude  // 200K - 64K = 136K
+        let systemPromptTokens = estimateTokenCount(for: systemPrompt)
+        let gptAnalysisTokens = estimateTokenCount(for: gptAnalysis)
+        let messageOverhead = 2000  // Buffer for user message wrapper text
+        let safetyMargin = 5000  // Extra safety margin
+
+        let maxBookTokens = max(0, availableForInput - systemPromptTokens - gptAnalysisTokens - messageOverhead - safetyMargin)
+        Self.logger.info("Claude synthesis budget: \(maxBookTokens) tokens for book (available: \(availableForInput), prompt: \(systemPromptTokens), analysis: \(gptAnalysisTokens))")
+
+        let condensedBook = condenseBookText(bookText, maxTokens: maxBookTokens)
+
+        let userMessage = """
+        Create a comprehensive Insight Atlas guide for this book.
+
+        ## GPT-4.1 BOOK ANALYSIS
+        The following comprehensive analysis was performed by GPT-4.1 with access to the COMPLETE book:
+
+        \(gptAnalysis)
+
+        ## BOOK CONTENT
+        Title: \(title)
+        Author: \(author)
+
+        \(condensedBook)
+
+        ---
+
+        CRITICAL INSTRUCTIONS:
+
+        1. **METADATA FIRST**: Check the GPT analysis for the METADATA section. If it contains an author name different from "\(author)" (especially if "\(author)" is "Unknown"), USE THE AUTHOR NAME FROM THE ANALYSIS throughout your guide.
+
+        2. **QUICK GLANCE**: Use the extracted author name and publication year in the Quick Glance header. Extract SPECIFIC key insights from the "Core Thesis & Arguments" and "Key Concepts" sections of the analysis.
+
+        3. **QUOTES**: The analysis includes notable quotes with locations - incorporate these with proper attribution.
+
+        4. **STRUCTURE**: Follow the book structure identified in the analysis to organize your synthesis thematically.
+
+        5. **TERMINOLOGY**: Use the author's actual terminology and framework names as documented in the "Key Concepts & Frameworks" section.
+
+        Create a complete Insight Atlas guide that demonstrates deep understanding of the book's content and structure.
+        """
+
+        guard let claudeURL = URL(string: claudeEndpoint) else {
+            throw AIServiceError.invalidURL(provider: "Claude")
+        }
+
+        var request = URLRequest(url: claudeURL)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+
+        let requestBody = ClaudeRequest(
+            model: claudeModel,
+            max_tokens: maxTokensClaude,
+            stream: true,
+            system: systemPrompt,
+            messages: [
+                ClaudeMessage(role: "user", content: userMessage)
+            ]
+        )
+
+        request.httpBody = try JSONEncoder().encode(requestBody)
+
+        return try await performClaudeStream(
+            request: request,
+            onChunk: onChunk,
+            onStatus: onStatus,
+            shouldTerminate: shouldTerminate
+        )
+    }
+
+    /// Condenses book text to fit within token limits while preserving key content
+    private func condenseBookText(_ text: String, maxTokens: Int) -> String {
+        guard maxTokens > 0 else {
+            return ""
+        }
+        let currentTokens = estimateTokenCount(for: text)
+
+        if currentTokens <= maxTokens {
+            return text
+        }
+
+        // Need to condense - keep beginning, important middle sections, and end
+        let targetChars = maxTokens * 4  // ~4 chars per token
+
+        // Strategy: Keep first 40%, sample middle 30%, keep last 30%
+        let firstPortion = Int(Double(targetChars) * 0.4)
+        let lastPortion = Int(Double(targetChars) * 0.3)
+        let middlePortion = targetChars - firstPortion - lastPortion
+
+        let textLength = text.count
+
+        // Get first portion
+        let firstEndIndex = text.index(text.startIndex, offsetBy: min(firstPortion, textLength))
+        let firstPart = String(text[text.startIndex..<firstEndIndex])
+
+        // Get last portion
+        let lastStartOffset = max(0, textLength - lastPortion)
+        let lastStartIndex = text.index(text.startIndex, offsetBy: lastStartOffset)
+        let lastPart = String(text[lastStartIndex..<text.endIndex])
+
+        // Sample from middle
+        let middleStart = firstPortion
+        let middleEnd = textLength - lastPortion
+        var middlePart = ""
+
+        if middleEnd > middleStart && middlePortion > 0 {
+            // Sample evenly from the middle section
+            let middleRange = middleEnd - middleStart
+            let sampleSize = min(middlePortion, middleRange)
+            let sampleStart = middleStart + (middleRange - sampleSize) / 2
+
+            let sampleStartIndex = text.index(text.startIndex, offsetBy: sampleStart)
+            let sampleEndIndex = text.index(sampleStartIndex, offsetBy: sampleSize)
+            middlePart = String(text[sampleStartIndex..<sampleEndIndex])
+        }
+
+        let condensedText = """
+        \(firstPart)
+
+        [...content condensed for context limits - GPT analysis above contains full book analysis...]
+
+        \(middlePart)
+
+        [...additional content condensed...]
+
+        \(lastPart)
+        """
+
+        Self.logger.info("Condensed book from \(textLength) to \(condensedText.count) characters for Claude")
+
+        return condensedText
+    }
+
     // MARK: - Helpers
 
     private func updateWordCount(for chunk: String, currentCount: inout Int, lastCharWasWhitespace: inout Bool) {
@@ -717,20 +1184,6 @@ actor AIService {
                 lastCharWasWhitespace = false
             }
         }
-    }
-
-    private func buildRefinementHints(baseHints: String?) -> String {
-        let formattingHints = """
-        Refine formatting and structural consistency:
-        - Ensure all block markers are properly opened/closed
-        - Keep headings and visual tags in the correct order
-        - Preserve all substantive content while improving clarity
-        - Fix any malformed Markdown/HTML tags
-        """
-        if let base = baseHints, !base.isEmpty {
-            return base + "\n\n" + formattingHints
-        }
-        return formattingHints
     }
 
     private func determinePhase(wordCount: Int) -> GenerationPhase {
@@ -803,7 +1256,10 @@ enum AIServiceError: LocalizedError {
         case .inputTooLarge(let estimatedTokens, let limit, let provider):
             let formatted = NumberFormatter.localizedString(from: NSNumber(value: estimatedTokens), number: .decimal)
             let limitFormatted = NumberFormatter.localizedString(from: NSNumber(value: limit), number: .decimal)
-            return "This book is too large for \(provider) (~\(formatted) tokens, limit: \(limitFormatted)). Try a shorter book or switch to Claude for larger context."
+            let suggestion = provider == "Claude"
+                ? "Try a shorter book, or contact support for extended context options."
+                : "Try a shorter book or switch to Claude for larger context."
+            return "This book is too large for \(provider) (~\(formatted) tokens, limit: \(limitFormatted)). \(suggestion)"
         }
     }
 }

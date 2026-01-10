@@ -153,7 +153,7 @@ final class ElevenLabsAudioService {
     private enum Constants {
         static let baseURL = "https://api.elevenlabs.io/v1"
         static let textToSpeechPath = "/text-to-speech"
-        static let maxTextLength = 5000 // Characters per request
+        static let maxChunkLength = 4500 // Characters per request (with buffer for safety)
         static let requestTimeout: TimeInterval = 60
     }
 
@@ -181,15 +181,16 @@ final class ElevenLabsAudioService {
 
     // MARK: - Public Methods
 
-    /// Generate audio from text using ElevenLabs TTS with automatic retry for transient failures
+    /// Generate audio from text using ElevenLabs TTS with automatic retry for transient failures.
+    /// Handles long text by splitting into chunks and concatenating the audio.
     ///
     /// - Parameters:
-    ///   - text: Text to convert to speech
+    ///   - text: Text to convert to speech (no length limit - will be chunked automatically)
     ///   - voiceID: ElevenLabs voice ID
     ///   - settings: Optional voice settings (defaults to narration settings)
     ///   - modelID: Optional model ID (defaults to multilingual v2)
     ///   - retryOnTransientFailure: Whether to retry on transient failures (default: true)
-    /// - Returns: Generated audio data
+    /// - Returns: Generated audio data (concatenated if text was chunked)
     /// - Throws: `ElevenLabsAudioError` if generation fails after all retries
     func generateAudio(
         text: String,
@@ -198,21 +199,173 @@ final class ElevenLabsAudioService {
         modelID: String = AudioGenerationRequest.defaultModel,
         retryOnTransientFailure: Bool = true
     ) async throws -> GeneratedAudio {
-        if retryOnTransientFailure {
-            return try await generateAudioWithRetry(
-                text: text,
-                voiceID: voiceID,
-                settings: settings,
-                modelID: modelID
-            )
-        } else {
-            return try await performAudioGeneration(
-                text: text,
-                voiceID: voiceID,
-                settings: settings,
-                modelID: modelID
-            )
+        // Split text into chunks if needed
+        let chunks = splitTextIntoChunks(text)
+
+        // If only one chunk, generate directly
+        if chunks.count == 1 {
+            if retryOnTransientFailure {
+                return try await generateAudioWithRetry(
+                    text: chunks[0],
+                    voiceID: voiceID,
+                    settings: settings,
+                    modelID: modelID
+                )
+            } else {
+                return try await performAudioGeneration(
+                    text: chunks[0],
+                    voiceID: voiceID,
+                    settings: settings,
+                    modelID: modelID
+                )
+            }
         }
+
+        // Generate audio for each chunk and concatenate
+        var allAudioData = Data()
+        var totalDuration: TimeInterval = 0
+        var totalCharacters = 0
+
+        for (index, chunk) in chunks.enumerated() {
+            print("[ElevenLabsAudioService] Generating audio chunk \(index + 1)/\(chunks.count) (\(chunk.count) chars)")
+
+            let chunkAudio: GeneratedAudio
+            if retryOnTransientFailure {
+                chunkAudio = try await generateAudioWithRetry(
+                    text: chunk,
+                    voiceID: voiceID,
+                    settings: settings,
+                    modelID: modelID
+                )
+            } else {
+                chunkAudio = try await performAudioGeneration(
+                    text: chunk,
+                    voiceID: voiceID,
+                    settings: settings,
+                    modelID: modelID
+                )
+            }
+
+            allAudioData.append(chunkAudio.data)
+            totalDuration += chunkAudio.duration
+            totalCharacters += chunkAudio.characterCount
+        }
+
+        print("[ElevenLabsAudioService] Generated \(chunks.count) chunks, total duration: \(String(format: "%.1f", totalDuration))s")
+
+        return GeneratedAudio(
+            data: allAudioData,
+            duration: totalDuration,
+            characterCount: totalCharacters,
+            voiceID: voiceID
+        )
+    }
+
+    /// Split text into chunks that respect sentence boundaries
+    private func splitTextIntoChunks(_ text: String) -> [String] {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // If text fits in one chunk, return as-is
+        if trimmedText.count <= Constants.maxChunkLength {
+            return [trimmedText]
+        }
+
+        var chunks: [String] = []
+        var currentChunk = ""
+
+        // Split by sentences (period, exclamation, question mark followed by space or end)
+        let sentencePattern = #"[^.!?]*[.!?]+"#
+        let regex = try? NSRegularExpression(pattern: sentencePattern, options: [])
+        let range = NSRange(trimmedText.startIndex..., in: trimmedText)
+
+        var sentences: [String] = []
+        regex?.enumerateMatches(in: trimmedText, options: [], range: range) { match, _, _ in
+            if let matchRange = match?.range, let swiftRange = Range(matchRange, in: trimmedText) {
+                sentences.append(String(trimmedText[swiftRange]).trimmingCharacters(in: .whitespaces))
+            }
+        }
+
+        // If regex failed or no sentences found, fall back to simple splitting
+        if sentences.isEmpty {
+            sentences = trimmedText.components(separatedBy: ". ").map { $0 + "." }
+        }
+
+        for sentence in sentences {
+            // If adding this sentence would exceed the limit
+            if currentChunk.count + sentence.count + 1 > Constants.maxChunkLength {
+                // Save current chunk if not empty
+                if !currentChunk.isEmpty {
+                    chunks.append(currentChunk.trimmingCharacters(in: .whitespaces))
+                }
+
+                // If single sentence is too long, split it by clauses or words
+                if sentence.count > Constants.maxChunkLength {
+                    let subChunks = splitLongSentence(sentence)
+                    chunks.append(contentsOf: subChunks.dropLast())
+                    currentChunk = subChunks.last ?? ""
+                } else {
+                    currentChunk = sentence
+                }
+            } else {
+                if currentChunk.isEmpty {
+                    currentChunk = sentence
+                } else {
+                    currentChunk += " " + sentence
+                }
+            }
+        }
+
+        // Don't forget the last chunk
+        if !currentChunk.trimmingCharacters(in: .whitespaces).isEmpty {
+            chunks.append(currentChunk.trimmingCharacters(in: .whitespaces))
+        }
+
+        return chunks
+    }
+
+    /// Split a very long sentence into smaller parts
+    private func splitLongSentence(_ sentence: String) -> [String] {
+        var chunks: [String] = []
+        var currentChunk = ""
+
+        // Try splitting by commas, semicolons, or colons first
+        let clauseDelimiters = CharacterSet(charactersIn: ",;:")
+        let clauses = sentence.components(separatedBy: clauseDelimiters)
+
+        for clause in clauses {
+            let trimmedClause = clause.trimmingCharacters(in: .whitespaces)
+            if trimmedClause.isEmpty { continue }
+
+            if currentChunk.count + trimmedClause.count + 2 > Constants.maxChunkLength {
+                if !currentChunk.isEmpty {
+                    chunks.append(currentChunk.trimmingCharacters(in: .whitespaces))
+                }
+
+                // If clause itself is too long, split by words
+                if trimmedClause.count > Constants.maxChunkLength {
+                    let words = trimmedClause.split(separator: " ")
+                    currentChunk = ""
+                    for word in words {
+                        if currentChunk.count + word.count + 1 > Constants.maxChunkLength {
+                            chunks.append(currentChunk.trimmingCharacters(in: .whitespaces))
+                            currentChunk = String(word)
+                        } else {
+                            currentChunk += (currentChunk.isEmpty ? "" : " ") + word
+                        }
+                    }
+                } else {
+                    currentChunk = trimmedClause
+                }
+            } else {
+                currentChunk += (currentChunk.isEmpty ? "" : ", ") + trimmedClause
+            }
+        }
+
+        if !currentChunk.trimmingCharacters(in: .whitespaces).isEmpty {
+            chunks.append(currentChunk.trimmingCharacters(in: .whitespaces))
+        }
+
+        return chunks.isEmpty ? [sentence] : chunks
     }
 
     /// Generate audio with automatic retry for transient failures
@@ -279,7 +432,8 @@ final class ElevenLabsAudioService {
         }
     }
 
-    /// Perform the actual audio generation request
+    /// Perform the actual audio generation request for a single chunk
+    /// Note: Text should already be chunked to fit within maxChunkLength by the caller
     private func performAudioGeneration(
         text: String,
         voiceID: String,
@@ -296,8 +450,10 @@ final class ElevenLabsAudioService {
             throw ElevenLabsAudioError.invalidVoiceID
         }
 
-        // Truncate text if too long (ElevenLabs has character limits)
-        let truncatedText = String(text.prefix(Constants.maxTextLength))
+        // Text should already be chunked by generateAudio(), but ensure we don't exceed limits
+        let textToSend = text.count > Constants.maxChunkLength
+            ? String(text.prefix(Constants.maxChunkLength))
+            : text
 
         // Build request
         guard let url = URL(string: "\(Constants.baseURL)\(Constants.textToSpeechPath)/\(voiceID)") else {
@@ -313,7 +469,7 @@ final class ElevenLabsAudioService {
 
         // Build request body
         let body: [String: Any] = [
-            "text": truncatedText,
+            "text": textToSend,
             "model_id": modelID,
             "voice_settings": [
                 "stability": settings.stability,
@@ -345,12 +501,12 @@ final class ElevenLabsAudioService {
                 throw ElevenLabsAudioError.audioDecodingFailed
             }
 
-            let duration = calculateAudioDuration(from: data, characterCount: truncatedText.count)
+            let duration = calculateAudioDuration(from: data, characterCount: textToSend.count)
 
             return GeneratedAudio(
                 data: data,
                 duration: duration,
-                characterCount: truncatedText.count,
+                characterCount: textToSend.count,
                 voiceID: voiceID
             )
 
@@ -533,12 +689,16 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
 
     // MARK: - Playback
 
+    /// Current playback speed rate
+    private var currentRate: Float = 1.0
+
     /// Play generated audio
     ///
     /// - Parameters:
     ///   - audio: Generated audio data
+    ///   - rate: Playback speed (0.5 to 2.0)
     ///   - completion: Called when playback completes
-    func play(_ audio: GeneratedAudio, completion: (() -> Void)? = nil) throws {
+    func play(_ audio: GeneratedAudio, rate: Float = 1.0, completion: (() -> Void)? = nil) throws {
         guard !audio.data.isEmpty else {
             completion?()
             return
@@ -553,13 +713,35 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
         // Create player
         audioPlayer = try AVAudioPlayer(data: audio.data)
         audioPlayer?.delegate = self
+        audioPlayer?.enableRate = true
+        audioPlayer?.rate = max(0.5, min(2.0, rate)) // Clamp to valid range
+        currentRate = audioPlayer?.rate ?? 1.0
         completionHandler = completion
 
         audioPlayer?.play()
     }
 
+    /// Set playback speed
+    ///
+    /// - Parameter rate: Playback speed (0.5 to 2.0)
+    func setPlaybackRate(_ rate: Float) {
+        let clampedRate = max(0.5, min(2.0, rate))
+        currentRate = clampedRate
+        audioPlayer?.rate = clampedRate
+    }
+
+    /// Get current playback rate
+    var playbackRate: Float {
+        currentRate
+    }
+
     /// Play audio from a file URL
-    func playFile(at url: URL, completion: (() -> Void)? = nil) throws {
+    ///
+    /// - Parameters:
+    ///   - url: File URL to play
+    ///   - rate: Playback speed (0.5 to 2.0)
+    ///   - completion: Called when playback completes
+    func playFile(at url: URL, rate: Float = 1.0, completion: (() -> Void)? = nil) throws {
         // Stop any existing playback
         stop()
 
@@ -568,8 +750,78 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
 
         audioPlayer = try AVAudioPlayer(contentsOf: url)
         audioPlayer?.delegate = self
+        audioPlayer?.enableRate = true
+        audioPlayer?.rate = max(0.5, min(2.0, rate))
+        currentRate = audioPlayer?.rate ?? 1.0
         completionHandler = completion
         audioPlayer?.play()
+    }
+
+    // MARK: - Audio Export
+
+    /// Export audio data to a file in the Documents directory
+    ///
+    /// - Parameters:
+    ///   - audio: Generated audio data
+    ///   - filename: Desired filename (without extension)
+    /// - Returns: URL of the exported file
+    func exportAudio(_ audio: GeneratedAudio, filename: String) throws -> URL {
+        guard !audio.data.isEmpty else {
+            throw ElevenLabsAudioError.audioDecodingFailed
+        }
+
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw ElevenLabsAudioError.audioDecodingFailed
+        }
+
+        let exportsDir = documentsDir.appendingPathComponent("AudioExports", isDirectory: true)
+
+        // Create exports directory if needed
+        if !FileManager.default.fileExists(atPath: exportsDir.path) {
+            try FileManager.default.createDirectory(at: exportsDir, withIntermediateDirectories: true)
+        }
+
+        // Sanitize filename
+        let sanitizedFilename = filename
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let fileURL = exportsDir.appendingPathComponent("\(sanitizedFilename).mp3")
+
+        // Remove existing file if any
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try FileManager.default.removeItem(at: fileURL)
+        }
+
+        // Write audio data
+        try audio.data.write(to: fileURL)
+
+        return fileURL
+    }
+
+    /// Get URL for sharing audio (creates temporary file if needed)
+    ///
+    /// - Parameters:
+    ///   - audio: Generated audio data
+    ///   - title: Title for the audio file
+    /// - Returns: URL suitable for sharing
+    func getShareableURL(for audio: GeneratedAudio, title: String) throws -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+        let sanitizedTitle = title
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let fileURL = tempDir.appendingPathComponent("\(sanitizedTitle).mp3")
+
+        // Remove existing temp file if any
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try FileManager.default.removeItem(at: fileURL)
+        }
+
+        try audio.data.write(to: fileURL)
+        return fileURL
     }
 
     /// Stop current playback

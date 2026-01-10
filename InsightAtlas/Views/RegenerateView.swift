@@ -28,6 +28,8 @@ struct RegenerateView: View {
     @State private var selectedProvider: AIProvider = .both
     @State private var selectedMode: GenerationMode = .deepResearch
     @State private var selectedTone: ToneMode = .professional
+    @State private var selectedFormat: OutputFormat = .fullGuide
+    @State private var selectedSummaryType: SummaryType = .deepResearch
 
     private let aiService = AIService()
     private let bookProcessor = BookProcessor()
@@ -99,6 +101,8 @@ struct RegenerateView: View {
             selectedProvider = dataManager.userSettings.preferredProvider
             selectedMode = dataManager.userSettings.preferredMode
             selectedTone = dataManager.userSettings.preferredTone
+            selectedFormat = dataManager.userSettings.preferredFormat
+            selectedSummaryType = dataManager.userSettings.preferredSummaryType
         }
     }
 
@@ -150,6 +154,34 @@ struct RegenerateView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+            }
+
+            // Output Format Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Output Format")
+                    .font(InsightAtlasTypography.captionBold)
+                    .foregroundColor(InsightAtlasColors.muted)
+
+                Picker("Format", selection: $selectedFormat) {
+                    ForEach(OutputFormat.allCases, id: \.self) { format in
+                        Text(format.displayName).tag(format)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            // Summary Length Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Summary Length")
+                    .font(InsightAtlasTypography.captionBold)
+                    .foregroundColor(InsightAtlasColors.muted)
+
+                Picker("Summary Type", selection: $selectedSummaryType) {
+                    ForEach(SummaryType.allCases, id: \.self) { summaryType in
+                        Text(summaryType.displayName).tag(summaryType)
+                    }
+                }
+                .pickerStyle(.menu)
             }
         }
         .padding()
@@ -459,6 +491,8 @@ struct RegenerateView: View {
         settings.preferredProvider = selectedProvider
         settings.preferredMode = selectedMode
         settings.preferredTone = selectedTone
+        settings.preferredFormat = selectedFormat
+        settings.preferredSummaryType = selectedSummaryType
 
         // Build improvement prompt based on failed checks
         var improvementHints: String? = nil
@@ -507,7 +541,7 @@ struct RegenerateView: View {
 
     private var allowImprovementPass: Bool {
         selectedMode == .deepResearch ||
-        dataManager.userSettings.preferredSummaryType == .deepResearch
+        selectedSummaryType == .deepResearch
     }
 }
 

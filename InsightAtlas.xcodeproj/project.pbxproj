@@ -11,7 +11,6 @@
 		3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */; };
 		48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */; };
 		65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */; };
-		A9D0E1F2A3B4C5D6E7F80103 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A9D0E1F2A3B4C5D6E7F80102 /* ZIPFoundation */; };
 		7A1B2C3D4E5F678901234581 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234580 /* XCTest.framework */; };
 		7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */; };
 		7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */; };
@@ -42,6 +41,9 @@
 		C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C12EE63E0800B6662D /* AnalysisComponents.swift */; };
 		C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */; };
 		C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C52EE63E3500B6662D /* AnalysisTheme.swift */; };
+		C284A0062F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */; };
+		C284A0082F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */; };
+		C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C2E9A9242F0A4D1200480055 /* ZIPFoundation */; };
 		E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00002D000001007AAAAA /* InsightAtlasApp.swift */; };
 		E81A00032D000001007AAAAA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00022D000001007AAAAA /* ContentView.swift */; };
 		E81A00052D000001007AAAAA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E81A00042D000001007AAAAA /* Assets.xcassets */; };
@@ -71,11 +73,13 @@
 		IAAPI0005AAAAAAAAAAAAAA5 /* GenerateGuideResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0006AAAAAAAAAAAAAA6 /* GenerateGuideResponse.swift */; };
 		IAAPI0007AAAAAAAAAAAAAA7 /* GuideGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0008AAAAAAAAAAAAAA8 /* GuideGenerationService.swift */; };
 		IAAPI0009AAAAAAAAAAAAAA9 /* InsightAtlasConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI000AAAAAAAAAAAAAAAA /* InsightAtlasConfig.swift */; };
+		IAAPPENV001AAAAAAAAA001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */; };
 		IABGGEN001AAAAAAAAAA001 /* BackgroundGenerationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABGGEN002AAAAAAAAAA002 /* BackgroundGenerationCoordinator.swift */; };
 		IABULK0001AAAAAAAAAA001 /* BulkExportCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0002AAAAAAAAAA002 /* BulkExportCoordinator.swift */; };
 		IABULK0003AAAAAAAAAA003 /* LibraryComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */; };
 		IABULK0005AAAAAAAAAA005 /* BulkExportComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */; };
 		IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */; };
+		IACONTVAL01AAAAAA001 /* ContentValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACONTVAL02AAAAAA002 /* ContentValidation.swift */; };
 		IAEDIT001AAAAAAAAAA001 /* EditorialBlockTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */; };
 		IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */; };
 		IAEDITPACE01AAAAAA001 /* ReaderProfilePacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */; };
@@ -154,6 +158,8 @@
 		C21355C12EE63E0800B6662D /* AnalysisComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisComponents.swift; path = InsightAtlas/Views/AnalysisComponents.swift; sourceTree = "<group>"; };
 		C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailView.swift; path = InsightAtlas/Views/AnalysisDetailView.swift; sourceTree = "<group>"; };
 		C21355C52EE63E3500B6662D /* AnalysisTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisTheme.swift; path = InsightAtlas/Services/AnalysisTheme.swift; sourceTree = "<group>"; };
+		C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PREMIUM_UPGRADE_SUMMARY.md; sourceTree = "<group>"; };
+		C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_CHECKLIST.md; sourceTree = "<group>"; };
 		E81A00002D000001007AAAAA /* InsightAtlasApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasApp.swift; sourceTree = "<group>"; };
 		E81A00022D000001007AAAAA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E81A00042D000001007AAAAA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -183,11 +189,13 @@
 		IAAPI0006AAAAAAAAAAAAAA6 /* GenerateGuideResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateGuideResponse.swift; sourceTree = "<group>"; };
 		IAAPI0008AAAAAAAAAAAAAA8 /* GuideGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideGenerationService.swift; sourceTree = "<group>"; };
 		IAAPI000AAAAAAAAAAAAAAAA /* InsightAtlasConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasConfig.swift; sourceTree = "<group>"; };
+		IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		IABGGEN002AAAAAAAAAA002 /* BackgroundGenerationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundGenerationCoordinator.swift; sourceTree = "<group>"; };
 		IABULK0002AAAAAAAAAA002 /* BulkExportCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExportCoordinator.swift; sourceTree = "<group>"; };
 		IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryComponents.swift; sourceTree = "<group>"; };
 		IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExportComponents.swift; sourceTree = "<group>"; };
 		IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualAssetCache.swift; sourceTree = "<group>"; };
+		IACONTVAL02AAAAAA002 /* ContentValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentValidation.swift; sourceTree = "<group>"; };
 		IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialBlockTypes.swift; sourceTree = "<group>"; };
 		IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioNarrationPlan.swift; sourceTree = "<group>"; };
 		IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderProfilePacing.swift; sourceTree = "<group>"; };
@@ -226,7 +234,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A9D0E1F2A3B4C5D6E7F80103 /* ZIPFoundation in Frameworks */,
+				C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -337,6 +345,8 @@
 				E81A00312D000018007AAAAB /* RegenerateView.swift */,
 				IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */,
 				IAVOICEPKVW02AAA002 /* VoicePickerView.swift */,
+				C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */,
+				C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -362,8 +372,10 @@
 				IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */,
 				IAVISSEL02AAAAAAAAA002 /* VisualSelectionService.swift */,
 				IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */,
+				IACONTVAL02AAAAAA002 /* ContentValidation.swift */,
 				IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */,
 				IAKEYCHNSVC02AAA002 /* KeychainService.swift */,
+				IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -517,7 +529,7 @@
 			);
 			name = InsightAtlas;
 			packageProductDependencies = (
-				A9D0E1F2A3B4C5D6E7F80102 /* ZIPFoundation */,
+				C2E9A9242F0A4D1200480055 /* ZIPFoundation */,
 			);
 			productName = InsightAtlas;
 			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
@@ -531,7 +543,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					7A1B2C3D4E5F678901234567 = {
 						CreatedOnToolsVersion = 15.0;
@@ -551,7 +563,7 @@
 			);
 			mainGroup = E81AFFF72D000001007AAAAA;
 			packageReferences = (
-				A9D0E1F2A3B4C5D6E7F80101 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			);
 			productRefGroup = E81AFFFE2D000001007AAAAA /* Products */;
 			projectDirPath = "";
@@ -588,9 +600,11 @@
 				C21355B32EE6360100B6662D /* CormorantGaramond-SemiBold.ttf in Resources */,
 				C21355B42EE6360100B6662D /* Inter-SemiBold.ttf in Resources */,
 				C21355B62EE6360100B6662D /* Caveat.ttf in Resources */,
+				C284A0082F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md in Resources */,
 				C21355B82EE6360100B6662D /* CormorantGaramond-SemiBoldItalic.ttf in Resources */,
 				C21355B92EE6360100B6662D /* CormorantGaramond-MediumItalic.ttf in Resources */,
 				C21355BA2EE6360100B6662D /* Inter-Variable.ttf in Resources */,
+				C284A0062F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md in Resources */,
 				C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */,
 				E81A00052D000001007AAAAA /* Assets.xcassets in Resources */,
 				E81A00062D000001007AAAAA /* Preview Assets.xcassets in Resources */,
@@ -669,6 +683,7 @@
 				IASEMNORM01AAAAAAAAA01 /* SemanticNormalizationService.swift in Sources */,
 				IAVISSEL01AAAAAAAAA001 /* VisualSelectionService.swift in Sources */,
 				IAOUTVAL01AAAAAAAAA01 /* OutputContractValidator.swift in Sources */,
+				IACONTVAL01AAAAAA001 /* ContentValidation.swift in Sources */,
 				IAEDITPACE01AAAAAA001 /* ReaderProfilePacing.swift in Sources */,
 				IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */,
 				IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */,
@@ -682,6 +697,7 @@
 				IAGOVENG01AAAAAAAA001 /* SummaryGovernorEngine.swift in Sources */,
 				IAGOVDET01AAAAAAAA001 /* SummaryGovernorDetection.swift in Sources */,
 				IAGOVSYN01AAAAAAAA001 /* SummaryGovernorSynthesis.swift in Sources */,
+				IAAPPENV001AAAAAAAAA001 /* AppEnvironment.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -699,7 +715,6 @@
 		7A1B2C3D4E5F678901234569 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				INFOPLIST_FILE = InsightAtlasTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -714,7 +729,6 @@
 		7A1B2C3D4E5F67890123456A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				INFOPLIST_FILE = InsightAtlasTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -950,7 +964,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		A9D0E1F2A3B4C5D6E7F80101 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+		C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
 			requirement = {
@@ -961,9 +975,9 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A9D0E1F2A3B4C5D6E7F80102 /* ZIPFoundation */ = {
+		C2E9A9242F0A4D1200480055 /* ZIPFoundation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A9D0E1F2A3B4C5D6E7F80101 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			package = C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
 			productName = ZIPFoundation;
 		};
 /* End XCSwiftPackageProductDependency section */

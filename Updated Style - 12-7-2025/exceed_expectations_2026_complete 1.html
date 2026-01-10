@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="Premium book summary template by Insight Atlas - Where Understanding Illuminates the World">
+    <title>Exceed Expectations 2026 - Insight Atlas Premium Template</title>
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Google Fonts: Variable + Display + Handwritten -->
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300..800&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ═══════════════════════════════════════════════════════════════════════════════
+           INSIGHT ATLAS - EXCEED EXPECTATIONS 2026 EDITION
+           Premium Book Summary Design System
+           
+           "Where Understanding Illuminates the World"
+           
+           🎯 2026 TRENDS INCORPORATED:
+           ───────────────────────────────────────
+           ✓ Variable fonts (Inter) with optical sizing
+           ✓ Dark mode with prefers-color-scheme
+           ✓ Glassmorphism 2.0 for modern depth
+           ✓ Soft Orange "warmth" accent (2026 trend color)
+           ✓ Transformative Teal for trust/calm
+           ✓ Organic shapes with larger border-radius
+           ✓ Micro-interactions and purposeful motion
+           ✓ Handwritten accents for human touch (anti-AI uniformity)
+           ✓ Oversized hero typography
+           ✓ Scroll-triggered animations
+           ✓ WCAG 2.2 accessibility compliance
+           ✓ Reduced motion support
+           ✓ Performance optimization (content-visibility)
+           ✓ Print-optimized styles
+           
+           🎨 BRAND COLORS (from logo):
+           ───────────────────────────────────────
+           • Sepia/Cream background: #F5F3ED
+           • Classical brown ink: #5C4A3D
+           • Warm parchment: #E8E4DC
+           • Gold accent: #C9A227
+           ═══════════════════════════════════════════════════════════════════════════════ */
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           1. CSS CUSTOM PROPERTIES - LIGHT MODE
+           ───────────────────────────────────────────────────────────────────────────── */
+        :root {
+            /* ═══ Brand Colors (from Insight Atlas logo) ═══ */
+            --brand-sepia: #5C4A3D;
+            --brand-sepia-light: #7A6A5D;
+            --brand-parchment: #F5F3ED;
+            --brand-parchment-dark: #E8E4DC;
+            --brand-ink: #3D3229;
+
+            /* ═══ Primary Palette - Premium Gold ═══ */
+            --primary-gold: #C9A227;
+            --primary-gold-light: #DCBE5E;
+            --primary-gold-dark: #A88A1F;
+            --primary-gold-subtle: rgba(201, 162, 39, 0.08);
+            --primary-gold-muted: rgba(201, 162, 39, 0.25);
+            --primary-gold-glow: rgba(201, 162, 39, 0.4);
+
+            /* ═══ Secondary Palette - Rich Accents ═══ */
+            --accent-burgundy: #6B3A4A;
+            --accent-burgundy-light: #8A5066;
+            --accent-burgundy-subtle: rgba(107, 58, 74, 0.06);
+            --accent-burgundy-muted: rgba(107, 58, 74, 0.25);
+
+            --accent-coral: #D4735C;
+            --accent-coral-light: #E08B73;
+            --accent-coral-subtle: rgba(212, 115, 92, 0.08);
+            --accent-coral-muted: rgba(212, 115, 92, 0.25);
+
+            /* ═══ 2026 TREND: Transformative Teal ═══ */
+            --accent-teal: #2A8B7F;
+            --accent-teal-light: #3BA396;
+            --accent-teal-subtle: rgba(42, 139, 127, 0.08);
+            --accent-teal-muted: rgba(42, 139, 127, 0.25);
+
+            /* ═══ 2026 TREND: Soft Orange (Warmth) ═══ */
+            --accent-orange: #E89B5A;
+            --accent-orange-light: #F0B07A;
+            --accent-orange-subtle: rgba(232, 155, 90, 0.1);
+            --accent-orange-muted: rgba(232, 155, 90, 0.3);
+
+            /* ═══ Neutral Palette ═══ */
+            --text-heading: #2D2520;
+            --text-body: #3D3229;
+            --text-muted: #5C5248;
+            --text-subtle: #7A7168;
+            --text-inverse: #FDFCFA;
+            --text-handwritten: #5C4A3D;
+
+            --bg-primary: #FDFCFA;
+            --bg-secondary: #F5F3ED;
+            --bg-card: #FFFFFF;
+            --bg-elevated: #FFFFFF;
+            --bg-glass: rgba(253, 252, 250, 0.85);
+            --bg-glass-border: rgba(201, 162, 39, 0.15);
+
+            --border-light: #E8E4DC;
+            --border-medium: #D4CFC5;
+            --border-dark: #B8B0A3;
+
+            /* ═══ Semantic Colors ═══ */
+            --color-success: #4A9B7F;
+            --color-success-subtle: rgba(74, 155, 127, 0.1);
+            --color-warning: #D4A94A;
+            --color-info: #5A8FB8;
+            --color-error: #C75A5A;
+
+            /* ═══ Typography ═══ */
+            --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+            --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            --font-body: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            --font-handwritten: 'Caveat', cursive;
+            --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Consolas', monospace;
+
+            /* ═══ Type Scale (1.25 Major Third) ═══ */
+            --text-xs: 0.75rem;
+            --text-sm: 0.875rem;
+            --text-base: 1rem;
+            --text-lg: 1.125rem;
+            --text-xl: 1.25rem;
+            --text-2xl: 1.5rem;
+            --text-3xl: 1.875rem;
+            --text-4xl: 2.25rem;
+            --text-5xl: 3rem;
+            --text-6xl: 3.75rem;
+            --text-7xl: 4.5rem;
+
+            /* ═══ Font Weights ═══ */
+            --font-light: 300;
+            --font-normal: 400;
+            --font-medium: 500;
+            --font-semibold: 600;
+            --font-bold: 700;
+            --font-extrabold: 800;
+
+            /* ═══ Line Heights ═══ */
+            --leading-none: 1;
+            --leading-tight: 1.2;
+            --leading-snug: 1.375;
+            --leading-normal: 1.5;
+            --leading-relaxed: 1.75;
+            --leading-loose: 2.0;
+
+            /* ═══ Letter Spacing ═══ */
+            --tracking-tighter: -0.04em;
+            --tracking-tight: -0.02em;
+            --tracking-normal: 0;
+            --tracking-wide: 0.02em;
+            --tracking-wider: 0.06em;
+            --tracking-widest: 0.12em;
+
+            /* ═══ Spacing Scale ═══ */
+            --space-0: 0;
+            --space-px: 1px;
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+            --space-10: 2.5rem;
+            --space-12: 3rem;
+            --space-16: 4rem;
+            --space-20: 5rem;
+            --space-24: 6rem;
+
+            /* ═══ Layout ═══ */
+            --content-width: 780px;
+            --content-width-wide: 960px;
+            --container-padding-x: 24px;
+            --container-padding-y: 48px;
+
+            /* ═══ Border Radius - 2026: Organic ═══ */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --radius-xl: 18px;
+            --radius-2xl: 24px;
+            --radius-3xl: 32px;
+            --radius-full: 9999px;
+
+            /* ═══ Box Shadows - Layered Depth ═══ */
+            --shadow-xs: 0 1px 2px rgba(45, 37, 32, 0.04);
+            --shadow-sm: 0 2px 4px rgba(45, 37, 32, 0.06);
+            --shadow-md: 0 4px 12px rgba(45, 37, 32, 0.08);
+            --shadow-lg: 0 8px 24px rgba(45, 37, 32, 0.1);
+            --shadow-xl: 0 16px 48px rgba(45, 37, 32, 0.12);
+            --shadow-inner: inset 0 2px 4px rgba(45, 37, 32, 0.04);
+            --shadow-glow-gold: 0 0 20px rgba(201, 162, 39, 0.25);
+            --shadow-glow-teal: 0 0 20px rgba(42, 139, 127, 0.2);
+            --shadow-card: 0 2px 8px rgba(45, 37, 32, 0.04), 0 8px 24px rgba(45, 37, 32, 0.06);
+            --shadow-card-hover: 0 4px 12px rgba(45, 37, 32, 0.08), 0 16px 48px rgba(45, 37, 32, 0.1);
+
+            /* ═══ Glassmorphism 2.0 ═══ */
+            --glass-blur: 20px;
+            --glass-bg: rgba(253, 252, 250, 0.8);
+            --glass-border: rgba(201, 162, 39, 0.12);
+            --glass-shadow: 0 4px 24px rgba(45, 37, 32, 0.06);
+
+            /* ═══ Transitions ═══ */
+            --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            
+            --transition-instant: 100ms var(--ease-smooth);
+            --transition-fast: 150ms var(--ease-smooth);
+            --transition-base: 250ms var(--ease-smooth);
+            --transition-slow: 400ms var(--ease-smooth);
+            --transition-slower: 600ms var(--ease-smooth);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           2. DARK MODE - 2026 Essential
+           ───────────────────────────────────────────────────────────────────────────── */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --text-heading: #F5F3ED;
+                --text-body: #E8E4DC;
+                --text-muted: #B8B0A3;
+                --text-subtle: #8A8178;
+                --text-handwritten: #D4CFC5;
+
+                --bg-primary: #1A1816;
+                --bg-secondary: #242120;
+                --bg-card: #2A2725;
+                --bg-elevated: #32302E;
+                --bg-glass: rgba(26, 24, 22, 0.9);
+                --bg-glass-border: rgba(201, 162, 39, 0.15);
+
+                --border-light: #3D3A38;
+                --border-medium: #4A4744;
+                --border-dark: #5C5855;
+
+                --primary-gold: #D4AF37;
+                --primary-gold-subtle: rgba(212, 175, 55, 0.12);
+                --primary-gold-muted: rgba(212, 175, 55, 0.3);
+                --primary-gold-glow: rgba(212, 175, 55, 0.4);
+
+                --accent-coral-subtle: rgba(212, 115, 92, 0.12);
+                --accent-burgundy-subtle: rgba(107, 58, 74, 0.15);
+                --accent-teal-subtle: rgba(42, 139, 127, 0.12);
+                --accent-orange-subtle: rgba(232, 155, 90, 0.12);
+
+                --glass-bg: rgba(42, 39, 37, 0.9);
+                --glass-border: rgba(201, 162, 39, 0.1);
+                --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+
+                --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.3);
+            }
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           3. REDUCED MOTION - Accessibility
+           ───────────────────────────────────────────────────────────────────────────── */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           4. BASE STYLES
+           ───────────────────────────────────────────────────────────────────────────── */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 17px;
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        body {
+            font-family: var(--font-body);
+            max-width: var(--content-width);
+            margin: 0 auto;
+            padding: var(--container-padding-y) var(--container-padding-x);
+            line-height: var(--leading-relaxed);
+            font-size: var(--text-lg);
+            font-weight: var(--font-normal);
+            color: var(--text-body);
+            background: var(--bg-primary);
+            transition: background-color var(--transition-slow), color var(--transition-slow);
+        }
+
+        /* Selection styling */
+        ::selection {
+            background: var(--primary-gold-muted);
+            color: var(--text-heading);
+        }
+
+        /* Focus visible for accessibility */
+        :focus-visible {
+            outline: 2px solid var(--primary-gold);
+            outline-offset: 3px;
+            border-radius: var(--radius-sm);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           5. TYPOGRAPHY
+           ───────────────────────────────────────────────────────────────────────────── */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--font-display);
+            font-weight: var(--font-semibold);
+            color: var(--text-heading);
+            margin-top: var(--space-12);
+            margin-bottom: var(--space-4);
+            line-height: var(--leading-tight);
+        }
+
+        h1 {
+            font-size: clamp(var(--text-4xl), 6vw, var(--text-5xl));
+            font-weight: var(--font-bold);
+            letter-spacing: var(--tracking-tight);
+            margin-top: 0;
+        }
+
+        h2 {
+            font-size: var(--text-3xl);
+            position: relative;
+            padding-bottom: var(--space-3);
+        }
+
+        /* 2026: Animated gradient underline */
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-gold), var(--accent-orange));
+            border-radius: var(--radius-full);
+            transition: width var(--transition-slow);
+        }
+
+        h2:hover::after {
+            width: 100%;
+        }
+
+        h3 {
+            font-size: var(--text-2xl);
+        }
+
+        h4 {
+            font-size: var(--text-xl);
+            font-weight: var(--font-medium);
+        }
+
+        p {
+            margin: 0 0 var(--space-5) 0;
+        }
+
+        strong {
+            color: var(--text-heading);
+            font-weight: var(--font-semibold);
+        }
+
+        em {
+            font-style: italic;
+        }
+
+        /* 2026: Handwritten accent text */
+        .handwritten {
+            font-family: var(--font-handwritten);
+            font-size: 1.4em;
+            color: var(--text-handwritten);
+            line-height: var(--leading-snug);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           6. LINKS - Animated Underlines
+           ───────────────────────────────────────────────────────────────────────────── */
+        a {
+            color: var(--accent-burgundy);
+            text-decoration: none;
+            position: relative;
+            transition: color var(--transition-fast);
+        }
+
+        a::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: currentColor;
+            opacity: 0.3;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform var(--transition-base), opacity var(--transition-base);
+        }
+
+        a:hover {
+            color: var(--accent-burgundy-light);
+        }
+
+        a:hover::after {
+            transform: scaleX(1);
+            transform-origin: left;
+            opacity: 0.6;
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           7. LISTS
+           ───────────────────────────────────────────────────────────────────────────── */
+        ul, ol {
+            padding-left: var(--space-6);
+            margin: var(--space-4) 0;
+        }
+
+        li {
+            margin: var(--space-2) 0;
+            line-height: var(--leading-normal);
+        }
+
+        li::marker {
+            color: var(--primary-gold);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           8. DOCUMENT HEADER - With Logo
+           ───────────────────────────────────────────────────────────────────────────── */
+        .document-header {
+            text-align: center;
+            margin-bottom: var(--space-16);
+            padding-bottom: var(--space-10);
+            position: relative;
+        }
+
+        .document-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-gold), transparent);
+        }
+
+        /* Logo container */
+        .logo-container {
+            margin-bottom: var(--space-6);
+        }
+
+        .logo-container img {
+            width: 120px;
+            height: auto;
+            opacity: 0.9;
+            transition: opacity var(--transition-base), transform var(--transition-base);
+        }
+
+        .logo-container img:hover {
+            opacity: 1;
+            transform: scale(1.02);
+        }
+
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            font-family: var(--font-ui);
+            font-size: var(--text-xs);
+            font-weight: var(--font-medium);
+            letter-spacing: var(--tracking-widest);
+            color: var(--brand-sepia);
+            text-transform: uppercase;
+            margin-bottom: var(--space-4);
+            padding: var(--space-2) var(--space-5);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-full);
+            background: var(--bg-secondary);
+        }
+
+        .document-header h1 {
+            font-family: var(--font-display);
+            font-size: clamp(var(--text-4xl), 7vw, var(--text-6xl));
+            font-weight: var(--font-bold);
+            margin: var(--space-4) 0;
+            line-height: 1.1;
+            color: var(--text-heading);
+        }
+
+        .document-header .subtitle {
+            font-family: var(--font-display);
+            font-size: var(--text-xl);
+            color: var(--text-muted);
+            font-style: italic;
+            margin-top: var(--space-2);
+            font-weight: var(--font-normal);
+        }
+
+        .document-header .author {
+            font-family: var(--font-ui);
+            font-size: var(--text-sm);
+            color: var(--text-subtle);
+            margin-top: var(--space-5);
+        }
+
+        .document-header .tagline {
+            font-family: var(--font-handwritten);
+            font-size: var(--text-xl);
+            color: var(--accent-coral);
+            margin-top: var(--space-4);
+            transform: rotate(-1deg);
+            display: inline-block;
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           9. READING TIME BADGE
+           ───────────────────────────────────────────────────────────────────────────── */
+        .reading-time-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            background: linear-gradient(135deg, var(--primary-gold) 0%, var(--accent-orange) 100%);
+            color: var(--text-inverse);
+            font-family: var(--font-ui);
+            font-size: var(--text-xs);
+            font-weight: var(--font-semibold);
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-full);
+            letter-spacing: var(--tracking-wide);
+            box-shadow: var(--shadow-glow-gold);
+            transition: all var(--transition-base);
+        }
+
+        .reading-time-badge::before {
+            content: '⏱';
+        }
+
+        .reading-time-badge:hover {
+            transform: translateY(-2px) scale(1.03);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           10. QUICK GLANCE - Glassmorphism Card
+           ───────────────────────────────────────────────────────────────────────────── */
+        .quick-glance {
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            margin: var(--space-10) 0;
+            box-shadow: var(--glass-shadow), var(--shadow-card);
+            position: relative;
+            overflow: hidden;
+            transition: all var(--transition-base);
+        }
+
+        .quick-glance::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-gold), var(--accent-orange), var(--primary-gold));
+        }
+
+        .quick-glance:hover {
+            box-shadow: var(--glass-shadow), var(--shadow-card-hover);
+            transform: translateY(-2px);
+        }
+
+        .block-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            font-family: var(--font-ui);
+            font-weight: var(--font-semibold);
+            font-size: var(--text-sm);
+            letter-spacing: var(--tracking-wider);
+            text-transform: uppercase;
+            margin-bottom: var(--space-5);
+            padding-bottom: var(--space-4);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .quick-glance .block-header {
+            color: var(--primary-gold-dark);
+        }
+
+        .quick-glance .block-header::before {
+            content: '📋';
+            font-size: var(--text-lg);
+        }
+
+        .block-content {
+            font-family: var(--font-body);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           11. INSIGHT NOTE - Coral/Orange Editorial
+           ───────────────────────────────────────────────────────────────────────────── */
+        .insight-note {
+            background: linear-gradient(135deg, var(--accent-coral-subtle) 0%, var(--accent-orange-subtle) 100%);
+            border: 1px solid var(--accent-coral-muted);
+            border-left: 4px solid var(--accent-coral);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6) var(--space-6) var(--space-6) var(--space-8);
+            margin: var(--space-8) 0;
+            transition: all var(--transition-base);
+        }
+
+        .insight-note:hover {
+            transform: translateX(4px);
+            box-shadow: -4px 0 16px var(--accent-coral-subtle);
+        }
+
+        .insight-note .block-header {
+            color: var(--accent-coral);
+            padding-bottom: var(--space-3);
+            border-bottom: none;
+        }
+
+        .insight-note .block-header::before {
+            content: '💡';
+        }
+
+        .insight-note .block-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           12. ACTION BOX - Burgundy with Micro-animations
+           ───────────────────────────────────────────────────────────────────────────── */
+        .action-box {
+            background: var(--accent-burgundy-subtle);
+            border: 2px solid var(--accent-burgundy-muted);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6) var(--space-8);
+            margin: var(--space-8) 0;
+            transition: all var(--transition-base);
+        }
+
+        .action-box:hover {
+            border-color: var(--accent-burgundy);
+            box-shadow: var(--shadow-md);
+        }
+
+        .action-box .block-header {
+            color: var(--accent-burgundy);
+            border-bottom: 1px solid var(--accent-burgundy-muted);
+        }
+
+        .action-box .block-header::before {
+            content: '✓';
+            font-weight: var(--font-bold);
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-burgundy);
+            color: var(--text-inverse);
+            border-radius: var(--radius-full);
+            font-size: var(--text-xs);
+        }
+
+        .action-box ol {
+            counter-reset: action-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .action-box ol li {
+            counter-increment: action-counter;
+            padding-left: var(--space-10);
+            position: relative;
+            margin-bottom: var(--space-4);
+            transition: transform var(--transition-fast);
+        }
+
+        .action-box ol li:hover {
+            transform: translateX(4px);
+        }
+
+        .action-box ol li::before {
+            content: counter(action-counter);
+            position: absolute;
+            left: 0;
+            top: 2px;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--accent-burgundy) 0%, var(--accent-burgundy-light) 100%);
+            color: var(--text-inverse);
+            font-family: var(--font-ui);
+            font-weight: var(--font-semibold);
+            font-size: var(--text-sm);
+            border-radius: var(--radius-full);
+            transition: all var(--transition-base);
+        }
+
+        .action-box ol li:hover::before {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(107, 58, 74, 0.3);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           13. EXERCISE BLOCK - Teal
+           ───────────────────────────────────────────────────────────────────────────── */
+        .exercise {
+            background: linear-gradient(135deg, var(--accent-teal-subtle) 0%, rgba(42, 139, 127, 0.04) 100%);
+            border: 2px solid var(--accent-teal-muted);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            margin: var(--space-10) 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .exercise::before {
+            content: '✏️';
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            font-size: 70px;
+            opacity: 0.06;
+            transform: rotate(15deg);
+        }
+
+        .exercise .block-header {
+            color: var(--accent-teal);
+            border-bottom: 1px solid var(--accent-teal-muted);
+        }
+
+        .exercise .block-header::before {
+            content: '✏️';
+            font-size: var(--text-lg);
+        }
+
+        .exercise .estimated-time {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin-top: var(--space-4);
+            padding: var(--space-2) var(--space-4);
+            background: var(--accent-teal);
+            color: var(--text-inverse);
+            font-family: var(--font-ui);
+            font-size: var(--text-xs);
+            font-weight: var(--font-medium);
+            border-radius: var(--radius-full);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           14. BLOCKQUOTE - Elegant
+           ───────────────────────────────────────────────────────────────────────────── */
+        blockquote {
+            position: relative;
+            margin: var(--space-8) 0;
+            padding: var(--space-8);
+            padding-left: var(--space-10);
+            background: var(--bg-card);
+            border-left: 3px solid var(--primary-gold);
+            border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        blockquote::before {
+            content: '"';
+            position: absolute;
+            top: var(--space-3);
+            left: var(--space-3);
+            font-family: var(--font-display);
+            font-size: var(--text-5xl);
+            color: var(--primary-gold-muted);
+            line-height: 1;
+        }
+
+        blockquote p {
+            font-style: italic;
+            color: var(--text-muted);
+            font-size: var(--text-lg);
+            margin: 0;
+            position: relative;
+        }
+
+        blockquote cite {
+            display: block;
+            margin-top: var(--space-4);
+            font-family: var(--font-handwritten);
+            font-size: var(--text-lg);
+            font-style: normal;
+            color: var(--accent-coral);
+        }
+
+        blockquote cite::before {
+            content: '— ';
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           15. VISUAL FLOWCHART
+           ───────────────────────────────────────────────────────────────────────────── */
+        .visual-flowchart {
+            background: linear-gradient(135deg, var(--primary-gold-subtle) 0%, var(--accent-orange-subtle) 100%);
+            border: 2px solid var(--primary-gold-muted);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            margin: var(--space-10) 0;
+        }
+
+        .visual-flowchart .block-header {
+            color: var(--primary-gold-dark);
+            border-bottom: 1px solid var(--primary-gold-muted);
+        }
+
+        .visual-flowchart .block-header::before {
+            content: '📊';
+            font-size: var(--text-lg);
+        }
+
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .flow-step {
+            width: 100%;
+            max-width: 380px;
+            padding: var(--space-4) var(--space-6);
+            background: var(--bg-card);
+            border: 2px solid var(--primary-gold-muted);
+            border-radius: var(--radius-lg);
+            font-family: var(--font-ui);
+            font-weight: var(--font-medium);
+            font-size: var(--text-base);
+            color: var(--text-heading);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-base);
+        }
+
+        .flow-step:hover {
+            transform: translateY(-3px) scale(1.02);
+            border-color: var(--primary-gold);
+            box-shadow: var(--shadow-md), var(--shadow-glow-gold);
+        }
+
+        .flow-arrow {
+            color: var(--primary-gold);
+            font-size: var(--text-2xl);
+            font-weight: var(--font-bold);
+            animation: pulse-arrow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-arrow {
+            0%, 100% { opacity: 0.6; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(3px); }
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           16. STYLED TABLE
+           ───────────────────────────────────────────────────────────────────────────── */
+        .visual-table {
+            margin: var(--space-10) 0;
+        }
+
+        .visual-table .block-header {
+            color: var(--primary-gold-dark);
+        }
+
+        .visual-table .block-header::before {
+            content: '📋';
+            font-size: var(--text-lg);
+        }
+
+        .styled-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-family: var(--font-ui);
+            font-size: var(--text-sm);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-card);
+        }
+
+        .styled-table thead th {
+            background: linear-gradient(135deg, var(--primary-gold) 0%, var(--accent-orange) 100%);
+            color: var(--text-inverse);
+            font-weight: var(--font-semibold);
+            padding: var(--space-4) var(--space-5);
+            text-align: left;
+            letter-spacing: var(--tracking-wide);
+        }
+
+        .styled-table tbody td {
+            padding: var(--space-4) var(--space-5);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-light);
+            transition: background-color var(--transition-fast);
+        }
+
+        .styled-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .styled-table tbody tr:hover td {
+            background: var(--primary-gold-subtle);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           17. TAKEAWAYS BOX
+           ───────────────────────────────────────────────────────────────────────────── */
+        .takeaways {
+            background: linear-gradient(135deg, var(--color-success-subtle) 0%, rgba(74, 155, 127, 0.04) 100%);
+            border: 2px solid rgba(74, 155, 127, 0.3);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            margin: var(--space-10) 0;
+        }
+
+        .takeaways .block-header {
+            color: var(--color-success);
+            border-bottom: 1px solid rgba(74, 155, 127, 0.25);
+        }
+
+        .takeaways .block-header::before {
+            content: '🎯';
+            font-size: var(--text-lg);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           18. STRUCTURE MAP
+           ───────────────────────────────────────────────────────────────────────────── */
+        .structure-map {
+            background: var(--bg-secondary);
+            border: 2px dashed var(--border-medium);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            margin: var(--space-8) 0;
+        }
+
+        .structure-map .block-header {
+            color: var(--text-muted);
+        }
+
+        .structure-map .block-header::before {
+            content: '🗺️';
+            font-size: var(--text-lg);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           19. SECTION DIVIDER
+           ───────────────────────────────────────────────────────────────────────────── */
+        .section-divider {
+            border: none;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-gold), transparent);
+            margin: var(--space-12) 0;
+        }
+
+        .section-divider-ornament {
+            border: none;
+            text-align: center;
+            margin: var(--space-12) 0;
+            overflow: visible;
+        }
+
+        .section-divider-ornament::before {
+            content: '◆ ◇ ◆';
+            display: block;
+            font-size: var(--text-sm);
+            color: var(--primary-gold);
+            letter-spacing: 0.5em;
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           20. FOUNDATIONAL NARRATIVE
+           ───────────────────────────────────────────────────────────────────────────── */
+        .foundational-narrative {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--brand-parchment) 100%);
+            border-left: 4px solid var(--primary-gold);
+            border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+            padding: var(--space-6) var(--space-8);
+            margin: var(--space-8) 0;
+        }
+
+        .foundational-narrative .block-header {
+            color: var(--brand-sepia);
+            border-bottom: 1px solid var(--border-medium);
+        }
+
+        .foundational-narrative .block-header::before {
+            content: '📖';
+            font-size: var(--text-lg);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           21. SCROLL REVEAL ANIMATIONS - 2026
+           ───────────────────────────────────────────────────────────────────────────── */
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity var(--transition-slower), transform var(--transition-slower);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           22. DOCUMENT FOOTER
+           ───────────────────────────────────────────────────────────────────────────── */
+        .document-footer {
+            text-align: center;
+            margin-top: var(--space-16);
+            padding-top: var(--space-10);
+            border-top: 1px solid var(--border-light);
+            font-family: var(--font-ui);
+            font-size: var(--text-sm);
+            color: var(--text-subtle);
+        }
+
+        .document-footer .brand-footer {
+            font-weight: var(--font-semibold);
+            color: var(--brand-sepia);
+            letter-spacing: var(--tracking-wider);
+        }
+
+        .document-footer .tagline-footer {
+            font-family: var(--font-handwritten);
+            font-size: var(--text-lg);
+            color: var(--text-muted);
+            margin-top: var(--space-2);
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           23. UTILITY CLASSES
+           ───────────────────────────────────────────────────────────────────────────── */
+        .text-center { text-align: center; }
+        .text-muted { color: var(--text-muted); }
+        .text-subtle { color: var(--text-subtle); }
+        .font-ui { font-family: var(--font-ui); }
+        .mt-0 { margin-top: 0; }
+        .mb-0 { margin-bottom: 0; }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           24. RESPONSIVE DESIGN
+           ───────────────────────────────────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            html {
+                font-size: 16px;
+            }
+
+            body {
+                padding: var(--space-6) var(--space-4);
+            }
+
+            .document-header h1 {
+                font-size: var(--text-4xl);
+            }
+
+            .quick-glance,
+            .insight-note,
+            .action-box,
+            .exercise,
+            .visual-flowchart,
+            .takeaways,
+            .foundational-narrative {
+                padding: var(--space-5);
+            }
+
+            .flow-step {
+                max-width: 100%;
+            }
+
+            .styled-table {
+                font-size: var(--text-xs);
+            }
+
+            .styled-table thead th,
+            .styled-table tbody td {
+                padding: var(--space-3);
+            }
+        }
+
+        /* ─────────────────────────────────────────────────────────────────────────────
+           25. PRINT STYLES
+           ───────────────────────────────────────────────────────────────────────────── */
+        @media print {
+            body {
+                background: white;
+                color: black;
+                font-size: 11pt;
+                max-width: 100%;
+                padding: 0;
+            }
+
+            .document-header,
+            .quick-glance,
+            .insight-note,
+            .action-box,
+            .exercise,
+            .visual-flowchart,
+            .takeaways {
+                break-inside: avoid;
+                box-shadow: none;
+            }
+
+            a::after {
+                content: ' (' attr(href) ')';
+                font-size: 0.8em;
+                color: #666;
+            }
+
+            .reveal {
+                opacity: 1;
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ═══════════════════════════════════════════════════════════════════════════════
+         INSIGHT ATLAS - EXCEED EXPECTATIONS 2026 TEMPLATE DEMO
+         ═══════════════════════════════════════════════════════════════════════════════ -->
+
+    <header class="document-header">
+        <div class="logo-container">
+            <!-- Logo placeholder - replace src with actual logo path -->
+            <img src="Logo.png" alt="Insight Atlas - Classical scholar reading within a globe" 
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="brand-badge" style="display: none;">INSIGHT ATLAS</div>
+        </div>
+        <span class="brand-badge">Insight Atlas</span>
+        <h1>The Art of Understanding</h1>
+        <p class="subtitle">A Guide to Deep Reading & Synthesis</p>
+        <p class="author">Based on the work of <strong>Distinguished Authors</strong></p>
+        <span class="tagline">Where Understanding Illuminates the World</span>
+    </header>
+
+    <div class="quick-glance reveal">
+        <div class="block-header">Quick Glance</div>
+        <div class="block-content">
+            <span class="reading-time-badge">12 min read</span>
+            <p><strong>Core Message:</strong> This 2026 Edition template combines classical elegance with modern web design trends—variable fonts, glassmorphism, dark mode, micro-animations, and organic shapes—to create a premium reading experience.</p>
+            <ul>
+                <li><strong>Design Philosophy:</strong> Renaissance-inspired aesthetics meet 2026 web standards</li>
+                <li><strong>Accessibility:</strong> WCAG 2.2 compliant with reduced motion support</li>
+                <li><strong>Performance:</strong> Optimized loading with variable fonts and efficient CSS</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>The Foundation of Understanding</h2>
+
+    <p>This paragraph demonstrates the refined body typography. Notice the elegant Cormorant Garamond serif font—a typeface inspired by the work of 16th-century type designer Claude Garamond. The generous line-height of 1.75 creates comfortable reading rhythm, while the sepia-toned text color (#3D3229) reduces eye strain compared to pure black.</p>
+
+    <blockquote>
+        <p>True understanding is not merely the accumulation of information, but the weaving together of knowledge into wisdom. The classical scholars knew this—they read not to consume, but to become.</p>
+        <cite>The Art of Thoughtful Reading</cite>
+    </blockquote>
+
+    <div class="insight-note reveal">
+        <div class="block-header">Insight Atlas Note</div>
+        <div class="block-content">
+            <p><strong>Editorial observation:</strong> This component draws inspiration from Shortform's excellent editorial commentary boxes. Use it to add your own analysis, draw connections to other works, or provide context that enhances the reader's understanding. <span class="handwritten">The human touch matters!</span></p>
+        </div>
+    </div>
+
+    <h3>Applying Classical Wisdom</h3>
+
+    <p>The transition from passive reading to active synthesis requires deliberate practice. Below you'll find actionable steps that transform theoretical knowledge into practical capability.</p>
+
+    <div class="action-box reveal">
+        <div class="block-header">Apply It</div>
+        <div class="block-content">
+            <ol>
+                <li><strong>Engage actively:</strong> Read with pen in hand, annotating key insights as they arise</li>
+                <li><strong>Question deeply:</strong> Ask not just "what" but "why" and "how might this apply"</li>
+                <li><strong>Connect broadly:</strong> Link new ideas to your existing knowledge framework</li>
+                <li><strong>Synthesize regularly:</strong> Summarize in your own words before moving forward</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="visual-flowchart reveal">
+        <div class="block-header">The Reading-to-Wisdom Process</div>
+        <div class="flow-container">
+            <div class="flow-step">📖 Encounter New Information</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step">🤔 Engage in Active Questioning</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step">🔗 Connect to Prior Knowledge</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step">✨ Synthesize into Wisdom</div>
+        </div>
+    </div>
+
+    <div class="exercise reveal">
+        <div class="block-header">Reflection Exercise</div>
+        <div class="block-content">
+            <p><strong>Journal Prompt:</strong> Consider the last book that truly changed your perspective. What made it transformative?</p>
+            <ol>
+                <li>What was the central insight that resonated with you?</li>
+                <li>How has it influenced your thinking or actions since?</li>
+                <li>What would you teach someone else about it?</li>
+            </ol>
+            <span class="estimated-time">⏱ 15 minutes</span>
+        </div>
+    </div>
+
+    <hr class="section-divider">
+
+    <h2>Design Excellence</h2>
+
+    <p>The 2026 edition incorporates cutting-edge design trends while honoring classical aesthetics. The table below compares key design features across generations.</p>
+
+    <div class="visual-table reveal">
+        <div class="block-header">Design Evolution</div>
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>2024 Standard</th>
+                    <th>2026 Edition</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Typography</td>
+                    <td>System fonts, static weights</td>
+                    <td>Variable fonts, kinetic motion</td>
+                </tr>
+                <tr>
+                    <td>Color Modes</td>
+                    <td>Light only</td>
+                    <td>Adaptive light/dark</td>
+                </tr>
+                <tr>
+                    <td>Visual Depth</td>
+                    <td>Flat design</td>
+                    <td>Glassmorphism 2.0</td>
+                </tr>
+                <tr>
+                    <td>Interactions</td>
+                    <td>Basic transitions</td>
+                    <td>Purposeful micro-animations</td>
+                </tr>
+                <tr>
+                    <td>Accessibility</td>
+                    <td>WCAG 2.1 AA</td>
+                    <td>WCAG 2.2 + reduced motion</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="takeaways reveal">
+        <div class="block-header">Key Takeaways</div>
+        <div class="block-content">
+            <ul>
+                <li><strong>Classical Meets Modern:</strong> Renaissance-inspired elegance enhanced by 2026 web capabilities</li>
+                <li><strong>Human Touch:</strong> Handwritten accents counter AI-generated uniformity</li>
+                <li><strong>Purposeful Motion:</strong> Animations serve understanding, not distraction</li>
+                <li><strong>Accessibility First:</strong> Beautiful design that works for everyone</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="foundational-narrative reveal">
+        <div class="block-header">The Insight Atlas Philosophy</div>
+        <div class="block-content">
+            <p>At Insight Atlas, we believe that <em>understanding should illuminate the world</em>. Our guides transform complex works into accessible wisdom, honoring both the original authors and the readers who seek to learn from them. This template embodies that mission—premium quality in service of genuine comprehension.</p>
+        </div>
+    </div>
+
+    <hr class="section-divider-ornament">
+
+    <footer class="document-footer">
+        <p><span class="brand-footer">INSIGHT ATLAS</span></p>
+        <p class="tagline-footer">Where Understanding Illuminates the World</p>
+        <p class="text-muted" style="margin-top: var(--space-4);">Exceed Expectations 2026 Edition</p>
+    </footer>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════════════
+         SCROLL REVEAL SCRIPT - 2026 Trend: Purposeful Animation
+         ═══════════════════════════════════════════════════════════════════════════════ -->
+    <script>
+        // Intersection Observer for scroll reveals
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for reduced motion preference
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            
+            if (!prefersReducedMotion) {
+                const revealElements = document.querySelectorAll('.reveal');
+                
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('visible');
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                }, {
+                    threshold: 0.1,
+                    rootMargin: '0px 0px -50px 0px'
+                });
+                
+                revealElements.forEach(el => observer.observe(el));
+            } else {
+                // If reduced motion preferred, show all elements immediately
+                document.querySelectorAll('.reveal').forEach(el => {
+                    el.classList.add('visible');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

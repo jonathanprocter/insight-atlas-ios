@@ -27,91 +27,98 @@ struct PDFStyleConfiguration {
         }
     }
 
-    // MARK: - Premium Color System (Reading-Optimized Editorial Palette)
+    // MARK: - Premium Color System (OE Brand Identity)
     //
     // Design Philosophy:
-    // - Warm dominance (70-80%) for reading comfort and premium feel
-    // - Cool accents (20-30%) for UI clarity and professional structure
-    // - Muted, complex colors for sophistication over trendiness
+    // - Burnt Orange (#D35F2E) as primary action/accent color - warm, energetic, distinctive
+    // - Deep Steel Blue (#3B5E7A) as secondary accent - professional, trustworthy, balanced
+    // - Deep Burgundy (#7B2D3E) for premium/emphasis - sophisticated, rich
+    // - Warm cream surfaces for comfortable reading
     // - High contrast (>10:1) for extended reading comfort
-    // - Semantic color coding by category for intuitive navigation
+    // - Complementary color theory: Orange ↔ Blue creates visual interest
     //
 
     struct Colors {
-        // === READING SURFACES (Warm - Primary 70%) ===
-        // Warm neutrals for comfortable extended reading
-        static let readingBgPrimary = UIColor(hex: "#F9F8F7")    // Sepia White - Primary reading background
-        static let readingBgSecondary = UIColor(hex: "#F5F3EF")  // Parchment - Alternative reading surface
-        static let readingBgTertiary = UIColor(hex: "#EBE8E3")   // Warm Linen - Quote blocks, section backgrounds
-        static let readingBgAccent = UIColor(hex: "#E7E3DA")     // Soft Sand - Hover states, subtle dividers
+        // === BRAND COLORS (From OE Logo) ===
+        static let brandOrange = UIColor(hex: "#D35F2E")         // Burnt Orange - Primary brand
+        static let brandOrangeLight = UIColor(hex: "#E07A4D")    // Lighter Orange
+        static let brandOrangeDark = UIColor(hex: "#B84D22")     // Darker Orange
+        static let brandBlue = UIColor(hex: "#3B5E7A")           // Steel Blue - Secondary brand
+        static let brandBlueLight = UIColor(hex: "#4F7694")      // Lighter Blue
+        static let brandBlueDark = UIColor(hex: "#2D4A61")       // Darker Blue
+        static let brandBurgundy = UIColor(hex: "#7B2D3E")       // Deep Burgundy - Premium
+        static let brandCream = UIColor(hex: "#F5F0E8")          // Warm Cream - from logo "O"
 
-        // === UI CHROME (Cool - Secondary 20-30%) ===
-        // Cool neutrals for system elements
-        static let uiBgPrimary = UIColor(hex: "#F9F9F9")         // Slate White - Navigation, header
-        static let uiBgSecondary = UIColor(hex: "#E8E9EE")       // Silver Mist - Sidebar backgrounds
-        static let uiBorderPrimary = UIColor(hex: "#D4D5D8")     // Steel - Borders, input fields
-        static let uiBorderSubtle = UIColor(hex: "#E8E9EE")      // Silver Mist - Subtle borders
+        // === READING SURFACES (Warm - Primary 70%) ===
+        static let readingBgPrimary = UIColor(hex: "#FAFAF8")    // Warm White - Primary reading background
+        static let readingBgSecondary = UIColor(hex: "#F5F0E8")  // Brand Cream - Alternative reading surface
+        static let readingBgTertiary = UIColor(hex: "#EDE8E0")   // Warm Linen - Quote blocks, section backgrounds
+        static let readingBgAccent = UIColor(hex: "#E5E0D8")     // Soft Sand - Hover states, subtle dividers
+
+        // === UI CHROME (Minimalist) ===
+        static let uiBgPrimary = UIColor(hex: "#FAFAF8")         // Warm White - Navigation, header
+        static let uiBgSecondary = UIColor(hex: "#F0EBE3")       // Light Cream - Sidebar backgrounds
+        static let uiBorderPrimary = UIColor(hex: "#D5D0C8")     // Warm Steel - Borders, input fields
+        static let uiBorderSubtle = UIColor(hex: "#E5E0D8")      // Soft Sand - Subtle borders
 
         // === TYPOGRAPHY COLORS (Maximum Readability AAA+) ===
-        static let textPrimary = UIColor(hex: "#2B2826")         // Ink Black - Primary reading text (14.5:1 contrast)
-        static let textHeading = UIColor(hex: "#625E58")         // Warm Charcoal - Headings, emphasis
-        static let textUI = UIColor(hex: "#54585B")              // Cool Charcoal - UI text
-        static let textSecondary = UIColor(hex: "#A6A6A4")       // Warm Gray - Metadata, timestamps
-        static let textTertiary = UIColor(hex: "#979C9F")        // Graphite - Icons, secondary UI
+        static let textPrimary = UIColor(hex: "#2A2725")         // Ink Black - Primary reading text (14.5:1 contrast)
+        static let textHeading = UIColor(hex: "#2A2725")         // Ink Black - Headings, emphasis
+        static let textUI = UIColor(hex: "#5A5550")              // Warm Charcoal - UI text
+        static let textSecondary = UIColor(hex: "#8A8580")       // Warm Gray - Metadata, timestamps
+        static let textTertiary = UIColor(hex: "#9A9590")        // Lighter Gray - Icons, secondary UI
         static let textInverse = UIColor(hex: "#FFFFFF")         // White - Inverse text on dark backgrounds
 
-        // === PREMIUM ACCENT COLORS (Sophisticated, Muted - 10%) ===
-        // Desaturated, complex colors for premium sophistication
-        static let accentPrimary = UIColor(hex: "#0D7377")       // Deep Teal - Primary CTAs, links, progress
-        static let accentSuccess = UIColor(hex: "#7A9B7F")       // Sage Green - Success, completion, resume
-        static let accentHighlight = UIColor(hex: "#9B6B4F")     // Burnt Umber - Highlights, bookmarks, warm accents
-        static let accentInfo = UIColor(hex: "#5B7C99")          // Slate Blue - Information, tooltips
-        static let accentPremium = UIColor(hex: "#8B4049")       // Deep Burgundy - Premium badges, VIP features
+        // === PREMIUM ACCENT COLORS (Modern Minimalistic) ===
+        static let accentPrimary = UIColor(hex: "#D35F2E")       // Burnt Orange - Primary CTAs, links, progress
+        static let accentSuccess = UIColor(hex: "#5A8A6B")       // Muted Sage - Success, completion, resume
+        static let accentHighlight = UIColor(hex: "#D35F2E")     // Burnt Orange - Highlights, bookmarks
+        static let accentInfo = UIColor(hex: "#3B5E7A")          // Steel Blue - Information, tooltips
+        static let accentPremium = UIColor(hex: "#7B2D3E")       // Deep Burgundy - Premium badges, VIP features
 
         // === SEMANTIC COLORS (Functional) ===
-        static let semanticWarning = UIColor(hex: "#C89B5A")     // Amber - Warm, less aggressive
-        static let semanticError = UIColor(hex: "#B85C5C")       // Muted Red - Softer, maintains premium feel
-        static let semanticInfo = UIColor(hex: "#6B8E9B")        // Soft Blue - Calm, informative
-        static let semanticHighlightBg = UIColor(hex: "#F4E8C1") // Soft Yellow - Like highlighting in a physical book
+        static let semanticWarning = UIColor(hex: "#D9A441")     // Warm Amber - Warning
+        static let semanticError = UIColor(hex: "#C45526")       // Dark Orange - Error (stays in brand)
+        static let semanticInfo = UIColor(hex: "#3B5E7A")        // Steel Blue - Informative
+        static let semanticHighlightBg = UIColor(hex: "#FDF5E8") // Soft Orange Tint - Highlighting
 
-        // === LEGACY ALIASES (For backwards compatibility) ===
-        // Primary Gold - Now Deep Teal for sophistication
-        static let primaryGold = UIColor(hex: "#0D7377")         // Deep Teal
-        static let primaryGoldLight = UIColor(hex: "#2A9D8F")    // Lighter Teal
-        static let primaryGoldDark = UIColor(hex: "#0B6166")     // Darker Teal
+        // === PRIMARY PALETTE - Burnt Orange ===
+        static let primaryGold = UIColor(hex: "#D35F2E")         // Burnt Orange
+        static let primaryGoldLight = UIColor(hex: "#E07A4D")    // Lighter Orange
+        static let primaryGoldDark = UIColor(hex: "#B84D22")     // Darker Orange
 
-        // Secondary Accents - Refined palette
-        static let accentBurgundy = UIColor(hex: "#8B4049")      // Deep Burgundy (Premium)
-        static let accentBurgundyLight = UIColor(hex: "#A55560") // Lighter Burgundy
-        static let accentCoral = UIColor(hex: "#9B6B4F")         // Burnt Umber (was Coral)
-        static let accentCoralLight = UIColor(hex: "#B8845F")    // Lighter Umber
-        static let accentTeal = UIColor(hex: "#0D7377")          // Deep Teal
-        static let accentOrange = UIColor(hex: "#C89B5A")        // Amber (was Orange)
-        static let accentCrimson = UIColor(hex: "#B85C5C")       // Muted Red
-        static let accentPurple = UIColor(hex: "#5B7C99")        // Slate Blue (was Purple)
+        // === SECONDARY ACCENTS ===
+        static let accentBurgundy = UIColor(hex: "#7B2D3E")      // Deep Burgundy (Premium)
+        static let accentBurgundyLight = UIColor(hex: "#9A4458") // Lighter Burgundy
+        static let accentCoral = UIColor(hex: "#D35F2E")         // Burnt Orange
+        static let accentCoralLight = UIColor(hex: "#E07A4D")    // Lighter Orange
+        static let accentTeal = UIColor(hex: "#3B5E7A")          // Steel Blue
+        static let accentOrange = UIColor(hex: "#D35F2E")        // Burnt Orange
+        static let accentCrimson = UIColor(hex: "#7B2D3E")       // Deep Burgundy
+        static let accentPurple = UIColor(hex: "#3B5E7A")        // Steel Blue
 
         // Brand Colors - Warm editorial palette
-        static let brandSepia = UIColor(hex: "#625E58")          // Warm Charcoal
-        static let brandSepiaLight = UIColor(hex: "#A6A6A4")     // Warm Gray
-        static let brandParchment = UIColor(hex: "#F5F3EF")      // Parchment
-        static let brandParchmentDark = UIColor(hex: "#EBE8E3")  // Warm Linen
-        static let brandInk = UIColor(hex: "#2B2826")            // Ink Black
+        static let brandSepia = UIColor(hex: "#5A5550")          // Warm Charcoal
+        static let brandSepiaLight = UIColor(hex: "#8A8580")     // Warm Gray
+        static let brandParchment = UIColor(hex: "#F5F0E8")      // Brand Cream
+        static let brandParchmentDark = UIColor(hex: "#EDE8E0")  // Warm Linen
+        static let brandInk = UIColor(hex: "#2A2725")            // Ink Black
 
         // Text Colors - Optimized for reading
-        static let textBody = UIColor(hex: "#2B2826")            // Ink Black
-        static let textMuted = UIColor(hex: "#A6A6A4")           // Warm Gray
-        static let textSubtle = UIColor(hex: "#979C9F")          // Graphite
+        static let textBody = UIColor(hex: "#2A2725")            // Ink Black
+        static let textMuted = UIColor(hex: "#8A8580")           // Warm Gray
+        static let textSubtle = UIColor(hex: "#9A9590")          // Lighter Gray
 
         // Background Colors - Warm reading surfaces
-        static let bgPrimary = UIColor(hex: "#F9F8F7")           // Sepia White
-        static let bgSecondary = UIColor(hex: "#F5F3EF")         // Parchment
+        static let bgPrimary = UIColor(hex: "#FAFAF8")           // Warm White
+        static let bgSecondary = UIColor(hex: "#F5F0E8")         // Brand Cream
         static let bgCard = UIColor(hex: "#FFFFFF")              // Pure White for elevated cards
-        static let bgCream = UIColor(hex: "#F9F8F7")             // Sepia White
+        static let bgCream = UIColor(hex: "#F5F0E8")             // Brand Cream
 
-        // Border Colors - Cool for UI separation
-        static let borderLight = UIColor(hex: "#E7E3DA")         // Soft Sand
-        static let borderMedium = UIColor(hex: "#D4D5D8")        // Steel
-        static let borderDark = UIColor(hex: "#979C9F")          // Graphite
+        // Border Colors - Subtle for minimalist design
+        static let borderLight = UIColor(hex: "#E5E0D8")         // Soft Sand
+        static let borderMedium = UIColor(hex: "#D5D0C8")        // Warm Steel
+        static let borderDark = UIColor(hex: "#9A9590")          // Warm Graphite
     }
 
     // MARK: - Typography
@@ -225,8 +232,12 @@ struct PDFStyleConfiguration {
 
         // Paragraph spacing
         static let paragraphSpacing: CGFloat = 12
-        static let sectionSpacing: CGFloat = 24
-        static let blockSpacing: CGFloat = 16
+        static let sectionSpacing: CGFloat = 20  // Reduced from 24pt to avoid excessive whitespace
+        static let blockSpacing: CGFloat = 14    // Reduced from 16pt for tighter layout
+
+        // Heading-specific spacing
+        static let headingTopMargin: CGFloat = 16  // Space before headings
+        static let headingBottomMargin: CGFloat = 8 // Space after headings before content
     }
 
     // MARK: - Corner Radius
@@ -237,55 +248,61 @@ struct PDFStyleConfiguration {
         static let lg: CGFloat = 8
     }
 
-    // MARK: - Block Styles (Premium Reading-Optimized)
+    // MARK: - Block Styles (Modern Minimalistic - OE Brand)
 
     struct BlockStyles {
-        // Quick Glance - Uses Deep Teal for primary accent
-        static let quickGlanceBorderColor = Colors.accentPrimary        // Deep Teal
+        // Quick Glance - Uses Burnt Orange for primary accent
+        static let quickGlanceBorderColor = Colors.accentPrimary        // Burnt Orange
         static let quickGlanceBgColor = Colors.bgCard
-        static let quickGlanceHeaderBgColor = Colors.readingBgSecondary // Parchment
+        static let quickGlanceHeaderBgColor = Colors.readingBgSecondary // Brand Cream
 
-        // Insight Note - Uses Burnt Umber for warm highlights
-        static let insightNoteBorderColor = Colors.accentHighlight      // Burnt Umber
-        static let insightNoteBgColor = Colors.accentHighlight.withAlphaComponent(0.06)
+        // Insight Note - Uses Burnt Orange for warm highlights
+        static let insightNoteBorderColor = Colors.accentHighlight      // Burnt Orange
+        static let insightNoteBgColor = Colors.accentHighlight.withAlphaComponent(0.08)
         static let insightNoteIconColor = Colors.accentHighlight
 
-        // Alternative Perspective - Uses Slate Blue for balanced info
-        static let alternativePerspectiveBorderColor = Colors.accentInfo // Slate Blue
-        static let alternativePerspectiveBgColor = Colors.accentInfo.withAlphaComponent(0.06)
+        // Alternative Perspective - Unified styling matching Insight Note pattern
+        static let alternativePerspectiveBorderColor = Colors.accentInfo // Steel Blue
+        static let alternativePerspectiveBgColor = Colors.accentInfo.withAlphaComponent(0.08)
         static let alternativePerspectiveIconColor = Colors.accentInfo
+        static let alternativePerspectiveHeaderBgColor = Colors.accentInfo
+        static let alternativePerspectiveBorderWidth: CGFloat = 1.0
+        static let alternativePerspectiveCornerRadius: CGFloat = 6.0
 
-        // Research Insight - Uses Deep Teal for trustworthy information
-        static let researchInsightBorderColor = Colors.accentPrimary    // Deep Teal
-        static let researchInsightBgColor = Colors.accentPrimary.withAlphaComponent(0.06)
-        static let researchInsightIconColor = Colors.accentPrimary
+        // Research Insight - Unified styling matching Insight Note pattern
+        static let researchInsightBorderColor = Colors.accentInfo       // Steel Blue
+        static let researchInsightBgColor = Colors.accentInfo.withAlphaComponent(0.08)
+        static let researchInsightIconColor = Colors.accentInfo
+        static let researchInsightHeaderBgColor = Colors.accentInfo
+        static let researchInsightBorderWidth: CGFloat = 1.0
+        static let researchInsightCornerRadius: CGFloat = 6.0
 
-        // Action Box - Uses Sage Green for actionable success
-        static let actionBoxBorderColor = Colors.accentSuccess          // Sage Green
-        static let actionBoxBgColor = Colors.accentSuccess.withAlphaComponent(0.06)
+        // Action Box - Uses Muted Sage for actionable success
+        static let actionBoxBorderColor = Colors.accentSuccess          // Muted Sage
+        static let actionBoxBgColor = Colors.accentSuccess.withAlphaComponent(0.08)
         static let actionBoxHeaderBgColor = Colors.accentSuccess
 
-        // Exercise - Uses Deep Teal for engagement
-        static let exerciseBorderColor = Colors.accentPrimary           // Deep Teal
-        static let exerciseBgColor = Colors.accentPrimary.withAlphaComponent(0.06)
+        // Exercise - Uses Burnt Orange for engagement
+        static let exerciseBorderColor = Colors.accentPrimary           // Burnt Orange
+        static let exerciseBgColor = Colors.accentPrimary.withAlphaComponent(0.08)
         static let exerciseIconColor = Colors.accentPrimary
 
-        // Key Takeaways - Uses Deep Teal for primary importance
-        static let takeawaysBorderColor = Colors.accentPrimary          // Deep Teal
+        // Key Takeaways - Uses Burnt Orange for primary importance
+        static let takeawaysBorderColor = Colors.accentPrimary          // Burnt Orange
         static let takeawaysBgColor = Colors.bgCard
         static let takeawaysIconColor = Colors.accentPrimary
 
         // Foundational Narrative - Uses Deep Burgundy for premium storytelling
         static let narrativeBorderColor = Colors.accentPremium          // Deep Burgundy
-        static let narrativeBgColor = Colors.accentPremium.withAlphaComponent(0.05)
+        static let narrativeBgColor = Colors.accentPremium.withAlphaComponent(0.06)
 
-        // Blockquote - Uses Burnt Umber for warm literary feel
-        static let blockquoteBorderColor = Colors.accentHighlight       // Burnt Umber
-        static let blockquoteBgColor = Colors.readingBgSecondary        // Parchment
+        // Blockquote - Uses Deep Burgundy for literary sophistication
+        static let blockquoteBorderColor = Colors.accentPremium         // Deep Burgundy
+        static let blockquoteBgColor = Colors.readingBgSecondary        // Brand Cream
 
-        // Flowchart - Uses Deep Teal for clear visualization
-        static let flowchartArrowColor = Colors.accentPrimary           // Deep Teal
-        static let flowchartBoxBorderColor = Colors.borderMedium        // Steel
+        // Flowchart - Uses Steel Blue for clear visualization
+        static let flowchartArrowColor = Colors.accentInfo              // Steel Blue
+        static let flowchartBoxBorderColor = Colors.borderMedium        // Warm Steel
         static let flowchartBoxBgColor = Colors.bgCard
     }
 
@@ -313,15 +330,15 @@ struct PDFStyleConfiguration {
         static let diamondOutline = "◇"
     }
 
-    // MARK: - Premium Block Styles (Sophisticated Editorial)
+    // MARK: - Premium Block Styles (Modern Minimalistic - OE Brand)
 
     struct PremiumStyles {
-        // Premium Quote Block - Uses Burnt Umber for literary warmth
-        static let quoteBorderColor = Colors.accentHighlight            // Burnt Umber
+        // Premium Quote Block - Uses Deep Burgundy for literary sophistication
+        static let quoteBorderColor = Colors.accentPremium              // Deep Burgundy
         static let quoteBorderWidth: CGFloat = 4
-        static let quoteMarkColor = Colors.accentHighlight.withAlphaComponent(0.25)
+        static let quoteMarkColor = Colors.accentPremium.withAlphaComponent(0.25)
         static let quoteTextColor = Colors.textPrimary                  // Ink Black
-        static let quoteAuthorColor = Colors.accentHighlight            // Burnt Umber
+        static let quoteAuthorColor = Colors.accentPremium              // Deep Burgundy
         static let quoteSourceColor = Colors.textSecondary              // Warm Gray
 
         // Author Spotlight Block - Uses Deep Burgundy for premium exclusivity
@@ -329,19 +346,19 @@ struct PDFStyleConfiguration {
         static let authorSpotlightInnerBorderColor = Colors.accentPremium.withAlphaComponent(0.6)
         static let authorSpotlightBgColor = Colors.bgCard               // Pure White
         static let authorSpotlightHeaderColor = Colors.accentPremium    // Deep Burgundy
-        static let authorSpotlightNameColor = Colors.accentHighlight    // Burnt Umber
-        static let authorSpotlightBookTitleColor = Colors.accentHighlight // Burnt Umber
+        static let authorSpotlightNameColor = Colors.brandOrange        // Burnt Orange
+        static let authorSpotlightBookTitleColor = Colors.brandOrange   // Burnt Orange
 
-        // Section Divider - Uses Deep Teal for primary hierarchy
-        static let dividerLineColor = Colors.accentPrimary              // Deep Teal
-        static let dividerDiamondColor = Colors.accentPrimary           // Deep Teal
+        // Section Divider - Uses Burnt Orange for primary hierarchy
+        static let dividerLineColor = Colors.accentPrimary              // Burnt Orange
+        static let dividerDiamondColor = Colors.accentPrimary           // Burnt Orange
 
-        // Premium Section Headers - Deep Teal with Warm Charcoal text
-        static let h1Color = Colors.accentPrimary                       // Deep Teal
-        static let h1OrnamentColor = Colors.accentPrimary               // Deep Teal
-        static let h2BorderColor = Colors.accentPrimary                 // Deep Teal
+        // Premium Section Headers - Burnt Orange with Ink Black text
+        static let h1Color = Colors.accentPrimary                       // Burnt Orange
+        static let h1OrnamentColor = Colors.accentPrimary               // Burnt Orange
+        static let h2BorderColor = Colors.accentPrimary                 // Burnt Orange
         static let h2LabelColor = Colors.textSecondary                  // Warm Gray
-        static let h2HeadingColor = Colors.textHeading                  // Warm Charcoal
+        static let h2HeadingColor = Colors.textHeading                  // Ink Black
     }
 
     // MARK: - Premium Typography

@@ -1,23 +1,27 @@
 import SwiftUI
 
 struct GuideView: View {
-    
+
     // MARK: - Properties
-    
+
     let item: LibraryItem
-    
+
     // MARK: - Environment
-    
+
     @EnvironmentObject var environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
-    
+
     // MARK: - State
-    
+
     @State private var searchText = ""
     @State private var isPlayingAudio = false
     @State private var audioPlaybackProgress: Double = 0
     @State private var isGeneratingAudio = false
     @State private var tableOfContents: [TOCEntry] = []
+    @State private var bookmarks: [GuideBookmark] = []
+    @State private var showBookmarksSheet = false
+    @State private var showAddBookmarkSheet = false
+    @State private var selectedBookmarkSection: TOCEntry?
     
     // MARK: - Computed Properties
     
@@ -26,7 +30,7 @@ struct GuideView: View {
     }
     
     private var canGenerateAudio: Bool {
-        item.summaryContent != nil && !item.audioGenerationAttempted
+        item.summaryContent != nil && !(item.audioGenerationAttempted ?? false)
     }
     
     // MARK: - Body
@@ -79,84 +83,267 @@ struct GuideView: View {
         .searchable(text: $searchText, prompt: "Search in guide")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
+                HStack(spacing: 16) {
+                    // Bookmarks button
                     Button {
-                        // Export guide
+                        showBookmarksSheet = true
                     } label: {
-                        Label("Export", systemImage: "square.and.arrow.up")
+                        Image(systemName: bookmarks.isEmpty ? "bookmark" : "bookmark.fill")
+                            .foregroundColor(bookmarks.isEmpty ? .secondary : AnalysisTheme.primaryGold)
                     }
-                    
-                    Button {
-                        // Share guide
+
+                    // More options menu
+                    Menu {
+                        Button {
+                            // Export guide
+                        } label: {
+                            Label("Export", systemImage: "square.and.arrow.up")
+                        }
+
+                        Button {
+                            // Share guide
+                        } label: {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            deleteGuide()
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     } label: {
-                        Label("Share", systemImage: "square.and.arrow.up")
+                        Image(systemName: "ellipsis.circle")
                     }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive) {
-                        deleteGuide()
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
+        .sheet(isPresented: $showBookmarksSheet) {
+            BookmarksListSheet(
+                bookmarks: $bookmarks,
+                tableOfContents: tableOfContents,
+                onSelectBookmark: { bookmark in
+                    // Navigate to bookmark - handled by caller
+                },
+                onDeleteBookmark: { bookmark in
+                    bookmarks.removeAll { $0.id == bookmark.id }
+                    saveBookmarks()
+                },
+                onAddBookmark: {
+                    showBookmarksSheet = false
+                    showAddBookmarkSheet = true
+                }
+            )
+        }
+        .sheet(isPresented: $showAddBookmarkSheet) {
+            AddBookmarkSheet(
+                tableOfContents: tableOfContents,
+                existingBookmarks: bookmarks,
+                onSave: { newBookmark in
+                    bookmarks.append(newBookmark)
+                    saveBookmarks()
+                }
+            )
+        }
         .onAppear {
             generateTableOfContents()
+            loadBookmarks()
         }
     }
     
     // MARK: - Table of Contents
     
     private func tableOfContentsSection(proxy: ScrollViewProxy) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Table of Contents")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 8) {
+            // Header with collapsible toggle
+            HStack {
+                Image(systemName: "list.bullet.rectangle.portrait")
+                    .foregroundColor(AnalysisTheme.primaryGold)
+                Text("Table of Contents")
+                    .font(.custom("CormorantGaramond-SemiBold", size: 18))
+                Spacer()
+                Text("\(tableOfContents.count) sections")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            Divider()
                 .padding(.horizontal)
-            
+
+            // TOC entries with proper indentation
             ForEach(tableOfContents) { entry in
                 Button {
-                    withAnimation {
+                    withAnimation(.easeInOut(duration: 0.3)) {
                         proxy.scrollTo(entry.id, anchor: .top)
                     }
                 } label: {
-                    HStack {
+                    HStack(spacing: 12) {
+                        // Indentation based on level
+                        if entry.level > 1 {
+                            Spacer()
+                                .frame(width: CGFloat((entry.level - 1) * 16))
+                        }
+
+                        // Icon based on type
+                        Image(systemName: iconForTOCType(entry.type))
+                            .font(.system(size: 14))
+                            .foregroundColor(colorForTOCType(entry.type))
+                            .frame(width: 20)
+
                         Text(entry.title)
-                            .font(.subheadline)
+                            .font(fontForTOCLevel(entry.level))
                             .foregroundColor(.primary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
                         Spacer()
+
                         Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary.opacity(0.5))
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .cornerRadius(8)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(entry.level == 1 ? Color(.secondarySystemGroupedBackground) : Color.clear)
+                    )
                 }
-                .padding(.horizontal)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 8)
             }
         }
-        .padding(.vertical)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+        )
+        .padding(.horizontal, 4)
+    }
+
+    private func iconForTOCType(_ type: TOCEntry.TOCEntryType) -> String {
+        switch type {
+        case .header1: return "bookmark.fill"
+        case .header2: return "text.alignleft"
+        case .quickGlance: return "sparkles"
+        case .takeaways: return "checkmark.circle.fill"
+        case .exercise: return "figure.walk"
+        case .section: return "doc.text"
+        }
+    }
+
+    private func colorForTOCType(_ type: TOCEntry.TOCEntryType) -> Color {
+        switch type {
+        case .header1: return AnalysisTheme.primaryGold
+        case .header2: return .secondary
+        case .quickGlance: return AnalysisTheme.accentOrange
+        case .takeaways: return AnalysisTheme.accentSuccess
+        case .exercise: return AnalysisTheme.accentTeal
+        case .section: return .secondary
+        }
+    }
+
+    private func fontForTOCLevel(_ level: Int) -> Font {
+        switch level {
+        case 1: return .custom("CormorantGaramond-SemiBold", size: 16)
+        case 2: return .custom("CormorantGaramond-Regular", size: 15)
+        default: return .custom("Inter-Regular", size: 14)
+        }
     }
     
     private func generateTableOfContents() {
         guard let content = item.summaryContent else { return }
-        
-        // Parse markdown headers
-        let lines = content.components(separatedBy: .newlines)
+
         var toc: [TOCEntry] = []
-        
-        for (index, line) in lines.enumerated() {
-            if line.hasPrefix("# ") || line.hasPrefix("## ") {
-                let title = line.replacingOccurrences(of: "^#+\\s*", with: "", options: .regularExpression)
-                toc.append(TOCEntry(id: "heading-\(index)", title: title))
+        var sectionIndex = 0
+
+        // Regex patterns for Insight Atlas custom tags
+        let h1Pattern = #"\[PREMIUM_H1\]([^\[]+)\[/PREMIUM_H1\]"#
+        let h2Pattern = #"\[PREMIUM_H2\]([^\[]+)\[/PREMIUM_H2\]"#
+        _ = #"\[QUICK_GLANCE\]"#
+        _ = #"\[TAKEAWAYS\]"#
+        let exercisePattern = #"\[EXERCISE_[A-Z]+:([^\]]+)\]"#
+
+        // Also support markdown headers as fallback
+        _ = #"^# (.+)$"#
+        _ = #"^## (.+)$"#
+
+        let lines = content.components(separatedBy: .newlines)
+
+        for (_, line) in lines.enumerated() {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+
+            // Check for PREMIUM_H1
+            if let match = trimmedLine.range(of: h1Pattern, options: .regularExpression) {
+                let fullMatch = String(trimmedLine[match])
+                if let titleRange = fullMatch.range(of: #"(?<=\[PREMIUM_H1\]).*(?=\[/PREMIUM_H1\])"#, options: .regularExpression) {
+                    let title = String(fullMatch[titleRange]).trimmingCharacters(in: .whitespaces)
+                    if !title.isEmpty {
+                        sectionIndex += 1
+                        toc.append(TOCEntry(id: "section-\(sectionIndex)", title: title, level: 1, type: .header1))
+                    }
+                }
+            }
+
+            // Check for PREMIUM_H2
+            else if let match = trimmedLine.range(of: h2Pattern, options: .regularExpression) {
+                let fullMatch = String(trimmedLine[match])
+                if let titleRange = fullMatch.range(of: #"(?<=\[PREMIUM_H2\]).*(?=\[/PREMIUM_H2\])"#, options: .regularExpression) {
+                    let title = String(fullMatch[titleRange]).trimmingCharacters(in: .whitespaces)
+                    if !title.isEmpty {
+                        sectionIndex += 1
+                        toc.append(TOCEntry(id: "section-\(sectionIndex)", title: title, level: 2, type: .header2))
+                    }
+                }
+            }
+
+            // Check for QUICK_GLANCE
+            else if trimmedLine.contains("[QUICK_GLANCE]") {
+                sectionIndex += 1
+                toc.append(TOCEntry(id: "section-\(sectionIndex)", title: "Quick Glance", level: 1, type: .quickGlance))
+            }
+
+            // Check for TAKEAWAYS
+            else if trimmedLine.contains("[TAKEAWAYS]") {
+                sectionIndex += 1
+                toc.append(TOCEntry(id: "section-\(sectionIndex)", title: "Key Takeaways", level: 1, type: .takeaways))
+            }
+
+            // Check for exercises
+            else if let match = trimmedLine.range(of: exercisePattern, options: .regularExpression) {
+                let fullMatch = String(trimmedLine[match])
+                if let titleRange = fullMatch.range(of: #"(?<=:)[^\]]+(?=\])"#, options: .regularExpression) {
+                    let title = String(fullMatch[titleRange]).trimmingCharacters(in: .whitespaces)
+                    if !title.isEmpty {
+                        sectionIndex += 1
+                        toc.append(TOCEntry(id: "section-\(sectionIndex)", title: "Exercise: \(title)", level: 3, type: .exercise))
+                    }
+                }
+            }
+
+            // Fallback: Markdown H1
+            else if trimmedLine.hasPrefix("# ") {
+                let title = String(trimmedLine.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                if !title.isEmpty && !title.hasPrefix("[") {
+                    sectionIndex += 1
+                    toc.append(TOCEntry(id: "section-\(sectionIndex)", title: title, level: 1, type: .header1))
+                }
+            }
+
+            // Fallback: Markdown H2
+            else if trimmedLine.hasPrefix("## ") {
+                let title = String(trimmedLine.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                if !title.isEmpty && !title.hasPrefix("[") {
+                    sectionIndex += 1
+                    toc.append(TOCEntry(id: "section-\(sectionIndex)", title: title, level: 2, type: .header2))
+                }
             }
         }
-        
+
         tableOfContents = toc
     }
     
@@ -202,17 +389,238 @@ struct GuideView: View {
         environment.deleteLibraryItem(item)
         dismiss()
     }
+
+    // MARK: - Bookmark Management
+
+    private func loadBookmarks() {
+        bookmarks = item.bookmarks ?? []
+    }
+
+    private func saveBookmarks() {
+        var updatedItem = item
+        updatedItem.bookmarks = bookmarks
+        environment.updateLibraryItem(updatedItem)
+    }
+
+    private func isBookmarked(_ sectionId: String) -> Bool {
+        bookmarks.contains { $0.sectionId == sectionId }
+    }
+
+    private func toggleBookmark(for entry: TOCEntry) {
+        if let index = bookmarks.firstIndex(where: { $0.sectionId == entry.id }) {
+            bookmarks.remove(at: index)
+        } else {
+            let newBookmark = GuideBookmark(
+                sectionId: entry.id,
+                sectionTitle: entry.title
+            )
+            bookmarks.append(newBookmark)
+        }
+        saveBookmarks()
+    }
+}
+
+// MARK: - Bookmarks List Sheet
+
+struct BookmarksListSheet: View {
+    @Binding var bookmarks: [GuideBookmark]
+    let tableOfContents: [TOCEntry]
+    let onSelectBookmark: (GuideBookmark) -> Void
+    let onDeleteBookmark: (GuideBookmark) -> Void
+    let onAddBookmark: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if bookmarks.isEmpty {
+                    VStack(spacing: 20) {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 60))
+                            .foregroundColor(.secondary)
+
+                        Text("No Bookmarks Yet")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+
+                        Text("Add bookmarks to quickly navigate to your favorite sections")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+
+                        Button {
+                            onAddBookmark()
+                        } label: {
+                            Label("Add Bookmark", systemImage: "plus")
+                                .padding()
+                                .background(AnalysisTheme.primaryGold)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                } else {
+                    List {
+                        ForEach(bookmarks.sorted(by: { $0.createdAt > $1.createdAt })) { bookmark in
+                            Button {
+                                dismiss()
+                                onSelectBookmark(bookmark)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Circle()
+                                        .fill(bookmark.highlightColor.color)
+                                        .frame(width: 12, height: 12)
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(bookmark.sectionTitle)
+                                            .font(.headline)
+                                            .foregroundColor(.primary)
+
+                                        if let note = bookmark.note, !note.isEmpty {
+                                            Text(note)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(2)
+                                        }
+
+                                        Text(bookmark.createdAt, style: .relative)
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    onDeleteBookmark(bookmark)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Bookmarks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !bookmarks.isEmpty {
+                        Button {
+                            onAddBookmark()
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Add Bookmark Sheet
+
+struct AddBookmarkSheet: View {
+    let tableOfContents: [TOCEntry]
+    let existingBookmarks: [GuideBookmark]
+    let onSave: (GuideBookmark) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedSection: TOCEntry?
+    @State private var note = ""
+    @State private var selectedColor: BookmarkColor = .gold
+
+    private var availableSections: [TOCEntry] {
+        tableOfContents.filter { entry in
+            !existingBookmarks.contains { $0.sectionId == entry.id }
+        }
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Section") {
+                    if availableSections.isEmpty {
+                        Text("All sections are already bookmarked")
+                            .foregroundColor(.secondary)
+                    } else {
+                        Picker("Select Section", selection: $selectedSection) {
+                            Text("Choose a section").tag(nil as TOCEntry?)
+                            ForEach(availableSections) { entry in
+                                Text(entry.title).tag(entry as TOCEntry?)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
+
+                Section("Note (Optional)") {
+                    TextField("Add a note...", text: $note, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+
+                Section("Color") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 16) {
+                        ForEach(BookmarkColor.allCases, id: \.self) { color in
+                            Button {
+                                selectedColor = color
+                            } label: {
+                                Circle()
+                                    .fill(color.color)
+                                    .frame(width: 36, height: 36)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.primary, lineWidth: selectedColor == color ? 3 : 0)
+                                    )
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("Add Bookmark")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        guard let section = selectedSection else { return }
+                        let bookmark = GuideBookmark(
+                            sectionId: section.id,
+                            sectionTitle: section.title,
+                            note: note.isEmpty ? nil : note,
+                            highlightColor: selectedColor
+                        )
+                        onSave(bookmark)
+                        dismiss()
+                    }
+                    .disabled(selectedSection == nil)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Guide Header View
 
 struct GuideHeaderView: View {
     let item: LibraryItem
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Cover Image
-            if let imageData = item.loadCoverImageData(),
+            if let coverPath = item.coverImagePath,
+               let imageData = loadCoverImageData(from: coverPath),
                let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
@@ -236,19 +644,28 @@ struct GuideHeaderView: View {
             
             // Metadata
             HStack(spacing: 24) {
-                if let readTime = item.readTime {
-                    InfoPill(label: readTime, icon: "clock")
+                if let wordCount = item.governedWordCount {
+                    let minutes = wordCount / 200
+                    InfoPill(label: "\(minutes) min read", icon: "clock")
                 }
                 if let pageCount = item.pageCount {
                     InfoPill(label: "\(pageCount) pages", icon: "doc")
                 }
-                InfoPill(label: item.mode, icon: "sparkles")
+                InfoPill(label: item.mode.displayName, icon: "sparkles")
             }
             .font(.caption)
             .foregroundColor(.secondary)
-            
+
             Divider()
         }
+    }
+
+    private func loadCoverImageData(from path: String) -> Data? {
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        let fileURL = documentsDir.appendingPathComponent(path)
+        return try? Data(contentsOf: fileURL)
     }
 }
 
@@ -329,9 +746,35 @@ struct StickyAudioPlayer: View {
 
 // MARK: - TOC Entry
 
-struct TOCEntry: Identifiable {
+struct TOCEntry: Identifiable, Hashable {
     let id: String
     let title: String
+    let level: Int  // 1 for H1, 2 for H2, 3 for blocks
+    let type: TOCEntryType
+
+    enum TOCEntryType: String, Hashable {
+        case header1 = "h1"
+        case header2 = "h2"
+        case quickGlance = "quick_glance"
+        case takeaways = "takeaways"
+        case exercise = "exercise"
+        case section = "section"
+    }
+
+    init(id: String, title: String, level: Int = 1, type: TOCEntryType = .header1) {
+        self.id = id
+        self.title = title
+        self.level = level
+        self.type = type
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: TOCEntry, rhs: TOCEntry) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 // MARK: - Content View Placeholder

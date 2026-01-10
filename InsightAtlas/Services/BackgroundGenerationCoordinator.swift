@@ -111,11 +111,22 @@ struct GenerationProgress: Equatable {
     )
 }
 
+// MARK: - Generation Output
+
+/// Output from a successful generation, including content and cover image path
+struct GenerationOutput {
+    let content: String
+    let coverImagePath: String?
+    let metadata: GenerationMetadata?
+    let resolvedTitle: String
+    let resolvedAuthor: String
+}
+
 // MARK: - Generation Result
 
 /// Result of a completed generation
 enum GenerationResult {
-    case success(content: String, itemId: UUID?, metadata: GenerationMetadata?)
+    case success(content: String, itemId: UUID?, metadata: GenerationMetadata?, coverImagePath: String?)
     case failure(Error)
     case cancelled
 }
@@ -195,7 +206,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
     ///   - settings: User settings including API keys and preferences
     ///   - existingItemId: Optional ID of existing library item to update
     ///   - summaryType: Summary type for governor enforcement
-    /// - Returns: Generated content string
+    /// - Returns: GenerationOutput containing content and cover image path
     func startGeneration(
         bookData: Data,
         fileType: FileType,
@@ -205,7 +216,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         existingItemId: UUID? = nil,
         summaryType: SummaryType? = nil,
         voiceID: String? = nil
-    ) async throws -> String {
+    ) async throws -> GenerationOutput {
         // Store the voice ID for audio generation
         self.selectedVoiceID = voiceID
         // Use passed summaryType or fall back to user's preferred setting
@@ -219,6 +230,11 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         // Process book to extract text
         let processedBook = try await bookProcessor.processBook(from: bookData, fileType: fileType)
         let bookText = processedBook.text
+        let resolvedTitle = normalizedMetadata(processedBook.title) ?? title
+        let resolvedAuthor = normalizedMetadata(processedBook.author) ?? author
+
+        // Save cover image if available
+        let coverImagePath = saveCoverImage(processedBook.coverImageData, for: existingItemId ?? UUID())
 
         // MARK: - Governor Pre-Generation Setup
 
@@ -243,8 +259,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         let generationId = UUID()
         var state = GenerationState(
             id: generationId,
-            title: title,
-            author: author,
+            title: resolvedTitle,
+            author: resolvedAuthor,
             fileType: fileType,
             mode: settings.preferredMode,
             tone: settings.preferredTone,
@@ -373,6 +389,17 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
             governorLog("Final word count: \(finalResult.wordCount)")
 
+            let sanitizedContent = sanitizeGeneratedContent(finalResult.content)
+            if sanitizedContent != finalResult.content {
+                finalResult = GovernorEnforcementResult(
+                    content: sanitizedContent,
+                    wordCount: sanitizedContent.split(separator: " ").count,
+                    cutPolicyActivated: finalResult.cutPolicyActivated,
+                    cutEventCount: finalResult.cutEventCount
+                )
+                governorLog("Markdown artifacts stripped from output")
+            }
+
             // Soft enforcement: log warning but don't throw for minor violations
             if finalResult.wordCount > governor.maxWordCeiling {
                 let overagePercent = Float(finalResult.wordCount - governor.maxWordCeiling) / Float(governor.maxWordCeiling) * 100
@@ -393,7 +420,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
             let audioResult = await generateAudioIfAvailable(
                 content: finalResult.content,
-                title: title,
+                title: resolvedTitle,
                 generationId: generationId,
                 libraryItemId: existingItemId,
                 readerProfile: settings.preferredReaderProfile
@@ -419,12 +446,18 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             // Clean up
             endBackgroundTask()
             isGenerating = false
-            lastResult = .success(content: finalResult.content, itemId: existingItemId, metadata: metadata)
+            lastResult = .success(content: finalResult.content, itemId: existingItemId, metadata: metadata, coverImagePath: coverImagePath)
 
             // Clear persisted state after success
             clearPersistedState()
 
-            return finalResult.content
+            return GenerationOutput(
+                content: finalResult.content,
+                coverImagePath: coverImagePath,
+                metadata: metadata,
+                resolvedTitle: resolvedTitle,
+                resolvedAuthor: resolvedAuthor
+            )
 
         } catch is CancellationError {
             // Handle cancellation
@@ -452,6 +485,14 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             // Keep state for potential retry
             throw error
         }
+    }
+
+    private func normalizedMetadata(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 
     /// Cancel any in-progress generation
@@ -588,7 +629,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 metadata = nil
             }
 
-            lastResult = .success(content: result, itemId: state.existingItemId, metadata: metadata)
+            // For resumed generations, cover image is not available (already saved previously)
+            lastResult = .success(content: result, itemId: state.existingItemId, metadata: metadata, coverImagePath: nil)
 
             clearPersistedState()
 
@@ -877,7 +919,23 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             output.append("[/\(open)]")
         }
 
-        return output.joined(separator: "\n")
+        var sanitized = output.joined(separator: "\n")
+        sanitized = sanitized.replacingOccurrences(
+            of: "```[\\s\\S]*?```",
+            with: "",
+            options: .regularExpression
+        )
+        sanitized = sanitized.replacingOccurrences(
+            of: #"(?m)^\s{0,3}>\s?"#,
+            with: "",
+            options: .regularExpression
+        )
+        sanitized = sanitized.replacingOccurrences(
+            of: #"!?\[([^\]]+)\]\([^)]+\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        return sanitized
     }
 
     /// Begin a UIKit background task for extended execution
@@ -990,7 +1048,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
         case .completed:
             // Generation completed but wasn't acknowledged
-            lastResult = .success(content: state.accumulatedContent, itemId: state.existingItemId, metadata: nil)
+            lastResult = .success(content: state.accumulatedContent, itemId: state.existingItemId, metadata: nil, coverImagePath: nil)
             clearPersistedState()
 
         case .failed, .cancelled, .pending:
@@ -1134,255 +1192,15 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     // MARK: - Quality Validation
 
-    /// Validates output quality and returns list of issues requiring improvement
+    /// Validates output quality and returns list of issues requiring improvement.
+    /// Delegates to the centralized OutputQualityValidator for consistent validation.
     private func validateOutputQuality(content: String, governor: SummaryTypeGovernor) -> [String] {
-        var issues: [String] = []
-        let lowercased = content.lowercased()
-
-        // Visuals are optional; do not enforce a minimum count or diversity.
-
-        // Check for INSIGHT_NOTE with required components
-        let insightNoteCount = content.components(separatedBy: "[INSIGHT_NOTE]").count - 1
-        let keyDistinctionCount = lowercased.components(separatedBy: "**key distinction:**").count - 1
-        let practicalImplicationCount = lowercased.components(separatedBy: "**practical implication:**").count - 1
-        let goDeeperCount = lowercased.components(separatedBy: "**go deeper:**").count - 1
-
-        if insightNoteCount < 3 && governor.summaryType != .quickReference {
-            issues.append("Insufficient cross-discipline connections: found \(insightNoteCount) INSIGHT_NOTEs, need at least 3")
-        }
-
-        if keyDistinctionCount < insightNoteCount {
-            issues.append("INSIGHT_NOTEs missing Key Distinction sections")
-        }
-
-        if practicalImplicationCount < insightNoteCount {
-            issues.append("INSIGHT_NOTEs missing Practical Implication sections")
-        }
-
-        if goDeeperCount < insightNoteCount {
-            issues.append("INSIGHT_NOTEs missing Go Deeper recommendations")
-        }
-
-        // Require cross-book synthesis and avoid chapter-by-chapter framing
-        if !lowercased.contains("cross-book synthesis") && !lowercased.contains("cross book synthesis") {
-            issues.append("Missing Cross-Book Synthesis sections")
-        }
-        if lowercased.contains("chapter summary") || lowercased.contains("chapter-by-chapter") {
-            issues.append("Chapter-by-chapter framing is not allowed; use thematic synthesis")
-        }
-
-        if !lowercased.contains("[section: comparative analysis]") &&
-            !lowercased.contains("[premium_h2]comparative analysis[/premium_h2]") {
-            issues.append("Missing Comparative Analysis section")
-        }
-
-        if !lowercased.contains("[premium_h2]synthesis interlude[/premium_h2]") {
-            issues.append("Missing Synthesis Interlude sections")
-        }
-
-        if !lowercased.contains("[premium_h2]applied implications[/premium_h2]") {
-            issues.append("Missing Applied Implications section")
-        }
-
-        // Premium formatting blocks should appear in longer guides
-        let premiumMarkers = [
-            "[PREMIUM_H1]",
-            "[PREMIUM_H2]",
-            "[PREMIUM_DIVIDER]",
-            "[PREMIUM_QUOTE]",
-            "[AUTHOR_SPOTLIGHT]",
-            "[ALTERNATIVE_PERSPECTIVE]",
-            "[RESEARCH_INSIGHT]"
-        ]
-        let premiumCount = premiumMarkers.reduce(0) { count, marker in
-            count + (content.components(separatedBy: marker).count - 1)
-        }
-        if governor.summaryType != .quickReference && premiumCount < 4 {
-            issues.append("Insufficient premium formatting blocks: found \(premiumCount), need at least 4")
-        }
-
-        // Require diversity of premium callouts to avoid repetition
-        let premiumDiversityMarkers = [
-            "[PREMIUM_QUOTE]",
-            "[AUTHOR_SPOTLIGHT]",
-            "[ALTERNATIVE_PERSPECTIVE]",
-            "[RESEARCH_INSIGHT]",
-            "[INSIGHT_NOTE]"
-        ]
-        let premiumTypesUsed = premiumDiversityMarkers.filter { content.contains($0) }.count
-        if governor.summaryType != .quickReference && premiumTypesUsed < 3 {
-            issues.append("Insufficient premium callout diversity")
-        }
-
-        let premiumQuoteCount = content.components(separatedBy: "[PREMIUM_QUOTE]").count - 1
-        if governor.summaryType != .quickReference && premiumQuoteCount < 2 {
-            issues.append("Insufficient premium quotes")
-        }
-
-        let premiumDividerCount = content.components(separatedBy: "[PREMIUM_DIVIDER]").count - 1
-        if governor.summaryType != .quickReference && premiumDividerCount < 2 {
-            issues.append("Insufficient premium dividers between parts")
-        }
-
-        let flowchartCount = content.components(separatedBy: "[VISUAL_FLOWCHART").count - 1
-        let flowDiagramCount = content.components(separatedBy: "[VISUAL_FLOW_DIAGRAM").count - 1
-        _ = content.components(separatedBy: "[VISUAL_TABLE").count - 1
-        _ = content.components(separatedBy: "[VISUAL_COMPARISON_MATRIX").count - 1
-        _ = content.components(separatedBy: "[VISUAL_CONCEPT_MAP").count - 1
-        let conceptMapLegacy = content.components(separatedBy: "[CONCEPT_MAP").count - 1
-        _ = content.components(separatedBy: "[VISUAL_TIMELINE").count - 1
-        let timelineLegacy = content.components(separatedBy: "[PROCESS_TIMELINE").count - 1
-        _ = content.components(separatedBy: "[VISUAL_HIERARCHY").count - 1
-        let hierarchyLegacy = content.components(separatedBy: "[HIERARCHY_DIAGRAM").count - 1
-        let allVisualTagCount = content.components(separatedBy: "[VISUAL_").count - 1
-        let totalVisuals = allVisualTagCount + conceptMapLegacy + timelineLegacy + hierarchyLegacy
-        let totalFlowcharts = flowchartCount + flowDiagramCount
-        if totalVisuals >= 3 && totalFlowcharts > 1 {
-            issues.append("Overuse of flowcharts; limit to 1 unless indispensable")
-        } else if totalVisuals >= 4 && totalFlowcharts > max(2, totalVisuals / 2) {
-            issues.append("Overuse of flowcharts; increase visual variety")
-        }
-
-        let bannedNarrativePhrases = [
-            "see the diagram",
-            "see the chart",
-            "see the table",
-            "as shown in",
-            "diagram below",
-            "chart below",
-            "table below",
-            "flowchart above",
-            "the flowchart",
-            "the diagram"
-        ]
-        if bannedNarrativePhrases.contains(where: { lowercased.contains($0) }) {
-            issues.append("Visuals described as visuals; integrate them into narrative")
-        }
-
-        let leakageMarkers = [
-            "EXACT PROMPTS USED",
-            "SYSTEM MESSAGE",
-            "USER PROMPT",
-            "MODEL CONFIGURATION",
-            "HOW THE PROMPTS WORK",
-            "KEY DIFFERENCES",
-            "STAGE 1",
-            "STAGE 2",
-            "PROMPT (COMPLETE)"
-        ]
-        let uppercased = content.uppercased()
-        if leakageMarkers.contains(where: { uppercased.contains($0) }) {
-            issues.append("Prompt or system instructions leaked into output")
-        }
-
-        let authorSpotlightCount = content.components(separatedBy: "[AUTHOR_SPOTLIGHT]").count - 1
-        if governor.summaryType != .quickReference && authorSpotlightCount < 1 {
-            issues.append("Missing Author Spotlight block")
-        } else if authorSpotlightCount > 1 {
-            issues.append("Too many author spotlights (max 1)")
-        }
-
-        let paragraphs = content
-            .components(separatedBy: "\n\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .filter { block in
-                let upper = block.uppercased()
-                return !upper.hasPrefix("[") &&
-                    !upper.hasPrefix("##") &&
-                    !upper.hasPrefix("#") &&
-                    !upper.hasPrefix("- ") &&
-                    !upper.hasPrefix("* ") &&
-                    !upper.hasPrefix("• ")
-            }
-        if governor.summaryType != .quickReference && paragraphs.count < 6 {
-            issues.append("Insufficient narrative paragraphs; expand prose between callouts")
-        }
-
-        // Avoid back-to-back identical callouts
-        let calloutMarkers = [
-            "[PREMIUM_QUOTE]",
-            "[AUTHOR_SPOTLIGHT]",
-            "[ALTERNATIVE_PERSPECTIVE]",
-            "[RESEARCH_INSIGHT]",
-            "[INSIGHT_NOTE]"
-        ]
-        let lines = content.components(separatedBy: "\n")
-        var lastCallout: String?
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty else { continue }
-            if let marker = calloutMarkers.first(where: { trimmed.hasPrefix($0) }) {
-                if marker == lastCallout {
-                    issues.append("Repeated callout type in adjacent sections")
-                    break
-                }
-                lastCallout = marker
-            } else {
-                lastCallout = nil
-            }
-        }
-
-        // Premium headers should be used for parts or chapters
-        if governor.summaryType != .quickReference {
-            if !lowercased.contains("[premium_h1]") && !lowercased.contains("[premium_h2]") {
-                issues.append("Missing premium headers for parts/chapters")
-            }
-        }
-
-        // Perspective/research notes required for synthesis
-        let perspectiveCount = content.components(separatedBy: "[ALTERNATIVE_PERSPECTIVE]").count - 1
-        let researchCount = content.components(separatedBy: "[RESEARCH_INSIGHT]").count - 1
-        if governor.summaryType != .quickReference && (perspectiveCount + researchCount) < 4 {
-            issues.append("Insufficient perspective/research notes")
-        }
-
-        if !lowercased.contains("1-page summary") && !lowercased.contains("1‑page summary") {
-            issues.append("Quick Glance missing 1-Page Summary label")
-        }
-
-        // Cross-disciplinary synthesis signals
-        let synthesisMarkers = [
-            "kahneman",
-            "dweck",
-            "cialdini",
-            "rosenberg",
-            "stoic",
-            "buddhist",
-            "neuroscience",
-            "neuroplasticity",
-            "behavioral",
-            "systems thinking",
-            "economics"
-        ]
-        let synthesisHits = synthesisMarkers.filter { lowercased.contains($0) }
-        if governor.summaryType != .quickReference && synthesisHits.count < 4 {
-            issues.append("Insufficient cross-disciplinary synthesis signals")
-        }
-
-        // Check for ACTION_BOX elements
-        let actionBoxCount = content.components(separatedBy: "[ACTION_BOX").count - 1
-        if actionBoxCount < 2 && governor.summaryType != .quickReference {
-            issues.append("Insufficient action boxes: found \(actionBoxCount), need at least 2")
-        }
-
-        // Check for exercises
-        let exerciseCount = content.components(separatedBy: "[EXERCISE_").count - 1
-        if exerciseCount < 2 && governor.summaryType == .deepResearch {
-            issues.append("Insufficient exercises for Deep Research mode: found \(exerciseCount), need at least 2")
-        }
-
-        // Check for required sections
-        if !lowercased.contains("[quick_glance]") {
-            issues.append("Missing Quick Glance Summary section")
-        }
-
-        if !lowercased.contains("[foundational_narrative]") && governor.summaryType != .quickReference {
-            issues.append("Missing Foundational Narrative section")
-        }
-
-        governorLog("Quality validation complete: \(issues.count) issues found")
-        return issues
+        let result = OutputQualityValidator.validate(
+            content: content,
+            summaryType: governor.summaryType
+        )
+        governorLog("Quality validation complete: \(result.issues.count) issues found, score: \(String(format: "%.2f", result.score))")
+        return result.issues
     }
 
     /// Generates improvement hints from quality issues
@@ -1550,6 +1368,51 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         // Collapse excessive whitespace
         cleaned = cleaned.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Cover Image Saving
+
+    /// Save cover image data to documents directory
+    /// - Parameters:
+    ///   - imageData: The image data to save
+    ///   - itemId: The library item ID to associate with the cover
+    /// - Returns: The relative path to the saved cover image, or nil if saving failed
+    private func saveCoverImage(_ imageData: Data?, for itemId: UUID) -> String? {
+        guard let data = imageData, !data.isEmpty else {
+            logger.info("No cover image data to save")
+            return nil
+        }
+
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            logger.error("Unable to access documents directory for cover image storage")
+            return nil
+        }
+
+        // Create covers directory if needed
+        let coversDir = documentsDir.appendingPathComponent("covers", isDirectory: true)
+        if !fileManager.fileExists(atPath: coversDir.path) {
+            do {
+                try fileManager.createDirectory(at: coversDir, withIntermediateDirectories: true)
+            } catch {
+                logger.error("Failed to create covers directory: \(error.localizedDescription)")
+                return nil
+            }
+        }
+
+        // Save cover image with item ID as filename
+        let coverFileName = "cover_\(itemId.uuidString).jpg"
+        let coverURL = coversDir.appendingPathComponent(coverFileName)
+
+        do {
+            try data.write(to: coverURL)
+            logger.info("Cover image saved to: \(coverURL.path)")
+
+            // Return relative path (from documents directory)
+            return "covers/\(coverFileName)"
+        } catch {
+            logger.error("Failed to save cover image: \(error.localizedDescription)")
+            return nil
+        }
     }
 }
 

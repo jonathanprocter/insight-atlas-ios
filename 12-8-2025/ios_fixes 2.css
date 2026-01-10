@@ -1,0 +1,309 @@
+/* ═══════════════════════════════════════════════════════════════
+   iOS WebView Fixes for Insight Atlas 2026 Edition
+   Fixes for text truncation, thick lines, and broken layouts
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══ FIX 1: Section Divider Ornaments ═══ */
+/* Replace pseudo-element approach with more WebView-compatible method */
+
+.section-divider-ornament {
+    border: none;
+    text-align: center;
+    margin: 3rem 0;
+    height: auto;
+    min-height: 20px;
+    position: relative;
+    overflow: visible;
+}
+
+/* Use actual text content instead of ::before for better compatibility */
+.section-divider-ornament::before {
+    content: '◆ ◇ ◆';
+    display: block;
+    font-size: 0.875rem;
+    color: var(--primary-gold);
+    letter-spacing: 0.5em;
+    line-height: 1.5;
+    /* Ensure it's visible and not rendered as thick lines */
+    font-family: Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* Alternative: Use border-based divider if ornaments still don't render */
+hr.section-divider {
+    border: none;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary-gold), transparent);
+    margin: 3rem 0;
+    /* Ensure it doesn't render as thick black line */
+    border-top: none;
+    border-bottom: none;
+}
+
+/* ═══ FIX 2: List Item Text Truncation ═══ */
+/* Increase padding to prevent custom counter from overlapping text */
+
+.action-box ol li {
+    counter-increment: action-counter;
+    padding-left: 3rem; /* Increased from 2.5rem */
+    position: relative;
+    margin-bottom: 1rem;
+    overflow: visible; /* Ensure text isn't clipped */
+    word-wrap: break-word;
+}
+
+.action-box ol li::before {
+    content: counter(action-counter);
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--accent-teal) 0%, #3BA396 100%);
+    color: var(--text-inverse);
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-radius: 9999px;
+    flex-shrink: 0; /* Prevent counter from shrinking */
+}
+
+/* Fix for all numbered lists */
+ol li {
+    padding-left: 2rem; /* Increased from 1.5rem */
+    overflow: visible;
+}
+
+/* ═══ FIX 3: Insight Atlas Note Box Layout ═══ */
+/* Ensure no table/column breaking causing vertical bars */
+
+.insight-note {
+    background: linear-gradient(135deg, rgba(212, 115, 92, 0.08) 0%, rgba(232, 155, 90, 0.1) 100%);
+    border: 1px solid rgba(212, 115, 92, 0.25);
+    border-left: 4px solid var(--accent-coral);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem 1.5rem 1.5rem 2rem;
+    margin: 2rem 0;
+    /* Prevent layout breaking */
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.insight-note .block-content {
+    /* Ensure content doesn't break into columns */
+    column-count: 1;
+    -webkit-column-count: 1;
+    display: block;
+    width: 100%;
+}
+
+.insight-note .block-content p {
+    margin-bottom: 1rem;
+    /* Prevent pipe characters from appearing */
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.insight-note .block-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* ═══ FIX 4: All Content Boxes - iOS Optimization ═══ */
+
+.quick-glance,
+.action-box,
+.exercise,
+.takeaways,
+.foundational-narrative,
+.visual-flowchart {
+    /* Ensure proper rendering on iOS */
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+    -webkit-transform: translateZ(0); /* Force GPU acceleration */
+    transform: translateZ(0);
+}
+
+/* ═══ FIX 5: Font Rendering Optimization ═══ */
+
+body {
+    /* Improve font rendering on iOS */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Ensure fonts load properly */
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+    /* iOS-specific font fixes */
+    body {
+        font-family: var(--font-display), Georgia, serif;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-display), Georgia, serif;
+    }
+    
+    .block-header {
+        font-family: var(--font-ui), -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+}
+
+/* ═══ FIX 6: Prevent Thick Border Rendering ═══ */
+
+/* Ensure borders don't render as thick black lines */
+* {
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/* Fix for any remaining thick lines */
+hr {
+    border: none;
+    border-top: 1px solid var(--border-light);
+    margin: 2rem 0;
+}
+
+/* ═══ FIX 7: Block Header Icons ═══ */
+
+.block-header::before {
+    /* Ensure emoji icons render properly */
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 1.125rem;
+    vertical-align: middle;
+    /* Prevent icon from being rendered as box */
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+}
+
+/* ═══ FIX 8: Responsive Adjustments for iOS ═══ */
+
+@media (max-width: 640px) {
+    /* Adjust padding for mobile */
+    .action-box ol li {
+        padding-left: 2.75rem; /* Slightly less on mobile but still enough */
+    }
+    
+    .quick-glance,
+    .insight-note,
+    .action-box,
+    .exercise,
+    .visual-flowchart,
+    .takeaways,
+    .foundational-narrative {
+        padding: 1.25rem;
+        margin: 1.5rem 0;
+    }
+    
+    /* Ensure section dividers are visible */
+    .section-divider-ornament {
+        margin: 2rem 0;
+    }
+}
+
+/* ═══ FIX 9: Blockquote Styling ═══ */
+
+blockquote {
+    position: relative;
+    margin: 2rem 0;
+    padding: 2rem;
+    padding-left: 2.5rem;
+    background: var(--bg-card);
+    border-left: 3px solid var(--primary-gold);
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+    box-shadow: 0 2px 4px rgba(45, 37, 32, 0.04);
+    /* Prevent layout issues */
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+blockquote::before {
+    content: '"';
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    font-family: var(--font-display), Georgia, serif;
+    font-size: 3rem;
+    color: rgba(201, 162, 39, 0.25);
+    line-height: 1;
+    /* Ensure quote mark renders properly */
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ FIX 10: Table Styling ═══ */
+
+.styled-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: var(--font-ui), -apple-system, sans-serif;
+    font-size: 0.875rem;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(45, 37, 32, 0.04);
+    margin: 1.5rem 0;
+    /* Prevent table from breaking layout */
+    display: table;
+    table-layout: auto;
+}
+
+/* ═══ FIX 11: Flow Chart Elements ═══ */
+
+.flow-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    /* Ensure proper rendering */
+    width: 100%;
+}
+
+.flow-step {
+    width: 100%;
+    max-width: 380px;
+    padding: 1rem 1.5rem;
+    background: var(--bg-card);
+    border: 2px solid rgba(201, 162, 39, 0.25);
+    border-radius: var(--radius-lg);
+    font-family: var(--font-ui), -apple-system, sans-serif;
+    font-weight: 500;
+    font-size: 1rem;
+    color: var(--text-heading);
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(45, 37, 32, 0.04);
+    /* Prevent breaking */
+    box-sizing: border-box;
+}
+
+.flow-arrow {
+    color: var(--primary-gold);
+    font-size: 1.5rem;
+    font-weight: 700;
+    /* Ensure arrow renders */
+    display: block;
+    line-height: 1;
+}
+
+/* ═══ FIX 12: Dark Mode Adjustments ═══ */
+
+@media (prefers-color-scheme: dark) {
+    /* Ensure dividers are visible in dark mode */
+    .section-divider-ornament::before {
+        color: var(--primary-gold);
+        opacity: 1;
+    }
+    
+    hr.section-divider {
+        background: linear-gradient(90deg, transparent, var(--primary-gold), transparent);
+    }
+}
+
+/* ═══ END OF iOS FIXES ═══ */

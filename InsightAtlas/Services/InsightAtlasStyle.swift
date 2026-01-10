@@ -4,86 +4,140 @@
 //
 //  Brand style constants for consistent UI across the app.
 //  These values match the PDF generator for visual consistency.
+//  Updated to OE Brand Identity - January 2025
 //
 
 import SwiftUI
 
-// MARK: - Premium Color Palette (Reading-Optimized Editorial)
+// MARK: - OE Brand Color Palette
 //
 // Design Philosophy:
-// - Warm dominance (70-80%) for reading comfort and premium feel
-// - Cool accents (20-30%) for UI clarity and professional structure
-// - Muted, complex colors for sophistication over trendiness
-// - High contrast (>10:1) for extended reading comfort
+// - Orange (#E85D2D) as primary accent for CTAs, brand identity, key interactions
+// - Navy Blue (#2E5A7D) for headers, navigation, professional anchoring
+// - Clean white/gray surfaces for modern, readable interfaces
+// - High contrast for accessibility (WCAG AA+ compliant)
 //
 
 struct InsightAtlasColors {
 
-    // === READING SURFACES (Warm - Primary 70%) ===
-    static let readingBgPrimary = Color(hex: "#F9F8F7")    // Sepia White
-    static let readingBgSecondary = Color(hex: "#F5F3EF")  // Parchment
-    static let readingBgTertiary = Color(hex: "#EBE8E3")   // Warm Linen
-    static let readingBgAccent = Color(hex: "#E7E3DA")     // Soft Sand
+    // === BRAND COLORS (Primary Identity) ===
+    static let brandOrange = Color(hex: "#E85D2D")         // Primary Brand Orange
+    static let brandNavy = Color(hex: "#2E5A7D")           // Secondary Navy Blue
 
-    // === UI CHROME (Cool - Secondary 20-30%) ===
-    static let uiBgPrimary = Color(hex: "#F9F9F9")         // Slate White
-    static let uiBgSecondary = Color(hex: "#E8E9EE")       // Silver Mist
+    // === ORANGE PALETTE ===
+    static let orange50 = Color(hex: "#FEF0EB")            // Lightest
+    static let orange100 = Color(hex: "#FCD4C4")
+    static let orange200 = Color(hex: "#FAAB8D")
+    static let orange300 = Color(hex: "#F58F6A")
+    static let orange400 = Color(hex: "#F07348")
+    static let orange500 = Color(hex: "#E85D2D")           // Primary
+    static let orange600 = Color(hex: "#D85426")
+    static let orange700 = Color(hex: "#C74A1F")
+    static let orange800 = Color(hex: "#A63F1C")
+    static let orange900 = Color(hex: "#8B3518")           // Darkest
 
-    // === PREMIUM ACCENT COLORS (Sophisticated, Muted - 10%) ===
-    static let accentPrimary = Color(hex: "#0D7377")       // Deep Teal - Primary CTAs
-    static let accentSuccess = Color(hex: "#7A9B7F")       // Sage Green - Success states
-    static let accentHighlight = Color(hex: "#9B6B4F")     // Burnt Umber - Highlights
-    static let accentInfo = Color(hex: "#5B7C99")          // Slate Blue - Information
-    static let accentPremium = Color(hex: "#8B4049")       // Deep Burgundy - Premium
+    // === NAVY PALETTE ===
+    static let navy50 = Color(hex: "#EBF3F7")              // Lightest
+    static let navy100 = Color(hex: "#C9DEE9")
+    static let navy200 = Color(hex: "#9DC0D6")
+    static let navy300 = Color(hex: "#6B9AB8")
+    static let navy400 = Color(hex: "#4A7A9D")
+    static let navy500 = Color(hex: "#2E5A7D")             // Primary
+    static let navy600 = Color(hex: "#254A66")
+    static let navy700 = Color(hex: "#1E3D54")
+    static let navy800 = Color(hex: "#162B3D")
+    static let navy900 = Color(hex: "#0F1E2A")             // Darkest
 
-    // === SEMANTIC COLORS ===
-    static let semanticWarning = Color(hex: "#C89B5A")     // Amber
-    static let semanticError = Color(hex: "#B85C5C")       // Muted Red
-    static let semanticHighlightBg = Color(hex: "#F4E8C1") // Soft Yellow
+    // === NEUTRAL GRAYS ===
+    static let gray50 = Color(hex: "#F9FAFB")
+    static let gray100 = Color(hex: "#F3F4F6")
+    static let gray200 = Color(hex: "#E5E7EB")
+    static let gray300 = Color(hex: "#D1D5DB")
+    static let gray400 = Color(hex: "#9CA3AF")
+    static let gray500 = Color(hex: "#6B7280")
+    static let gray600 = Color(hex: "#4B5563")
+    static let gray700 = Color(hex: "#374151")
+    static let gray800 = Color(hex: "#1F2937")
+    static let gray900 = Color(hex: "#111827")
+
+    // === READING SURFACES (Light Mode) ===
+    static let readingBgPrimary = Color(hex: "#FFFFFF")    // Primary Background
+    static let readingBgSecondary = Color(hex: "#F9FAFB")  // Secondary Background
+    static let readingBgTertiary = Color(hex: "#F3F4F6")   // Tertiary Background
+    static let readingBgAccent = Color(hex: "#EBF3F7")     // Grouped Background (Navy tint)
+
+    // === UI CHROME ===
+    static let uiBgPrimary = Color(hex: "#FFFFFF")         // Primary UI Background
+    static let uiBgSecondary = Color(hex: "#F9FAFB")       // Secondary UI Background
+
+    // === PREMIUM ACCENT COLORS ===
+    static let accentPrimary = Color(hex: "#E85D2D")       // Primary Orange - Primary CTAs
+    static let accentSuccess = Color(hex: "#059669")       // Success Green
+    static let accentHighlight = Color(hex: "#E85D2D")     // Primary Orange - Highlights
+    static let accentInfo = Color(hex: "#2E5A7D")          // Navy Blue - Information
+    static let accentPremium = Color(hex: "#2E5A7D")       // Navy Blue - Premium
+
+    // === DESIGN SYSTEM COMPLIANCE (WCAG 2.1 AA) ===
+    // CTX-04: "Apply It" section green (must use large text for compliance)
+    static let applyItGreen = Color(hex: "#4A7C59")        // Apply It section background
+    static let applyItGreenDark = Color(hex: "#3D6A4B")    // Darker variant for pressed states
+
+    // Text colors with guaranteed WCAG AA contrast on white (#FFFFFF)
+    static let textPrimaryWCAG = Color(hex: "#1A1A1A")     // 15.28:1 ratio (Passes AAA)
+    static let textSecondaryWCAG = Color(hex: "#333333")   // 10.97:1 ratio (Passes AAA)
+    static let textTertiaryWCAG = Color(hex: "#666666")    // 4.68:1 ratio (Passes AA)
+
+    // CTX-02: BANNED - Never use these for text on light backgrounds
+    // #999999 is 2.32:1 - FAILS WCAG AA - DO NOT USE FOR TEXT
+
+    // === SEMANTIC COLORS (Light Mode) ===
+    static let semanticWarning = Color(hex: "#D97706")     // Warning
+    static let semanticError = Color(hex: "#DC2626")       // Error
+    static let semanticSuccess = Color(hex: "#059669")     // Success
+    static let semanticHighlightBg = Color(hex: "#FEF0EB") // Orange 50
 
     // === LEGACY ALIASES (For backwards compatibility) ===
-    // Primary "Gold" - Now Deep Teal for sophistication
-    static let gold = Color(hex: "#0D7377")                // Deep Teal
-    static let goldLight = Color(hex: "#2A9D8F")           // Lighter Teal
-    static let goldDark = Color(hex: "#0B6166")            // Darker Teal
+    static let gold = Color(hex: "#E85D2D")                // Primary Orange
+    static let goldLight = Color(hex: "#F07348")           // Orange 400
+    static let goldDark = Color(hex: "#C74A1F")            // Orange 700
 
-    // MARK: Text Colors (Maximum Readability AAA+)
-    static let heading = Color(hex: "#625E58")             // Warm Charcoal
-    static let body = Color(hex: "#2B2826")                // Ink Black (14.5:1 contrast)
-    static let muted = Color(hex: "#A6A6A4")               // Warm Gray
-    static let subtle = Color(hex: "#979C9F")              // Graphite
+    // MARK: Text Colors (Modern Balanced Readability)
+    static let heading = Color(hex: "#111827")             // Gray 900
+    static let body = Color(hex: "#1F2937")                // Gray 800
+    static let muted = Color(hex: "#6B7280")               // Gray 500
+    static let subtle = Color(hex: "#9CA3AF")              // Gray 400
 
-    // MARK: Backgrounds (Warm Reading Surfaces)
-    static let background = Color(hex: "#F9F8F7")          // Sepia White
-    static let backgroundAlt = Color(hex: "#F5F3EF")       // Parchment
-    static let cream = Color(hex: "#F9F8F7")               // Sepia White
-    static let card = Color(hex: "#FFFFFF")                // Pure White for elevated cards
-    static let parchment = Color(hex: "#F5F3EF")           // Parchment
-    static let ivory = Color(hex: "#F9F8F7")               // Sepia White
+    // MARK: Backgrounds (Modern Clean)
+    static let background = Color(hex: "#FFFFFF")          // Primary Background
+    static let backgroundAlt = Color(hex: "#F9FAFB")       // Secondary Background
+    static let cream = Color(hex: "#FEF0EB")               // Orange 50
+    static let card = Color(hex: "#FFFFFF")                // Pure White for cards
+    static let parchment = Color(hex: "#F9FAFB")           // Gray 50
+    static let ivory = Color(hex: "#FFFFFF")               // Pure White
 
-    // MARK: Borders & Rules (Cool for UI separation)
-    static let rule = Color(hex: "#D4D5D8")                // Steel
-    static let ruleLight = Color(hex: "#E7E3DA")           // Soft Sand
-    static let ruleDark = Color(hex: "#979C9F")            // Graphite
+    // MARK: Borders & Rules
+    static let rule = Color(hex: "#E5E7EB")                // Gray 200
+    static let ruleLight = Color(hex: "#F3F4F6")           // Gray 100
+    static let ruleDark = Color(hex: "#D1D5DB")            // Gray 300
 
-    // MARK: Accent Colors (Refined Premium Palette)
-    static let burgundy = Color(hex: "#8B4049")            // Deep Burgundy
-    static let burgundyLight = Color(hex: "#A55560")       // Lighter Burgundy
-    static let coral = Color(hex: "#9B6B4F")               // Burnt Umber
-    static let coralLight = Color(hex: "#B8845F")          // Lighter Umber
-    static let teal = Color(hex: "#0D7377")                // Deep Teal
-    static let tealLight = Color(hex: "#2A9D8F")           // Lighter Teal
-    static let orange = Color(hex: "#C89B5A")              // Amber
-    static let orangeLight = Color(hex: "#D4AC6B")         // Lighter Amber
+    // MARK: Accent Colors (OE Brand Palette)
+    static let burgundy = Color(hex: "#DC2626")            // Error Red (repurposed)
+    static let burgundyLight = Color(hex: "#F87171")       // Light Error
+    static let coral = Color(hex: "#E85D2D")               // Primary Orange
+    static let coralLight = Color(hex: "#F07348")          // Orange 400
+    static let teal = Color(hex: "#2E5A7D")                // Navy Blue
+    static let tealLight = Color(hex: "#4A7A9D")           // Navy 400
+    static let orange = Color(hex: "#E85D2D")              // Primary Orange
+    static let orangeLight = Color(hex: "#F07348")         // Orange 400
 
-    // MARK: Brand Colors (Warm Editorial)
-    static let brandSepia = Color(hex: "#625E58")          // Warm Charcoal
-    static let brandSepiaLight = Color(hex: "#A6A6A4")     // Warm Gray
-    static let brandInk = Color(hex: "#2B2826")            // Ink Black
+    // MARK: Brand Colors
+    static let brandSepia = Color(hex: "#4B5563")          // Gray 600
+    static let brandSepiaLight = Color(hex: "#6B7280")     // Gray 500
+    static let brandInk = Color(hex: "#111827")            // Gray 900
 
-    // MARK: Shadow Colors (Warm-tinted for editorial feel)
-    static let shadow = Color(hex: "#625E58").opacity(0.06)
-    static let shadowMedium = Color(hex: "#625E58").opacity(0.12)
+    // MARK: Shadow Colors
+    static let shadow = Color(hex: "#2E5A7D").opacity(0.08)
+    static let shadowMedium = Color(hex: "#2E5A7D").opacity(0.12)
 }
 
 // MARK: - Typography (Editorial hierarchy)
@@ -155,80 +209,60 @@ struct InsightAtlasSectionIcons {
 }
 
 // MARK: - Color Extension
-
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
+// Note: Color.init(hex:) is defined in AnalysisTheme.swift to avoid duplication
 
 // MARK: - UIColor Extension (for UIKit compatibility)
 
 import UIKit
 
 extension UIColor {
+    // === BRAND COLORS ===
+    static let iaBrandOrange = UIColor(hex: "#E85D2D")     // Primary Brand Orange
+    static let iaBrandNavy = UIColor(hex: "#2E5A7D")       // Secondary Navy Blue
+
     // === PREMIUM ACCENT COLORS ===
-    static let iaAccentPrimary = UIColor(hex: "#0D7377")   // Deep Teal - Primary CTAs
-    static let iaAccentSuccess = UIColor(hex: "#7A9B7F")   // Sage Green - Success
-    static let iaAccentHighlight = UIColor(hex: "#9B6B4F") // Burnt Umber - Highlights
-    static let iaAccentInfo = UIColor(hex: "#5B7C99")      // Slate Blue - Information
-    static let iaAccentPremium = UIColor(hex: "#8B4049")   // Deep Burgundy - Premium
+    static let iaAccentPrimary = UIColor(hex: "#E85D2D")   // Primary Orange - Primary CTAs
+    static let iaAccentSuccess = UIColor(hex: "#059669")   // Success Green
+    static let iaAccentHighlight = UIColor(hex: "#E85D2D") // Primary Orange - Highlights
+    static let iaAccentInfo = UIColor(hex: "#2E5A7D")      // Navy Blue - Information
+    static let iaAccentPremium = UIColor(hex: "#2E5A7D")   // Navy Blue - Premium
 
-    // === LEGACY "GOLD" - Now Deep Teal ===
-    static let iaGold = UIColor(hex: "#0D7377")            // Deep Teal
-    static let iaGoldLight = UIColor(hex: "#2A9D8F")       // Lighter Teal
-    static let iaGoldDark = UIColor(hex: "#0B6166")        // Darker Teal
+    // === LEGACY "GOLD" - Now Primary Orange ===
+    static let iaGold = UIColor(hex: "#E85D2D")            // Primary Orange
+    static let iaGoldLight = UIColor(hex: "#F07348")       // Orange 400
+    static let iaGoldDark = UIColor(hex: "#C74A1F")        // Orange 700
 
-    // === TEXT COLORS (Maximum Readability AAA+) ===
-    static let iaHeading = UIColor(hex: "#625E58")         // Warm Charcoal
-    static let iaBody = UIColor(hex: "#2B2826")            // Ink Black
-    static let iaMuted = UIColor(hex: "#A6A6A4")           // Warm Gray
-    static let iaSubtle = UIColor(hex: "#979C9F")          // Graphite
+    // === TEXT COLORS (Modern Balanced Readability) ===
+    static let iaHeading = UIColor(hex: "#111827")         // Gray 900
+    static let iaBody = UIColor(hex: "#1F2937")            // Gray 800
+    static let iaMuted = UIColor(hex: "#6B7280")           // Gray 500
+    static let iaSubtle = UIColor(hex: "#9CA3AF")          // Gray 400
 
-    // === READING BACKGROUNDS (Warm Surfaces) ===
-    static let iaBackground = UIColor(hex: "#F9F8F7")      // Sepia White
-    static let iaCream = UIColor(hex: "#F9F8F7")           // Sepia White
+    // === READING BACKGROUNDS (Modern Clean) ===
+    static let iaBackground = UIColor(hex: "#FFFFFF")      // Primary Background
+    static let iaCream = UIColor(hex: "#FEF0EB")           // Orange 50
     static let iaCard = UIColor(hex: "#FFFFFF")            // Pure White
-    static let iaIvory = UIColor(hex: "#F9F8F7")           // Sepia White
-    static let iaParchment = UIColor(hex: "#F5F3EF")       // Parchment
+    static let iaIvory = UIColor(hex: "#FFFFFF")           // Pure White
+    static let iaParchment = UIColor(hex: "#F9FAFB")       // Gray 50
 
-    // === BORDERS (Cool for UI separation) ===
-    static let iaRule = UIColor(hex: "#D4D5D8")            // Steel
-    static let iaRuleLight = UIColor(hex: "#E7E3DA")       // Soft Sand
+    // === BORDERS ===
+    static let iaRule = UIColor(hex: "#E5E7EB")            // Gray 200
+    static let iaRuleLight = UIColor(hex: "#F3F4F6")       // Gray 100
 
-    // === REFINED ACCENT COLORS ===
-    static let iaBurgundy = UIColor(hex: "#8B4049")        // Deep Burgundy
-    static let iaCoral = UIColor(hex: "#9B6B4F")           // Burnt Umber
-    static let iaTeal = UIColor(hex: "#0D7377")            // Deep Teal
-    static let iaOrange = UIColor(hex: "#C89B5A")          // Amber
+    // === ACCENT COLORS (OE Brand Palette) ===
+    static let iaBurgundy = UIColor(hex: "#DC2626")        // Error Red
+    static let iaCoral = UIColor(hex: "#E85D2D")           // Primary Orange
+    static let iaTeal = UIColor(hex: "#2E5A7D")            // Navy Blue
+    static let iaOrange = UIColor(hex: "#E85D2D")          // Primary Orange
 
     // === BRAND ===
-    static let iaSepia = UIColor(hex: "#625E58")           // Warm Charcoal
+    static let iaSepia = UIColor(hex: "#4B5563")           // Gray 600
 
     // === SEMANTIC COLORS ===
-    static let iaWarning = UIColor(hex: "#C89B5A")         // Amber
-    static let iaError = UIColor(hex: "#B85C5C")           // Muted Red
-    static let iaHighlightBg = UIColor(hex: "#F4E8C1")     // Soft Yellow
+    static let iaWarning = UIColor(hex: "#D97706")         // Warning
+    static let iaError = UIColor(hex: "#DC2626")           // Error
+    static let iaSuccess = UIColor(hex: "#059669")         // Success
+    static let iaHighlightBg = UIColor(hex: "#FEF0EB")     // Orange 50
 
     convenience init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

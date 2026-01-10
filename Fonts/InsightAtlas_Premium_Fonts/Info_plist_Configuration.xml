@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    Copy this entire block into your Info.plist file.
+    To do this:
+    1. Right-click Info.plist in Xcode
+    2. Select "Open As > Source Code"
+    3. Find the closing </dict> tag near the end
+    4. Paste this block BEFORE that closing tag
+-->
+<key>UIAppFonts</key>
+<array>
+    <!-- Cormorant Garamond - Elegant serif for display and body text -->
+    <string>CormorantGaramond-Regular.ttf</string>
+    <string>CormorantGaramond-Medium.ttf</string>
+    <string>CormorantGaramond-SemiBold.ttf</string>
+    <string>CormorantGaramond-Bold.ttf</string>
+    <string>CormorantGaramond-Italic.ttf</string>
+    <string>CormorantGaramond-MediumItalic.ttf</string>
+    <string>CormorantGaramond-SemiBoldItalic.ttf</string>
+    <string>CormorantGaramond-BoldItalic.ttf</string>
+    <string>CormorantGaramond-Light.ttf</string>
+    <string>CormorantGaramond-LightItalic.ttf</string>
+
+    <!-- Inter - Clean sans-serif for UI elements -->
+    <string>Inter-Regular.ttf</string>
+    <string>Inter-Medium.ttf</string>
+    <string>Inter-SemiBold.ttf</string>
+    <string>Inter-Bold.ttf</string>
+
+    <!-- Caveat - Handwritten font for accents -->
+    <string>Caveat.ttf</string>
+</array>

@@ -10,3 +10,7 @@ node_modules/
 dist/
 archive_output/
 extracted_project/
+
+# Temporary files
+.tmp/
+*.lock

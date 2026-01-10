@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Citations Example - Insight Atlas</title>
+    
+    <!-- Base Insight Atlas Styles -->
+    <style>
+        :root {
+            /* Colors */
+            --primary-gold: #C9A227;
+            --gold-light: #D4AF37;
+            --gold-dark: #A68B1F;
+            --accent-coral: #E07A5F;
+            --coral-light: #F4A261;
+            --accent-teal: #2A9D8F;
+            
+            /* Text Colors */
+            --text-heading: #3D3229;
+            --text-body: #3D3229;
+            --text-muted: #8B7355;
+            --text-inverse: #FFFFFF;
+            
+            /* Backgrounds */
+            --bg-card: #FFFFFF;
+            --bg-cream: #FAF9F7;
+            
+            /* Typography */
+            --font-display: 'Cormorant Garamond', Georgia, serif;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            
+            /* Spacing */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-display);
+            font-size: 16px;
+            line-height: 1.75;
+            color: var(--text-body);
+            background: var(--bg-cream);
+            margin: 0;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-bottom: 0.5rem;
+        }
+        
+        h2 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-top: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        p {
+            margin-bottom: 1rem;
+        }
+    </style>
+    
+    <!-- Premium Citations Styles -->
+    <link rel="stylesheet" href="premium_citations.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <h1>Powerful Phrases for Dealing With Difficult People</h1>
+    <p style="font-size: 1.25rem; color: var(--text-muted); margin-bottom: 3rem;">
+        Original book by <span class="author-name">Renée Evenson</span>
+    </p>
+
+    <!-- Example 1: Author Spotlight (First Mention) -->
+    <div class="author-spotlight">
+        <div class="author-spotlight-header">Author Spotlight</div>
+        <p>
+            <span class="author-name">Renée Evenson</span> is a business training consultant specializing in conflict resolution and customer service. Before becoming a writer, she worked for 15 years at BellSouth Telecommunications (now part of AT&T), where she facilitated customer service for small business accounts and created training materials for employee development. Evenson has written a number of other books, including <cite class="book-title">Powerful Phrases for Effective Customer Service</cite> and <cite class="book-title">Customer Service Training 101</cite>, both of which extend Evenson's principles of empathy-centered communication to customer service.
+        </p>
+    </div>
+
+    <!-- Example 2: Section Header with Ornaments -->
+    <div class="section-header-ornamental">
+        <h2>Stage #1: Plan How You'll Resolve the Conflict</h2>
+    </div>
+
+    <p>
+        Evenson explains that conflicts of any kind are often emotionally charged—it's natural to feel hurt, angry, or defensive if you believe someone has wronged you. However, if you confront the other person <em>while</em> strongly feeling these emotions, you're likely to escalate the situation, triggering intense emotional reactions.
+    </p>
+
+    <!-- Example 3: Standard Commentary Box -->
+    <div class="insight-note-enhanced">
+        <div class="note-header">Insight Atlas Note</div>
+        <p>
+            While Evenson focuses on workplace conflict, <span class="author-name">Brené Brown</span> in <cite class="book-title">Dare to Lead</cite> explores how vulnerability can transform difficult conversations in any context. Brown argues that acknowledging our emotional state before entering conflict resolution can actually strengthen our position, as it demonstrates self-awareness and authenticity—qualities that build trust and encourage reciprocal openness from others.
+        </p>
+    </div>
+
+    <!-- Example 4: Subsection Header -->
+    <div class="subsection-header">
+        <h3>Conflict Is Inevitable in Romantic Relationships</h3>
+    </div>
+
+    <p>
+        Evenson argues that conflict is particularly common at work because you don't get to choose your co-workers. However, in <cite class="book-title">How to Be an Adult in Relationships</cite>, <span class="author-name">David Richo</span> contends that conflict is inevitable in <em>romantic relationships</em>, too (even though many people choose their partners). After the initial honeymoon phase in which couples fool themselves into thinking that the other person is perfect, they'll inevitably enter a discordant phase filled with conflict<span class="reference-number">1</span>. Couples must resolve these conflicts for the relationship to survive.
+    </p>
+
+    <!-- Example 5: Alternative Perspective Box -->
+    <div class="alternative-perspective">
+        <div class="note-header">Alternative Perspective</div>
+        <p>
+            In contrast, <span class="author-name">Herb Cohen</span> in <cite class="book-title">You Can Negotiate Anything</cite> argues the opposite: You should explicitly clarify that you're not looking to compromise. If two people agree to look for a "compromise," they enter the conversation expecting that they'll have to sacrifice something they want. Consequently, they stop looking for creative solutions and may resort to win-lose negotiation tactics (like hiding how much they want something) to try and minimize their sacrifice. Instead, to focus your conversation, you may want to repeatedly clarify that you're looking for a <em>win-win solution</em>, not a compromise.
+        </p>
+    </div>
+
+    <!-- Example 6: Research Insight Box -->
+    <div class="research-insight">
+        <div class="note-header">Research Insight</div>
+        <p>
+            <span class="author-name">Carol Dweck</span>'s growth mindset research (2006) supports this approach. Her studies show that individuals who view challenges as learning opportunities demonstrate greater resilience in conflict situations. In <cite class="book-title">Mindset: The New Psychology of Success</cite>, Dweck found that people with a growth mindset are 40% more likely to reach mutually beneficial solutions in workplace conflicts, as they frame disagreements as opportunities for collaborative problem-solving rather than zero-sum competitions.
+        </p>
+    </div>
+
+    <!-- Example 7: Premium Quote -->
+    <div class="premium-quote">
+        <blockquote>
+            Mature conflict resolution is necessary to maintain collaborative relationships. When two people openly discuss a conflict in a way that demonstrates mutual respect, it helps them realize they can trust each other to help meet each other's needs.
+        </blockquote>
+        <div class="quote-attribution">
+            <span class="quote-author">Renée Evenson</span>
+            <span class="quote-source">Powerful Phrases for Dealing with Difficult People</span>
+        </div>
+    </div>
+
+    <!-- Example 8: Author Bio Box -->
+    <div class="author-bio">
+        <span class="author-name">Marshall B. Rosenberg</span>
+        <p>
+            Psychologist and peacemaker who developed Nonviolent Communication (NVC). Founded the Center for Nonviolent Communication in 1984 and worked as a mediator in war-torn regions including Rwanda, Nigeria, and the Middle East.
+        </p>
+        <div class="other-works">Other Works:</div>
+        <ul>
+            <li>Nonviolent Communication: A Language of Life</li>
+            <li>Living Nonviolent Communication</li>
+            <li>Speak Peace in a World of Conflict</li>
+        </ul>
+    </div>
+
+    <!-- Example 9: Comparison Table -->
+    <h2>Comparing Conflict Resolution Approaches</h2>
+    
+    <table class="comparison-table">
+        <thead>
+            <tr>
+                <th>Evenson's Approach</th>
+                <th>Rosenberg's NVC Approach</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Focus on strategies and solutions</td>
+                <td>Focus on identifying underlying needs</td>
+            </tr>
+            <tr>
+                <td>Five-stage conflict resolution process</td>
+                <td>Four-step NVC process</td>
+            </tr>
+            <tr>
+                <td>Primarily workplace-oriented</td>
+                <td>Universal application (personal, professional, global)</td>
+            </tr>
+            <tr>
+                <td>Emphasizes planning before confrontation</td>
+                <td>Emphasizes present-moment awareness</td>
+            </tr>
+            <tr>
+                <td>Goal: Mutually acceptable compromise</td>
+                <td>Goal: Meeting everyone's needs</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Example 10: Cross-Reference -->
+    <p>
+        This concept of empathetic listening relates directly to the awareness practices discussed earlier. 
+        <a href="#part2" class="cross-reference">See Part II: Subject-Object Reversal</a>
+    </p>
+
+    <!-- Example 11: Process Timeline -->
+    <h2>Evenson's Five-Stage Process</h2>
+    
+    <div class="process-timeline">
+        <div class="timeline-step">
+            <div class="timeline-number">1</div>
+            <div class="timeline-label">Plan Conflict Resolution</div>
+        </div>
+        <div class="timeline-step">
+            <div class="timeline-number">2</div>
+            <div class="timeline-label">Establish Empathy</div>
+        </div>
+        <div class="timeline-step">
+            <div class="timeline-number">3</div>
+            <div class="timeline-label">Clarify Issue</div>
+        </div>
+        <div class="timeline-step">
+            <div class="timeline-number">4</div>
+            <div class="timeline-label">Suggest Fix</div>
+        </div>
+        <div class="timeline-step">
+            <div class="timeline-number">5</div>
+            <div class="timeline-label">Final Decision</div>
+        </div>
+    </div>
+
+    <!-- Example 12: References Section -->
+    <div class="references-section">
+        <h4>References</h4>
+        <div class="reference-item">
+            <span class="reference-number">1</span>
+            Richo, D. (2002). <em>How to Be an Adult in Relationships: The Five Keys to Mindful Loving</em>. Shambhala Publications.
+        </div>
+    </div>
+
+</body>
+</html>

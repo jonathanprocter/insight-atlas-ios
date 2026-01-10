@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "description": "Configuration file for PDFTextFixer pattern customization",
+
+  "customPatterns": [
+    {
+      "find": "psychologi cal",
+      "replace": "psychological",
+      "category": "academic"
+    },
+    {
+      "find": "behavi oral",
+      "replace": "behavioral",
+      "category": "academic"
+    },
+    {
+      "find": "cogni tive",
+      "replace": "cognitive",
+      "category": "academic"
+    },
+    {
+      "find": "thera peutic",
+      "replace": "therapeutic",
+      "category": "academic"
+    },
+    {
+      "find": "neuro logical",
+      "replace": "neurological",
+      "category": "academic"
+    },
+    {
+      "find": "physio logical",
+      "replace": "physiological",
+      "category": "academic"
+    },
+    {
+      "find": "methodo logical",
+      "replace": "methodological",
+      "category": "academic"
+    },
+    {
+      "find": "phenomeno logical",
+      "replace": "phenomenological",
+      "category": "academic"
+    },
+    {
+      "find": "epistemo logical",
+      "replace": "epistemological",
+      "category": "academic"
+    },
+    {
+      "find": "onto logical",
+      "replace": "ontological",
+      "category": "academic"
+    }
+  ],
+
+  "preserveTerms": [
+    "Wi-Fi",
+    "wi-fi",
+    "WiFi",
+    "wifi",
+    "Hi-Fi",
+    "hi-fi",
+    "HiFi",
+    "hifi",
+    "Sci-Fi",
+    "sci-fi",
+    "SciFi",
+    "scifi",
+    "Lo-Fi",
+    "lo-fi",
+    "LoFi",
+    "lofi",
+    "FIFO",
+    "fifo",
+    "LIFO",
+    "lifo",
+    "Fi-Fi",
+    "IEEE",
+    "ISBN",
+    "ISSN",
+    "DOI"
+  ],
+
+  "disabledPatterns": []
+}

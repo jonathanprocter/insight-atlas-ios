@@ -10,6 +10,10 @@ private let logger = Logger(subsystem: "com.insightatlas", category: "DataManage
 @MainActor
 class DataManager: ObservableObject {
 
+    // MARK: - Shared Instance
+
+    static let shared = DataManager()
+
     // MARK: - Published Properties
 
     @Published var libraryItems: [LibraryItem] = []
@@ -78,6 +82,21 @@ class DataManager: ObservableObject {
             }
         }
         libraryItems.remove(atOffsets: offsets)
+        saveLibrary()
+    }
+
+    /// Load all library items from storage
+    func loadLibraryItems() -> [LibraryItem] {
+        return libraryItems
+    }
+
+    /// Save a single library item (add or update)
+    func saveLibraryItem(_ item: LibraryItem) {
+        if let index = libraryItems.firstIndex(where: { $0.id == item.id }) {
+            libraryItems[index] = item
+        } else {
+            libraryItems.insert(item, at: 0)
+        }
         saveLibrary()
     }
 
@@ -208,7 +227,7 @@ class DataManager: ObservableObject {
         case .openai:
             return KeychainService.shared.hasOpenAIApiKey
         case .both:
-            return KeychainService.shared.hasClaudeApiKey &&
+            return KeychainService.shared.hasClaudeApiKey ||
                    KeychainService.shared.hasOpenAIApiKey
         }
     }

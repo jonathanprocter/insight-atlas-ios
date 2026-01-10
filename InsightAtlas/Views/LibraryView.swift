@@ -1,43 +1,24 @@
 import SwiftUI
-import SwiftData
 
 struct LibraryView: View {
-    
-    // MARK: - Environment
-    
-    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var environment: AppEnvironment
     
-    // MARK: - SwiftData Query
-    
-    @Query(sort: \LibraryItem.updatedAt, order: .reverse) private var libraryItems: [LibraryItem]
-    
-    // MARK: - State
-    
-    @State private var selectedTab: LibraryTab = .all
+    @State private var selectedFilter: LibraryFilter = .all
     @State private var searchText = ""
-    @State private var selectedIDs: Set<UUID> = []
-    @State private var isSelectionMode = false
     @State private var showingGenerationView = false
-    
-    // MARK: - Computed Properties
+    @State private var libraryItems: [LibraryItem] = []
     
     private var filteredItems: [LibraryItem] {
         var items = libraryItems
         
-        // Filter by tab
-        switch selectedTab {
-        case .all:
-            break
-        case .favorites:
-            items = items.filter { $0.isFavorite }
-        case .recent:
-            items = Array(items.prefix(10))
-        case .drafts:
-            items = items.filter { $0.summaryContent == nil }
+        switch selectedFilter {
+        case .all: break
+        case .favorites: items = items.filter { $0.isFavorite == true }
+        case .recent: items = Array(items.prefix(10))
+        case .completed: items = items.filter { $0.summaryContent != nil }
+        case .inProgress: items = items.filter { $0.summaryContent == nil }
         }
         
-        // Filter by search
         if !searchText.isEmpty {
             items = items.filter { item in
                 item.title.localizedCaseInsensitiveContains(searchText) ||
@@ -48,315 +29,224 @@ struct LibraryView: View {
         return items
     }
     
-    // MARK: - Body
-    
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Tab Bar
-                LibraryTabBar(selectedTab: $selectedTab)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                
-                // Content
-                if filteredItems.isEmpty {
-                    emptyStateView
-                } else {
-                    ScrollView {
-                        gridContent
-                            .padding()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(LibraryFilter.allCases, id: \.self) { filter in
+                            FilterChip(
+                                title: filter.displayName,
+                                isSelected: selectedFilter == filter
+                            ) {
+                                selectedFilter = filter
+                            }
+                        }
                     }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+                }
+                
+                Divider()
+                
+                if filteredItems.isEmpty {
+                    emptyState
+                } else {
+                    List {
+                        ForEach(filteredItems) { item in
+                            NavigationLink(destination: AnalysisDetailView(item: item)) {
+                                BookRow(item: item)
+                            }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    deleteItem(item)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                
+                                Button {
+                                    toggleFavorite(item)
+                                } label: {
+                                    Label("Favorite", systemImage: "heart")
+                                }
+                                .tint(AnalysisTheme.primaryGold)
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Library")
-            .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Search guides")
+            .searchable(text: $searchText, prompt: "Search")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingGenerationView = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(isSelectionMode ? "Done" : "Select") {
-                        isSelectionMode.toggle()
-                        if !isSelectionMode {
-                            selectedIDs.removeAll()
-                        }
-                    }
+                Button {
+                    showingGenerationView = true
+                } label: {
+                    Image(systemName: "plus")
+                        .fontWeight(.semibold)
                 }
             }
+            .tint(AnalysisTheme.primaryGold)
             .sheet(isPresented: $showingGenerationView) {
                 GenerationView()
             }
-        }
-    }
-    
-    // MARK: - Grid Content
-    
-    private var gridContent: some View {
-        LazyVGrid(columns: gridColumns, spacing: 16) {
-            ForEach(filteredItems) { item in
-                NavigationLink(destination: GuideView(item: item)) {
-                    LibraryItemCard(
-                        item: item,
-                        isSelected: selectedIDs.contains(item.id)
-                    )
-                    .contextMenu {
-                        Button {
-                            toggleFavorite(item)
-                        } label: {
-                            Label(
-                                item.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                                systemImage: item.isFavorite ? "heart.fill" : "heart"
-                            )
-                        }
-                        
-                        Button {
-                            duplicateItem(item)
-                        } label: {
-                            Label("Duplicate", systemImage: "doc.on.doc")
-                        }
-                        
-                        Divider()
-                        
-                        Button(role: .destructive) {
-                            deleteItem(item)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .onTapGesture {
-                    if isSelectionMode {
-                        toggleSelection(item.id)
-                    }
-                }
+            .onAppear {
+                loadLibraryItems()
             }
         }
     }
     
-    // MARK: - Grid Columns
-    
-    private var gridColumns: [GridItem] {
-        [
-            GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)
-        ]
-    }
-    
-    // MARK: - Empty State
-    
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
             Image(systemName: "books.vertical")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
-            
-            Text("No Guides Yet")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
+                .font(.system(size: 48, weight: .thin))
+                .foregroundStyle(.secondary)
+            Text("No guides yet")
+                .font(.title3)
+                .fontWeight(.medium)
             Text("Create your first guide to get started")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
-            
+                .foregroundStyle(.secondary)
             Button {
                 showingGenerationView = true
             } label: {
-                Label("Create Guide", systemImage: "plus.circle.fill")
+                Text("Create Guide")
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(AnalysisTheme.primaryGold)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
             }
-            .buttonStyle(.borderedProminent)
+            .padding(.top, 8)
+            Spacer()
         }
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    // MARK: - Actions
+    private func loadLibraryItems() {
+        libraryItems = DataManager.shared.loadLibraryItems()
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
     
     private func toggleFavorite(_ item: LibraryItem) {
-        item.isFavorite.toggle()
-        environment.updateLibraryItem(item)
-    }
-    
-    private func duplicateItem(_ item: LibraryItem) {
-        let duplicate = LibraryItem(
-            title: "\(item.title) (Copy)",
-            author: item.author,
-            summaryContent: item.summaryContent,
-            coverImagePath: item.coverImagePath,
-            pageCount: item.pageCount,
-            fileType: item.fileType,
-            mode: item.mode,
-            provider: item.provider,
-            tone: item.tone,
-            outputFormat: item.outputFormat
-        )
-        environment.addLibraryItem(duplicate)
+        var mutableItem = item
+        mutableItem.isFavorite = !(item.isFavorite ?? false)
+        environment.updateLibraryItem(mutableItem)
+        loadLibraryItems()
     }
     
     private func deleteItem(_ item: LibraryItem) {
         environment.deleteLibraryItem(item)
-    }
-    
-    private func toggleSelection(_ id: UUID) {
-        if selectedIDs.contains(id) {
-            selectedIDs.remove(id)
-        } else {
-            selectedIDs.insert(id)
-        }
+        loadLibraryItems()
     }
 }
 
-// MARK: - Library Tab
-
-enum LibraryTab: String, CaseIterable {
-    case all = "All"
-    case favorites = "Favorites"
-    case recent = "Recent"
-    case drafts = "Drafts"
-    
-    var icon: String {
-        switch self {
-        case .all: return "square.grid.2x2"
-        case .favorites: return "heart.fill"
-        case .recent: return "clock.fill"
-        case .drafts: return "doc.text"
-        }
-    }
-}
-
-// MARK: - Library Tab Bar
-
-struct LibraryTabBar: View {
-    @Binding var selectedTab: LibraryTab
-    
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(LibraryTab.allCases, id: \.self) { tab in
-                    TabButton(
-                        title: tab.rawValue,
-                        icon: tab.icon,
-                        isSelected: selectedTab == tab
-                    ) {
-                        selectedTab = tab
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct TabButton: View {
+struct FilterChip: View {
     let title: String
-    let icon: String
     let isSelected: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                Text(title)
-            }
-            .font(.subheadline)
-            .fontWeight(isSelected ? .semibold : .regular)
-            .foregroundColor(isSelected ? .white : .primary)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.accentColor : Color.gray.opacity(0.15))
-            .cornerRadius(20)
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? .white : .primary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? AnalysisTheme.primaryGold : Color(.systemGray6))
+                )
         }
     }
 }
 
-// MARK: - Library Item Card
-
-struct LibraryItemCard: View {
+struct BookRow: View {
     let item: LibraryItem
-    let isSelected: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Cover Image
+        HStack(spacing: 12) {
             coverImage
-                .frame(height: 150)
-                .clipped()
+                .frame(width: 60, height: 80)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             
-            // Content
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(.body)
+                    .fontWeight(.medium)
                     .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                
                 Text(item.author)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
-                
                 Spacer()
-                
-                // Status and Read Time
-                HStack {
-                    statusBadge
-                    Spacer()
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(item.summaryContent != nil ? AnalysisTheme.primaryGold : Color.secondary)
+                            .frame(width: 6, height: 6)
+                        Text(item.summaryContent != nil ? "Complete" : "Draft")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     if let readTime = item.readTime {
-                        Label(readTime, systemImage: "clock")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                        Text("·").foregroundStyle(.secondary)
+                        Text(readTime)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if item.isFavorite == true {
+                        Text("·").foregroundStyle(.secondary)
+                        Image(systemName: "heart.fill")
+                            .font(.caption)
+                            .foregroundStyle(AnalysisTheme.primaryGold)
                     }
                 }
             }
-            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: 240)
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 5, y: 2)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
+        .padding(.vertical, 4)
     }
     
     private var coverImage: some View {
         Group {
-            if let imageData = item.loadCoverImageData(),
+            if let coverPath = item.coverImagePath,
+               let imageData = loadCoverImageData(from: coverPath),
                let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .overlay(
-                        Image(systemName: "book.closed")
-                            .font(.largeTitle)
-                            .foregroundColor(.gray)
-                    )
+                ZStack {
+                    Color(.systemGray5)
+                    Image(systemName: "book.closed")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
     
-    private var statusBadge: some View {
-        let isCompleted = item.summaryContent != nil
-        let color: Color = isCompleted ? .green : .orange
-        let icon = isCompleted ? "checkmark.circle.fill" : "circle.dotted"
-        let text = isCompleted ? "Complete" : "Draft"
-        
-        return Label(text, systemImage: icon)
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.15))
-            .foregroundColor(color)
-            .cornerRadius(6)
+    private func loadCoverImageData(from path: String) -> Data? {
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        let fileURL = documentsDir.appendingPathComponent(path)
+        return try? Data(contentsOf: fileURL)
+    }
+}
+
+extension LibraryItem {
+    var readTime: String? {
+        guard let wordCount = governedWordCount else { return nil }
+        let minutes = wordCount / 200
+        if minutes < 1 {
+            return "<1 min"
+        }
+        return "\(minutes) min"
     }
 }

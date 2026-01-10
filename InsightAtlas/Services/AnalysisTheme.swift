@@ -1,155 +1,214 @@
 import SwiftUI
 
 // MARK: - Insight Atlas Analysis Theme
-// Premium Reading-Optimized Editorial Color System
+// Modern Minimalistic Color System - Based on OE Brand Identity
 //
 // Design Philosophy:
-// - Warm dominance (70-80%) for reading comfort and premium feel
-// - Cool accents (20-30%) for UI clarity and professional structure
-// - Muted, complex colors for sophistication over trendiness
+// - Burnt Orange (#D35F2E) as primary action/accent color - warm, energetic, distinctive
+// - Deep Steel Blue (#3B5E7A) as secondary accent - professional, trustworthy, balanced
+// - Deep Burgundy (#7B2D3E) for premium/emphasis - sophisticated, rich
+// - Warm cream surfaces for comfortable reading
 // - High contrast (>10:1) for extended reading comfort
+// - Complementary color theory: Orange ↔ Blue creates visual interest
+// - Analogous warmth: Orange → Burgundy creates cohesive premium feel
 //
 
 struct AnalysisTheme {
 
-    // MARK: - Reading Surfaces (Warm - Primary 70%)
+    // MARK: - Brand Primary Colors (From OE Logo)
 
-    static let readingBgPrimary = Color(hex: "#F9F8F7")      // Sepia White
-    static let readingBgSecondary = Color(hex: "#F5F3EF")    // Parchment
-    static let readingBgTertiary = Color(hex: "#EBE8E3")     // Warm Linen
-    static let readingBgAccent = Color(hex: "#E7E3DA")       // Soft Sand
+    static let brandOrange = Color(hex: "#E85D2D")           // Primary Orange - Primary brand
+    static let brandOrangeLight = Color(hex: "#F07348")      // Orange 400
+    static let brandOrangeDark = Color(hex: "#C74A1F")       // Orange 700
+    static let brandNavy = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
+    static let brandNavyLight = Color(hex: "#4A7A9D")        // Navy 400
+    static let brandNavyDark = Color(hex: "#1E3D54")         // Navy 700
+    
+    // Legacy aliases (deprecated - use brandNavy)
+    static let brandBlue = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
+    static let brandBlueLight = Color(hex: "#4A7A9D")        // Lighter Navy
+    static let brandBlueDark = Color(hex: "#1E3D54")         // Darker Navy
 
-    // MARK: - Brand Colors (Warm Editorial)
+    // MARK: - Reading Surfaces (Modern Clean)
 
-    static let brandSepia = Color(hex: "#625E58")            // Warm Charcoal
-    static let brandSepiaLight = Color(hex: "#A6A6A4")       // Warm Gray
-    static let brandParchment = Color(hex: "#F5F3EF")        // Parchment
-    static let brandParchmentDark = Color(hex: "#EBE8E3")    // Warm Linen
-    static let brandInk = Color(hex: "#2B2826")              // Ink Black
+    static let readingBgPrimary = Color(hex: "#FFFFFF")      // Pure White - Modern & Clean
+    static let readingBgSecondary = Color(hex: "#F9FAFB")    // Gray 50
+    static let readingBgTertiary = Color(hex: "#F3F4F6")     // Gray 100
+    static let readingBgAccent = Color(hex: "#E5E7EB")       // Gray 200
 
-    // MARK: - Primary Palette - Deep Teal (Replaces Gold)
-    // WCAG AAA compliant on warm backgrounds
+    // MARK: - Legacy Names (Deprecated - use reading surfaces above)
 
-    static let primaryGold = Color(hex: "#0D7377")           // Deep Teal - Primary accent
-    static let primaryGoldText = Color(hex: "#0D7377")       // Same - already compliant
-    static let primaryGoldLight = Color(hex: "#2A9D8F")      // Lighter Teal
-    static let primaryGoldDark = Color(hex: "#0B6166")       // Darker Teal
-    static let primaryGoldSubtle = Color(hex: "#0D7377").opacity(0.06)
-    static let primaryGoldMuted = Color(hex: "#0D7377").opacity(0.15)
+    static let brandSepia = Color(hex: "#4B5563")            // Gray 600
+    static let brandSepiaLight = Color(hex: "#6B7280")       // Gray 500
+    static let brandParchment = Color(hex: "#F9FAFB")        // Gray 50
+    static let brandParchmentDark = Color(hex: "#F3F4F6")    // Gray 100
+    static let brandInk = Color(hex: "#111827")              // Gray 900
+    static let brandCream = Color(hex: "#FEF0EB")            // Orange 50
+    static let brandBurgundy = Color(hex: "#DC2626")         // Error red (repurposed)
 
-    // MARK: - Premium Accent Colors (Sophisticated, Muted)
+    // MARK: - Primary Palette - Primary Orange (Brand Primary)
+    // WCAG AAA compliant on white backgrounds
 
-    static let accentPrimary = Color(hex: "#0D7377")         // Deep Teal - Primary CTAs
-    static let accentSuccess = Color(hex: "#7A9B7F")         // Sage Green - Success
-    static let accentHighlight = Color(hex: "#9B6B4F")       // Burnt Umber - Highlights
-    static let accentInfo = Color(hex: "#5B7C99")            // Slate Blue - Information
-    static let accentPremium = Color(hex: "#8B4049")         // Deep Burgundy - Premium
+    static let primaryGold = Color(hex: "#E85D2D")           // Primary Orange - Primary accent
+    static let primaryGoldText = Color(hex: "#C74A1F")       // Orange 700 for text compliance
+    static let primaryGoldLight = Color(hex: "#F07348")      // Orange 400
+    static let primaryGoldDark = Color(hex: "#D85426")       // Orange 600
+    static let primaryGoldSubtle = Color(hex: "#E85D2D").opacity(0.08)
+    static let primaryGoldMuted = Color(hex: "#E85D2D").opacity(0.15)
+
+    // MARK: - Premium Accent Colors (Modern Minimalistic)
+
+    static let accentPrimary = Color(hex: "#E85D2D")         // Primary Orange - Primary CTAs
+    static let accentSuccess = Color(hex: "#059669")         // Success green
+    static let accentHighlight = Color(hex: "#E85D2D")       // Primary Orange - Highlights
+    static let accentInfo = Color(hex: "#2E5A7D")            // Navy Blue - Information
+    static let accentWarning = Color(hex: "#D97706")         // Warning
+    static let accentError = Color(hex: "#DC2626")           // Error
 
     // MARK: - Secondary Palette - Refined Accents
 
-    static let accentBurgundy = Color(hex: "#8B4049")        // Deep Burgundy
-    static let accentBurgundyLight = Color(hex: "#A55560")   // Lighter Burgundy
-    static let accentBurgundySubtle = Color(hex: "#8B4049").opacity(0.06)
+    static let accentOrange = Color(hex: "#E85D2D")          // Primary Orange
+    static let accentOrangeText = Color(hex: "#C74A1F")      // Orange 700 for text
+    static let accentOrangeLight = Color(hex: "#F07348")     // Orange 400
+    static let accentOrangeSubtle = Color(hex: "#E85D2D").opacity(0.08)
 
-    static let accentCoral = Color(hex: "#9B6B4F")           // Burnt Umber
-    static let accentCoralText = Color(hex: "#9B6B4F")       // Same - already compliant
-    static let accentCoralLight = Color(hex: "#B8845F")      // Lighter Umber
-    static let accentCoralSubtle = Color(hex: "#9B6B4F").opacity(0.06)
-    static let accentCoralMuted = Color(hex: "#9B6B4F").opacity(0.15)
+    static let accentNavy = Color(hex: "#2E5A7D")            // Navy Blue (secondary brand)
+    static let accentNavyText = Color(hex: "#2E5A7D")        // Same - already compliant
+    static let accentNavyLight = Color(hex: "#4A7A9D")       // Navy 400
+    static let accentNavySubtle = Color(hex: "#2E5A7D").opacity(0.08)
+    static let accentNavyMuted = Color(hex: "#2E5A7D").opacity(0.15)
 
-    static let accentTeal = Color(hex: "#0D7377")            // Deep Teal
-    static let accentTealText = Color(hex: "#0D7377")        // Same - already compliant
-    static let accentTealLight = Color(hex: "#2A9D8F")       // Lighter Teal
-    static let accentTealSubtle = Color(hex: "#0D7377").opacity(0.06)
-    static let accentTealMuted = Color(hex: "#0D7377").opacity(0.15)
+    // Legacy aliases (use accentNavy instead)
+    static let accentTeal = Color(hex: "#2E5A7D")            // Navy Blue (was teal)
+    static let accentTealText = Color(hex: "#2E5A7D")
+    static let accentTealLight = Color(hex: "#4A7A9D")
+    static let accentTealSubtle = Color(hex: "#2E5A7D").opacity(0.08)
+    static let accentTealMuted = Color(hex: "#2E5A7D").opacity(0.15)
+    
+    // Deprecated - remove these
+    static let accentBurgundy = Color(hex: "#7B2D3E")        // Deprecated
+    static let accentBurgundyLight = Color(hex: "#9A4458")   // Deprecated
+    static let accentBurgundySubtle = Color(hex: "#7B2D3E").opacity(0.08)
 
-    static let accentOrange = Color(hex: "#C89B5A")          // Amber
-    static let accentOrangeText = Color(hex: "#9A7A3D")      // Darker Amber for text
-    static let accentOrangeLight = Color(hex: "#D4AC6B")     // Lighter Amber
-    static let accentOrangeSubtle = Color(hex: "#C89B5A").opacity(0.08)
+    static let accentCoral = Color(hex: "#E85D2D")           // Use accentOrange instead
+    static let accentCoralText = Color(hex: "#C74A1F")       // Use accentOrangeText instead
+    static let accentCoralLight = Color(hex: "#F07348")      // Use accentOrangeLight instead
+    static let accentCoralSubtle = Color(hex: "#E85D2D").opacity(0.08)
+    static let accentCoralMuted = Color(hex: "#E85D2D").opacity(0.15)
 
-    // MARK: - Premium Commentary Box Colors (Refined for Premium Reading)
+    // MARK: - Premium Commentary Box Colors (Modern Minimalistic)
 
-    // Insight Note - Uses Burnt Umber for warm highlights
-    static let insightOrange = Color(hex: "#9B6B4F")         // Burnt Umber
-    static let insightOrangeLight = Color(hex: "#B8845F")    // Lighter Umber
-    static let insightBgStart = Color(hex: "#F9F8F7")        // Sepia White
-    static let insightBgMid = Color(hex: "#F5F3EF")          // Parchment
-    static let insightBgEnd = Color(hex: "#EBE8E3")          // Warm Linen
+    // Insight Note - Uses Primary Orange for warm highlights
+    static let insightOrange = Color(hex: "#E85D2D")         // Primary Orange
+    static let insightOrangeLight = Color(hex: "#F07348")    // Orange 400
+    static let insightBgStart = Color(hex: "#FFFFFF")        // White
+    static let insightBgMid = Color(hex: "#FEF0EB")          // Orange 50
+    static let insightBgEnd = Color(hex: "#FCD4C4")          // Orange 100
 
-    // Alternative Perspective - Uses Slate Blue for balanced info
-    static let perspectiveTeal = Color(hex: "#5B7C99")       // Slate Blue
-    static let perspectiveTealDark = Color(hex: "#4A6B88")   // Darker Slate Blue
-    static let perspectiveBgStart = Color(hex: "#F5F7F9")    // Cool tint on Sepia
-    static let perspectiveBgMid = Color(hex: "#EEF2F5")      // Slightly cooler
-    static let perspectiveBgEnd = Color(hex: "#E8EDF2")      // Cool wash
+    // Alternative Perspective - Uses Navy Blue for balanced info
+    static let perspectiveTeal = Color(hex: "#2E5A7D")       // Navy Blue
+    static let perspectiveTealDark = Color(hex: "#1E3D54")   // Navy 700
+    static let perspectiveBgStart = Color(hex: "#FFFFFF")    // White
+    static let perspectiveBgMid = Color(hex: "#EBF3F7")      // Navy 50
+    static let perspectiveBgEnd = Color(hex: "#C9DEE9")      // Navy 100
 
-    // Research Insight - Uses Sage Green for scholarly feel
-    static let researchSage = Color(hex: "#7A9B7F")          // Sage Green
-    static let researchSageLight = Color(hex: "#8AAB8F")     // Lighter Sage
-    static let researchBgStart = Color(hex: "#F7F9F7")       // Greenish tint on Sepia
-    static let researchBgMid = Color(hex: "#F2F6F2")         // Slightly greener
-    static let researchBgEnd = Color(hex: "#EDF3ED")         // Sage wash
+    // Research Insight - Uses Success Green for scholarly feel
+    static let researchSage = Color(hex: "#059669")          // Success Green
+    static let researchSageLight = Color(hex: "#34D399")     // Success Green (dark mode)
+    static let researchBgStart = Color(hex: "#FFFFFF")       // White
+    static let researchBgMid = Color(hex: "#F0FDF4")         // Green tint
+    static let researchBgEnd = Color(hex: "#D1FAE5")         // Green wash
 
-    // MARK: - Premium Quote Card Colors (Warm Parchment)
+    // MARK: - Premium Quote Card Colors (Clean Modern)
 
-    static let parchmentBase = Color(hex: "#F9F8F7")         // Sepia White
-    static let parchmentMid = Color(hex: "#EBE8E3")          // Warm Linen
-    static let parchmentDark = Color(hex: "#E7E3DA")         // Soft Sand
-    static let parchmentVignette = Color(hex: "#625E58")     // Warm Charcoal
-    static let goldOrnament = Color(hex: "#0D7377")          // Deep Teal
-    static let goldTitle = Color(hex: "#0D7377")             // Deep Teal
-    static let coralAuthor = Color(hex: "#9B6B4F")           // Burnt Umber
-    static let inkMuted = Color(hex: "#625E58")              // Warm Charcoal
+    static let parchmentBase = Color(hex: "#FFFFFF")         // Pure White
+    static let parchmentMid = Color(hex: "#F9FAFB")          // Gray 50
+    static let parchmentDark = Color(hex: "#F3F4F6")         // Gray 100
+    static let parchmentVignette = Color(hex: "#4B5563")     // Gray 600
+    static let goldOrnament = Color(hex: "#E85D2D")          // Primary Orange
+    static let goldTitle = Color(hex: "#E85D2D")             // Primary Orange
+    static let coralAuthor = Color(hex: "#2E5A7D")           // Navy Blue
+    static let inkMuted = Color(hex: "#4B5563")              // Gray 600
 
-    // MARK: - Premium Teal Frame Colors (Layered Card Design)
+    // MARK: - Premium Frame Colors (Layered Card Design)
 
-    // Layer 1: Outer deep teal gradient
-    static let goldFrameOuter = Color(hex: "#0D7377")        // Deep Teal
-    static let goldFrameOuterMid = Color(hex: "#0B6166")     // Darker Teal
-    static let goldFrameOuterDark = Color(hex: "#095559")    // Darkest Teal
+    // Layer 1: Outer primary orange gradient
+    static let goldFrameOuter = Color(hex: "#E85D2D")        // Primary Orange
+    static let goldFrameOuterMid = Color(hex: "#D85426")     // Orange 600
+    static let goldFrameOuterDark = Color(hex: "#C74A1F")    // Orange 700
 
-    // Layer 2: Inner bright teal gradient
-    static let goldFrameInnerLight = Color(hex: "#2A9D8F")   // Lighter Teal
-    static let goldFrameInnerMid = Color(hex: "#1E8A7E")     // Mid Teal
-    static let goldFrameInnerDark = Color(hex: "#0D7377")    // Deep Teal
+    // Layer 2: Inner lighter orange gradient
+    static let goldFrameInnerLight = Color(hex: "#FAAB8D")   // Orange 200
+    static let goldFrameInnerMid = Color(hex: "#F07348")     // Orange 400
+    static let goldFrameInnerDark = Color(hex: "#E85D2D")    // Primary Orange
 
-    // Layer 3: Warm cream gap
-    static let goldFrameCreamLight = Color(hex: "#FDFCFA")   // Warm White
-    static let goldFrameCreamMid = Color(hex: "#F9F8F7")     // Sepia White
-    static let goldFrameCreamDark = Color(hex: "#F5F3EF")    // Parchment
+    // Layer 3: White gap
+    static let goldFrameCreamLight = Color(hex: "#FFFFFF")   // White
+    static let goldFrameCreamMid = Color(hex: "#FEF0EB")     // Orange 50
+    static let goldFrameCreamDark = Color(hex: "#FCD4C4")    // Orange 100
 
-    // Layer 4: Teal pinstripe
-    static let goldPinstripeLight = Color(hex: "#2A9D8F")    // Lighter Teal
-    static let goldPinstripeDark = Color(hex: "#0D7377")     // Deep Teal
+    // Layer 4: Orange pinstripe
+    static let goldPinstripeLight = Color(hex: "#F07348")    // Orange 400
+    static let goldPinstripeDark = Color(hex: "#E85D2D")     // Primary Orange
 
-    // Outer card gradient (Warm reading surfaces)
+    // Outer card gradient (Clean surfaces)
     static let outerCardTop = Color(hex: "#FFFFFF")          // Pure White
-    static let outerCardMid = Color(hex: "#F9F8F7")          // Sepia White
-    static let outerCardBottom = Color(hex: "#F5F3EF")       // Parchment
-    static let cardBackdrop = Color(hex: "#EBE8E3")          // Warm Linen
+    static let outerCardMid = Color(hex: "#F9FAFB")          // Gray 50
+    static let outerCardBottom = Color(hex: "#F3F4F6")       // Gray 100
+    static let cardBackdrop = Color(hex: "#E5E7EB")          // Gray 200
 
-    // MARK: - Text Colors (Maximum Readability AAA+)
+    // MARK: - Text Colors (Adaptive Light/Dark with Fallbacks)
 
-    static let textHeading = Color(hex: "#625E58")           // Warm Charcoal
-    static let textBody = Color(hex: "#2B2826")              // Ink Black (14.5:1 contrast)
-    static let textMuted = Color(hex: "#A6A6A4")             // Warm Gray
-    static let textSubtle = Color(hex: "#979C9F")            // Graphite
-    static let textInverse = Color(hex: "#FFFFFF")           // White
-    static let textHandwritten = Color(hex: "#625E58")       // Warm Charcoal
+    /// Primary text - adapts to light/dark mode
+    static let textHeading = Color(UIColor(named: "TextHeading") ?? UIColor(hex: "#111827"))
+    static let textBody = Color(UIColor(named: "TextBody") ?? UIColor(hex: "#1F2937"))
+    static let textMuted = Color(UIColor(named: "TextMuted") ?? UIColor(hex: "#6B7280"))
+    static let textSubtle = Color(UIColor(named: "TextSubtle") ?? UIColor(hex: "#9CA3AF"))
+    static let textInverse = Color(hex: "#FFFFFF")           // White (always)
+    static let textHandwritten = Color(hex: "#2E5A7D")       // Navy Blue
 
-    // MARK: - Background Colors (Warm Reading Surfaces)
+    // MARK: - Background Colors (Adaptive Light/Dark with Fallbacks)
 
-    static let bgPrimary = Color(hex: "#F9F8F7")             // Sepia White
-    static let bgSecondary = Color(hex: "#F5F3EF")           // Parchment
-    static let bgCard = Color(hex: "#FFFFFF")                // Pure White for elevated cards
-    static let bgElevated = Color(hex: "#FFFFFF")            // Pure White
+    /// Primary background - White in light mode, Navy 900 in dark mode
+    static let bgPrimary = Color(UIColor(named: "BgPrimary") ?? UIColor(hex: "#FFFFFF"))
+    /// Secondary background - Gray 50 in light mode, Navy 800 in dark mode
+    static let bgSecondary = Color(UIColor(named: "BgSecondary") ?? UIColor(hex: "#F9FAFB"))
+    /// Card background - White in light mode, Navy 700 in dark mode
+    static let bgCard = Color(UIColor(named: "BgCard") ?? UIColor(hex: "#FFFFFF"))
+    /// Elevated surface - White in light mode, Navy 600 in dark mode
+    static let bgElevated = Color(UIColor(named: "BgElevated") ?? UIColor(hex: "#FFFFFF"))
 
-    // MARK: - Border Colors (Cool for UI separation)
+    // MARK: - Border Colors (Adaptive Light/Dark with Fallbacks)
 
-    static let borderLight = Color(hex: "#E7E3DA")           // Soft Sand
-    static let borderMedium = Color(hex: "#D4D5D8")          // Steel
-    static let borderDark = Color(hex: "#979C9F")            // Graphite
+    static let borderLight = Color(UIColor(named: "BorderLight") ?? UIColor(hex: "#E5E7EB"))
+    static let borderMedium = Color(UIColor(named: "BorderMedium") ?? UIColor(hex: "#D1D5DB"))
+    static let borderDark = Color(UIColor(named: "BorderDark") ?? UIColor(hex: "#9CA3AF"))
+
+    // MARK: - Fallback Static Colors (for non-adaptive contexts)
+
+    struct Light {
+        static let textHeading = Color(hex: "#111827")       // Gray 900
+        static let textBody = Color(hex: "#1F2937")          // Gray 800
+        static let textMuted = Color(hex: "#6B7280")         // Gray 500
+        static let textSubtle = Color(hex: "#9CA3AF")        // Gray 400
+        static let bgPrimary = Color(hex: "#FFFFFF")         // White
+        static let bgSecondary = Color(hex: "#F9FAFB")       // Gray 50
+        static let bgCard = Color(hex: "#FFFFFF")            // White
+        static let borderLight = Color(hex: "#E5E7EB")       // Gray 200
+        static let borderMedium = Color(hex: "#D1D5DB")      // Gray 300
+    }
+
+    struct Dark {
+        static let textHeading = Color(hex: "#FFFFFF")       // White
+        static let textBody = Color(hex: "#C9DEE9")          // Navy 100
+        static let textMuted = Color(hex: "#9DC0D6")         // Navy 200
+        static let textSubtle = Color(hex: "#6B9AB8")        // Navy 300
+        static let bgPrimary = Color(hex: "#0F1E2A")         // Navy 900
+        static let bgSecondary = Color(hex: "#162B3D")       // Navy 800
+        static let bgCard = Color(hex: "#1E3D54")            // Navy 700
+        static let borderLight = Color(hex: "#254A66")       // Navy 600
+        static let borderMedium = Color(hex: "#4A7A9D")      // Navy 400
+    }
 
     // MARK: - Spacing
 
@@ -343,3 +402,74 @@ func parseMarkdownInline(_ text: String) -> AttributedString {
         return AttributedString(text)
     }
 }
+
+/// Parse markdown with explicit foreground color applied
+/// Use this when rendering text in boxes with non-adaptive backgrounds
+func parseMarkdownInline(_ text: String, foregroundColor: Color) -> AttributedString {
+    do {
+        var attributedString = try AttributedString(
+            markdown: text,
+            options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )
+        // Apply foreground color to entire string first
+        attributedString.foregroundColor = foregroundColor
+
+        // Apply custom font styling (preserving the foreground color)
+        for run in attributedString.runs {
+            if run.attributes.inlinePresentationIntent?.contains(.stronglyEmphasized) == true {
+                attributedString[run.range].font = UIFont(name: "CormorantGaramond-Bold", size: 17) ?? UIFont.boldSystemFont(ofSize: 17)
+            } else if run.attributes.inlinePresentationIntent?.contains(.emphasized) == true {
+                attributedString[run.range].font = UIFont(name: "CormorantGaramond-Italic", size: 17) ?? UIFont.italicSystemFont(ofSize: 17)
+            }
+        }
+        return attributedString
+    } catch {
+        var fallback = AttributedString(text)
+        fallback.foregroundColor = foregroundColor
+        return fallback
+    }
+}
+// MARK: - Color Hex Extension
+
+extension Color {
+    /// Initialize Color from hex string (e.g., "#D35F2E" or "D35F2E")
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+    
+    /// Convert Color to hex string
+    func toHex() -> String? {
+        guard let components = UIColor(self).cgColor.components, components.count >= 3 else {
+            return nil
+        }
+        let r = Float(components[0])
+        let g = Float(components[1])
+        let b = Float(components[2])
+        return String(format: "#%02lX%02lX%02lX",
+                      lroundf(r * 255),
+                      lroundf(g * 255),
+                      lroundf(b * 255))
+    }
+}
+
