@@ -14,7 +14,8 @@ actor VisualAssetCache {
     static let shared = VisualAssetCache()
 
     private let cacheDirectory: URL
-    private let fileManager = FileManager.default
+    // Note: FileManager.default is used directly in nonisolated contexts
+    // to avoid actor isolation issues. It's thread-safe for basic operations.
 
     /// Custom URLSession with appropriate timeouts for image fetching
     private let urlSession: URLSession = {
@@ -39,10 +40,10 @@ actor VisualAssetCache {
     var evictionTargetRatio: Double = 0.70
 
     private init() {
-        let base = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
-            ?? fileManager.temporaryDirectory
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         cacheDirectory = base.appendingPathComponent("GuideVisuals", isDirectory: true)
-        try? fileManager.createDirectory(
+        try? FileManager.default.createDirectory(
             at: cacheDirectory,
             withIntermediateDirectories: true
         )
@@ -54,7 +55,7 @@ actor VisualAssetCache {
     }
 
     /// Returns the local cache URL for a remote URL
-    func localURL(for remoteURL: URL) -> URL {
+    nonisolated func localURL(for remoteURL: URL) -> URL {
         // Use a hash of the full URL to avoid collisions
         let filename = (remoteURL.absoluteString.data(using: .utf8) ?? Data())
             .base64EncodedString()
@@ -65,9 +66,9 @@ actor VisualAssetCache {
     }
 
     /// Check if image is already cached
-    func isCached(remoteURL: URL) -> Bool {
+    nonisolated func isCached(remoteURL: URL) -> Bool {
         let local = localURL(for: remoteURL)
-        return fileManager.fileExists(atPath: local.path)
+        return FileManager.default.fileExists(atPath: local.path)
     }
 
     /// Cache image from remote URL if not already cached
@@ -77,7 +78,7 @@ actor VisualAssetCache {
     func cacheIfNeeded(from remoteURL: URL) async throws -> URL {
         let local = localURL(for: remoteURL)
 
-        if fileManager.fileExists(atPath: local.path) {
+        if FileManager.default.fileExists(atPath: local.path) {
             return local
         }
 
@@ -120,9 +121,9 @@ actor VisualAssetCache {
 
     /// Synchronously get cached image (for PDF rendering)
     /// Returns nil if not cached
-    func cachedImage(for remoteURL: URL) -> UIImage? {
+    nonisolated func cachedImage(for remoteURL: URL) -> UIImage? {
         let local = localURL(for: remoteURL)
-        guard fileManager.fileExists(atPath: local.path) else {
+        guard FileManager.default.fileExists(atPath: local.path) else {
             return nil
         }
         return UIImage(contentsOfFile: local.path)
@@ -131,12 +132,12 @@ actor VisualAssetCache {
     /// Clear all cached visuals
     func clearCache() {
         do {
-            try fileManager.removeItem(at: cacheDirectory)
+            try FileManager.default.removeItem(at: cacheDirectory)
         } catch {
             logger.warning("Failed to remove cache directory: \(error.localizedDescription)")
         }
         do {
-            try fileManager.createDirectory(
+            try FileManager.default.createDirectory(
                 at: cacheDirectory,
                 withIntermediateDirectories: true
             )
@@ -147,7 +148,7 @@ actor VisualAssetCache {
 
     /// Get total cache size in bytes
     func cacheSize() -> Int64 {
-        guard let enumerator = fileManager.enumerator(
+        guard let enumerator = FileManager.default.enumerator(
             at: cacheDirectory,
             includingPropertiesForKeys: [.fileSizeKey]
         ) else { return 0 }
@@ -189,7 +190,7 @@ actor VisualAssetCache {
 
         // Collect all file URLs first (not sendable-safe to iterate enumerator in async context)
         let fileURLs: [URL]
-        if let enumerator = fileManager.enumerator(
+        if let enumerator = FileManager.default.enumerator(
             at: cacheDirectory,
             includingPropertiesForKeys: [.fileSizeKey, .contentAccessDateKey, .contentModificationDateKey]
         ) {
@@ -209,7 +210,7 @@ actor VisualAssetCache {
 
                 // First pass: Remove files older than maxCacheAge
                 if now.timeIntervalSince(lastAccessed) > maxCacheAge {
-                    try fileManager.removeItem(at: fileURL)
+                    try FileManager.default.removeItem(at: fileURL)
                     evictedCount += 1
                     evictedBytes += size
                     logger.debug("Cache eviction: Removed stale file \(fileURL.lastPathComponent, privacy: .public)")
@@ -236,7 +237,7 @@ actor VisualAssetCache {
                 guard remainingSize > targetSize else { break }
 
                 do {
-                    try fileManager.removeItem(at: fileInfo.url)
+                    try FileManager.default.removeItem(at: fileInfo.url)
                     evictedCount += 1
                     evictedBytes += fileInfo.size
                     remainingSize -= fileInfo.size
@@ -276,7 +277,7 @@ actor VisualAssetCache {
         var oldestFile: Date?
         var newestFile: Date?
 
-        guard let enumerator = fileManager.enumerator(
+        guard let enumerator = FileManager.default.enumerator(
             at: cacheDirectory,
             includingPropertiesForKeys: [.contentModificationDateKey]
         ) else {

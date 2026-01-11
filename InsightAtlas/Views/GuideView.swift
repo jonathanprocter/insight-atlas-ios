@@ -424,13 +424,12 @@ struct GuideView: View {
         } else {
             // Start playback
             do {
-                try AudioPlaybackManager.shared.playFile(at: audioURL, rate: audioPlaybackRate) { [weak self] in
-                    // Playback completed
-                    DispatchQueue.main.async {
-                        guard let self = self else { return }
-                        self.isPlayingAudio = false
-                        self.audioPlaybackProgress = 0
-                        self.stopProgressTimer()
+                try AudioPlaybackManager.shared.playFile(at: audioURL, rate: audioPlaybackRate) {
+                    // Playback completed - use Task to ensure main actor context
+                    Task { @MainActor in
+                        isPlayingAudio = false
+                        audioPlaybackProgress = 0
+                        stopProgressTimer()
                     }
                 }
                 isPlayingAudio = true
@@ -479,17 +478,25 @@ struct GuideView: View {
 
                 let result = try await audioService.generateAudio(
                     text: content,
-                    voiceId: environment.settings.selectedVoiceId ?? "21m00Tcm4TlvDq8ikWAM"
+                    voiceID: environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
                 )
 
-                // Save audio file
-                let savedURL = try audioService.exportAudio(result, filename: item.id.uuidString)
+                // Save audio file to documents directory
+                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                    Self.logger.error("Unable to access documents directory for audio storage")
+                    isGeneratingAudio = false
+                    return
+                }
+
+                let audioFileName = "audio_\(item.id.uuidString).mp3"
+                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
+                try result.data.write(to: audioFileURL)
 
                 // Update library item with audio URL on success
                 var successItem = item
-                successItem.audioFileURL = savedURL.path
+                successItem.audioFileURL = audioFileName
                 successItem.audioDuration = result.duration
-                successItem.audioVoiceID = environment.settings.selectedVoiceId
+                successItem.audioVoiceID = environment.userSettings.selectedVoiceID
                 successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
                 environment.updateLibraryItem(successItem)
 
@@ -518,13 +525,11 @@ struct GuideView: View {
                 if format == .pdfOnly || format == .bundled {
                     if let content = item.summaryContent {
                         let pdfRenderer = InsightAtlasPDFRenderer()
-                        let document = PDFAnalysisDocument(
+                        let result = try pdfRenderer.render(
+                            markdownContent: content,
                             title: item.title,
-                            author: item.author,
-                            content: content,
-                            coverImageURL: item.coverImageURL
+                            author: item.author
                         )
-                        let result = try pdfRenderer.render(document: document)
                         pdfData = result.pdfData
                     }
                 }
