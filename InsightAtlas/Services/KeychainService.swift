@@ -14,6 +14,45 @@ final class KeychainService {
 
     private init() {}
 
+    // MARK: - Error Descriptions
+
+    /// Convert OSStatus to human-readable error description
+    private func errorDescription(for status: OSStatus) -> String {
+        switch status {
+        case errSecSuccess:
+            return "Success"
+        case errSecItemNotFound:
+            return "Item not found"
+        case errSecDuplicateItem:
+            return "Duplicate item"
+        case errSecAuthFailed:
+            return "Authentication failed"
+        case errSecInteractionNotAllowed:
+            return "Interaction not allowed (device locked)"
+        case errSecDecode:
+            return "Unable to decode data"
+        case errSecNotAvailable:
+            return "Keychain not available"
+        case errSecParam:
+            return "Invalid parameter"
+        case errSecAllocate:
+            return "Failed to allocate memory"
+        case errSecUserCanceled:
+            return "User canceled operation"
+        case errSecBadReq:
+            return "Bad request"
+        case errSecIO:
+            return "I/O error"
+        case errSecMissingEntitlement:
+            return "Missing entitlement"
+        default:
+            if let message = SecCopyErrorMessageString(status, nil) as String? {
+                return message
+            }
+            return "Unknown error (OSStatus: \(status))"
+        }
+    }
+
     // MARK: - Constants
 
     private enum Keys {
@@ -106,7 +145,7 @@ final class KeychainService {
         let status = SecItemAdd(query as CFDictionary, nil)
 
         if status != errSecSuccess {
-            logger.error("Keychain save failed for key '\(key, privacy: .private)': OSStatus \(status)")
+            logger.error("Keychain save failed for key '\(key, privacy: .private)': \(self.errorDescription(for: status))")
             return false
         }
 

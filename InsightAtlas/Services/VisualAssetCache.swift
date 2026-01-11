@@ -10,11 +10,22 @@ import os.log
 
 private let logger = Logger(subsystem: "com.insightatlas", category: "VisualAssetCache")
 
-final class VisualAssetCache {
+actor VisualAssetCache {
     static let shared = VisualAssetCache()
 
     private let cacheDirectory: URL
     private let fileManager = FileManager.default
+
+    /// Custom URLSession with appropriate timeouts for image fetching
+    private let urlSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 20  // 20 seconds for request
+        config.timeoutIntervalForResource = 60 // 60 seconds total
+        return URLSession(configuration: config)
+    }()
+
+    /// Maximum retries for transient network failures
+    private let maxRetryAttempts = 3
 
     // MARK: - Cache Policy Configuration
 
@@ -61,6 +72,7 @@ final class VisualAssetCache {
 
     /// Cache image from remote URL if not already cached
     /// Returns local file URL
+    /// Includes retry logic for transient network failures
     @discardableResult
     func cacheIfNeeded(from remoteURL: URL) async throws -> URL {
         let local = localURL(for: remoteURL)
@@ -69,16 +81,41 @@ final class VisualAssetCache {
             return local
         }
 
-        let (data, response) = try await URLSession.shared.data(from: remoteURL)
+        var lastError: Error?
 
-        // Verify we got image data
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw CacheError.downloadFailed
+        for attempt in 1...maxRetryAttempts {
+            do {
+                let (data, response) = try await urlSession.data(from: remoteURL)
+
+                // Verify we got image data
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw CacheError.invalidResponse
+                }
+
+                guard httpResponse.statusCode == 200 else {
+                    logger.warning("Cache download failed for \(remoteURL.lastPathComponent, privacy: .public): HTTP \(httpResponse.statusCode)")
+                    throw CacheError.downloadFailed(statusCode: httpResponse.statusCode)
+                }
+
+                try data.write(to: local, options: .atomic)
+                return local
+            } catch let error as CacheError {
+                // Non-retryable cache errors
+                throw error
+            } catch {
+                lastError = error
+                logger.debug("Cache download attempt \(attempt)/\(self.maxRetryAttempts) failed for \(remoteURL.lastPathComponent, privacy: .public): \(error.localizedDescription)")
+
+                if attempt < maxRetryAttempts {
+                    // Exponential backoff: 1s, 2s, 4s
+                    let delay = UInt64(pow(2.0, Double(attempt - 1))) * 1_000_000_000
+                    try? await Task.sleep(nanoseconds: delay)
+                }
+            }
         }
 
-        try data.write(to: local, options: .atomic)
-        return local
+        logger.error("Cache download failed after \(self.maxRetryAttempts) attempts for \(remoteURL.lastPathComponent, privacy: .public): \(lastError?.localizedDescription ?? "unknown")")
+        throw lastError ?? CacheError.downloadFailed(statusCode: 0)
     }
 
     /// Synchronously get cached image (for PDF rendering)
@@ -308,32 +345,47 @@ final class VisualAssetCache {
         var completed = 0
         var successCount = 0
 
-        await withTaskGroup(of: Bool.self) { group in
+        await withTaskGroup(of: (URL, Bool, Error?).self) { group in
             for url in urls {
                 group.addTask {
                     do {
                         try await self.cacheIfNeeded(from: url)
-                        return true
+                        return (url, true, nil)
                     } catch {
-                        return false
+                        return (url, false, error)
                     }
                 }
             }
 
-            for await success in group {
+            for await (url, success, error) in group {
                 completed += 1
                 if success {
                     successCount += 1
+                } else if let error = error {
+                    logger.warning("Prefetch failed for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription)")
                 }
                 progress?(completed, total)
             }
         }
 
+        logger.info("Prefetch complete: \(successCount)/\(total) images cached successfully")
         return successCount
     }
 
-    enum CacheError: Error {
-        case downloadFailed
+    enum CacheError: LocalizedError {
+        case downloadFailed(statusCode: Int)
         case invalidData
+        case invalidResponse
+
+        var errorDescription: String? {
+            switch self {
+            case .downloadFailed(let statusCode):
+                return "Download failed with HTTP status \(statusCode)"
+            case .invalidData:
+                return "Invalid image data received"
+            case .invalidResponse:
+                return "Invalid HTTP response"
+            }
+        }
     }
 }

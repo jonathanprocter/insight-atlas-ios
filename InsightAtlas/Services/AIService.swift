@@ -34,8 +34,20 @@ actor AIService {
     /// Maximum number of retry attempts for transient network errors
     private let maxRetryAttempts = 3
 
-    /// Delay between retry attempts (in seconds)
-    private let retryDelay: UInt64 = 2_000_000_000 // 2 seconds in nanoseconds
+    /// Base delay for exponential backoff (in seconds)
+    private let baseRetryDelay: Double = 2.0
+
+    /// Maximum delay for exponential backoff (in seconds)
+    private let maxRetryDelay: Double = 30.0
+
+    /// Calculate retry delay using exponential backoff
+    /// - Parameter attempt: Current attempt number (1-based)
+    /// - Returns: Delay in nanoseconds
+    private func calculateRetryDelay(attempt: Int) -> UInt64 {
+        let exponentialDelay = baseRetryDelay * pow(2.0, Double(attempt - 1))
+        let clampedDelay = min(exponentialDelay, maxRetryDelay)
+        return UInt64(clampedDelay * 1_000_000_000) // Convert to nanoseconds
+    }
 
     /// Context window limits (approximate, leaving room for output)
     /// Claude Opus 4: 200K context, we reserve 20K for output (max_tokens)
@@ -45,13 +57,27 @@ actor AIService {
 
     // MARK: - Token Estimation
 
-    /// Estimates token count for text using a simple heuristic.
-    /// Approximately 4 characters per token for English text.
+    /// Estimates token count for text using an improved heuristic.
+    /// Accounts for code blocks (higher token density) and non-English text.
     /// This is a conservative estimate (actual may be lower).
     func estimateTokenCount(for text: String) -> Int {
-        // Simple heuristic: ~4 chars per token for English
-        // More conservative than the actual ~3.5-4 ratio to avoid surprises
-        return max(1, text.count / 4)
+        // Improved heuristic based on content type
+        var charPerToken: Double = 4.0
+
+        // Adjust for code blocks (higher token density)
+        if text.contains("```") || text.contains("    ") {
+            charPerToken = 3.0
+        }
+
+        // Adjust for non-English text (varies by language)
+        // CJK languages use fewer chars per token
+        let nonAsciiRatio = Double(text.unicodeScalars.filter { !$0.isASCII }.count) / max(Double(text.count), 1.0)
+        if nonAsciiRatio > 0.3 {
+            charPerToken = 2.5 // CJK languages use fewer chars per token
+        }
+
+        let estimatedTokens = Int(Double(text.count) / charPerToken)
+        return max(1, estimatedTokens)
     }
 
     /// Estimates total input tokens for a generation request.
@@ -265,19 +291,25 @@ actor AIService {
                 model: "GPT-4.1 (Phase 1/2 - Deep Analysis)"
             ))
 
-            let gptAnalysis = try await performGPTAnalysis(
-                bookText: bookText,
-                title: title,
-                author: author,
-                apiKey: settings.openaiApiKey ?? "",
-                onStatus: { status in
-                    var adjusted = status
-                    adjusted.model = "GPT-4.1 (Phase 1/2 - Analysis)"
-                    adjusted.progress = status.progress * 0.25  // First 25% is analysis
-                    onStatus(adjusted)
-                },
-                shouldTerminate: shouldTerminate
-            )
+            let gptAnalysis: String
+            do {
+                gptAnalysis = try await performGPTAnalysis(
+                    bookText: bookText,
+                    title: title,
+                    author: author,
+                    apiKey: settings.openaiApiKey ?? "",
+                    onStatus: { status in
+                        var adjusted = status
+                        adjusted.model = "GPT-4.1 (Phase 1/2 - Analysis)"
+                        adjusted.progress = status.progress * 0.25  // First 25% is analysis
+                        onStatus(adjusted)
+                    },
+                    shouldTerminate: shouldTerminate
+                )
+            } catch {
+                Self.logger.error("Tandem mode Phase 1 (GPT-4.1 Analysis) failed: \(error.localizedDescription)")
+                throw AIServiceError.tandemModePhaseFailure(phase: "GPT-4.1 Analysis", underlyingError: error)
+            }
 
             if shouldTerminate?() == true {
                 return gptAnalysis
@@ -295,24 +327,30 @@ actor AIService {
                 model: "Claude (Phase 2/2 - Premium Synthesis)"
             ))
 
-            let finalResult = try await streamWithClaudeUsingAnalysis(
-                bookText: bookText,
-                title: title,
-                author: author,
-                gptAnalysis: gptAnalysis,
-                mode: settings.preferredMode,
-                tone: settings.preferredTone,
-                format: settings.preferredFormat,
-                apiKey: settings.claudeApiKey ?? "",
-                onChunk: onChunk,
-                onStatus: { status in
-                    var adjusted = status
-                    adjusted.model = "Claude (Phase 2/2 - Synthesis)"
-                    adjusted.progress = 0.30 + (status.progress * 0.70)  // Last 70% is synthesis
-                    onStatus(adjusted)
-                },
-                shouldTerminate: shouldTerminate
-            )
+            let finalResult: String
+            do {
+                finalResult = try await streamWithClaudeUsingAnalysis(
+                    bookText: bookText,
+                    title: title,
+                    author: author,
+                    gptAnalysis: gptAnalysis,
+                    mode: settings.preferredMode,
+                    tone: settings.preferredTone,
+                    format: settings.preferredFormat,
+                    apiKey: settings.claudeApiKey ?? "",
+                    onChunk: onChunk,
+                    onStatus: { status in
+                        var adjusted = status
+                        adjusted.model = "Claude (Phase 2/2 - Synthesis)"
+                        adjusted.progress = 0.30 + (status.progress * 0.70)  // Last 70% is synthesis
+                        onStatus(adjusted)
+                    },
+                    shouldTerminate: shouldTerminate
+                )
+            } catch {
+                Self.logger.error("Tandem mode Phase 2 (Claude Synthesis) failed: \(error.localizedDescription)")
+                throw AIServiceError.tandemModePhaseFailure(phase: "Claude Synthesis", underlyingError: error)
+            }
 
             return finalResult
         }
@@ -459,14 +497,24 @@ actor AIService {
                 }
                 lastError = error
                 if attempt < maxRetryAttempts {
+                    let delay = calculateRetryDelay(attempt: attempt)
+                    let delaySeconds = Int(delay / 1_000_000_000)
                     onStatus(GenerationStatus(
                         phase: .analyzing,
                         progress: 0.0,
                         wordCount: 0,
-                        model: "Claude (retry \(attempt)/\(maxRetryAttempts))"
+                        model: "Claude (retrying in \(delaySeconds)s - attempt \(attempt)/\(maxRetryAttempts))"
                     ))
-                    try await Task.sleep(nanoseconds: retryDelay * UInt64(attempt))
+
+                    // Check for cancellation before sleeping
+                    try Task.checkCancellation()
+                    try await Task.sleep(nanoseconds: delay)
+                    // Check for cancellation after waking
+                    try Task.checkCancellation()
                 }
+            } catch is CancellationError {
+                Self.logger.info("Claude streaming cancelled during retry")
+                return fullText
             } catch {
                 if shouldTerminate?() == true {
                     return fullText
@@ -712,14 +760,24 @@ actor AIService {
                 }
                 lastError = error
                 if attempt < maxRetryAttempts {
+                    let delay = calculateRetryDelay(attempt: attempt)
+                    let delaySeconds = Int(delay / 1_000_000_000)
                     onStatus(GenerationStatus(
                         phase: .analyzing,
                         progress: 0.0,
                         wordCount: 0,
-                        model: "OpenAI (retry \(attempt)/\(maxRetryAttempts))"
+                        model: "OpenAI (retrying in \(delaySeconds)s - attempt \(attempt)/\(maxRetryAttempts))"
                     ))
-                    try await Task.sleep(nanoseconds: retryDelay * UInt64(attempt))
+
+                    // Check for cancellation before sleeping
+                    try Task.checkCancellation()
+                    try await Task.sleep(nanoseconds: delay)
+                    // Check for cancellation after waking
+                    try Task.checkCancellation()
                 }
+            } catch is CancellationError {
+                Self.logger.info("OpenAI streaming cancelled during retry")
+                return fullText
             } catch {
                 if shouldTerminate?() == true {
                     return fullText
@@ -1230,6 +1288,12 @@ enum AIServiceError: LocalizedError {
     case networkError(message: String)
     case inputTooLarge(estimatedTokens: Int, limit: Int, provider: String)
 
+    // NEW: More specific error types for better user feedback
+    case contentPolicyViolation(message: String, provider: String)
+    case rateLimitExceeded(retryAfter: TimeInterval?, provider: String)
+    case tandemModePhaseFailure(phase: String, underlyingError: Error)
+    case tokenEstimationWarning(estimated: Int, limit: Int, utilizationPercent: Double)
+
     var errorDescription: String? {
         switch self {
         case .missingApiKey(let provider):
@@ -1260,6 +1324,36 @@ enum AIServiceError: LocalizedError {
                 ? "Try a shorter book, or contact support for extended context options."
                 : "Try a shorter book or switch to Claude for larger context."
             return "This book is too large for \(provider) (~\(formatted) tokens, limit: \(limitFormatted)). \(suggestion)"
+        case .contentPolicyViolation(let message, let provider):
+            return "\(provider) content policy violation: \(message)"
+        case .rateLimitExceeded(let retryAfter, let provider):
+            if let retryAfter = retryAfter {
+                return "\(provider) rate limit exceeded. Please wait \(Int(retryAfter)) seconds before retrying."
+            }
+            return "\(provider) rate limit exceeded. Please try again in a few minutes."
+        case .tandemModePhaseFailure(let phase, let error):
+            return "Tandem mode failed during \(phase): \(error.localizedDescription)"
+        case .tokenEstimationWarning(let estimated, let limit, let percent):
+            return "Warning: Input size is \(String(format: "%.1f", percent))% of context limit (\(estimated)/\(limit) tokens). Generation may be slow or fail."
+        }
+    }
+
+    var recoverySuggestion: String? {
+        switch self {
+        case .contentPolicyViolation:
+            return "Please review the book content for potentially sensitive material and try a different book."
+        case .rateLimitExceeded:
+            return "Wait a few minutes before trying again, or check your API plan limits."
+        case .tandemModePhaseFailure(let phase, _):
+            return "Try switching to single-provider mode (Claude or OpenAI only) instead of tandem mode. The \(phase) phase encountered an error."
+        case .tokenEstimationWarning:
+            return "Consider using a smaller excerpt or switching to GPT-4.1 (1M context) if using Claude."
+        case .missingApiKey:
+            return "Go to Settings and add your API key."
+        case .networkError:
+            return "Check your internet connection and try again."
+        default:
+            return nil
         }
     }
 }

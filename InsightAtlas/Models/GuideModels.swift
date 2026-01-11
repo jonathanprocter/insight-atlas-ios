@@ -43,8 +43,23 @@ struct LibraryItem: Identifiable, Codable {
     /// Audio duration in seconds
     var audioDuration: TimeInterval?
 
-    /// Whether audio generation was attempted
-    var audioGenerationAttempted: Bool?
+    /// Number of audio generation attempts (allows retry up to max attempts)
+    var audioGenerationAttempts: Int?
+
+    /// Maximum allowed audio generation attempts before disabling retry
+    static let maxAudioGenerationAttempts = 3
+
+    /// Whether audio generation can be retried
+    var canRetryAudioGeneration: Bool {
+        guard audioFileURL == nil else { return false }  // Already has audio
+        return (audioGenerationAttempts ?? 0) < Self.maxAudioGenerationAttempts
+    }
+
+    /// Legacy compatibility - maps to attempts > 0
+    var audioGenerationAttempted: Bool? {
+        get { (audioGenerationAttempts ?? 0) > 0 }
+        set { if newValue == true && audioGenerationAttempts == nil { audioGenerationAttempts = 1 } }
+    }
 
     // MARK: - Bookmarks
 
@@ -72,7 +87,7 @@ struct LibraryItem: Identifiable, Codable {
         audioFileURL: String? = nil,
         audioVoiceID: String? = nil,
         audioDuration: TimeInterval? = nil,
-        audioGenerationAttempted: Bool? = nil,
+        audioGenerationAttempts: Int? = nil,
         bookmarks: [GuideBookmark]? = nil
     ) {
         self.id = id
@@ -95,7 +110,7 @@ struct LibraryItem: Identifiable, Codable {
         self.audioFileURL = audioFileURL
         self.audioVoiceID = audioVoiceID
         self.audioDuration = audioDuration
-        self.audioGenerationAttempted = audioGenerationAttempted
+        self.audioGenerationAttempts = audioGenerationAttempts
         self.bookmarks = bookmarks
     }
 
@@ -110,6 +125,82 @@ struct LibraryItem: Identifiable, Codable {
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    // MARK: - Codable (with backward compatibility)
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, author, fileType, summaryContent, provider, mode
+        case pageCount, isbn, coverImagePath, isFavorite, createdAt, updatedAt
+        case summaryType, governedWordCount, cutPolicyActivated, cutEventCount
+        case audioFileURL, audioVoiceID, audioDuration
+        case audioGenerationAttempts
+        case audioGenerationAttempted  // Legacy key for backward compatibility
+        case bookmarks
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        author = try container.decode(String.self, forKey: .author)
+        fileType = try container.decode(FileType.self, forKey: .fileType)
+        summaryContent = try container.decodeIfPresent(String.self, forKey: .summaryContent)
+        provider = try container.decode(AIProvider.self, forKey: .provider)
+        mode = try container.decode(GenerationMode.self, forKey: .mode)
+        pageCount = try container.decodeIfPresent(Int.self, forKey: .pageCount)
+        isbn = try container.decodeIfPresent(String.self, forKey: .isbn)
+        coverImagePath = try container.decodeIfPresent(String.self, forKey: .coverImagePath)
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        summaryType = try container.decodeIfPresent(SummaryType.self, forKey: .summaryType)
+        governedWordCount = try container.decodeIfPresent(Int.self, forKey: .governedWordCount)
+        cutPolicyActivated = try container.decodeIfPresent(Bool.self, forKey: .cutPolicyActivated)
+        cutEventCount = try container.decodeIfPresent(Int.self, forKey: .cutEventCount)
+        audioFileURL = try container.decodeIfPresent(String.self, forKey: .audioFileURL)
+        audioVoiceID = try container.decodeIfPresent(String.self, forKey: .audioVoiceID)
+        audioDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .audioDuration)
+        bookmarks = try container.decodeIfPresent([GuideBookmark].self, forKey: .bookmarks)
+
+        // Handle backward compatibility: try new key first, fall back to legacy key
+        if let attempts = try container.decodeIfPresent(Int.self, forKey: .audioGenerationAttempts) {
+            audioGenerationAttempts = attempts
+        } else if let attempted = try container.decodeIfPresent(Bool.self, forKey: .audioGenerationAttempted) {
+            // Convert legacy Bool to Int: true -> 1, false/nil -> 0
+            audioGenerationAttempts = attempted ? 1 : 0
+        } else {
+            audioGenerationAttempts = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(author, forKey: .author)
+        try container.encode(fileType, forKey: .fileType)
+        try container.encodeIfPresent(summaryContent, forKey: .summaryContent)
+        try container.encode(provider, forKey: .provider)
+        try container.encode(mode, forKey: .mode)
+        try container.encodeIfPresent(pageCount, forKey: .pageCount)
+        try container.encodeIfPresent(isbn, forKey: .isbn)
+        try container.encodeIfPresent(coverImagePath, forKey: .coverImagePath)
+        try container.encodeIfPresent(isFavorite, forKey: .isFavorite)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encodeIfPresent(summaryType, forKey: .summaryType)
+        try container.encodeIfPresent(governedWordCount, forKey: .governedWordCount)
+        try container.encodeIfPresent(cutPolicyActivated, forKey: .cutPolicyActivated)
+        try container.encodeIfPresent(cutEventCount, forKey: .cutEventCount)
+        try container.encodeIfPresent(audioFileURL, forKey: .audioFileURL)
+        try container.encodeIfPresent(audioVoiceID, forKey: .audioVoiceID)
+        try container.encodeIfPresent(audioDuration, forKey: .audioDuration)
+        try container.encodeIfPresent(audioGenerationAttempts, forKey: .audioGenerationAttempts)
+        try container.encodeIfPresent(bookmarks, forKey: .bookmarks)
+        // Note: We intentionally don't encode audioGenerationAttempted (legacy key)
     }
 }
 

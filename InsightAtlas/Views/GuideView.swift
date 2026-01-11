@@ -1,6 +1,11 @@
 import SwiftUI
+import os.log
 
 struct GuideView: View {
+
+    // MARK: - Logger
+
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "InsightAtlas", category: "GuideView")
 
     // MARK: - Properties
 
@@ -17,11 +22,17 @@ struct GuideView: View {
     @State private var isPlayingAudio = false
     @State private var audioPlaybackProgress: Double = 0
     @State private var isGeneratingAudio = false
+    @State private var audioPlaybackRate: Float = 1.0
     @State private var tableOfContents: [TOCEntry] = []
     @State private var bookmarks: [GuideBookmark] = []
     @State private var showBookmarksSheet = false
     @State private var showAddBookmarkSheet = false
     @State private var selectedBookmarkSection: TOCEntry?
+    @State private var audioProgressTimer: Timer?
+    @State private var showExportSheet = false
+    @State private var isExporting = false
+    @State private var exportError: String?
+    @State private var shareItem: URL?
     
     // MARK: - Computed Properties
     
@@ -30,7 +41,7 @@ struct GuideView: View {
     }
     
     private var canGenerateAudio: Bool {
-        item.summaryContent != nil && !(item.audioGenerationAttempted ?? false)
+        item.summaryContent != nil && item.canRetryAudioGeneration
     }
     
     // MARK: - Body
@@ -70,8 +81,10 @@ struct GuideView: View {
                     isPlaying: $isPlayingAudio,
                     progress: $audioPlaybackProgress,
                     isGenerating: $isGeneratingAudio,
+                    playbackRate: $audioPlaybackRate,
                     onPlayPause: toggleAudioPlayback,
-                    onGenerate: generateAudioOnly
+                    onGenerate: generateAudioOnly,
+                    onRateChange: setPlaybackRate
                 )
                 .padding(.horizontal)
                 .padding(.bottom, 8)
@@ -94,16 +107,30 @@ struct GuideView: View {
 
                     // More options menu
                     Menu {
-                        Button {
-                            // Export guide
+                        // Export submenu
+                        Menu {
+                            Button {
+                                exportGuide(format: .pdfOnly)
+                            } label: {
+                                Label("Export as PDF", systemImage: "doc.fill")
+                            }
+                            .disabled(item.summaryContent == nil)
+
+                            if item.audioFileURL != nil {
+                                Button {
+                                    exportGuide(format: .audioOnly)
+                                } label: {
+                                    Label("Export Audio Only", systemImage: "speaker.wave.2.fill")
+                                }
+
+                                Button {
+                                    exportGuide(format: .bundled)
+                                } label: {
+                                    Label("Export PDF + Audio Bundle", systemImage: "archivebox.fill")
+                                }
+                            }
                         } label: {
                             Label("Export", systemImage: "square.and.arrow.up")
-                        }
-
-                        Button {
-                            // Share guide
-                        } label: {
-                            Label("Share", systemImage: "square.and.arrow.up")
                         }
 
                         Divider()
@@ -114,7 +141,11 @@ struct GuideView: View {
                             Label("Delete", systemImage: "trash")
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        if isExporting {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "ellipsis.circle")
+                        }
                     }
                 }
             }
@@ -146,12 +177,23 @@ struct GuideView: View {
                 }
             )
         }
+        .sheet(item: $shareItem) { url in
+            ShareSheet(activityItems: [url])
+        }
+        .alert("Export Error", isPresented: Binding(
+            get: { exportError != nil },
+            set: { if !$0 { exportError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportError ?? "An unknown error occurred")
+        }
         .onAppear {
             generateTableOfContents()
             loadBookmarks()
         }
     }
-    
+
     // MARK: - Table of Contents
     
     private func tableOfContentsSection(proxy: ScrollViewProxy) -> some View {
@@ -369,25 +411,148 @@ struct GuideView: View {
     }
     
     // MARK: - Actions
-    
+
     private func toggleAudioPlayback() {
-        isPlayingAudio.toggle()
-        // Implement actual audio playback logic
+        guard let audioURLString = item.audioFileURL,
+              let audioURL = URL(string: audioURLString) ?? URL(fileURLWithPath: audioURLString) as URL? else { return }
+
+        if isPlayingAudio {
+            // Pause playback
+            AudioPlaybackManager.shared.pause()
+            stopProgressTimer()
+            isPlayingAudio = false
+        } else {
+            // Start playback
+            do {
+                try AudioPlaybackManager.shared.playFile(at: audioURL, rate: audioPlaybackRate) { [weak self] in
+                    // Playback completed
+                    DispatchQueue.main.async {
+                        guard let self = self else { return }
+                        self.isPlayingAudio = false
+                        self.audioPlaybackProgress = 0
+                        self.stopProgressTimer()
+                    }
+                }
+                isPlayingAudio = true
+                startProgressTimer()
+            } catch {
+                Self.logger.error("Failed to play audio: \(error.localizedDescription)")
+            }
+        }
     }
-    
+
+    private func setPlaybackRate(_ rate: Float) {
+        audioPlaybackRate = rate
+        AudioPlaybackManager.shared.setPlaybackRate(rate)
+    }
+
+    private func startProgressTimer() {
+        audioProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            audioPlaybackProgress = AudioPlaybackManager.shared.progress
+            if !AudioPlaybackManager.shared.isPlaying && isPlayingAudio {
+                isPlayingAudio = false
+                stopProgressTimer()
+            }
+        }
+    }
+
+    private func stopProgressTimer() {
+        audioProgressTimer?.invalidate()
+        audioProgressTimer = nil
+    }
+
     private func generateAudioOnly() {
         isGeneratingAudio = true
-        // Implement audio generation logic
+
+        // Increment attempt counter immediately
+        var updatedItem = item
+        updatedItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
+        environment.updateLibraryItem(updatedItem)
+
         Task {
-            // Simulate generation
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            isGeneratingAudio = false
+            do {
+                let audioService = environment.audioService
+                guard let content = item.summaryContent else {
+                    isGeneratingAudio = false
+                    return
+                }
+
+                let result = try await audioService.generateAudio(
+                    text: content,
+                    voiceId: environment.settings.selectedVoiceId ?? "21m00Tcm4TlvDq8ikWAM"
+                )
+
+                // Save audio file
+                let savedURL = try audioService.exportAudio(result, filename: item.id.uuidString)
+
+                // Update library item with audio URL on success
+                var successItem = item
+                successItem.audioFileURL = savedURL.path
+                successItem.audioDuration = result.duration
+                successItem.audioVoiceID = environment.settings.selectedVoiceId
+                successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
+                environment.updateLibraryItem(successItem)
+
+                isGeneratingAudio = false
+            } catch {
+                Self.logger.error("Audio generation failed (attempt \(item.audioGenerationAttempts ?? 1)/\(LibraryItem.maxAudioGenerationAttempts)): \(error.localizedDescription)")
+                isGeneratingAudio = false
+            }
         }
     }
     
     private func deleteGuide() {
         environment.deleteLibraryItem(item)
         dismiss()
+    }
+
+    private func exportGuide(format: PDFAudioBundler.ExportFormat) {
+        isExporting = true
+
+        Task {
+            do {
+                let bundler = PDFAudioBundler()
+
+                // Generate PDF data if needed
+                var pdfData: Data? = nil
+                if format == .pdfOnly || format == .bundled {
+                    if let content = item.summaryContent {
+                        let pdfRenderer = InsightAtlasPDFRenderer()
+                        let document = PDFAnalysisDocument(
+                            title: item.title,
+                            author: item.author,
+                            content: content,
+                            coverImageURL: item.coverImageURL
+                        )
+                        let result = try pdfRenderer.render(document: document)
+                        pdfData = result.pdfData
+                    }
+                }
+
+                // Convert audio file path to URL
+                var audioURL: URL? = nil
+                if let audioPath = item.audioFileURL {
+                    audioURL = URL(string: audioPath) ?? URL(fileURLWithPath: audioPath)
+                }
+
+                let result = try bundler.createBundle(
+                    pdfData: pdfData,
+                    audioURL: audioURL,
+                    title: item.title,
+                    format: format
+                )
+
+                await MainActor.run {
+                    isExporting = false
+                    shareItem = result.url
+                }
+            } catch {
+                await MainActor.run {
+                    isExporting = false
+                    exportError = error.localizedDescription
+                }
+            }
+        }
     }
 
     // MARK: - Bookmark Management
@@ -688,17 +853,44 @@ struct StickyAudioPlayer: View {
     @Binding var isPlaying: Bool
     @Binding var progress: Double
     @Binding var isGenerating: Bool
-    
+    @Binding var playbackRate: Float
+
     let onPlayPause: () -> Void
     let onGenerate: () -> Void
-    
+    let onRateChange: (Float) -> Void
+
+    // Available playback speeds
+    private let speedOptions: [(label: String, rate: Float)] = [
+        ("0.5x", 0.5),
+        ("0.75x", 0.75),
+        ("1x", 1.0),
+        ("1.25x", 1.25),
+        ("1.5x", 1.5),
+        ("2x", 2.0)
+    ]
+
+    private var currentSpeedLabel: String {
+        speedOptions.first { $0.rate == playbackRate }?.label ?? "\(playbackRate)x"
+    }
+
     var body: some View {
         VStack(spacing: 8) {
-            if isPlaying {
-                ProgressView(value: progress)
-                    .tint(.accentColor)
+            if isPlaying || item.audioFileURL != nil {
+                // Progress bar with time labels
+                HStack(spacing: 8) {
+                    Text(formatTime(AudioPlaybackManager.shared.duration * progress))
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+
+                    ProgressView(value: progress)
+                        .tint(.accentColor)
+
+                    Text(formatTime(AudioPlaybackManager.shared.duration))
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                }
             }
-            
+
             HStack {
                 // Album art/icon
                 Image(systemName: "headphones")
@@ -707,7 +899,7 @@ struct StickyAudioPlayer: View {
                     .frame(width: 44, height: 44)
                     .background(Color(.secondarySystemBackground))
                     .cornerRadius(6)
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
                         .font(.headline)
@@ -717,22 +909,59 @@ struct StickyAudioPlayer: View {
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
-                
+
                 Spacer()
-                
+
                 if isGenerating {
                     ProgressView()
                 } else if item.audioFileURL != nil {
-                    Button(action: onPlayPause) {
-                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .font(.title2)
-                            .frame(width: 44, height: 44)
+                    HStack(spacing: 12) {
+                        // Speed control menu
+                        Menu {
+                            ForEach(speedOptions, id: \.rate) { option in
+                                Button {
+                                    onRateChange(option.rate)
+                                } label: {
+                                    HStack {
+                                        Text(option.label)
+                                        if option.rate == playbackRate {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Text(currentSpeedLabel)
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.accentColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.accentColor.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+
+                        // Play/Pause button
+                        Button(action: onPlayPause) {
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                .font(.title2)
+                                .frame(width: 44, height: 44)
+                        }
                     }
                 } else {
-                    Button(action: onGenerate) {
-                        Image(systemName: "speaker.wave.2.circle")
-                            .font(.title2)
-                            .frame(width: 44, height: 44)
+                    // Generate/Retry button
+                    let attempts = item.audioGenerationAttempts ?? 0
+                    let isRetry = attempts > 0
+                    VStack(spacing: 2) {
+                        Button(action: onGenerate) {
+                            Image(systemName: isRetry ? "arrow.clockwise.circle" : "speaker.wave.2.circle")
+                                .font(.title2)
+                                .frame(width: 44, height: 44)
+                        }
+                        if isRetry {
+                            Text("Retry \(attempts)/\(LibraryItem.maxAudioGenerationAttempts)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }
@@ -741,6 +970,14 @@ struct StickyAudioPlayer: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 5)
+    }
+
+    // Format seconds to MM:SS
+    private func formatTime(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds >= 0 else { return "0:00" }
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%d:%02d", mins, secs)
     }
 }
 
@@ -782,11 +1019,34 @@ struct TOCEntry: Identifiable, Hashable {
 struct InsightAtlasContentView: View {
     let content: String
     let searchQuery: String
-    
+
     var body: some View {
         // This is a placeholder - implement your actual content rendering
         Text(content)
             .font(.body)
             .padding()
     }
+}
+
+// MARK: - ShareSheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    var applicationActivities: [UIActivity]? = nil
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: applicationActivities
+        )
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - URL Identifiable Extension
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
 }

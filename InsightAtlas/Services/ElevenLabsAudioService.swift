@@ -18,6 +18,9 @@
 
 import Foundation
 import AVFoundation
+import os.log
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "InsightAtlas", category: "ElevenLabsAudioService")
 
 // MARK: - ElevenLabs Audio Error
 
@@ -451,9 +454,13 @@ final class ElevenLabsAudioService {
         }
 
         // Text should already be chunked by generateAudio(), but ensure we don't exceed limits
-        let textToSend = text.count > Constants.maxChunkLength
-            ? String(text.prefix(Constants.maxChunkLength))
-            : text
+        let textToSend: String
+        if text.count > Constants.maxChunkLength {
+            textToSend = String(text.prefix(Constants.maxChunkLength))
+            logger.warning("Text truncated from \(text.count) to \(Constants.maxChunkLength) characters for ElevenLabs API")
+        } else {
+            textToSend = text
+        }
 
         // Build request
         guard let url = URL(string: "\(Constants.baseURL)\(Constants.textToSpeechPath)/\(voiceID)") else {
@@ -830,7 +837,11 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
         audioPlayer = nil
         completionHandler = nil
 
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            logger.debug("Failed to deactivate audio session after stop: \(error.localizedDescription)")
+        }
     }
 
     /// Pause current playback
@@ -864,6 +875,10 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
         completionHandler?()
         completionHandler = nil
 
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            logger.debug("Failed to deactivate audio session after playback: \(error.localizedDescription)")
+        }
     }
 }

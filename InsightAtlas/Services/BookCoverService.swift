@@ -15,8 +15,25 @@ private let logger = Logger(subsystem: "com.insightatlas", category: "BookCoverS
 actor BookCoverService {
     static let shared = BookCoverService()
 
+    // MARK: - API Configuration
+
+    private enum APIEndpoints {
+        static let openLibrarySearch = "https://openlibrary.org/search.json"
+        static let openLibraryCovers = "https://covers.openlibrary.org/b"
+        static let googleBooksSearch = "https://www.googleapis.com/books/v1/volumes"
+    }
+
     private var cache: [String: UIImage] = [:]
     private var inFlightTasks: [String: Task<UIImage?, Never>] = [:]
+
+    /// Custom URLSession with appropriate timeouts for cover fetching
+    private let urlSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 15  // 15 seconds for request
+        config.timeoutIntervalForResource = 30 // 30 seconds total
+        config.waitsForConnectivity = false
+        return URLSession(configuration: config)
+    }()
 
     private init() {}
 
@@ -136,12 +153,12 @@ actor BookCoverService {
         let searchQuery = "\(cleanTitle) \(cleanAuthor)"
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-        let urlString = "https://openlibrary.org/search.json?q=\(searchQuery)&limit=1&fields=key,title,author_name,isbn,cover_i,edition_key"
+        let urlString = "\(APIEndpoints.openLibrarySearch)?q=\(searchQuery)&limit=1&fields=key,title,author_name,isbn,cover_i,edition_key"
 
         guard let url = URL(string: urlString) else { return nil }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await urlSession.data(from: url)
 
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
@@ -164,17 +181,17 @@ actor BookCoverService {
     }
 
     private func fetchCoverByOLID(olid: String, size: CoverSize) async -> UIImage? {
-        let urlString = "https://covers.openlibrary.org/b/olid/\(olid)-\(size.rawValue).jpg"
+        let urlString = "\(APIEndpoints.openLibraryCovers)/olid/\(olid)-\(size.rawValue).jpg"
         return await downloadImage(from: urlString)
     }
 
     private func fetchCoverByISBN(isbn: String, size: CoverSize) async -> UIImage? {
-        let urlString = "https://covers.openlibrary.org/b/isbn/\(isbn)-\(size.rawValue).jpg"
+        let urlString = "\(APIEndpoints.openLibraryCovers)/isbn/\(isbn)-\(size.rawValue).jpg"
         return await downloadImage(from: urlString)
     }
 
     private func fetchCoverByCoverId(coverId: Int, size: CoverSize) async -> UIImage? {
-        let urlString = "https://covers.openlibrary.org/b/id/\(coverId)-\(size.rawValue).jpg"
+        let urlString = "\(APIEndpoints.openLibraryCovers)/id/\(coverId)-\(size.rawValue).jpg"
         return await downloadImage(from: urlString)
     }
 
@@ -182,7 +199,7 @@ actor BookCoverService {
         guard let url = URL(string: urlString) else { return nil }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await urlSession.data(from: url)
 
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
@@ -215,12 +232,12 @@ actor BookCoverService {
         let searchQuery = "intitle:\(cleanTitle)+inauthor:\(cleanAuthor)"
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-        let urlString = "https://www.googleapis.com/books/v1/volumes?q=\(searchQuery)&maxResults=1&fields=items(volumeInfo/imageLinks)"
+        let urlString = "\(APIEndpoints.googleBooksSearch)?q=\(searchQuery)&maxResults=1&fields=items(volumeInfo/imageLinks)"
 
         guard let url = URL(string: urlString) else { return nil }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await urlSession.data(from: url)
 
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
