@@ -28,6 +28,10 @@ struct AnalysisDetailView: View {
     // MARK: - Audio Generation State
     @State private var isGeneratingAudio = false
     @State private var showingAudioReadyToast = false
+    @State private var showVoicePicker = false
+
+    // MARK: - Environment
+    @EnvironmentObject var environment: AppEnvironment
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -63,19 +67,14 @@ struct AnalysisDetailView: View {
                         )
                     }
 
-                    // Main content sections
-                    if let sections = parsedContent?.sections, !sections.isEmpty {
-                        ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
-                            renderSection(section)
-                                .id("section_\(index)")
-
-                            if index < sections.count - 1 {
-                                PremiumSectionDivider()
-                            }
-                        }
-                    } else if let content = item.summaryContent {
-                        // Fallback: render raw markdown content when no special blocks found
-                        FallbackMarkdownView(content: content)
+                    // Main content - use EditorialContentRenderer for premium styling
+                    if let content = item.summaryContent {
+                        EditorialContentRenderer(
+                            content: content,
+                            searchQuery: "",
+                            title: item.title,
+                            author: item.author
+                        )
                     }
 
                 // Footer
@@ -148,11 +147,35 @@ struct AnalysisDetailView: View {
                             Label(isPlayingAudio ? "Pause Audio" : "Listen to Guide", systemImage: isPlayingAudio ? "pause.fill" : "headphones")
                         }
 
+                        // Audio management submenu
+                        Menu {
+                            Button(action: { showVoicePicker = true }) {
+                                Label("Change Voice & Regenerate", systemImage: "person.wave.2")
+                            }
+                            .disabled(isGeneratingAudio)
+
+                            Button(action: { regenerateAudioWithCurrentVoice() }) {
+                                Label("Regenerate Audio", systemImage: "arrow.clockwise")
+                            }
+                            .disabled(isGeneratingAudio)
+
+                            Button(role: .destructive, action: { deleteAudio() }) {
+                                Label("Delete Audio", systemImage: "trash")
+                            }
+                        } label: {
+                            Label("Audio Options", systemImage: "speaker.wave.2")
+                        }
+
                         Divider()
                     }
                     if !hasPlayableAudio, item.summaryContent != nil {
+                        Button(action: { showVoicePicker = true }) {
+                            Label("Generate with Voice Selection", systemImage: "waveform.badge.plus")
+                        }
+                        .disabled(isGeneratingAudio)
+
                         Button(action: { generateAudioOnly() }) {
-                            Label(isGeneratingAudio ? "Generating Audio..." : "Generate Audio", systemImage: "waveform")
+                            Label(isGeneratingAudio ? "Generating Audio..." : "Generate with Default Voice", systemImage: "waveform")
                         }
                         .disabled(isGeneratingAudio)
                         Divider()
@@ -187,8 +210,12 @@ struct AnalysisDetailView: View {
                         Label("Delete Guide", systemImage: "trash")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .foregroundColor(AnalysisTheme.primaryGold)
+                    if isGeneratingAudio {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundColor(AnalysisTheme.primaryGold)
+                    }
                 }
             }
         }
@@ -223,6 +250,15 @@ struct AnalysisDetailView: View {
                 // Re-parse the content
                 parsedContent = ParsedAnalysisContent.parse(from: newContent)
             })
+        }
+        .sheet(isPresented: $showVoicePicker) {
+            VoicePickerSheet(
+                currentVoiceID: item.audioVoiceID ?? environment.userSettings.selectedVoiceID,
+                onSelectVoice: { voiceID in
+                    regenerateAudioWithVoice(voiceID)
+                }
+            )
+            .environmentObject(environment)
         }
         .onAppear {
             parseContent()
@@ -530,6 +566,100 @@ struct AnalysisDetailView: View {
         )
         cleaned = cleaned.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Audio Management
+
+    private func regenerateAudioWithCurrentVoice() {
+        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
+        regenerateAudioWithVoice(currentVoice)
+    }
+
+    private func regenerateAudioWithVoice(_ voiceID: String) {
+        guard let content = item.summaryContent else { return }
+
+        // Stop any current playback
+        if isPlayingAudio {
+            stopAudio()
+        }
+
+        isGeneratingAudio = true
+
+        Task {
+            do {
+                let audioService = ElevenLabsAudioService()
+
+                let result = try await audioService.generateAudio(
+                    text: sanitizeAudioContent(content),
+                    voiceID: voiceID
+                )
+
+                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                    await MainActor.run {
+                        isGeneratingAudio = false
+                        reportAudioPlaybackError("Unable to access documents directory.")
+                    }
+                    return
+                }
+
+                // Delete old audio file if exists
+                if let oldPath = item.audioFileURL {
+                    let oldURL = documentsDir.appendingPathComponent(oldPath)
+                    try? FileManager.default.removeItem(at: oldURL)
+                }
+
+                let audioFileName = "audio_\(item.id.uuidString).mp3"
+                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
+                try result.data.write(to: audioFileURL)
+
+                let asset = AVURLAsset(url: audioFileURL)
+                let duration = try await asset.load(.duration)
+                let durationSeconds = CMTimeGetSeconds(duration)
+
+                await MainActor.run {
+                    dataManager.updateAudioMetadata(
+                        for: item.id,
+                        audioFileURL: audioFileName,
+                        audioVoiceID: voiceID,
+                        audioDuration: durationSeconds
+                    )
+                    isGeneratingAudio = false
+                    showingAudioReadyToast = true
+                }
+
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                await MainActor.run {
+                    showingAudioReadyToast = false
+                }
+            } catch {
+                await MainActor.run {
+                    isGeneratingAudio = false
+                    reportAudioPlaybackError("Failed to regenerate audio: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func deleteAudio() {
+        // Stop any current playback
+        if isPlayingAudio {
+            stopAudio()
+        }
+
+        // Delete audio file
+        if let audioPath = item.audioFileURL,
+           let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let audioURL = documentsDir.appendingPathComponent(audioPath)
+            try? FileManager.default.removeItem(at: audioURL)
+        }
+
+        // Update library item to remove audio metadata
+        var updatedItem = item
+        updatedItem.audioFileURL = nil
+        updatedItem.audioVoiceID = nil
+        updatedItem.audioDuration = nil
+        updatedItem.audioGenerationAttempts = 0
+        dataManager.updateLibraryItem(updatedItem)
     }
 
     /// Trigger backend-powered guide generation

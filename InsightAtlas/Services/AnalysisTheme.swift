@@ -96,6 +96,11 @@ struct AnalysisTheme {
     static let accentCoralSubtle = Color(hex: "#E85D2D").opacity(0.08)
     static let accentCoralMuted = Color(hex: "#E85D2D").opacity(0.15)
 
+    // Additional accent colors for editorial blocks
+    static let accentGreen = Color(hex: "#059669")           // Success green for action boxes
+    static let accentBlue = Color(hex: "#2563EB")            // Blue for flowcharts/diagrams
+    static let accentPurple = Color(hex: "#7C3AED")          // Purple for alternative perspectives
+
     // MARK: - Premium Commentary Box Colors (Modern Minimalistic)
 
     // Insight Note - Uses Primary Orange for warm highlights

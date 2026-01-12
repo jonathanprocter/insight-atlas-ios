@@ -33,6 +33,9 @@ struct GuideView: View {
     @State private var isExporting = false
     @State private var exportError: String?
     @State private var shareItem: URL?
+    @State private var showVoicePicker = false
+    @State private var showRegenerateOptions = false
+    @State private var isRegeneratingContent = false
     
     // MARK: - Computed Properties
     
@@ -59,9 +62,14 @@ struct GuideView: View {
                             tableOfContentsSection(proxy: proxy)
                         }
                         
-                        // Content
+                        // Content - rendered with editorial styling
                         if let content = item.summaryContent {
-                            InsightAtlasContentView(content: content, searchQuery: searchText)
+                            EditorialContentRenderer(
+                                content: content,
+                                searchQuery: searchText,
+                                title: item.title,
+                                author: item.author
+                            )
                         } else {
                             emptyContentView
                         }
@@ -96,58 +104,7 @@ struct GuideView: View {
         .searchable(text: $searchText, prompt: "Search in guide")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    // Bookmarks button
-                    Button {
-                        showBookmarksSheet = true
-                    } label: {
-                        Image(systemName: bookmarks.isEmpty ? "bookmark" : "bookmark.fill")
-                            .foregroundColor(bookmarks.isEmpty ? .secondary : AnalysisTheme.primaryGold)
-                    }
-
-                    // More options menu
-                    Menu {
-                        // Export submenu
-                        Menu {
-                            Button {
-                                exportGuide(format: .pdfOnly)
-                            } label: {
-                                Label("Export as PDF", systemImage: "doc.fill")
-                            }
-                            .disabled(item.summaryContent == nil)
-
-                            if item.audioFileURL != nil {
-                                Button {
-                                    exportGuide(format: .audioOnly)
-                                } label: {
-                                    Label("Export Audio Only", systemImage: "speaker.wave.2.fill")
-                                }
-
-                                Button {
-                                    exportGuide(format: .bundled)
-                                } label: {
-                                    Label("Export PDF + Audio Bundle", systemImage: "archivebox.fill")
-                                }
-                            }
-                        } label: {
-                            Label("Export", systemImage: "square.and.arrow.up")
-                        }
-
-                        Divider()
-
-                        Button(role: .destructive) {
-                            deleteGuide()
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    } label: {
-                        if isExporting {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "ellipsis.circle")
-                        }
-                    }
-                }
+                toolbarContent
             }
         }
         .sheet(isPresented: $showBookmarksSheet) {
@@ -188,9 +145,168 @@ struct GuideView: View {
         } message: {
             Text(exportError ?? "An unknown error occurred")
         }
+        .sheet(isPresented: $showVoicePicker) {
+            VoicePickerSheet(
+                currentVoiceID: item.audioVoiceID ?? environment.userSettings.selectedVoiceID,
+                onSelectVoice: { voiceID in
+                    regenerateAudioWithVoice(voiceID)
+                }
+            )
+            .environmentObject(environment)
+        }
+        .sheet(isPresented: $showRegenerateOptions) {
+            RegenerateView(item: item, onComplete: { newContent, score in
+                // Handle regenerated content
+                var updatedItem = item
+                updatedItem.summaryContent = newContent
+                environment.dataManager.updateLibraryItem(updatedItem)
+            })
+                .environmentObject(environment)
+        }
         .onAppear {
             generateTableOfContents()
             loadBookmarks()
+        }
+    }
+
+    // MARK: - Toolbar Content
+
+    @ViewBuilder
+    private var toolbarContent: some View {
+        HStack(spacing: 16) {
+            bookmarkButton
+            moreOptionsMenu
+        }
+    }
+
+    private var bookmarkButton: some View {
+        Button {
+            showBookmarksSheet = true
+        } label: {
+            Image(systemName: bookmarks.isEmpty ? "bookmark" : "bookmark.fill")
+                .foregroundColor(bookmarks.isEmpty ? .secondary : AnalysisTheme.primaryGold)
+        }
+    }
+
+    @ViewBuilder
+    private var moreOptionsMenu: some View {
+        Menu {
+            exportSubmenu
+            Divider()
+            if item.summaryContent != nil {
+                audioSubmenu
+            }
+            regenerateSubmenu
+            Divider()
+            deleteButton
+        } label: {
+            if isExporting || isGeneratingAudio || isRegeneratingContent {
+                ProgressView()
+            } else {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var exportSubmenu: some View {
+        Menu {
+            Button {
+                exportGuide(format: .pdfOnly)
+            } label: {
+                Label("Export as PDF", systemImage: "doc.fill")
+            }
+            .disabled(item.summaryContent == nil)
+
+            if item.audioFileURL != nil {
+                Button {
+                    exportGuide(format: .audioOnly)
+                } label: {
+                    Label("Export Audio Only", systemImage: "speaker.wave.2.fill")
+                }
+
+                Button {
+                    exportGuide(format: .bundled)
+                } label: {
+                    Label("Export PDF + Audio Bundle", systemImage: "archivebox.fill")
+                }
+            }
+        } label: {
+            Label("Export", systemImage: "square.and.arrow.up")
+        }
+    }
+
+    @ViewBuilder
+    private var audioSubmenu: some View {
+        Menu {
+            if item.audioFileURL != nil {
+                Button {
+                    showVoicePicker = true
+                } label: {
+                    Label("Change Voice & Regenerate", systemImage: "person.wave.2")
+                }
+                .disabled(isGeneratingAudio)
+
+                Button {
+                    regenerateAudioWithCurrentVoice()
+                } label: {
+                    Label("Regenerate Audio", systemImage: "arrow.clockwise")
+                }
+                .disabled(isGeneratingAudio)
+
+                Button(role: .destructive) {
+                    deleteAudio()
+                } label: {
+                    Label("Delete Audio", systemImage: "trash")
+                }
+            } else {
+                Button {
+                    showVoicePicker = true
+                } label: {
+                    Label("Generate with Voice Selection", systemImage: "waveform.badge.plus")
+                }
+                .disabled(isGeneratingAudio)
+
+                Button {
+                    generateAudioOnly()
+                } label: {
+                    Label("Generate with Default Voice", systemImage: "waveform")
+                }
+                .disabled(isGeneratingAudio)
+            }
+        } label: {
+            Label("Audio", systemImage: "speaker.wave.2")
+        }
+    }
+
+    @ViewBuilder
+    private var regenerateSubmenu: some View {
+        Menu {
+            Button {
+                showRegenerateOptions = true
+            } label: {
+                Label("Regenerate Content", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .disabled(isRegeneratingContent)
+
+            if item.audioFileURL != nil {
+                Button {
+                    regenerateAudioWithCurrentVoice()
+                } label: {
+                    Label("Regenerate Audio Only", systemImage: "waveform.badge.plus")
+                }
+                .disabled(isGeneratingAudio)
+            }
+        } label: {
+            Label("Regenerate", systemImage: "arrow.clockwise")
+        }
+    }
+
+    private var deleteButton: some View {
+        Button(role: .destructive) {
+            deleteGuide()
+        } label: {
+            Label("Delete", systemImage: "trash")
         }
     }
 
@@ -511,6 +627,98 @@ struct GuideView: View {
     private func deleteGuide() {
         environment.deleteLibraryItem(item)
         dismiss()
+    }
+
+    // MARK: - Audio Management
+
+    private func regenerateAudioWithCurrentVoice() {
+        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
+        regenerateAudioWithVoice(currentVoice)
+    }
+
+    private func regenerateAudioWithVoice(_ voiceID: String) {
+        isGeneratingAudio = true
+
+        // Stop any current playback
+        if isPlayingAudio {
+            AudioPlaybackManager.shared.stop()
+            isPlayingAudio = false
+            stopProgressTimer()
+        }
+
+        Task {
+            do {
+                let audioService = environment.audioService
+                guard let content = item.summaryContent else {
+                    await MainActor.run { isGeneratingAudio = false }
+                    return
+                }
+
+                let result = try await audioService.generateAudio(
+                    text: content,
+                    voiceID: voiceID
+                )
+
+                // Save audio file to documents directory
+                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                    Self.logger.error("Unable to access documents directory for audio storage")
+                    await MainActor.run { isGeneratingAudio = false }
+                    return
+                }
+
+                // Delete old audio file if exists
+                if let oldPath = item.audioFileURL {
+                    let oldURL = documentsDir.appendingPathComponent(oldPath)
+                    try? FileManager.default.removeItem(at: oldURL)
+                }
+
+                let audioFileName = "audio_\(item.id.uuidString).mp3"
+                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
+                try result.data.write(to: audioFileURL)
+
+                // Update library item with new audio
+                await MainActor.run {
+                    var successItem = item
+                    successItem.audioFileURL = audioFileName
+                    successItem.audioDuration = result.duration
+                    successItem.audioVoiceID = voiceID
+                    successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
+                    environment.updateLibraryItem(successItem)
+                    isGeneratingAudio = false
+                }
+
+                Self.logger.info("Audio regenerated with voice \(voiceID)")
+            } catch {
+                Self.logger.error("Audio regeneration failed: \(error.localizedDescription)")
+                await MainActor.run { isGeneratingAudio = false }
+            }
+        }
+    }
+
+    private func deleteAudio() {
+        // Stop any current playback
+        if isPlayingAudio {
+            AudioPlaybackManager.shared.stop()
+            isPlayingAudio = false
+            stopProgressTimer()
+        }
+
+        // Delete audio file
+        if let audioPath = item.audioFileURL,
+           let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let audioURL = documentsDir.appendingPathComponent(audioPath)
+            try? FileManager.default.removeItem(at: audioURL)
+        }
+
+        // Update library item
+        var updatedItem = item
+        updatedItem.audioFileURL = nil
+        updatedItem.audioDuration = nil
+        updatedItem.audioVoiceID = nil
+        updatedItem.audioGenerationAttempts = 0
+        environment.updateLibraryItem(updatedItem)
+
+        Self.logger.info("Audio deleted for item: \(item.title)")
     }
 
     private func exportGuide(format: PDFAudioBundler.ExportFormat) {

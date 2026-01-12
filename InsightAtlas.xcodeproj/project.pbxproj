@@ -104,6 +104,9 @@
 		IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */; };
 		IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKVW02AAA002 /* VoicePickerView.swift */; };
 		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
+		9EFF521F70C471CF39DD4588 /* EditorialContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A77D72C5EAC28A38E529C7 /* EditorialContentRenderer.swift */; };
+		82E29C53323BCC8A79E0DF58 /* EditorialBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7504ACD02AE48FB4B91A9AE /* EditorialBlockViews.swift */; };
+		47D938729D4D043EEA2D6060 /* VoicePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAF36A52505A41D8A10D838 /* VoicePickerSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -221,6 +224,9 @@
 		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
 		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
+		03A77D72C5EAC28A38E529C7 /* EditorialContentRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/EditorialContentRenderer.swift"; sourceTree = SOURCE_ROOT; };
+		A7504ACD02AE48FB4B91A9AE /* EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/EditorialBlockViews.swift"; sourceTree = SOURCE_ROOT; };
+		5DAF36A52505A41D8A10D838 /* VoicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/VoicePickerSheet.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -635,6 +641,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				47D938729D4D043EEA2D6060 /* VoicePickerSheet.swift in Sources */,
+				82E29C53323BCC8A79E0DF58 /* EditorialBlockViews.swift in Sources */,
+				9EFF521F70C471CF39DD4588 /* EditorialContentRenderer.swift in Sources */,
 				48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */,
 				012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */,
 				65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */,
