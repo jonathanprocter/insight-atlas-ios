@@ -1574,6 +1574,12 @@ extension PDFAnalysisDocument {
             let table = header.isEmpty ? data.rows : [header] + data.rows
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
 
+        case .table(let data):
+            addHeadingIfNeeded(useInlineTitle: false)
+            let header = data.columns
+            let table = header.isEmpty ? data.rows : [header] + data.rows
+            blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
+
         case .conceptMap(let data):
             blocks.append(PDFContentBlock(
                 type: .conceptMap,

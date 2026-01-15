@@ -968,6 +968,11 @@ actor AIService {
         - What are its strongest contributions?
         - Any notable weaknesses or gaps?
 
+        ## EXCEED-EXPECTATIONS INSIGHTS (GO BEYOND SHORTFORM)
+        - 3-5 original synthesis insights that go beyond summary (novel connections, implications, or tensions)
+        - 2-3 practical frameworks or lenses the guide can introduce (name them)
+        - 3-5 visual recommendations using the VISUAL_* tags (include brief bullet data or structure)
+
         Be thorough and specific. Include chapter references or section locations where possible.
         The METADATA section is CRITICAL - the guide writer needs accurate author and publication info.
         """
@@ -1089,6 +1094,7 @@ actor AIService {
 
         Integrate these insights throughout your guide. Reference specific concepts and quotes from the analysis.
         Create a guide that demonstrates deep understanding of the book's content and structure.
+        The goal is to EXCEED what a shortform summary delivers: synthesize, interpret, and add value.
         """
 
         // Condense book text to fit within Claude's context while keeping key parts
@@ -1134,6 +1140,10 @@ actor AIService {
         4. **STRUCTURE**: Follow the book structure identified in the analysis to organize your synthesis thematically.
 
         5. **TERMINOLOGY**: Use the author's actual terminology and framework names as documented in the "Key Concepts & Frameworks" section.
+
+        6. **EXCEED SHORTFORM**: Go beyond summary. Add synthesis, original framing, and applied insights.
+
+        7. **VISUALS**: Use 2-4 VISUAL_* blocks that clarify core ideas (prefer structured data over placeholders).
 
         Create a complete Insight Atlas guide that demonstrates deep understanding of the book's content and structure.
         """

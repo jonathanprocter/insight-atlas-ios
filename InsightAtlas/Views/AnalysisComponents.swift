@@ -201,10 +201,11 @@ struct AnalysisHeaderView: View {
             // Tagline
             Text("Where Understanding Illuminates the World")
                 .font(.analysisHandwritten())
-                .foregroundColor(AnalysisTheme.textHandwritten)
+                .foregroundColor(AnalysisTheme.accentCoralText)
                 .multilineTextAlignment(.center)
                 .padding(.top, AnalysisTheme.Spacing.sm)
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, AnalysisTheme.Spacing.xl2)
     }
 }
@@ -300,20 +301,7 @@ struct PremiumQuickGlanceView: View {
                     lineWidth: 2
                 )
         )
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [AnalysisTheme.primaryGold, AnalysisTheme.accentOrange, AnalysisTheme.primaryGold],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 3)
-                .clipShape(
-                    RoundedCorner(radius: AnalysisTheme.Radius.xl, corners: [.topLeft, .topRight])
-                )
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -1066,7 +1054,7 @@ struct AnalysisFooterView: View {
 
             Text("Where Understanding Illuminates the World")
                 .font(.analysisHandwritten())
-                .foregroundColor(AnalysisTheme.textMuted)
+                .foregroundColor(AnalysisTheme.accentCoralText)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, AnalysisTheme.Spacing.xl3)

@@ -6,6 +6,7 @@ enum InsightVisualType: String {
     case timeline = "VISUAL_TIMELINE"
     case flowchart = "VISUAL_FLOWCHART"
     case comparisonMatrix = "VISUAL_COMPARISON_MATRIX"
+    case table = "VISUAL_TABLE"
     case conceptMap = "VISUAL_CONCEPT_MAP"
     case radarChart = "VISUAL_RADAR"
     case hierarchy = "VISUAL_HIERARCHY"
@@ -45,6 +46,7 @@ enum InsightVisualPayload {
     case timeline(TimelineData)
     case flowchart(FlowchartData)
     case comparison(ComparisonMatrixData)
+    case table(ComparisonMatrixData)
     case conceptMap(ConceptMapData)
     case radar(RadarData)
     case hierarchy(HierarchyData)
@@ -407,6 +409,9 @@ struct InsightVisualParser {
         case .comparisonMatrix:
             guard let data = decode(ComparisonMatrixData.self) else { return nil }
             return InsightVisual(type: type, title: title, payload: .comparison(data))
+        case .table:
+            guard let data = decode(ComparisonMatrixData.self) else { return nil }
+            return InsightVisual(type: type, title: title, payload: .table(data))
         case .conceptMap:
             guard let data = decode(ConceptMapData.self) else { return nil }
             return InsightVisual(type: type, title: title, payload: .conceptMap(data))
@@ -526,6 +531,21 @@ struct InsightVisualParser {
             }
             guard !header.isEmpty else { return nil }
             return InsightVisual(type: type, title: title, payload: .comparison(ComparisonMatrixData(columns: header, rows: rows)))
+
+        case .table:
+            let tableLines = trimmed.filter { $0.contains("|") }
+            guard tableLines.count >= 2 else { return nil }
+            let header = tableLines[0].split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let rows = tableLines.dropFirst(1).compactMap { row -> [String]? in
+                let cells = row.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                let joined = cells.joined()
+                if !joined.isEmpty && joined.allSatisfy({ $0 == "-" }) {
+                    return nil
+                }
+                return cells
+            }
+            guard !header.isEmpty else { return nil }
+            return InsightVisual(type: type, title: title, payload: .table(ComparisonMatrixData(columns: header, rows: rows)))
 
         case .conceptMap:
             let centerLine = trimmed.first(where: { $0.lowercased().hasPrefix("central:") })
@@ -850,6 +870,8 @@ struct InsightVisualView: View {
                 FlowDiagramCardView(data: data)
             case .comparison(let data):
                 ComparisonMatrixCardView(data: data)
+            case .table(let data):
+                TableCardView(data: data)
             case .conceptMap(let data):
                 ConceptMapCardView(data: data)
             case .radar(let data):
@@ -1000,6 +1022,17 @@ private struct ComparisonMatrixCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Comparison", icon: "square.grid.2x2")
+            ComparisonTableView(headers: data.columns, rows: data.rows)
+        }
+    }
+}
+
+private struct TableCardView: View {
+    let data: ComparisonMatrixData
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
+            VisualHeader(label: "Table", icon: "tablecells")
             ComparisonTableView(headers: data.columns, rows: data.rows)
         }
     }

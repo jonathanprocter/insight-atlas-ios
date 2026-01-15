@@ -23,8 +23,7 @@ struct QuickGlanceBlockView: View {
                     .foregroundColor(AnalysisTheme.primaryGold)
 
                 Text("QUICK GLANCE")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(2)
                     .foregroundColor(AnalysisTheme.primaryGold)
 
@@ -32,7 +31,7 @@ struct QuickGlanceBlockView: View {
 
                 if let readTime = metadata["readTime"] {
                     Text(readTime)
-                        .font(.caption)
+                        .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.textMuted)
                 }
             }
@@ -71,8 +70,7 @@ struct InsightNoteBlockView: View {
                     .foregroundColor(AnalysisTheme.accentTeal)
 
                 Text(title ?? "INSIGHT ATLAS NOTE")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(1.5)
                     .foregroundColor(AnalysisTheme.accentTeal)
             }
@@ -106,14 +104,13 @@ struct ActionBoxBlockView: View {
                     .foregroundColor(AnalysisTheme.accentGreen)
 
                 Text("APPLY IT")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(1.5)
                     .foregroundColor(AnalysisTheme.accentGreen)
 
                 if let title = title, title != "Apply It" {
                     Text(": \(title)")
-                        .font(.headline)
+                        .font(.analysisDisplayH4())
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
             }
@@ -162,8 +159,7 @@ struct KeyTakeawaysBlockView: View {
                     .foregroundColor(AnalysisTheme.primaryGold)
 
                 Text("KEY TAKEAWAYS")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(1.5)
                     .foregroundColor(AnalysisTheme.primaryGold)
             }
@@ -212,8 +208,7 @@ struct FoundationalNarrativeBlockView: View {
                     .foregroundColor(AnalysisTheme.brandSepia)
 
                 Text("THE STORY BEHIND THE IDEAS")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(1.5)
                     .foregroundColor(AnalysisTheme.brandSepia)
             }
@@ -333,7 +328,7 @@ struct PremiumQuoteBlockView: View {
                 HStack {
                     Spacer()
                     Text("— \(attribution)")
-                        .font(.analysisUI())
+                        .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.textMuted)
                 }
             }
@@ -368,7 +363,7 @@ struct BlockquoteBlockView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(parseMarkdownBold(content))
-                    .font(.analysisBody())
+                    .font(.analysisBodyLarge())
                     .foregroundColor(AnalysisTheme.textBody)
                     .italic()
                     .lineSpacing(4)
@@ -400,8 +395,7 @@ struct AuthorSpotlightBlockView: View {
                     .foregroundColor(AnalysisTheme.brandSepia)
 
                 Text("ABOUT THE AUTHOR")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(1.5)
                     .foregroundColor(AnalysisTheme.brandSepia)
             }
@@ -435,8 +429,7 @@ struct AlternativePerspectiveBlockView: View {
                     .foregroundColor(AnalysisTheme.accentPurple)
 
                 Text(title ?? "ALTERNATIVE PERSPECTIVE")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(1.5)
                     .foregroundColor(AnalysisTheme.accentPurple)
             }
@@ -470,8 +463,7 @@ struct ResearchInsightBlockView: View {
                     .foregroundColor(AnalysisTheme.accentBlue)
 
                 Text(title ?? "RESEARCH INSIGHT")
-                    .font(.caption)
-                    .fontWeight(.bold)
+                    .font(.analysisUIBold())
                     .tracking(1.5)
                     .foregroundColor(AnalysisTheme.accentBlue)
             }

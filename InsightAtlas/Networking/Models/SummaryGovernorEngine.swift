@@ -73,10 +73,8 @@ struct SummaryGovernorEngine {
 
         let basePlusScaled = governor.baseWordCount + scaledAddition
         let shortSourceCap = Int(Float(sourceWordCount) * 0.80)
-        let minimumBudget = governor.baseWordCount
-        let cappedBySource = max(shortSourceCap, minimumBudget)
 
-        return min(basePlusScaled, governor.maxWordCeiling, cappedBySource)
+        return min(basePlusScaled, governor.maxWordCeiling, shortSourceCap)
     }
 
     /// Calculates the effective budget including visual equivalents.
@@ -99,14 +97,25 @@ struct SummaryGovernorEngine {
 
     /// Checks if audio duration is within tolerance.
     ///
-    /// Tolerance: 10% above maxAudioMinutes
+    /// Tolerance: 10% above maxAudioMinutes.
+    /// Uses a faster narration rate for longer summary types.
     ///
     /// - Parameter wordCount: Word count to check
     /// - Returns: True if within tolerance
     func isAudioDurationValid(wordCount: Int) -> Bool {
-        let minutes = calculateAudioMinutes(wordCount: wordCount)
+        let narrationWPM = validationWordsPerMinute()
+        let minutes = Float(wordCount) / narrationWPM
         let maxWithTolerance = Float(governor.maxAudioMinutes) * 1.10
         return minutes <= maxWithTolerance
+    }
+
+    private func validationWordsPerMinute() -> Float {
+        switch governor.summaryType {
+        case .quickReference:
+            return Self.wordsPerMinute
+        case .professional, .accessible, .deepResearch:
+            return 190.0
+        }
     }
 
     // MARK: - Section Budget Calculation

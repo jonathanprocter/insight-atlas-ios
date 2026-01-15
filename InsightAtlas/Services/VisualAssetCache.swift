@@ -98,6 +98,9 @@ actor VisualAssetCache {
                     throw CacheError.downloadFailed(statusCode: httpResponse.statusCode)
                 }
 
+                guard UIImage(data: data) != nil else {
+                    throw CacheError.invalidData
+                }
                 try data.write(to: local, options: .atomic)
                 return local
             } catch let error as CacheError {
@@ -345,9 +348,12 @@ actor VisualAssetCache {
         let total = urls.count
         var completed = 0
         var successCount = 0
+        let maxConcurrent = min(6, urls.count)
+        var iterator = urls.makeIterator()
 
         await withTaskGroup(of: (URL, Bool, Error?).self) { group in
-            for url in urls {
+            func addNext() {
+                guard let url = iterator.next() else { return }
                 group.addTask {
                     do {
                         try await self.cacheIfNeeded(from: url)
@@ -358,7 +364,11 @@ actor VisualAssetCache {
                 }
             }
 
-            for await (url, success, error) in group {
+            for _ in 0..<maxConcurrent {
+                addNext()
+            }
+
+            while let (url, success, error) = await group.next() {
                 completed += 1
                 if success {
                     successCount += 1
@@ -366,6 +376,7 @@ actor VisualAssetCache {
                     logger.warning("Prefetch failed for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription)")
                 }
                 progress?(completed, total)
+                addNext()
             }
         }
 

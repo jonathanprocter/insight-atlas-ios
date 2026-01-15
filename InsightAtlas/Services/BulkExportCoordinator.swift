@@ -198,6 +198,32 @@ final class BulkExportCoordinator: ObservableObject {
     /// - Important: This method is orchestration only. It delegates to
     ///   `DataManager.exportGuide()` and never modifies content or triggers regeneration.
     func export(items: [LibraryItem], format: ExportFormat) async throws -> BulkExportResult {
+        if let existingTask = exportTask {
+            return try await existingTask.value
+        }
+
+        let task = Task { [weak self] () -> BulkExportResult in
+            guard let self else {
+                throw BulkExportError.cancelled
+            }
+
+            return try await self.performExport(items: items, format: format)
+        }
+
+        exportTask = task
+        defer { exportTask = nil }
+
+        do {
+            return try await task.value
+        } catch {
+            if Task.isCancelled {
+                throw BulkExportError.cancelled
+            }
+            throw error
+        }
+    }
+
+    private func performExport(items: [LibraryItem], format: ExportFormat) async throws -> BulkExportResult {
 
         // MARK: DEBUG Assertions - Prevent Misuse
 
@@ -252,8 +278,12 @@ final class BulkExportCoordinator: ObservableObject {
             .appendingPathComponent("BulkExport_\(UUID().uuidString)")
 
         try fileManager.createDirectory(at: exportDir, withIntermediateDirectories: true)
-        
-        // Note: We'll move this directory later, so don't use defer to remove it
+
+        defer {
+            if fileManager.fileExists(atPath: exportDir.path) {
+                try? fileManager.removeItem(at: exportDir)
+            }
+        }
 
         var exportedURLs: [URL] = []
         var skippedTitles: [String] = []
@@ -272,8 +302,10 @@ final class BulkExportCoordinator: ObservableObject {
             )
 
             do {
-                // Call existing export method
-                let exportedURL = try dataManager.exportGuide(item, format: format)
+                // Call existing export method off the MainActor to avoid UI blocking
+                let exportedURL = try await Task.detached(priority: .userInitiated) { [dataManager] in
+                    try dataManager.exportGuide(item, format: format)
+                }.value
 
                 // Copy to our export directory with unique name
                 let destinationURL = exportDir.appendingPathComponent(exportedURL.lastPathComponent)
@@ -329,12 +361,15 @@ final class BulkExportCoordinator: ObservableObject {
 
         let skippedFromNoContent = items.count - exportableItems.count
         let totalSkipped = skippedTitles.count + skippedFromNoContent
+        let noContentTitles = items
+            .filter { $0.summaryContent == nil || ($0.summaryContent?.isEmpty ?? true) }
+            .map { $0.title }
 
         return BulkExportResult(
             zipURL: zipURL,
             exportedCount: exportedURLs.count,
             skippedCount: totalSkipped,
-            skippedTitles: skippedTitles + items.filter { $0.summaryContent == nil }.map { $0.title },
+            skippedTitles: skippedTitles + noContentTitles,
             failures: failures
         )
     }

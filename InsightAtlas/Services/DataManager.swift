@@ -311,25 +311,31 @@ class DataManager: ObservableObject {
 
     /// Async export with progress reporting
     /// Note: Yields between phases to allow UI updates during long exports
-    func exportGuideAsync(
+    nonisolated func exportGuideAsync(
         _ item: LibraryItem,
         format: ExportFormat,
         progress: ((ExportProgress) -> Void)? = nil
     ) async throws -> URL {
-        progress?(.preparing)
+        await MainActor.run {
+            progress?(.preparing)
+        }
 
         // Yield to allow UI to update before heavy processing
         await Task.yield()
 
-        progress?(.converting(percent: 0.5))
+        await MainActor.run {
+            progress?(.converting(percent: 0.5))
+        }
         let url = try exportGuide(item, format: format)
 
-        progress?(.complete)
+        await MainActor.run {
+            progress?(.complete)
+        }
         return url
     }
 
     /// Export a guide to a file with comprehensive error handling
-    func exportGuide(_ item: LibraryItem, format: ExportFormat) throws -> URL {
+    nonisolated func exportGuide(_ item: LibraryItem, format: ExportFormat) throws -> URL {
         guard let content = item.summaryContent, !content.isEmpty else {
             throw DataManagerError.noContent
         }
@@ -337,7 +343,7 @@ class DataManager: ObservableObject {
         // Generate clean, readable filename in Title Case with proper formatting
         let sanitizedTitle = sanitizeFilename(item.title)
         let fileName = "\(sanitizedTitle) - Insight Atlas Guide"
-        let tempDir = fileManager.temporaryDirectory
+        let tempDir = FileManager.default.temporaryDirectory
 
         do {
             switch format {
@@ -402,7 +408,7 @@ class DataManager: ObservableObject {
         }
     }
 
-    private func stripMarkdown(from content: String) -> String {
+    nonisolated private func stripMarkdown(from content: String) -> String {
         var result = content
 
         // Remove all block markers using regex
@@ -449,7 +455,7 @@ class DataManager: ObservableObject {
 
     /// Sanitize filename to be clean and readable with proper Title Case
     /// Follows the format: [Book Title] - Insight Atlas Guide
-    private func sanitizeFilename(_ title: String) -> String {
+    nonisolated private func sanitizeFilename(_ title: String) -> String {
         // Remove invalid filename characters
         var sanitized = title
 
@@ -472,28 +478,50 @@ class DataManager: ObservableObject {
     // MARK: - HTML Conversion Helpers
 
     /// Calculate dynamic reading time based on word count
-    private func calculateReadingTime(from content: String) -> Int {
+    nonisolated private func calculateReadingTime(from content: String) -> Int {
         let wordsPerMinute = 225.0
         let wordCount = Double(content.split(whereSeparator: { $0.isWhitespace }).count)
         return max(1, Int(ceil(wordCount / wordsPerMinute)))
     }
 
     /// Get the Insight Atlas logo as a base64-encoded data URL for HTML embedding
-    private func getLogoBase64() -> String? {
-        guard let logoImage = UIImage(named: "Logo"),
-              let pngData = logoImage.pngData() else {
-            return nil
+    nonisolated private func getLogoBase64() -> String? {
+        if Thread.isMainThread {
+            guard let logoImage = UIImage(named: "Logo"),
+                  let pngData = logoImage.pngData() else {
+                return nil
+            }
+            let base64 = pngData.base64EncodedString()
+            return "data:image/png;base64,\(base64)"
         }
-        let base64 = pngData.base64EncodedString()
-        return "data:image/png;base64,\(base64)"
+
+        var result: String?
+        DispatchQueue.main.sync {
+            guard let logoImage = UIImage(named: "Logo"),
+                  let pngData = logoImage.pngData() else {
+                result = nil
+                return
+            }
+            let base64 = pngData.base64EncodedString()
+            result = "data:image/png;base64,\(base64)"
+        }
+        return result
     }
 
     /// Get the Insight Atlas logo UIImage for PDF rendering
-    private func getLogoImage() -> UIImage? {
-        return UIImage(named: "Logo")
+    nonisolated private func getLogoImage() -> UIImage? {
+        if Thread.isMainThread {
+            return UIImage(named: "Logo")
+        }
+
+        var image: UIImage?
+        DispatchQueue.main.sync {
+            image = UIImage(named: "Logo")
+        }
+        return image
     }
 
-    private func detectBlockStart(_ line: String) -> String? {
+    nonisolated private func detectBlockStart(_ line: String) -> String? {
         let blockStarts: [(String, String)] = [
             ("[QUICK_GLANCE]", "quick-glance"),
             ("[INSIGHT_NOTE]", "insight-note"),
@@ -532,7 +560,7 @@ class DataManager: ObservableObject {
         return nil
     }
 
-    private func detectBlockEnd(_ line: String) -> Bool {
+    nonisolated private func detectBlockEnd(_ line: String) -> Bool {
         if line.hasPrefix("[/VISUAL_") {
             return true
         }
@@ -598,7 +626,7 @@ class DataManager: ObservableObject {
         )
     }
 
-    private func renderSpecialBlock(type: String, content: [String], fullContent: String = "") -> String {
+    nonisolated private func renderSpecialBlock(type: String, content: [String], fullContent: String = "") -> String {
         let processedContent = content
             .filter { !$0.isEmpty }
             .map { convertInlineMarkdown($0) }
@@ -695,7 +723,7 @@ class DataManager: ObservableObject {
         """
     }
 
-    private func renderGenericVisualHTML(tag: String, content: [String]) -> String {
+    nonisolated private func renderGenericVisualHTML(tag: String, content: [String]) -> String {
         let canonicalTag = canonicalizeVisualTag(tag)
         guard let visual = InsightVisualParser.parse(tag: canonicalTag, title: nil, lines: content) else {
             let fallbackBody = renderBlockContent(content)
@@ -709,18 +737,46 @@ class DataManager: ObservableObject {
 
         let header = visualHeader(for: visual.type)
         let body = renderVisualBodyHTML(for: visual)
+        let containerClass = visualContainerClass(for: visual.type)
 
         return """
-        <div class="visual-generic">
+        <div class="\(containerClass)">
             <div class="block-header">\(header.icon) \(header.title)</div>
             <div class="block-content">\(body)</div>
         </div>
         """
     }
 
-    private func canonicalizeVisualTag(_ tag: String) -> String {
+    nonisolated private func visualContainerClass(for type: InsightVisualType) -> String {
+        switch type {
+        case .flowchart:
+            return "visual-flowchart"
+        case .table:
+            return "visual-table"
+        case .timeline:
+            return "visual-timeline"
+        case .conceptMap:
+            return "visual-concept-map"
+        case .comparisonMatrix:
+            return "visual-comparison"
+        case .networkGraph:
+            return "visual-network"
+        case .quadrant:
+            return "visual-quadrant"
+        case .barChart, .barChartStacked, .barChartGrouped, .pieChart, .lineChart, .areaChart,
+             .scatterPlot, .radarChart, .heatmap, .treemap, .bubbleChart:
+            return "visual-chart"
+        case .ganttChart, .funnelDiagram, .pyramidDiagram, .cycleDiagram, .fishboneDiagram,
+             .swotMatrix, .sankeyDiagram, .hierarchy, .journeyMap, .storyboard, .infographic:
+            return "visual-diagram"
+        default:
+            return "visual-generic"
+        }
+    }
+
+    nonisolated private func canonicalizeVisualTag(_ tag: String) -> String {
         switch tag {
-        case "VISUAL_TABLE", "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
+        case "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
             return "VISUAL_COMPARISON_MATRIX"
         case "VISUAL_FLOW_DIAGRAM":
             return "VISUAL_FLOWCHART"
@@ -733,7 +789,7 @@ class DataManager: ObservableObject {
         }
     }
 
-    private func visualHeader(for type: InsightVisualType) -> (icon: String, title: String) {
+    nonisolated private func visualHeader(for type: InsightVisualType) -> (icon: String, title: String) {
         switch type {
         case .timeline: return ("📅", "TIMELINE")
         case .flowchart: return ("🔀", "PROCESS FLOW")
@@ -764,11 +820,12 @@ class DataManager: ObservableObject {
         case .journeyMap: return ("🧭", "JOURNEY MAP")
         case .barChartStacked: return ("📊", "STACKED BARS")
         case .barChartGrouped: return ("📊", "GROUPED BARS")
+        case .table: return ("📋", "TABLE")
         case .generic: return ("📌", "VISUAL")
         }
     }
 
-    private func renderVisualBodyHTML(for visual: InsightVisual) -> String {
+    nonisolated private func renderVisualBodyHTML(for visual: InsightVisual) -> String {
         func formatNumber(_ value: Double) -> String {
             if value.rounded() == value {
                 return String(Int(value))
@@ -781,13 +838,86 @@ class DataManager: ObservableObject {
             return renderBlockContent(lines)
         }
 
+        func chipsHTML(_ items: [String]) -> String {
+            let chips = items.map { "<span class=\"visual-chip\">\($0)</span>" }.joined()
+            return "<div class=\"visual-chips\">\(chips)</div>"
+        }
+
+        func barsHTML(_ pairs: [(String, Double)], valueLabel: String = "Value") -> String {
+            let maxValue = pairs.map { $0.1 }.max() ?? 0
+            let rows = pairs.map { label, value -> String in
+                let width = maxValue > 0 ? (value / maxValue) * 100 : 0
+                return """
+                <div class="visual-bar-row">
+                    <div class="visual-bar-label">\(label)</div>
+                    <div class="visual-bar-track">
+                        <div class="visual-bar-fill" style="width: \(String(format: "%.2f", width))%"></div>
+                    </div>
+                    <div class="visual-bar-value">\(formatNumber(value))</div>
+                </div>
+                """
+            }.joined()
+            return """
+            <div class="visual-bars">
+                <div class="visual-subheader">\(valueLabel)</div>
+                \(rows)
+            </div>
+            """
+        }
+
+        func timelineHTML(_ events: [TimelineData.Event]) -> String {
+            let items = events.map { event -> String in
+                let date = event.date.isEmpty ? "" : "<div class=\"timeline-date\">\(event.date)</div>"
+                let desc = (event.description ?? "").isEmpty ? "" : "<div class=\"timeline-desc\">\(event.description ?? "")</div>"
+                return """
+                <div class="timeline-item">
+                    \(date)
+                    <div class="timeline-title">\(event.title)</div>
+                    \(desc)
+                </div>
+                """
+            }.joined()
+            return "<div class=\"visual-timeline-list\">\(items)</div>"
+        }
+
+        func quadrantHTML(_ data: QuadrantData) -> String {
+            let axisX = data.axesX.map { "<div class=\"quadrant-axis quadrant-axis-x\">\($0)</div>" } ?? ""
+            let axisY = data.axesY.map { "<div class=\"quadrant-axis quadrant-axis-y\">\($0)</div>" } ?? ""
+            let cells = data.quadrants.map { quad -> String in
+                let items = quad.items.map { "<li>\($0)</li>" }.joined()
+                return """
+                <div class="quadrant-cell">
+                    <div class="quadrant-title">\(quad.name)</div>
+                    <ul class="quadrant-items">\(items)</ul>
+                </div>
+                """
+            }.joined()
+            return """
+            <div class="visual-quadrant-grid">
+                \(axisX)\(axisY)
+                \(cells)
+            </div>
+            """
+        }
+
+        func swotHTML(_ data: SWOTData) -> String {
+            let strengths = data.strengths.map { "<li>\($0)</li>" }.joined()
+            let weaknesses = data.weaknesses.map { "<li>\($0)</li>" }.joined()
+            let opportunities = data.opportunities.map { "<li>\($0)</li>" }.joined()
+            let threats = data.threats.map { "<li>\($0)</li>" }.joined()
+            return """
+            <div class="visual-grid-2x2">
+                <div class="visual-cell"><div class="visual-cell-title">Strengths</div><ul>\(strengths)</ul></div>
+                <div class="visual-cell"><div class="visual-cell-title">Weaknesses</div><ul>\(weaknesses)</ul></div>
+                <div class="visual-cell"><div class="visual-cell-title">Opportunities</div><ul>\(opportunities)</ul></div>
+                <div class="visual-cell"><div class="visual-cell-title">Threats</div><ul>\(threats)</ul></div>
+            </div>
+            """
+        }
+
         switch visual.payload {
         case .timeline(let data):
-            let lines = data.events.map { event in
-                if event.date.isEmpty { return event.title }
-                return "\(event.date): \(event.title)"
-            }
-            return renderProcessTimelineContent(lines)
+            return timelineHTML(data.events)
 
         case .flowchart(let data):
             return renderFlowchartContent(data.nodes)
@@ -796,54 +926,69 @@ class DataManager: ObservableObject {
             let table = data.columns.isEmpty ? data.rows : [data.columns] + data.rows
             return renderTable(rows: table)
 
+        case .table(let data):
+            let table = data.columns.isEmpty ? data.rows : [data.columns] + data.rows
+            return renderTable(rows: table)
+
         case .conceptMap(let data):
             let mapLines = ["Central: \(data.center)"] + data.branches.map { "- \($0)" }
             return renderConceptMapContent(mapLines.joined(separator: "\n"))
 
         case .radar(let data):
-            return listHTML(data.dimensions)
+            return chipsHTML(data.dimensions)
 
         case .hierarchy(let data):
-            let header = renderBlockContent([data.root])
-            return header + listHTML(data.children)
+            let children = data.children.map { "<li>\($0)</li>" }.joined()
+            return """
+            <div class="hierarchy-root">\(data.root)</div>
+            <ul class="hierarchy-list">\(children)</ul>
+            """
 
         case .network(let data):
             let nodes = data.nodes.map { node in
-                [node.id, node.label, node.type ?? ""]
-            }
+                "<li><strong>\(node.label)</strong> <span class=\"visual-muted\">(\(node.id))</span> \(node.type.map { "• \($0)" } ?? "")</li>"
+            }.joined()
             let connections = data.connections.map { connection in
-                [connection.from, connection.to, connection.type ?? ""]
-            }
-            return renderTable(rows: [["ID", "Label", "Type"]] + nodes) +
-                renderTable(rows: [["From", "To", "Type"]] + connections)
+                "<li>\(connection.from) → \(connection.to) \(connection.type.map { "• \($0)" } ?? "")</li>"
+            }.joined()
+            return """
+            <div class="visual-subheader">Nodes</div>
+            <ul class="visual-list">\(nodes)</ul>
+            <div class="visual-subheader">Connections</div>
+            <ul class="visual-list">\(connections)</ul>
+            """
 
         case .barChart(let data):
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            return renderTable(rows: [["Label", "Value"]] + rows)
+            let pairs = Array(zip(data.labels, data.values))
+            return barsHTML(pairs, valueLabel: "Value")
 
         case .quadrant(let data):
-            let rows = data.quadrants.map { [$0.name, $0.items.joined(separator: " • ")] }
-            return renderTable(rows: [["Quadrant", "Items"]] + rows)
+            return quadrantHTML(data)
 
         case .pieChart(let data):
             let total = data.segments.map { $0.value }.reduce(0, +)
             let rows = data.segments.map { segment in
                 let percent = total > 0 ? (segment.value / total) * 100 : 0
-                return [segment.label, "\(formatNumber(percent))%"]
+                return (segment.label, percent)
             }
-            return renderTable(rows: [["Segment", "Share"]] + rows)
+            let items = rows.map { label, percent in
+                "<li><span class=\"visual-dot\"></span><strong>\(label)</strong> <span class=\"visual-muted\">\(formatNumber(percent))%</span></li>"
+            }.joined()
+            return "<ul class=\"visual-list\">\(items)</ul>"
 
         case .lineChart(let data):
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            return renderTable(rows: [["Point", "Value"]] + rows)
+            let pairs = Array(zip(data.labels, data.values))
+            return barsHTML(pairs, valueLabel: "Value")
 
         case .areaChart(let data):
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            return renderTable(rows: [["Point", "Value"]] + rows)
+            let pairs = Array(zip(data.labels, data.values))
+            return barsHTML(pairs, valueLabel: "Value")
 
         case .scatterPlot(let data):
-            let rows = data.points.map { [formatNumber($0.x), formatNumber($0.y), $0.label ?? ""] }
-            return renderTable(rows: [["X", "Y", "Label"]] + rows)
+            let points = data.points.map { point in
+                "<li><strong>\(point.label ?? "Point")</strong>: (\(formatNumber(point.x)), \(formatNumber(point.y)))</li>"
+            }.joined()
+            return "<ul class=\"visual-list\">\(points)</ul>"
 
         case .vennDiagram(let data):
             let rows = data.sets.map { [$0.label, $0.items.joined(separator: " • ")] }
@@ -851,16 +996,38 @@ class DataManager: ObservableObject {
             if data.intersection.isEmpty {
                 return table
             }
-            let intersection = renderBlockContent(["Intersection: \(data.intersection.joined(separator: ", "))"])
+            let intersection = "<div class=\"visual-callout\">Intersection: \(data.intersection.joined(separator: ", "))</div>"
             return table + intersection
 
         case .ganttChart(let data):
-            let rows = data.tasks.map { [$0.name, formatNumber($0.start), formatNumber($0.duration), $0.status ?? ""] }
-            return renderTable(rows: [["Task", "Start", "Duration", "Status"]] + rows)
+            let maxDuration = data.tasks.map { $0.duration }.max() ?? 0
+            let tasks = data.tasks.map { task -> String in
+                let width = maxDuration > 0 ? (task.duration / maxDuration) * 100 : 0
+                return """
+                <div class="gantt-row">
+                    <div class="gantt-label">\(task.name)</div>
+                    <div class="gantt-track">
+                        <div class="gantt-bar" style="width: \(String(format: "%.2f", width))%"></div>
+                    </div>
+                    <div class="gantt-meta">\(formatNumber(task.start)) • \(formatNumber(task.duration))</div>
+                </div>
+                """
+            }.joined()
+            return "<div class=\"gantt-list\">\(tasks)</div>"
 
         case .funnelDiagram(let data):
-            let rows = data.stages.map { [$0.label, formatNumber($0.value)] }
-            return renderTable(rows: [["Stage", "Value"]] + rows)
+            let maxValue = data.stages.map { $0.value }.max() ?? 0
+            let steps = data.stages.map { stage -> String in
+                let width = maxValue > 0 ? (stage.value / maxValue) * 100 : 0
+                return """
+                <div class="funnel-step">
+                    <div class="funnel-label">\(stage.label)</div>
+                    <div class="funnel-bar" style="width: \(String(format: "%.2f", width))%"></div>
+                    <div class="funnel-value">\(formatNumber(stage.value))</div>
+                </div>
+                """
+            }.joined()
+            return "<div class=\"funnel-list\">\(steps)</div>"
 
         case .pyramidDiagram(let data):
             let items = data.levels.map { level in
@@ -869,30 +1036,36 @@ class DataManager: ObservableObject {
                 }
                 return level.label
             }
-            return listHTML(items)
+            let rows = items.map { "<div class=\"pyramid-level\">\($0)</div>" }.joined()
+            return "<div class=\"pyramid-list\">\(rows)</div>"
 
         case .cycleDiagram(let data):
-            return listHTML(data.stages)
+            let stages = data.stages.enumerated().map { index, stage -> String in
+                let arrow = index < data.stages.count - 1 ? "<span class=\"cycle-arrow\">→</span>" : ""
+                return "<span class=\"cycle-step\">\(stage)</span>\(arrow)"
+            }.joined()
+            return "<div class=\"cycle-list\">\(stages)</div>"
 
         case .fishboneDiagram(let data):
-            let header = renderBlockContent(["Effect: \(data.effect)"])
-            let items = data.causes.map { "\($0.category): \($0.items.joined(separator: ", "))" }
-            return header + listHTML(items)
+            let header = "<div class=\"visual-callout\">Effect: \(data.effect)</div>"
+            let items = data.causes.map { cause -> String in
+                let details = cause.items.map { "<li>\($0)</li>" }.joined()
+                return "<div class=\"fishbone-row\"><div class=\"fishbone-title\">\(cause.category)</div><ul>\(details)</ul></div>"
+            }.joined()
+            return header + "<div class=\"fishbone-list\">\(items)</div>"
 
         case .swotMatrix(let data):
-            let rows = [
-                [data.strengths.joined(separator: " • "), data.weaknesses.joined(separator: " • ")],
-                [data.opportunities.joined(separator: " • "), data.threats.joined(separator: " • ")]
-            ]
-            return renderTable(rows: [["Strengths", "Weaknesses"]] + rows)
+            return swotHTML(data)
 
         case .sankeyDiagram(let data):
-            let rows = data.flows.map { [$0.from, $0.to, formatNumber($0.value)] }
-            return renderTable(rows: [["From", "To", "Value"]] + rows)
+            let flows = data.flows.map { flow in
+                "<li>\(flow.from) → \(flow.to) <span class=\"visual-muted\">\(formatNumber(flow.value))</span></li>"
+            }.joined()
+            return "<ul class=\"visual-list\">\(flows)</ul>"
 
         case .treemap(let data):
-            let rows = data.items.map { [$0.label, formatNumber($0.value)] }
-            return renderTable(rows: [["Label", "Value"]] + rows)
+            let rows = data.items.map { "<li><strong>\($0.label)</strong> <span class=\"visual-muted\">\(formatNumber($0.value))</span></li>" }.joined()
+            return "<ul class=\"visual-list\">\(rows)</ul>"
 
         case .heatmap(let data):
             var table: [[String]] = []
@@ -905,27 +1078,38 @@ class DataManager: ObservableObject {
             return renderTable(rows: table)
 
         case .bubbleChart(let data):
-            let rows = data.bubbles.map { [$0.label, formatNumber($0.x), formatNumber($0.y), formatNumber($0.size)] }
-            return renderTable(rows: [["Label", "X", "Y", "Size"]] + rows)
+            let rows = data.bubbles.map { bubble in
+                "<li><strong>\(bubble.label)</strong> <span class=\"visual-muted\">x:\(formatNumber(bubble.x)) y:\(formatNumber(bubble.y)) size:\(formatNumber(bubble.size))</span></li>"
+            }.joined()
+            return "<ul class=\"visual-list\">\(rows)</ul>"
 
         case .infographic(let data):
-            let rows = data.stats.map { [$0.label, $0.value] }
-            let table = renderTable(rows: [["Stat", "Value"]] + rows)
-            if data.highlights.isEmpty {
-                return table
-            }
-            return table + listHTML(data.highlights)
+            let stats = data.stats.map { stat in
+                "<div class=\"stat-card\"><div class=\"stat-value\">\(stat.value)</div><div class=\"stat-label\">\(stat.label)</div></div>"
+            }.joined()
+            let highlights = data.highlights.isEmpty ? "" : "<div class=\"visual-subheader\">Highlights</div>" + listHTML(data.highlights)
+            return "<div class=\"stat-grid\">\(stats)</div>" + highlights
 
         case .storyboard(let data):
-            let rows = data.scenes.map { [$0.title, $0.description] }
-            return renderTable(rows: [["Scene", "Description"]] + rows)
+            let scenes = data.scenes.enumerated().map { index, scene -> String in
+                let desc = scene.description.isEmpty ? "" : "<div class=\"story-desc\">\(scene.description)</div>"
+                return "<div class=\"story-card\"><div class=\"story-title\">\(index + 1). \(scene.title)</div>\(desc)</div>"
+            }.joined()
+            return "<div class=\"story-list\">\(scenes)</div>"
 
         case .journeyMap(let data):
-            let rows = data.stages.map {
-                let emotion = $0.emotion?.capitalized ?? ""
-                return [$0.name, $0.touchpoints.joined(separator: " • "), emotion]
-            }
-            return renderTable(rows: [["Stage", "Touchpoints", "Emotion"]] + rows)
+            let stages = data.stages.map { stage -> String in
+                let emotion = stage.emotion?.capitalized ?? ""
+                let touchpoints = stage.touchpoints.map { "<li>\($0)</li>" }.joined()
+                let emotionTag = emotion.isEmpty ? "" : "<span class=\"journey-emotion\">\(emotion)</span>"
+                return """
+                <div class="journey-stage">
+                    <div class="journey-title">\(stage.name) \(emotionTag)</div>
+                    <ul class="journey-touchpoints">\(touchpoints)</ul>
+                </div>
+                """
+            }.joined()
+            return "<div class=\"journey-list\">\(stages)</div>"
 
         case .barChartStacked(let data):
             var table: [[String]] = []
@@ -957,7 +1141,7 @@ class DataManager: ObservableObject {
     // MARK: - Premium Block HTML Renderers
 
     /// Render premium quote with coral border and decorative quotation mark
-    private func renderPremiumQuoteHTML(content: [String]) -> String {
+    nonisolated private func renderPremiumQuoteHTML(content: [String]) -> String {
         // Parse content: first lines are the quote, last line starting with "—" or "-" is attribution
         var quoteLines: [String] = []
         var attribution: String? = nil
@@ -1005,7 +1189,7 @@ class DataManager: ObservableObject {
     }
 
     /// Render author spotlight with double gold border
-    private func renderAuthorSpotlightHTML(content: [String]) -> String {
+    nonisolated private func renderAuthorSpotlightHTML(content: [String]) -> String {
         // Parse content: look for author name and description
         var authorName: String? = nil
         var descriptionLines: [String] = []
@@ -1037,7 +1221,7 @@ class DataManager: ObservableObject {
     }
 
     /// Render premium section divider with diamond ornaments
-    private func renderPremiumDividerHTML() -> String {
+    nonisolated private func renderPremiumDividerHTML() -> String {
         return """
         <div class="premium-divider">
             <span class="premium-divider-line"></span>
@@ -1050,7 +1234,7 @@ class DataManager: ObservableObject {
     }
 
     /// Render premium H1 header with diamond ornaments
-    private func renderPremiumH1HTML(title: String) -> String {
+    nonisolated private func renderPremiumH1HTML(title: String) -> String {
         return """
         <div class="premium-h1">
             <div class="premium-h1-ornaments">
@@ -1069,7 +1253,7 @@ class DataManager: ObservableObject {
     }
 
     /// Render premium H2 header with gold bar
-    private func renderPremiumH2HTML(title: String) -> String {
+    nonisolated private func renderPremiumH2HTML(title: String) -> String {
         return """
         <div class="premium-h2">
             <span class="premium-h2-bar"></span>
@@ -1079,7 +1263,7 @@ class DataManager: ObservableObject {
     }
 
     /// Render INSIGHT ATLAS NOTE with structured formatting for Key Distinction, Practical Implication, Go Deeper
-    private func renderInsightNoteHTML(content: [String]) -> String {
+    nonisolated private func renderInsightNoteHTML(content: [String]) -> String {
         var coreConnection: [String] = []
         var keyDistinction: String? = nil
         var practicalImplication: String? = nil
@@ -1173,7 +1357,7 @@ class DataManager: ObservableObject {
         return html
     }
 
-    private func renderStructureMapContent(_ lines: [String]) -> String {
+    nonisolated private func renderStructureMapContent(_ lines: [String]) -> String {
         var tableHTML = "<table class=\"styled-table\"><tbody>"
         var hasHeaderRow = false
 
@@ -1218,7 +1402,7 @@ class DataManager: ObservableObject {
         return tableHTML
     }
 
-    private func renderFlowchartContent(_ lines: [String]) -> String {
+    nonisolated private func renderFlowchartContent(_ lines: [String]) -> String {
         var steps: [String] = []
         for line in lines {
             let cleaned = line.trimmingCharacters(in: .whitespaces)
@@ -1231,7 +1415,7 @@ class DataManager: ObservableObject {
         return "<div class=\"flow-container\">\(steps.joined(separator: "\n<div class=\"flow-arrow\">↓</div>\n"))</div>"
     }
 
-    private func renderProcessTimelineContent(_ lines: [String]) -> String {
+    nonisolated private func renderProcessTimelineContent(_ lines: [String]) -> String {
         var timelineHTML = "<div class=\"timeline-container\">"
         var stepNumber = 1
 
@@ -1283,7 +1467,7 @@ class DataManager: ObservableObject {
         return timelineHTML
     }
 
-    private func renderConceptMapContent(_ content: String) -> String {
+    nonisolated private func renderConceptMapContent(_ content: String) -> String {
         let lines = content.components(separatedBy: .newlines)
         var conceptsHTML = "<div class=\"concept-map-container\">"
 
@@ -1358,7 +1542,7 @@ class DataManager: ObservableObject {
         return conceptsHTML
     }
 
-    private func renderBlockTableContent(_ lines: [String]) -> String {
+    nonisolated private func renderBlockTableContent(_ lines: [String]) -> String {
         var tableHTML = "<table class=\"styled-table\"><tbody>"
         for line in lines {
             if line.hasPrefix("|") {
@@ -1383,7 +1567,7 @@ class DataManager: ObservableObject {
         return tableHTML
     }
 
-    private func renderBlockContent(_ lines: [String]) -> String {
+    nonisolated private func renderBlockContent(_ lines: [String]) -> String {
         var html: [String] = []
         var inList = false
         var listType = "" // "ul" or "ol"
@@ -1556,7 +1740,7 @@ class DataManager: ObservableObject {
         return html.joined(separator: "\n")
     }
 
-    private func closeListIfNeeded(_ htmlLines: inout [String], _ inList: inout Bool, _ listType: inout String) {
+    nonisolated private func closeListIfNeeded(_ htmlLines: inout [String], _ inList: inout Bool, _ listType: inout String) {
         if inList && !listType.isEmpty {
             htmlLines.append("</\(listType)>")
             inList = false
@@ -1565,7 +1749,7 @@ class DataManager: ObservableObject {
     }
 
     /// Escapes HTML special characters to prevent XSS attacks
-    private func escapeHTML(_ string: String) -> String {
+    nonisolated private func escapeHTML(_ string: String) -> String {
         return string
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
@@ -1574,7 +1758,7 @@ class DataManager: ObservableObject {
             .replacingOccurrences(of: "'", with: "&#39;")
     }
 
-    private func convertInlineMarkdown(_ text: String) -> String {
+    nonisolated private func convertInlineMarkdown(_ text: String) -> String {
         // First escape HTML to prevent XSS, then apply markdown formatting
         var result = escapeHTML(text)
 
@@ -1610,7 +1794,7 @@ class DataManager: ObservableObject {
         return result
     }
 
-    private func renderTable(rows: [[String]]) -> String {
+    nonisolated private func renderTable(rows: [[String]]) -> String {
         guard !rows.isEmpty else { return "" }
 
         var html = "<table class=\"styled-table\">"
@@ -1642,7 +1826,7 @@ class DataManager: ObservableObject {
         return html
     }
 
-    private func convertToHTML(_ markdown: String, title: String, author: String) -> String {
+    nonisolated private func convertToHTML(_ markdown: String, title: String, author: String) -> String {
         // Parse markdown line by line for proper conversion
         let lines = markdown.components(separatedBy: "\n")
         var htmlLines: [String] = []
@@ -2060,7 +2244,7 @@ class DataManager: ObservableObject {
     }
 
     /// Generate premium HTML with 2026 design system, dark mode, and print styles
-    private func generatePremiumHTML(content: String, title: String, author: String, fullContent: String, tocEntries: [(text: String, level: Int, id: String)] = []) -> String {
+    nonisolated private func generatePremiumHTML(content: String, title: String, author: String, fullContent: String, tocEntries: [(text: String, level: Int, id: String)] = []) -> String {
         let readingTime = calculateReadingTime(from: fullContent)
 
         // Generate Table of Contents HTML
@@ -2945,6 +3129,388 @@ class DataManager: ObservableObject {
                 }
                 .visual-table .block-header::before { content: '📋'; font-size: 1.125rem; }
 
+                /* ═══ VISUAL COMPARISON ═══ */
+                .visual-comparison {
+                    background: linear-gradient(135deg, rgba(232, 93, 45, 0.08) 0%, rgba(232, 93, 45, 0.03) 100%);
+                    border: 2px solid rgba(232, 93, 45, 0.25);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-comparison .block-header {
+                    color: var(--primary-gold-dark);
+                    border-bottom: 1px solid rgba(232, 93, 45, 0.25);
+                }
+                .visual-comparison .block-header::before { content: '◧'; font-size: 1.125rem; }
+
+                /* ═══ VISUAL TIMELINE ═══ */
+                .visual-timeline {
+                    background: linear-gradient(135deg, rgba(42, 139, 127, 0.08) 0%, rgba(42, 139, 127, 0.03) 100%);
+                    border: 2px solid rgba(42, 139, 127, 0.25);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-timeline .block-header {
+                    color: var(--accent-teal-text);
+                    border-bottom: 1px solid rgba(42, 139, 127, 0.25);
+                }
+                .visual-timeline .block-header::before { content: '🗓'; font-size: 1.125rem; }
+
+                /* ═══ VISUAL CONCEPT MAP ═══ */
+                .visual-concept-map {
+                    background: linear-gradient(135deg, rgba(212, 115, 92, 0.08) 0%, rgba(212, 115, 92, 0.03) 100%);
+                    border: 2px solid rgba(212, 115, 92, 0.25);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-concept-map .block-header {
+                    color: var(--accent-coral-text);
+                    border-bottom: 1px solid rgba(212, 115, 92, 0.25);
+                }
+                .visual-concept-map .block-header::before { content: '🗺️'; font-size: 1.125rem; }
+
+                /* ═══ VISUAL NETWORK ═══ */
+                .visual-network {
+                    background: linear-gradient(135deg, rgba(42, 139, 127, 0.08) 0%, rgba(42, 139, 127, 0.03) 100%);
+                    border: 2px solid rgba(42, 139, 127, 0.25);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-network .block-header {
+                    color: var(--accent-teal-text);
+                    border-bottom: 1px solid rgba(42, 139, 127, 0.25);
+                }
+                .visual-network .block-header::before { content: '🧩'; font-size: 1.125rem; }
+
+                /* ═══ VISUAL QUADRANT ═══ */
+                .visual-quadrant {
+                    background: linear-gradient(135deg, rgba(232, 155, 90, 0.1) 0%, rgba(232, 155, 90, 0.03) 100%);
+                    border: 2px solid rgba(232, 155, 90, 0.25);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-quadrant .block-header {
+                    color: var(--accent-orange-text);
+                    border-bottom: 1px solid rgba(232, 155, 90, 0.25);
+                }
+                .visual-quadrant .block-header::before { content: '▣'; font-size: 1.125rem; }
+
+                /* ═══ VISUAL CHART ═══ */
+                .visual-chart {
+                    background: linear-gradient(135deg, rgba(232, 155, 90, 0.12) 0%, rgba(232, 155, 90, 0.04) 100%);
+                    border: 2px solid rgba(232, 155, 90, 0.25);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-chart .block-header {
+                    color: var(--accent-orange-text);
+                    border-bottom: 1px solid rgba(232, 155, 90, 0.25);
+                }
+                .visual-chart .block-header::before { content: '📈'; font-size: 1.125rem; }
+
+                /* ═══ VISUAL DIAGRAM ═══ */
+                .visual-diagram {
+                    background: linear-gradient(135deg, rgba(46, 90, 125, 0.08) 0%, rgba(46, 90, 125, 0.03) 100%);
+                    border: 2px solid rgba(46, 90, 125, 0.25);
+                    border-radius: var(--radius-xl);
+                    padding: 2rem;
+                    margin: 2.5rem 0;
+                }
+                .visual-diagram .block-header {
+                    color: var(--accent-teal-text);
+                    border-bottom: 1px solid rgba(46, 90, 125, 0.25);
+                }
+                .visual-diagram .block-header::before { content: '🧭'; font-size: 1.125rem; }
+
+                /* ═══ VISUAL ELEMENTS ═══ */
+                .visual-subheader {
+                    font-family: var(--font-ui);
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    color: var(--text-muted);
+                    margin: 1rem 0 0.5rem;
+                }
+                .visual-list {
+                    margin: 0;
+                    padding-left: 1.1rem;
+                    color: var(--text-body);
+                }
+                .visual-list li { margin-bottom: 0.4rem; }
+                .visual-muted { color: var(--text-subtle); }
+                .visual-dot {
+                    display: inline-block;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: var(--primary-gold);
+                    margin-right: 0.5rem;
+                }
+                .visual-callout {
+                    background: var(--bg-secondary);
+                    border-left: 3px solid var(--primary-gold);
+                    padding: 0.6rem 0.8rem;
+                    border-radius: 6px;
+                    margin-top: 0.75rem;
+                }
+
+                .visual-chips {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 0.5rem;
+                }
+                .visual-chip {
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border-light);
+                    border-radius: 9999px;
+                    padding: 0.35rem 0.7rem;
+                    font-family: var(--font-ui);
+                    font-size: 0.85rem;
+                }
+
+                .visual-bars {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.6rem;
+                }
+                .visual-bar-row {
+                    display: grid;
+                    grid-template-columns: 1fr 3fr auto;
+                    gap: 0.8rem;
+                    align-items: center;
+                }
+                .visual-bar-track {
+                    background: var(--bg-secondary);
+                    border-radius: 9999px;
+                    height: 8px;
+                    overflow: hidden;
+                }
+                .visual-bar-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, var(--primary-gold), var(--accent-orange));
+                }
+                .visual-bar-label {
+                    font-family: var(--font-ui);
+                    font-size: 0.9rem;
+                    color: var(--text-body);
+                }
+                .visual-bar-value {
+                    font-family: var(--font-ui);
+                    font-size: 0.85rem;
+                    color: var(--text-muted);
+                }
+
+                .visual-timeline-list {
+                    display: grid;
+                    gap: 0.8rem;
+                }
+                .timeline-item {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: 0.9rem 1rem;
+                }
+                .timeline-date {
+                    font-family: var(--font-ui);
+                    font-size: 0.8rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    color: var(--text-muted);
+                }
+                .timeline-title {
+                    font-family: var(--font-display);
+                    font-size: 1.05rem;
+                    color: var(--text-heading);
+                    margin-top: 0.2rem;
+                }
+                .timeline-desc {
+                    color: var(--text-body);
+                    margin-top: 0.35rem;
+                }
+
+                .visual-quadrant-grid {
+                    position: relative;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 0.75rem;
+                }
+                .quadrant-axis {
+                    position: absolute;
+                    font-family: var(--font-ui);
+                    font-size: 0.75rem;
+                    color: var(--text-subtle);
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                }
+                .quadrant-axis-x { bottom: -1.25rem; left: 0; }
+                .quadrant-axis-y { top: 0; left: -1.5rem; transform: rotate(-90deg); transform-origin: left top; }
+                .quadrant-cell {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: 0.75rem 1rem;
+                }
+                .quadrant-title {
+                    font-family: var(--font-ui);
+                    font-weight: 600;
+                    margin-bottom: 0.4rem;
+                }
+                .quadrant-items { margin: 0; padding-left: 1.1rem; }
+
+                .hierarchy-root {
+                    font-family: var(--font-display);
+                    font-size: 1.1rem;
+                    color: var(--text-heading);
+                    margin-bottom: 0.5rem;
+                }
+                .hierarchy-list { margin: 0; padding-left: 1.2rem; }
+
+                .visual-grid-2x2 {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 0.8rem;
+                }
+                .visual-cell {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: 0.8rem 1rem;
+                }
+                .visual-cell-title {
+                    font-family: var(--font-ui);
+                    font-weight: 600;
+                    margin-bottom: 0.4rem;
+                }
+                .visual-cell ul { margin: 0; padding-left: 1.1rem; }
+
+                .gantt-list, .funnel-list, .fishbone-list, .story-list, .journey-list {
+                    display: grid;
+                    gap: 0.8rem;
+                }
+                .gantt-row {
+                    display: grid;
+                    grid-template-columns: 1fr 3fr auto;
+                    gap: 0.8rem;
+                    align-items: center;
+                }
+                .gantt-track {
+                    background: var(--bg-secondary);
+                    border-radius: 9999px;
+                    height: 8px;
+                    overflow: hidden;
+                }
+                .gantt-bar { height: 100%; background: var(--primary-gold); }
+                .gantt-meta { font-size: 0.8rem; color: var(--text-subtle); }
+
+                .funnel-step {
+                    display: grid;
+                    grid-template-columns: 1fr 3fr auto;
+                    gap: 0.8rem;
+                    align-items: center;
+                }
+                .funnel-bar {
+                    height: 10px;
+                    border-radius: 9999px;
+                    background: linear-gradient(90deg, var(--accent-orange), var(--primary-gold));
+                }
+                .funnel-value { font-size: 0.8rem; color: var(--text-subtle); }
+
+                .pyramid-list {
+                    display: grid;
+                    gap: 0.5rem;
+                }
+                .pyramid-level {
+                    background: var(--bg-secondary);
+                    border-radius: 6px;
+                    padding: 0.5rem 0.75rem;
+                }
+
+                .cycle-list {
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                .cycle-step {
+                    background: var(--bg-secondary);
+                    border-radius: 9999px;
+                    padding: 0.35rem 0.7rem;
+                    font-family: var(--font-ui);
+                    font-size: 0.85rem;
+                }
+                .cycle-arrow { color: var(--text-subtle); }
+
+                .fishbone-row {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: 0.75rem 1rem;
+                }
+                .fishbone-title {
+                    font-family: var(--font-ui);
+                    font-weight: 600;
+                    margin-bottom: 0.4rem;
+                }
+                .fishbone-row ul { margin: 0; padding-left: 1.1rem; }
+
+                .stat-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                    gap: 0.8rem;
+                }
+                .stat-card {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: 0.9rem 1rem;
+                    text-align: center;
+                }
+                .stat-value {
+                    font-family: var(--font-display);
+                    font-size: 1.3rem;
+                    color: var(--text-heading);
+                }
+                .stat-label { font-size: 0.85rem; color: var(--text-muted); }
+
+                .story-card {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: 0.8rem 1rem;
+                }
+                .story-title {
+                    font-family: var(--font-ui);
+                    font-weight: 600;
+                }
+                .story-desc { margin-top: 0.35rem; color: var(--text-body); }
+
+                .journey-stage {
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-light);
+                    border-radius: var(--radius-lg);
+                    padding: 0.8rem 1rem;
+                }
+                .journey-title {
+                    font-family: var(--font-ui);
+                    font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                .journey-emotion {
+                    font-size: 0.75rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    color: var(--text-subtle);
+                }
+                .journey-touchpoints { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+
                 /* ═══ GENERIC VISUAL ═══ */
                 .visual-generic {
                     background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
@@ -3547,7 +4113,9 @@ class DataManager: ObservableObject {
                     body { padding: 1.5rem 1rem; }
                     .document-header h1 { font-size: 2.25rem; }
                     .quick-glance, .insight-note, .action-box, .exercise,
-                    .visual-flowchart, .takeaways, .foundational-narrative { padding: 1.25rem; }
+                    .visual-flowchart, .visual-table, .visual-comparison, .visual-timeline,
+                    .visual-concept-map, .visual-network, .visual-quadrant, .visual-chart,
+                    .visual-diagram, .visual-generic, .takeaways, .foundational-narrative { padding: 1.25rem; }
                     .flow-step { max-width: 100%; }
                 }
 
@@ -3571,7 +4139,9 @@ class DataManager: ObservableObject {
                     .cover-page::before, .cover-page::after { display: none; }
                     .cover-corner { display: none; }
                     .document-header, .quick-glance, .insight-note, .action-box,
-                    .exercise, .visual-flowchart, .takeaways, .foundational-narrative {
+                    .exercise, .visual-flowchart, .visual-table, .visual-comparison, .visual-timeline,
+                    .visual-concept-map, .visual-network, .visual-quadrant, .visual-chart,
+                    .visual-diagram, .visual-generic, .takeaways, .foundational-narrative {
                         break-inside: avoid;
                         box-shadow: none;
                     }
@@ -3656,7 +4226,7 @@ class DataManager: ObservableObject {
     }
 
     /// Generate HTML Table of Contents from heading entries
-    private func generateHTMLTableOfContents(entries: [(text: String, level: Int, id: String)], readingTime: Int) -> String {
+    nonisolated private func generateHTMLTableOfContents(entries: [(text: String, level: Int, id: String)], readingTime: Int) -> String {
         // Only include H2 and H3 entries (skip H1 which is typically just the title)
         let filteredEntries = entries.filter { $0.level >= 2 && $0.level <= 3 }
 
@@ -3688,43 +4258,62 @@ class DataManager: ObservableObject {
 
     // MARK: - PDF Generation
 
-    private func generatePDF(content: String, title: String, author: String, to url: URL) throws {
-        // Use the new InsightAtlasPDFRenderer for premium PDF generation
-        let pdfRenderer = InsightAtlasPDFRenderer()
+    nonisolated private func generatePDF(content: String, title: String, author: String, to url: URL) throws {
+        let renderOnMain: () throws -> Void = { [self] in
+            // Use the new InsightAtlasPDFRenderer for premium PDF generation
+            let pdfRenderer = InsightAtlasPDFRenderer()
 
-        var options = InsightAtlasPDFRenderer.RenderOptions.default
-        options.includeCoverPage = true
-        options.includeTableOfContents = true
-        options.includePageNumbers = true
-        options.logoImage = getLogoImage()
+            var options = InsightAtlasPDFRenderer.RenderOptions.default
+            options.includeCoverPage = true
+            options.includeTableOfContents = true
+            options.includePageNumbers = true
+            options.logoImage = self.getLogoImage()
 
-        do {
-            let parsedContent = ParsedAnalysisContent.parse(from: content)
-            if !parsedContent.sections.isEmpty || parsedContent.quickGlance != nil {
-                let pdfData = try pdfRenderer.generatePDFData(
-                    from: parsedContent,
-                    title: title,
-                    author: author,
-                    options: options
-                )
-                try pdfData.write(to: url)
-            } else {
-                try pdfRenderer.generatePDF(
-                    from: content,
-                    title: title,
-                    author: author,
-                    to: url,
-                    options: options
-                )
+            do {
+                let parsedContent = ParsedAnalysisContent.parse(from: content)
+                if !parsedContent.sections.isEmpty || parsedContent.quickGlance != nil {
+                    let pdfData = try pdfRenderer.generatePDFData(
+                        from: parsedContent,
+                        title: title,
+                        author: author,
+                        options: options
+                    )
+                    try pdfData.write(to: url)
+                } else {
+                    try pdfRenderer.generatePDF(
+                        from: content,
+                        title: title,
+                        author: author,
+                        to: url,
+                        options: options
+                    )
+                }
+            } catch {
+                // Fall back to legacy PDF generation if new renderer fails
+                try self.generateLegacyPDF(content: content, title: title, author: author, to: url)
             }
-        } catch {
-            // Fall back to legacy PDF generation if new renderer fails
-            try generateLegacyPDF(content: content, title: title, author: author, to: url)
+        }
+
+        if Thread.isMainThread {
+            try renderOnMain()
+            return
+        }
+
+        var renderError: Error?
+        DispatchQueue.main.sync {
+            do {
+                try renderOnMain()
+            } catch {
+                renderError = error
+            }
+        }
+        if let renderError {
+            throw renderError
         }
     }
 
     /// Legacy PDF generation (fallback)
-    private func generateLegacyPDF(content: String, title: String, author: String, to url: URL) throws {
+    nonisolated private func generateLegacyPDF(content: String, title: String, author: String, to url: URL) throws {
         let pageWidth: CGFloat = 612  // US Letter width in points
         let pageHeight: CGFloat = 792 // US Letter height in points
         let margin: CGFloat = 72      // 1 inch margins
@@ -3789,7 +4378,7 @@ class DataManager: ObservableObject {
         try data.write(to: url)
     }
 
-    private func drawPDFHeader(context: CGContext, title: String, author: String, rect: CGRect) {
+    nonisolated private func drawPDFHeader(context: CGContext, title: String, author: String, rect: CGRect) {
         var yOffset: CGFloat = rect.origin.y
 
         // Draw logo if available
@@ -3835,7 +4424,7 @@ class DataManager: ObservableObject {
         context.strokePath()
     }
 
-    private func drawPDFFooter(context: CGContext, pageNumber: Int, pageWidth: CGFloat, pageHeight: CGFloat) {
+    nonisolated private func drawPDFFooter(context: CGContext, pageNumber: Int, pageWidth: CGFloat, pageHeight: CGFloat) {
         let footerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 10),
             .foregroundColor: UIColor.iaMuted
@@ -3851,7 +4440,7 @@ class DataManager: ObservableObject {
     // MARK: - Premium Cover Page
 
     /// Extracts the Quick Glance content from the guide for the cover page
-    private func extractQuickGlanceForCover(from content: String) -> [String] {
+    nonisolated private func extractQuickGlanceForCover(from content: String) -> [String] {
         var bullets: [String] = []
         let lines = content.components(separatedBy: .newlines)
         var inQuickGlance = false
@@ -3884,7 +4473,7 @@ class DataManager: ObservableObject {
     }
 
     /// Draws decorative corner frames on the cover page
-    private func drawCornerFrames(context: CGContext, pageWidth: CGFloat, pageHeight: CGFloat, margin: CGFloat) {
+    nonisolated private func drawCornerFrames(context: CGContext, pageWidth: CGFloat, pageHeight: CGFloat, margin: CGFloat) {
         let cornerLength: CGFloat = 40
         let cornerInset: CGFloat = margin - 20
 
@@ -3915,7 +4504,7 @@ class DataManager: ObservableObject {
     }
 
     /// Draws the premium cover page for PDF exports
-    private func drawPDFCoverPage(context: CGContext, title: String, author: String, content: String, pageWidth: CGFloat, pageHeight: CGFloat) {
+    nonisolated private func drawPDFCoverPage(context: CGContext, title: String, author: String, content: String, pageWidth: CGFloat, pageHeight: CGFloat) {
         let margin: CGFloat = 72
         let centerX = pageWidth / 2
 
@@ -4092,7 +4681,7 @@ class DataManager: ObservableObject {
     }
 
     /// Strips all markdown formatting from text for clean PDF output
-    private func stripMarkdownForPDF(_ text: String) -> String {
+    nonisolated private func stripMarkdownForPDF(_ text: String) -> String {
         var result = text
 
         // Remove bold markers
@@ -4117,13 +4706,13 @@ class DataManager: ObservableObject {
     }
 
     /// Checks if a line is a markdown table separator (like |---|---|)
-    private func isTableSeparator(_ line: String) -> Bool {
+    nonisolated private func isTableSeparator(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         return trimmed.hasPrefix("|") && trimmed.contains("-") && trimmed.rangeOfCharacter(from: .letters) == nil
     }
 
     /// Parses a markdown table line into cells
-    private func parseTableRow(_ line: String) -> [String] {
+    nonisolated private func parseTableRow(_ line: String) -> [String] {
         var cells = line.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }
         // Remove empty first/last cells from leading/trailing pipes
         if cells.first?.isEmpty == true { cells.removeFirst() }
@@ -4131,7 +4720,7 @@ class DataManager: ObservableObject {
         return cells
     }
 
-    private func createAttributedString(from content: String, title: String, author: String, pageWidth: CGFloat) -> NSAttributedString {
+    nonisolated private func createAttributedString(from content: String, title: String, author: String, pageWidth: CGFloat) -> NSAttributedString {
         let result = NSMutableAttributedString()
 
         // Default paragraph style
@@ -4489,10 +5078,11 @@ class DataManager: ObservableObject {
 
     // MARK: - DOCX Generation
 
-    private func generateDOCX(content: String, title: String, author: String, to url: URL) throws {
+    nonisolated private func generateDOCX(content: String, title: String, author: String, to url: URL) throws {
         // DOCX is a ZIP file with XML content
         // We'll create a minimal valid DOCX structure
 
+        let fileManager = FileManager.default
         let tempDir = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try fileManager.createDirectory(at: tempDir, withIntermediateDirectories: true)
         defer { try? fileManager.removeItem(at: tempDir) }
@@ -4549,7 +5139,7 @@ class DataManager: ObservableObject {
 
     }
 
-    private func createDOCXStyles() -> String {
+    nonisolated private func createDOCXStyles() -> String {
         return """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -4905,7 +5495,7 @@ class DataManager: ObservableObject {
         """
     }
 
-    private func createDOCXDocument(content: String, title: String, author: String) -> String {
+    nonisolated private func createDOCXDocument(content: String, title: String, author: String) -> String {
         var paragraphs = ""
         var inTable = false
         var tableRows: [[String]] = []
@@ -5395,7 +5985,7 @@ class DataManager: ObservableObject {
     }
 
     /// Create a styled block header for DOCX special blocks
-    private func createDOCXBlockHeader(icon: String, title: String) -> String {
+    nonisolated private func createDOCXBlockHeader(icon: String, title: String) -> String {
         return """
         <w:p>
             <w:pPr><w:pStyle w:val="BlockHeader"/></w:pPr>
@@ -5405,7 +5995,7 @@ class DataManager: ObservableObject {
     }
 
     /// Create a premium quote block for DOCX with coral border and attribution
-    private func createDOCXPremiumQuote(content: String) -> String {
+    nonisolated private func createDOCXPremiumQuote(content: String) -> String {
         // Parse content for quote text and attribution
         let lines = content.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
         var quoteLines: [String] = []
@@ -5445,7 +6035,7 @@ class DataManager: ObservableObject {
     }
 
     /// Create an author spotlight block for DOCX with double gold border
-    private func createDOCXAuthorSpotlight(content: String) -> String {
+    nonisolated private func createDOCXAuthorSpotlight(content: String) -> String {
         // Parse content for author name and bio
         let lines = content.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         var authorName: String? = nil
@@ -5485,7 +6075,7 @@ class DataManager: ObservableObject {
     }
 
     /// Create a structured INSIGHT ATLAS NOTE block for DOCX with Key Distinction, Practical Implication, Go Deeper sections
-    private func createDOCXInsightNote(content: String) -> String {
+    nonisolated private func createDOCXInsightNote(content: String) -> String {
         var coreConnection = ""
         var keyDistinction: String?
         var practicalImplication: String?
@@ -5632,7 +6222,7 @@ class DataManager: ObservableObject {
         return result
     }
 
-    private func createDOCXParagraph(text: String, style: String) -> String {
+    nonisolated private func createDOCXParagraph(text: String, style: String) -> String {
         // Parse markdown formatting and convert to DOCX runs with proper styling
         let runs = parseMarkdownToDocxRuns(text)
 
@@ -5645,7 +6235,7 @@ class DataManager: ObservableObject {
     }
 
     /// Parse markdown bold/italic and convert to DOCX runs with proper formatting
-    private func parseMarkdownToDocxRuns(_ text: String) -> String {
+    nonisolated private func parseMarkdownToDocxRuns(_ text: String) -> String {
         var result = ""
         var currentIndex = text.startIndex
         let endIndex = text.endIndex
@@ -5705,7 +6295,7 @@ class DataManager: ObservableObject {
     }
 
     /// Creates a DOCX-formatted table from parsed rows
-    private func createDOCXTable(rows: [[String]]) -> String {
+    nonisolated private func createDOCXTable(rows: [[String]]) -> String {
         guard !rows.isEmpty else { return "" }
 
         var tableXML = """
@@ -5785,7 +6375,7 @@ class DataManager: ObservableObject {
         return tableXML
     }
 
-    private func escapeXML(_ string: String) -> String {
+    nonisolated private func escapeXML(_ string: String) -> String {
         return string
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
@@ -5794,7 +6384,8 @@ class DataManager: ObservableObject {
             .replacingOccurrences(of: "'", with: "&apos;")
     }
 
-    private func createZipArchive(from sourceDir: URL, to destinationURL: URL) throws {
+    nonisolated private func createZipArchive(from sourceDir: URL, to destinationURL: URL) throws {
+        let fileManager = FileManager.default
         // Remove existing file if present
         if fileManager.fileExists(atPath: destinationURL.path) {
             try fileManager.removeItem(at: destinationURL)

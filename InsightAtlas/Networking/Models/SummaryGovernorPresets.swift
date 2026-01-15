@@ -26,9 +26,9 @@ extension SummaryTypeGovernor {
         summaryType: .quickReference,
         baseWordCount: 900,
         sourceScalingFactor: 0.015,
-        minSourceLengthForScaling: 20_000,
+        minSourceLengthForScaling: 30_000,
         maxScaledAddition: 450,
-        maxWordCeiling: 1_800,
+        maxWordCeiling: 1_200,
         maxAudioMinutes: 6,
         maxSynthesisPerSection: 1,
         sectionBudget: SectionBudget(
@@ -70,7 +70,7 @@ extension SummaryTypeGovernor {
         sourceScalingFactor: 0.02,
         minSourceLengthForScaling: 20_000,
         maxScaledAddition: 1_500,
-        maxWordCeiling: 6_000,
+        maxWordCeiling: 4_000,
         maxAudioMinutes: 18,
         maxSynthesisPerSection: 2,
         sectionBudget: SectionBudget(
@@ -111,7 +111,7 @@ extension SummaryTypeGovernor {
         sourceScalingFactor: 0.025,
         minSourceLengthForScaling: 20_000,
         maxScaledAddition: 2_000,
-        maxWordCeiling: 9_000,
+        maxWordCeiling: 6_000,
         maxAudioMinutes: 25,
         maxSynthesisPerSection: 3,
         sectionBudget: SectionBudget(
@@ -147,13 +147,13 @@ extension SummaryTypeGovernor {
     /// Use case: Researchers and scholars needing exhaustive analysis
     static let deepResearch = SummaryTypeGovernor(
         summaryType: .deepResearch,
-        baseWordCount: 10_000,
-        sourceScalingFactor: 0.04,
+        baseWordCount: 7_000,
+        sourceScalingFactor: 0.03,
         minSourceLengthForScaling: 25_000,
-        maxScaledAddition: 8_000,
-        maxWordCeiling: 22_000,
-        maxAudioMinutes: 80,
-        maxSynthesisPerSection: 6,
+        maxScaledAddition: 5_000,
+        maxWordCeiling: 12_000,
+        maxAudioMinutes: 50,
+        maxSynthesisPerSection: 4,
         sectionBudget: SectionBudget(
             introPercent: 0.08,
             chapterPoolPercent: 0.84,

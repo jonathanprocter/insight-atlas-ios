@@ -20,10 +20,12 @@ struct EditorialContentRenderer: View {
     @State private var blocks: [ParsedContentBlock] = []
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 24) {
+        LazyVStack(alignment: .leading, spacing: AnalysisTheme.Spacing.xl) {
             ForEach(blocks) { block in
+                let viewID = block.sectionIndex.map { "section_\($0)" } ?? block.id.uuidString
                 renderBlock(block)
-                    .id(block.sectionIndex != nil ? "section_\(block.sectionIndex!)" : block.id.uuidString)
+                    .id(viewID)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .onAppear {
@@ -95,7 +97,11 @@ struct EditorialContentRenderer: View {
             ParagraphBlockView(content: block.content, searchQuery: searchQuery)
 
         case .visual:
-            VisualBlockView(url: block.metadata["url"], caption: block.metadata["caption"], visualType: block.metadata["type"])
+            if let visual = block.visual {
+                InsightVisualView(visual: visual)
+            } else {
+                VisualBlockView(url: block.metadata["url"], caption: block.metadata["caption"], visualType: block.metadata["type"])
+            }
 
         case .flowchart:
             FlowchartBlockView(steps: block.listItems, title: block.title)
@@ -154,6 +160,7 @@ struct ParsedContentBlock: Identifiable {
     let tableData: [[String]]
     let metadata: [String: String]
     let sectionIndex: Int?  // For scrollable section anchors
+    let visual: InsightVisual?
 
     init(
         type: ContentBlockType,
@@ -162,7 +169,8 @@ struct ParsedContentBlock: Identifiable {
         listItems: [String] = [],
         tableData: [[String]] = [],
         metadata: [String: String] = [:],
-        sectionIndex: Int? = nil
+        sectionIndex: Int? = nil,
+        visual: InsightVisual? = nil
     ) {
         self.type = type
         self.content = content
@@ -171,6 +179,7 @@ struct ParsedContentBlock: Identifiable {
         self.tableData = tableData
         self.metadata = metadata
         self.sectionIndex = sectionIndex
+        self.visual = visual
     }
 }
 
@@ -635,10 +644,14 @@ struct ContentBlockParser {
                         cite = parts.last?.trimmingCharacters(in: .whitespaces)
                     }
                 }
+                var metadata: [String: String] = [:]
+                if let cite {
+                    metadata["cite"] = cite
+                }
                 blocks.append(ParsedContentBlock(
                     type: .blockquote,
                     content: quoteText,
-                    metadata: cite != nil ? ["cite": cite!] : [:]
+                    metadata: metadata
                 ))
                 continue
             }
@@ -868,6 +881,10 @@ struct ContentBlockParser {
             }
         }
 
+        if !tag.isEmpty {
+            tag = "VISUAL_\(tag)"
+        }
+
         return (tag, title)
     }
 
@@ -899,33 +916,36 @@ struct ContentBlockParser {
 
         let tagUpper = tag.uppercased()
 
-        if tagUpper.contains("FLOWCHART") {
+        if let url = url, !url.isEmpty {
             blocks.append(ParsedContentBlock(
-                type: .flowchart,
+                type: .visual,
                 title: title,
-                listItems: steps
+                metadata: [
+                    "url": url,
+                    "caption": caption ?? title ?? "",
+                    "type": tagUpper
+                ]
             ))
-        } else if tagUpper.contains("CONCEPT") {
+            return blocks
+        }
+
+        if let visual = InsightVisualParser.parse(tag: tagUpper, title: title, lines: lines) {
             blocks.append(ParsedContentBlock(
-                type: .conceptMap,
+                type: .visual,
                 title: title,
-                listItems: steps
-            ))
-        } else if tagUpper.contains("TIMELINE") || tagUpper.contains("PROCESS") {
-            blocks.append(ParsedContentBlock(
-                type: .processTimeline,
-                title: title,
-                listItems: steps
+                metadata: [
+                    "type": tagUpper
+                ],
+                visual: visual
             ))
         } else {
-            // Generic visual
             blocks.append(ParsedContentBlock(
                 type: .visual,
                 title: title,
                 metadata: [
                     "url": url ?? "",
                     "caption": caption ?? title ?? "",
-                    "type": tag
+                    "type": tagUpper
                 ]
             ))
         }
