@@ -4267,6 +4267,7 @@ class DataManager: ObservableObject {
             options.includeCoverPage = true
             options.includeTableOfContents = true
             options.includePageNumbers = true
+            options.includeHeader = false
             options.logoImage = self.getLogoImage()
 
             do {
