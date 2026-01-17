@@ -344,6 +344,7 @@ struct OutputQualityValidator {
             count + content.markerCount(marker)
         }
         let totalVisuals = modernVisualCount + legacyVisualCount
+        let uniqueVisualTypes = content.countUnique(from: ContentMarkers.visualMarkers)
 
         let flowchartCount = ContentMarkers.flowchartMarkers.reduce(0) { count, marker in
             count + content.markerCount(marker)
@@ -359,6 +360,16 @@ struct OutputQualityValidator {
         // Visual reference phrases
         if lowercased.containsAny(of: ContentMarkers.visualReferencePhrases) {
             issues.append("Visuals described as visuals; integrate them into narrative")
+        }
+
+        // Encourage richer visual variety for full guides
+        if !isQuickReference {
+            if totalVisuals < 8 {
+                issues.append("Insufficient visuals; add more varied diagrams to clarify key concepts")
+            }
+            if uniqueVisualTypes < 6 && totalVisuals >= 6 {
+                issues.append("Insufficient visual variety; use more distinct visual types")
+            }
         }
 
         // MARK: - Narrative Style Validation

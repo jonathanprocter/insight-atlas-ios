@@ -535,7 +535,11 @@ struct InsightAtlasPromptGenerator {
         Use only if a new visual type is required
         [/VISUAL_GENERIC]
 
-        Use visuals as needed to clarify key concepts. Do not flood the guide with visuals at the expense of substantive prose.
+        VISUAL COVERAGE STANDARD (GLOBAL):
+        - Include more visual variety than 3–4 repeated diagrams.
+        - Target 10–18 visuals in a full guide, spread across at least 8 distinct visual types.
+        - Avoid repeating any single visual type more than 3 times.
+        - Do not turn the guide into a photobook: every visual must be justified and followed by interpretation.
 
         ───
         TONE CALIBRATION
