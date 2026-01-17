@@ -227,7 +227,7 @@ final class InsightAtlasPDFRenderer {
                 }
 
                 // Check if this is a heading block - apply widow/orphan control
-                let isHeadingBlock = [.heading1, .heading2, .heading3, .heading4].contains(block.type)
+                let isHeadingBlock = [.heading1, .heading2, .heading3, .heading4, .premiumH1, .premiumH2].contains(block.type)
                 if isHeadingBlock {
                     // Look ahead to see if there's content after this heading
                     let nextBlockHeight = (index + 1 < section.blocks.count) ?
@@ -503,6 +503,18 @@ final class InsightAtlasPDFRenderer {
 
                 case .heading2:
                     // Ensure H2 headings are captured (Comparative Analysis, Synthesis Arc, etc.)
+                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
+                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: true))
+                    }
+
+                case .premiumH1:
+                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
+                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: false))
+                    }
+
+                case .premiumH2:
                     let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
                         tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: true))

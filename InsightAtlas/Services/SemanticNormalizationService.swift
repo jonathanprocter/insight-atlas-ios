@@ -162,7 +162,7 @@ final class SemanticNormalizationService {
             }
 
             // [ACTION_BOX] ... [/ACTION_BOX]
-            if line.hasPrefix("[ACTION_BOX]") {
+            if line.hasPrefix("[ACTION_BOX") {
                 if !currentParagraph.isEmpty {
                     blocks.append(contentsOf: flushParagraphBuffer(&currentParagraph))
                 }
@@ -883,6 +883,15 @@ final class SemanticNormalizationService {
         var i = startIndex + 1
         var title = "Apply This"
         var steps: [String] = []
+
+        let openingLine = lines[startIndex].trimmingCharacters(in: .whitespaces)
+        if let colonIndex = openingLine.firstIndex(of: ":") {
+            let afterColon = openingLine[openingLine.index(after: colonIndex)...]
+            let parsedTitle = afterColon.replacingOccurrences(of: "]", with: "").trimmingCharacters(in: .whitespaces)
+            if !parsedTitle.isEmpty {
+                title = parsedTitle
+            }
+        }
 
         while i < lines.count {
             let line = lines[i].trimmingCharacters(in: .whitespaces)

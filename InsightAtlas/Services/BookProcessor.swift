@@ -491,11 +491,40 @@ actor BookProcessor {
         }
 
         guard let cutIndex = earliestIndex else {
-            return text
+            return removeRunningHeadersAndFooters(from: text)
         }
 
         let prefix = String(text[..<cutIndex])
-        return prefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        return removeRunningHeadersAndFooters(from: trimmed)
+    }
+
+    /// Remove common running headers/footers (e.g., page headers and standalone page numbers).
+    private func removeRunningHeadersAndFooters(from text: String) -> String {
+        let lines = text.components(separatedBy: .newlines)
+        var cleaned: [String] = []
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                cleaned.append(line)
+                continue
+            }
+
+            let upper = trimmed.uppercased()
+            if upper == "INSIGHT" || upper == "INSIGHT ATLAS" || upper == "INSIGHT ATLAS GUIDE" {
+                continue
+            }
+
+            // Remove standalone page numbers (e.g., "54")
+            if trimmed.range(of: #"^\d{1,4}$"#, options: .regularExpression) != nil {
+                continue
+            }
+
+            cleaned.append(line)
+        }
+
+        return cleaned.joined(separator: "\n")
     }
 
     /// Try reading data as string with multiple encodings

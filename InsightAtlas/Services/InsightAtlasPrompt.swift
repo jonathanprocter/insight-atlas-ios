@@ -259,14 +259,26 @@ struct InsightAtlasPromptGenerator {
         [Brief, relevant background that adds analytical weight]
         [/AUTHOR_SPOTLIGHT]
 
-        **Key Quotes** - When the author's exact words are powerful:
+        **Featured Quotes** - When the author's exact words are powerful:
         [PREMIUM_QUOTE]
         "[Exact quote]"
+        — [Attribution if needed]
         [/PREMIUM_QUOTE]
 
         **Cross-References** - When connecting to other thinkers adds genuine insight:
         [INSIGHT_NOTE]
-        [Connection to other works/ideas with specific citations]
+        **Key Distinction:** [What is the precise conceptual distinction at stake?]
+        **Practical Implication:** [How does this change what a reader does or notices?]
+        **Go Deeper:** "[Book Title]" by [Author Name] - [Brief description of what reader will learn]
+        [/INSIGHT_NOTE]
+
+        INSIGHT NOTE VARIATIONS (USE BOTH AS NEEDED):
+        - Full Structure: Use when the content has a clear distinction + application.
+        - Simplified Structure: Use when the insight is a single cohesive paragraph without natural sub-sections.
+
+        SIMPLIFIED INSIGHT NOTE:
+        [INSIGHT_NOTE]
+        [Single cohesive paragraph that links the idea to a broader framework]
         **Go Deeper:** "[Book Title]" by [Author Name] - [Brief description of what reader will learn]
         [/INSIGHT_NOTE]
 
@@ -297,8 +309,8 @@ struct InsightAtlasPromptGenerator {
 
         Weave practical examples naturally into your prose. When a concept needs illustration, show it through a brief, vivid scenario—don't announce "here's an example."
 
-        **Action Steps** - Include only when genuinely actionable:
-        [ACTION_BOX: Topic]
+        **Action Steps ("Apply It")** - Include only when genuinely actionable:
+        [ACTION_BOX: Apply It]
         1. [Concrete step]
         2. [Concrete step]
         3. [Concrete step]
@@ -384,6 +396,10 @@ struct InsightAtlasPromptGenerator {
         [Steps with → or ↓ showing flow]
         [/VISUAL_FLOWCHART]
 
+        FLOW DECISION RULE:
+        - If the source text lists sequential stages or a process with no punctuation, use VISUAL_FLOWCHART.
+        - If a sequence spans more than 5 steps, format vertically with one step per line.
+
         [VISUAL_TABLE: Title]
         | Column 1 | Column 2 |
         |----------|----------|
@@ -398,6 +414,18 @@ struct InsightAtlasPromptGenerator {
         Central: [Core idea]
         → [Related idea]: [relationship]
         [/VISUAL_CONCEPT_MAP]
+
+        CONCEPTUAL FRAMEWORKS (STRUCTURED COMPONENTS):
+        Prefer VISUAL_TABLE when the framework is a labeled breakdown.
+        [VISUAL_TABLE: Conceptual Framework]
+        | Component | Description |
+        |-----------|-------------|
+        | Central | [Core concept] |
+        | Protective Function | [Description] |
+        | Underlying Fear | [Description] |
+        | Core Wound | [Description] |
+        | Hidden Need | [Description] |
+        [/VISUAL_TABLE]
 
         [VISUAL_TIMELINE: Title]
         [Event 1] → [Event 2] → [Event 3]

@@ -258,16 +258,22 @@ struct OutputQualityValidator {
                 issues.append("Insufficient cross-discipline connections: found \(insightNoteCount) INSIGHT_NOTEs, need at least 3")
             }
 
-            // Validate INSIGHT_NOTE components
-            for component in ContentMarkers.insightNoteComponents {
-                let componentCount = lowercased.markerCount(component)
-                if componentCount < insightNoteCount {
-                    let componentName = component
-                        .replacingOccurrences(of: "**", with: "")
-                        .replacingOccurrences(of: ":", with: "")
-                        .capitalized
-                    issues.append("INSIGHT_NOTEs missing \(componentName) sections")
-                }
+            // Always require Go Deeper in each Insight Note
+            let goDeeperCount = lowercased.markerCount("**go deeper:**")
+            if goDeeperCount < insightNoteCount {
+                issues.append("INSIGHT_NOTEs missing Go Deeper sections")
+            }
+
+            // Allow simplified Insight Notes, but require full structure in at least half
+            let fullStructureTarget = max(1, (insightNoteCount + 1) / 2)
+            let keyDistCount = lowercased.markerCount("**key distinction:**")
+            let practicalCount = lowercased.markerCount("**practical implication:**")
+
+            if keyDistCount < fullStructureTarget {
+                issues.append("Too few INSIGHT_NOTEs include Key Distinction sections")
+            }
+            if practicalCount < fullStructureTarget {
+                issues.append("Too few INSIGHT_NOTEs include Practical Implication sections")
             }
         }
 
