@@ -107,6 +107,9 @@
 		9EFF521F70C471CF39DD4588 /* EditorialContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A77D72C5EAC28A38E529C7 /* EditorialContentRenderer.swift */; };
 		82E29C53323BCC8A79E0DF58 /* EditorialBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7504ACD02AE48FB4B91A9AE /* EditorialBlockViews.swift */; };
 		47D938729D4D043EEA2D6060 /* VoicePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAF36A52505A41D8A10D838 /* VoicePickerSheet.swift */; };
+		IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPROV02AAA002 /* VoiceProvider.swift */; };
+		IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */; };
+		IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -224,6 +227,9 @@
 		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
 		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
+		IAVOICEPROV02AAA002 /* VoiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProvider.swift; sourceTree = "<group>"; };
+		IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIAudioService.swift; sourceTree = "<group>"; };
+		IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIVoiceRegistry.swift; sourceTree = "<group>"; };
 		03A77D72C5EAC28A38E529C7 /* EditorialContentRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/EditorialContentRenderer.swift"; sourceTree = SOURCE_ROOT; };
 		A7504ACD02AE48FB4B91A9AE /* EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/EditorialBlockViews.swift"; sourceTree = SOURCE_ROOT; };
 		5DAF36A52505A41D8A10D838 /* VoicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/VoicePickerSheet.swift"; sourceTree = SOURCE_ROOT; };
@@ -385,6 +391,8 @@
 				IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */,
 				IAKEYCHNSVC02AAA002 /* KeychainService.swift */,
 				IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */,
+				IAVOICEPROV02AAA002 /* VoiceProvider.swift */,
+				IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -489,6 +497,7 @@
 				IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */,
 				IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */,
 				IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */,
+				IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */,
 				IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */,
 				IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */,
 			);
@@ -711,6 +720,9 @@
 				IAGOVDET01AAAAAAAA001 /* SummaryGovernorDetection.swift in Sources */,
 				IAGOVSYN01AAAAAAAA001 /* SummaryGovernorSynthesis.swift in Sources */,
 				IAAPPENV001AAAAAAAAA001 /* AppEnvironment.swift in Sources */,
+				IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */,
+				IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */,
+				IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

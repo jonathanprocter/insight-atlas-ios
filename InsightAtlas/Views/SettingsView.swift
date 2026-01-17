@@ -4,11 +4,16 @@ struct SettingsView: View {
     @EnvironmentObject var environment: AppEnvironment
 
     private var selectedVoiceName: String {
-        if let voiceID = environment.userSettings.selectedVoiceID,
-           let voice = ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID) {
-            return voice.name
+        guard let voiceID = environment.userSettings.selectedVoiceID else {
+            return "Default"
         }
-        return "Default"
+
+        switch environment.userSettings.voiceProvider {
+        case .openai:
+            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
+        case .elevenlabs:
+            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? "Default"
+        }
     }
 
     var body: some View {
@@ -98,15 +103,73 @@ struct SettingsView: View {
 
                 // Audio Section
                 Section {
-                    SecureFieldRow(
-                        label: "ElevenLabs",
-                        placeholder: "Optional",
-                        text: Binding(
-                            get: { KeychainService.shared.elevenLabsApiKey ?? "" },
-                            set: { KeychainService.shared.elevenLabsApiKey = $0.isEmpty ? nil : $0 }
-                        ),
-                        hasValue: KeychainService.shared.hasElevenLabsApiKey
-                    )
+                    // Voice Provider Selection
+                    Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
+                        ForEach(VoiceProvider.allCases, id: \.self) { provider in
+                            HStack {
+                                Text(provider.displayName)
+                                if provider == .openai {
+                                    Text("(Default)")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .tag(provider)
+                        }
+                    }
+                    .onChange(of: environment.userSettings.voiceProvider) {
+                        environment.updateVoiceProvider(environment.userSettings.voiceProvider)
+                        // Reset voice selection when changing providers
+                        if environment.userSettings.voiceProvider == .openai {
+                            environment.userSettings.selectedVoiceID = "alloy"
+                        } else {
+                            environment.userSettings.selectedVoiceID = ElevenLabsVoiceRegistry.adam.voiceID
+                        }
+                        environment.saveSettings()
+                    }
+
+                    // Show ElevenLabs API key only when ElevenLabs is selected
+                    if environment.userSettings.voiceProvider == .elevenlabs {
+                        SecureFieldRow(
+                            label: "ElevenLabs API Key",
+                            placeholder: "Required for ElevenLabs",
+                            text: Binding(
+                                get: { KeychainService.shared.elevenLabsApiKey ?? "" },
+                                set: { KeychainService.shared.elevenLabsApiKey = $0.isEmpty ? nil : $0 }
+                            ),
+                            hasValue: KeychainService.shared.hasElevenLabsApiKey
+                        )
+
+                        if !KeychainService.shared.hasElevenLabsApiKey {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("ElevenLabs API key required")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    // OpenAI info when OpenAI voice is selected
+                    if environment.userSettings.voiceProvider == .openai {
+                        if KeychainService.shared.hasOpenAIApiKey {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("Uses your OpenAI API key")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("OpenAI API key required above")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
 
                     Toggle("Auto-generate audio", isOn: $environment.userSettings.autoGenerateAudio)
 
@@ -132,7 +195,11 @@ struct SettingsView: View {
                 } header: {
                     Text("Audio")
                 } footer: {
-                    Text("AI voice narration for your guides")
+                    if environment.userSettings.voiceProvider == .openai {
+                        Text("OpenAI TTS uses your existing OpenAI API key for high-quality voice narration")
+                    } else {
+                        Text("ElevenLabs offers premium voices with advanced customization")
+                    }
                 }
 
                 // About Section
@@ -167,40 +234,58 @@ struct VoiceSelectionSettingsView: View {
     @State private var previewingVoiceID: String?
     @State private var isLoadingPreview = false
 
-    // Use shared instance from environment instead of creating new one per view
-    private var audioService: ElevenLabsAudioService {
-        environment.audioService
-    }
-
     var body: some View {
         List {
-            Section {
-                ForEach(ElevenLabsVoiceRegistry.allVoices) { voice in
-                    SettingsVoiceRow(
-                        voice: voice,
-                        isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                        isPreviewing: previewingVoiceID == voice.voiceID,
-                        isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
-                        onSelect: { selectVoice(voice) },
-                        onPreview: { previewVoice(voice) }
-                    )
+            if environment.userSettings.voiceProvider == .openai {
+                // OpenAI Voices
+                Section {
+                    ForEach(OpenAIVoiceRegistry.allVoices) { voice in
+                        OpenAIVoiceRow(
+                            voice: voice,
+                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
+                            isPreviewing: previewingVoiceID == voice.voiceID,
+                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
+                            onSelect: { selectOpenAIVoice(voice) },
+                            onPreview: { previewOpenAIVoice(voice) }
+                        )
+                    }
+                } header: {
+                    Text("OpenAI Voices")
+                } footer: {
+                    Text("Tap to select, tap play to preview")
                 }
-            } header: {
-                Text("Available Voices")
-            } footer: {
-                Text("Tap to select, long press to preview")
+            } else {
+                // ElevenLabs Voices
+                Section {
+                    ForEach(ElevenLabsVoiceRegistry.allVoices) { voice in
+                        SettingsVoiceRow(
+                            voice: voice,
+                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
+                            isPreviewing: previewingVoiceID == voice.voiceID,
+                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
+                            onSelect: { selectElevenLabsVoice(voice) },
+                            onPreview: { previewElevenLabsVoice(voice) }
+                        )
+                    }
+                } header: {
+                    Text("ElevenLabs Voices")
+                } footer: {
+                    Text("Tap to select, tap play to preview")
+                }
             }
         }
         .navigationTitle("Voice Selection")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func selectVoice(_ voice: ElevenLabsVoice) {
+    // MARK: - OpenAI Voice Selection
+
+    private func selectOpenAIVoice(_ voice: OpenAIVoice) {
         environment.userSettings.selectedVoiceID = voice.voiceID
         environment.saveSettings()
     }
 
-    private func previewVoice(_ voice: ElevenLabsVoice) {
+    private func previewOpenAIVoice(_ voice: OpenAIVoice) {
         guard !isLoadingPreview else { return }
 
         // Stop any current preview
@@ -216,7 +301,50 @@ struct VoiceSelectionSettingsView: View {
         Task {
             do {
                 let sampleText = "Hello, I'm \(voice.name). I'll be narrating your book summaries with clarity and warmth."
-                let audio = try await audioService.generateAudio(
+                let audio = try await environment.openAIAudioService.generateAudio(
+                    text: sampleText,
+                    voiceID: voice.voiceID
+                )
+
+                await MainActor.run {
+                    isLoadingPreview = false
+                    try? AudioPlaybackManager.shared.play(audio) {
+                        previewingVoiceID = nil
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPreview = false
+                    previewingVoiceID = nil
+                }
+            }
+        }
+    }
+
+    // MARK: - ElevenLabs Voice Selection
+
+    private func selectElevenLabsVoice(_ voice: ElevenLabsVoice) {
+        environment.userSettings.selectedVoiceID = voice.voiceID
+        environment.saveSettings()
+    }
+
+    private func previewElevenLabsVoice(_ voice: ElevenLabsVoice) {
+        guard !isLoadingPreview else { return }
+
+        // Stop any current preview
+        if previewingVoiceID == voice.voiceID {
+            AudioPlaybackManager.shared.stop()
+            previewingVoiceID = nil
+            return
+        }
+
+        previewingVoiceID = voice.voiceID
+        isLoadingPreview = true
+
+        Task {
+            do {
+                let sampleText = "Hello, I'm \(voice.name). I'll be narrating your book summaries with clarity and warmth."
+                let audio = try await environment.audioService.generateAudio(
                     text: sampleText,
                     voiceID: voice.voiceID
                 )
@@ -237,7 +365,70 @@ struct VoiceSelectionSettingsView: View {
     }
 }
 
-// MARK: - Settings Voice Row
+// MARK: - OpenAI Voice Row
+
+struct OpenAIVoiceRow: View {
+    let voice: OpenAIVoice
+    let isSelected: Bool
+    let isPreviewing: Bool
+    let isLoading: Bool
+    let onSelect: () -> Void
+    let onPreview: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                // Voice info
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(voice.name)
+                            .font(.body)
+                            .fontWeight(.medium)
+
+                        // Gender indicator
+                        Text(voice.characteristics.gender.rawValue.capitalized)
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.2))
+                            .foregroundColor(.secondary)
+                            .cornerRadius(4)
+                    }
+
+                    Text(voice.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                // Preview button
+                Button(action: onPreview) {
+                    if isLoading {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(isPreviewing ? .red : AnalysisTheme.brandOrange)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                // Selection indicator
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(AnalysisTheme.accentSuccess)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Settings Voice Row (ElevenLabs)
 
 struct SettingsVoiceRow: View {
     let voice: ElevenLabsVoice

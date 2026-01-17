@@ -17,6 +17,8 @@ class AppEnvironment: ObservableObject {
 
     let aiService: AIService
     let audioService: ElevenLabsAudioService
+    let openAIAudioService: OpenAIAudioService
+    let voiceServiceManager: VoiceServiceManager
     let generationCoordinator: BackgroundGenerationCoordinator
     let dataManager: DataManager
 
@@ -30,6 +32,8 @@ class AppEnvironment: ObservableObject {
     init() {
         self.aiService = AIService()
         self.audioService = ElevenLabsAudioService()
+        self.openAIAudioService = OpenAIAudioService()
+        self.voiceServiceManager = VoiceServiceManager.shared
         self.generationCoordinator = BackgroundGenerationCoordinator.shared
         self.dataManager = DataManager.shared
 
@@ -38,6 +42,9 @@ class AppEnvironment: ObservableObject {
 
         // Migrate API keys from UserDefaults to Keychain (one-time)
         KeychainService.shared.migrateFromUserDefaults()
+
+        // Sync voice provider from settings
+        self.voiceServiceManager.setProvider(userSettings.voiceProvider)
 
         // Configure services with dependencies
         setupServiceDependencies()
@@ -91,6 +98,16 @@ class AppEnvironment: ObservableObject {
 
     func updateOpenAIApiKey(_ key: String?) {
         KeychainService.shared.openaiApiKey = key
+    }
+
+    func updateVoiceProvider(_ provider: VoiceProvider) {
+        userSettings.voiceProvider = provider
+        voiceServiceManager.setProvider(provider)
+        saveSettings()
+    }
+
+    var hasValidVoiceProvider: Bool {
+        userSettings.voiceProvider.isConfigured()
     }
 
     var hasValidApiKeys: Bool {

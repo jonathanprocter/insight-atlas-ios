@@ -591,6 +591,7 @@ struct UserSettings: Codable {
     var autoGenerateAudio: Bool
     var selectedVoiceID: String?
     var playbackSpeed: PlaybackSpeed
+    var voiceProvider: VoiceProvider
 
     // MARK: - Computed Properties for API Keys (Keychain-backed)
 
@@ -615,7 +616,8 @@ struct UserSettings: Codable {
         preferredReaderProfile: ReaderProfile = .practitioner,
         autoGenerateAudio: Bool = true,
         selectedVoiceID: String? = nil,
-        playbackSpeed: PlaybackSpeed = .normal
+        playbackSpeed: PlaybackSpeed = .normal,
+        voiceProvider: VoiceProvider = .openai
     ) {
         self.preferredProvider = preferredProvider
         self.preferredMode = preferredMode
@@ -626,6 +628,7 @@ struct UserSettings: Codable {
         self.autoGenerateAudio = autoGenerateAudio
         self.selectedVoiceID = selectedVoiceID
         self.playbackSpeed = playbackSpeed
+        self.voiceProvider = voiceProvider
     }
 
     // MARK: - Codable (excludes API keys)
@@ -640,9 +643,10 @@ struct UserSettings: Codable {
         case autoGenerateAudio
         case selectedVoiceID
         case playbackSpeed
+        case voiceProvider
     }
 
-    // Custom decoder to handle missing playbackSpeed in older settings
+    // Custom decoder to handle missing fields in older settings
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         preferredProvider = try container.decode(AIProvider.self, forKey: .preferredProvider)
@@ -654,6 +658,7 @@ struct UserSettings: Codable {
         autoGenerateAudio = try container.decode(Bool.self, forKey: .autoGenerateAudio)
         selectedVoiceID = try container.decodeIfPresent(String.self, forKey: .selectedVoiceID)
         playbackSpeed = try container.decodeIfPresent(PlaybackSpeed.self, forKey: .playbackSpeed) ?? .normal
+        voiceProvider = try container.decodeIfPresent(VoiceProvider.self, forKey: .voiceProvider) ?? .openai
     }
 }
 
