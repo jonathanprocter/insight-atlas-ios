@@ -592,8 +592,11 @@ struct GuideView: View {
                     return
                 }
 
+                // Strip markup tags for cleaner audio narration
+                let cleanedText = Self.prepareTextForAudio(content)
+
                 let result = try await audioService.generateAudio(
-                    text: content,
+                    text: cleanedText,
                     voiceID: environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
                 )
 
@@ -604,7 +607,8 @@ struct GuideView: View {
                     return
                 }
 
-                let audioFileName = "audio_\(item.id.uuidString).mp3"
+                // Use .m4a extension since we now export as AAC for proper concatenation
+                let audioFileName = "audio_\(item.id.uuidString).m4a"
                 let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
                 try result.data.write(to: audioFileURL)
 
@@ -654,8 +658,11 @@ struct GuideView: View {
                     return
                 }
 
+                // Strip markup tags for cleaner audio narration
+                let cleanedText = Self.prepareTextForAudio(content)
+
                 let result = try await audioService.generateAudio(
-                    text: content,
+                    text: cleanedText,
                     voiceID: voiceID
                 )
 
@@ -666,13 +673,14 @@ struct GuideView: View {
                     return
                 }
 
-                // Delete old audio file if exists
+                // Delete old audio file if exists (check both .mp3 and .m4a extensions)
                 if let oldPath = item.audioFileURL {
                     let oldURL = documentsDir.appendingPathComponent(oldPath)
                     try? FileManager.default.removeItem(at: oldURL)
                 }
 
-                let audioFileName = "audio_\(item.id.uuidString).mp3"
+                // Use .m4a extension since we now export as AAC for proper concatenation
+                let audioFileName = "audio_\(item.id.uuidString).m4a"
                 let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
                 try result.data.write(to: audioFileURL)
 
@@ -795,6 +803,53 @@ struct GuideView: View {
             bookmarks.append(newBookmark)
         }
         saveBookmarks()
+    }
+
+    // MARK: - Audio Text Preparation
+
+    /// Prepares content for text-to-speech by removing markup tags and formatting
+    /// that would be read aloud inappropriately.
+    static func prepareTextForAudio(_ content: String) -> String {
+        var result = content
+
+        // Remove all Insight Atlas block markers (e.g., [PREMIUM_H1], [QUICK_GLANCE], [/TAKEAWAYS])
+        result = result.replacingOccurrences(of: "\\[/?[A-Z_]+:?[^\\]]*\\]", with: "", options: .regularExpression)
+
+        // Remove markdown headers (# ## ###)
+        result = result.replacingOccurrences(of: "#{1,6}\\s+", with: "", options: .regularExpression)
+
+        // Remove bold/italic markers but keep text
+        result = result.replacingOccurrences(of: "\\*{1,2}([^*]+)\\*{1,2}", with: "$1", options: .regularExpression)
+        result = result.replacingOccurrences(of: "_{1,2}([^_]+)_{1,2}", with: "$1", options: .regularExpression)
+
+        // Remove markdown links, keep text: [text](url) -> text
+        result = result.replacingOccurrences(of: "\\[([^\\]]+)\\]\\([^)]+\\)", with: "$1", options: .regularExpression)
+
+        // Remove code blocks and inline code
+        result = result.replacingOccurrences(of: "```[^`]*```", with: "", options: .regularExpression)
+        result = result.replacingOccurrences(of: "`([^`]+)`", with: "$1", options: .regularExpression)
+
+        // Remove bullet point markers
+        result = result.replacingOccurrences(of: "^\\s*[-*•]\\s+", with: "", options: .regularExpression)
+
+        // Remove numbered list markers
+        result = result.replacingOccurrences(of: "^\\s*\\d+\\.\\s+", with: "", options: .regularExpression)
+
+        // Remove box drawing characters that might appear in visual elements
+        let boxChars = ["┌", "├", "└", "│", "─", "┐", "┤", "┘", "═", "↓", "→", "←", "↑", "•", "▪", "▸"]
+        for char in boxChars {
+            result = result.replacingOccurrences(of: char, with: "")
+        }
+
+        // Remove horizontal rules (---, ___, ***)
+        result = result.replacingOccurrences(of: "^[-_*]{3,}$", with: "", options: .regularExpression)
+
+        // Clean up excessive whitespace
+        result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
+        result = result.replacingOccurrences(of: "[ \\t]+", with: " ", options: .regularExpression)
+
+        // Trim and return
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

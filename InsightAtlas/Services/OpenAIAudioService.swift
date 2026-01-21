@@ -13,7 +13,7 @@
 //  - No logging of API key values
 //  - Fails gracefully if key is missing
 //
-//  VERSION: 1.0.0
+//  VERSION: 1.1.0 - Fixed audio concatenation for long content
 //
 
 import Foundation
@@ -32,6 +32,7 @@ enum OpenAIAudioError: LocalizedError {
     case networkError(Error)
     case invalidResponse
     case audioDecodingFailed
+    case audioConcatenationFailed
     case rateLimitExceeded
     case quotaExceeded
     case serverError(Int)
@@ -51,6 +52,8 @@ enum OpenAIAudioError: LocalizedError {
             return "Invalid response received from OpenAI API."
         case .audioDecodingFailed:
             return "Failed to decode audio data from response."
+        case .audioConcatenationFailed:
+            return "Failed to concatenate audio chunks."
         case .rateLimitExceeded:
             return "OpenAI rate limit exceeded. Please try again later."
         case .quotaExceeded:
@@ -72,6 +75,8 @@ enum OpenAIAudioError: LocalizedError {
             return "Wait a few minutes before trying again."
         case .textTooLong:
             return "The text will be split into smaller chunks automatically."
+        case .audioConcatenationFailed:
+            return "Try generating the audio again."
         default:
             return nil
         }
@@ -165,13 +170,13 @@ final class OpenAIAudioService: AudioServiceProtocol {
     }
 
     /// Generate audio from text using OpenAI TTS with automatic retry for transient failures.
-    /// Handles long text by splitting into chunks and concatenating the audio.
+    /// Handles long text by splitting into chunks and properly concatenating the audio using AVFoundation.
     ///
     /// - Parameters:
     ///   - text: Text to convert to speech (will be chunked if > 4096 chars)
     ///   - voiceID: OpenAI voice ID (alloy, echo, fable, onyx, nova, shimmer)
     ///   - speed: Playback speed (0.25 to 4.0, default 1.0)
-    /// - Returns: Generated audio data (concatenated if text was chunked)
+    /// - Returns: Generated audio data (properly concatenated if text was chunked)
     /// - Throws: `OpenAIAudioError` if generation fails after all retries
     func generateAudio(
         text: String,
@@ -195,9 +200,8 @@ final class OpenAIAudioService: AudioServiceProtocol {
             )
         }
 
-        // Generate audio for each chunk and concatenate
-        var allAudioData = Data()
-        var totalDuration: TimeInterval = 0
+        // Generate audio for each chunk
+        var chunkAudios: [GeneratedAudio] = []
         var totalCharacters = 0
 
         for (index, chunk) in chunks.enumerated() {
@@ -209,19 +213,125 @@ final class OpenAIAudioService: AudioServiceProtocol {
                 speed: speed
             )
 
-            allAudioData.append(chunkAudio.data)
-            totalDuration += chunkAudio.duration
+            chunkAudios.append(chunkAudio)
             totalCharacters += chunkAudio.characterCount
         }
 
-        logger.info("Generated \(chunks.count) chunks, total duration: \(String(format: "%.1f", totalDuration))s")
+        // Properly concatenate audio chunks using AVFoundation
+        logger.info("Concatenating \(chunks.count) audio chunks...")
+        let concatenatedAudio = try await concatenateAudioChunks(chunkAudios)
+
+        logger.info("Generated \(chunks.count) chunks, total duration: \(String(format: "%.1f", concatenatedAudio.duration))s")
 
         return GeneratedAudio(
-            data: allAudioData,
-            duration: totalDuration,
+            data: concatenatedAudio.data,
+            duration: concatenatedAudio.duration,
             characterCount: totalCharacters,
             voiceID: voiceID
         )
+    }
+
+    /// Properly concatenate multiple audio chunks using AVFoundation
+    /// This method decodes each MP3 chunk, combines them, and exports as M4A (AAC)
+    private func concatenateAudioChunks(_ chunks: [GeneratedAudio]) async throws -> (data: Data, duration: TimeInterval) {
+        guard !chunks.isEmpty else {
+            throw OpenAIAudioError.audioConcatenationFailed
+        }
+
+        // Create temporary directory for chunk files
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("audio_concat_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+        defer {
+            // Clean up temporary files
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        // Save each chunk to a temporary file
+        var chunkURLs: [URL] = []
+        for (index, chunk) in chunks.enumerated() {
+            let chunkURL = tempDir.appendingPathComponent("chunk_\(index).mp3")
+            try chunk.data.write(to: chunkURL)
+            chunkURLs.append(chunkURL)
+        }
+
+        // Create composition to merge all audio
+        let composition = AVMutableComposition()
+        guard let compositionTrack = composition.addMutableTrack(
+            withMediaType: .audio,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            throw OpenAIAudioError.audioConcatenationFailed
+        }
+
+        var currentTime = CMTime.zero
+
+        for chunkURL in chunkURLs {
+            let asset = AVURLAsset(url: chunkURL)
+
+            // Load tracks asynchronously
+            let tracks: [AVAssetTrack]
+            if #available(iOS 15.0, *) {
+                tracks = try await asset.loadTracks(withMediaType: .audio)
+            } else {
+                tracks = asset.tracks(withMediaType: .audio)
+            }
+
+            guard let assetTrack = tracks.first else {
+                logger.warning("No audio track found in chunk")
+                continue
+            }
+
+            // Get duration
+            let duration: CMTime
+            if #available(iOS 15.0, *) {
+                duration = try await asset.load(.duration)
+            } else {
+                duration = asset.duration
+            }
+
+            let timeRange = CMTimeRange(start: .zero, duration: duration)
+
+            do {
+                try compositionTrack.insertTimeRange(timeRange, of: assetTrack, at: currentTime)
+                currentTime = CMTimeAdd(currentTime, duration)
+            } catch {
+                logger.error("Failed to insert audio track: \(error.localizedDescription)")
+                throw OpenAIAudioError.audioConcatenationFailed
+            }
+        }
+
+        // Export the merged audio to M4A (AAC) format
+        let outputURL = tempDir.appendingPathComponent("merged_audio.m4a")
+
+        guard let exportSession = AVAssetExportSession(
+            asset: composition,
+            presetName: AVAssetExportPresetAppleM4A
+        ) else {
+            throw OpenAIAudioError.audioConcatenationFailed
+        }
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .m4a
+
+        // Export using async/await
+        await exportSession.export()
+
+        guard exportSession.status == .completed else {
+            if let error = exportSession.error {
+                logger.error("Export failed: \(error.localizedDescription)")
+            }
+            throw OpenAIAudioError.audioConcatenationFailed
+        }
+
+        // Read the exported file
+        let exportedData = try Data(contentsOf: outputURL)
+        let totalDuration = CMTimeGetSeconds(currentTime)
+
+        logger.info("Successfully concatenated audio: \(exportedData.count) bytes, \(String(format: "%.1f", totalDuration))s")
+
+        return (data: exportedData, duration: totalDuration)
     }
 
     /// Split text into chunks that respect sentence boundaries
@@ -344,7 +454,7 @@ final class OpenAIAudioService: AudioServiceProtocol {
         case .networkError:
             return true
         case .apiKeyMissing, .invalidVoiceID, .invalidURL, .quotaExceeded,
-             .invalidResponse, .audioDecodingFailed, .textTooLong:
+             .invalidResponse, .audioDecodingFailed, .audioConcatenationFailed, .textTooLong:
             return false
         }
     }

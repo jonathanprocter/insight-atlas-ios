@@ -36,10 +36,11 @@ final class PDFAudioBundler {
 
         var id: String { rawValue }
 
+        /// Default file extension (audio extension may vary based on source)
         var fileExtension: String {
             switch self {
             case .pdfOnly: return "pdf"
-            case .audioOnly: return "mp3"
+            case .audioOnly: return "m4a" // Default to m4a, actual extension determined by source file
             case .bundled: return "zip"
             }
         }
@@ -95,7 +96,9 @@ final class PDFAudioBundler {
             guard let audio = audioURL else {
                 throw BundleError.audioFileMissing
             }
-            let audioDestURL = exportDir.appendingPathComponent("\(sanitizedTitle).mp3")
+            // Preserve the original audio format (mp3 or m4a)
+            let audioExtension = audio.pathExtension.isEmpty ? "mp3" : audio.pathExtension
+            let audioDestURL = exportDir.appendingPathComponent("\(sanitizedTitle).\(audioExtension)")
             if fileManager.fileExists(atPath: audioDestURL.path) {
                 try fileManager.removeItem(at: audioDestURL)
             }
@@ -163,15 +166,19 @@ final class PDFAudioBundler {
             try pdf.write(to: pdfPath)
         }
 
-        // Add audio if available
+        // Add audio if available (preserve original format - mp3 or m4a)
+        let audioExtension: String
         if let audio = audioURL {
-            let audioFilename = "\(title)_narration.mp3"
+            audioExtension = audio.pathExtension.isEmpty ? "mp3" : audio.pathExtension
+            let audioFilename = "\(title)_narration.\(audioExtension)"
             let audioPath = tempDir.appendingPathComponent(audioFilename)
             try fileManager.copyItem(at: audio, to: audioPath)
+        } else {
+            audioExtension = "mp3"
         }
 
         // Add README file with bundle info
-        let readmeContent = createReadmeContent(title: title, hasPDF: pdfData != nil, hasAudio: audioURL != nil)
+        let readmeContent = createReadmeContent(title: title, hasPDF: pdfData != nil, hasAudio: audioURL != nil, audioExtension: audioExtension)
         let readmePath = tempDir.appendingPathComponent("README.txt")
         try readmeContent.write(to: readmePath, atomically: true, encoding: .utf8)
 
@@ -192,7 +199,7 @@ final class PDFAudioBundler {
         return BundleResult(url: zipURL, format: .bundled, fileSize: size)
     }
 
-    private func createReadmeContent(title: String, hasPDF: Bool, hasAudio: Bool) -> String {
+    private func createReadmeContent(title: String, hasPDF: Bool, hasAudio: Bool, audioExtension: String = "mp3") -> String {
         var content = """
         Insight Atlas Export Bundle
         ===========================
@@ -207,7 +214,7 @@ final class PDFAudioBundler {
         }
 
         if hasAudio {
-            content += "\n- \(title)_narration.mp3 - Audio narration"
+            content += "\n- \(title)_narration.\(audioExtension) - Audio narration"
         }
 
         content += """

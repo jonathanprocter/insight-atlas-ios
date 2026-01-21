@@ -23,6 +23,11 @@ struct GenerationView: View {
     @State private var selectedFileType: FileType?
     @State private var cachedFileData: Data?
 
+    // Voice selection state
+    @State private var showingVoicePicker = false
+    @State private var selectedVoiceID: String?
+    @State private var audioSpeed: Double = 1.0
+
     // MARK: - Body
 
     var body: some View {
@@ -57,6 +62,12 @@ struct GenerationView: View {
             allowsMultipleSelection: false
         ) { result in
             handleFileSelection(result)
+        }
+        .sheet(isPresented: $showingVoicePicker) {
+            VoiceSelectionSheet(
+                selectedVoiceID: $selectedVoiceID,
+                voiceProvider: environment.userSettings.voiceProvider
+            )
         }
         .onAppear {
             syncGenerationState()
@@ -260,12 +271,103 @@ struct GenerationView: View {
                     environment.saveSettings()
                 }
             }
+
+            Divider()
+                .padding(.vertical, 8)
+
+            // Audio Voice Selection
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "waveform")
+                        .foregroundColor(AnalysisTheme.accentTeal)
+                    Text("Audio Narration")
+                        .font(.analysisUIBold())
+                        .foregroundColor(AnalysisTheme.textHeading)
+                }
+
+                // Voice Provider
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Voice Provider")
+                        .font(.analysisUISmall())
+                        .foregroundColor(AnalysisTheme.textMuted)
+                    Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
+                        ForEach(VoiceProvider.allCases, id: \.self) { provider in
+                            Text(provider.displayName).tag(provider)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: environment.userSettings.voiceProvider) {
+                        environment.updateVoiceProvider(environment.userSettings.voiceProvider)
+                        selectedVoiceID = nil // Reset voice when provider changes
+                    }
+
+                    if !environment.userSettings.voiceProvider.isConfigured() {
+                        Text("⚠️ \(environment.userSettings.voiceProvider.displayName) API key not configured")
+                            .font(.analysisUISmall())
+                            .foregroundColor(AnalysisTheme.accentHighlight)
+                    }
+                }
+
+                // Voice Selection Button
+                Button {
+                    showingVoicePicker = true
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Selected Voice")
+                                .font(.analysisUISmall())
+                                .foregroundColor(AnalysisTheme.textMuted)
+                            Text(selectedVoiceName)
+                                .font(.analysisUI())
+                                .foregroundColor(AnalysisTheme.textHeading)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(AnalysisTheme.textMuted)
+                    }
+                    .padding(12)
+                    .background(AnalysisTheme.bgSecondary)
+                    .cornerRadius(AnalysisTheme.Radius.md)
+                }
+
+                // Audio Speed
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Playback Speed")
+                            .font(.analysisUISmall())
+                            .foregroundColor(AnalysisTheme.textMuted)
+                        Spacer()
+                        Text(String(format: "%.1fx", audioSpeed))
+                            .font(.analysisUISmall())
+                            .foregroundColor(AnalysisTheme.accentTeal)
+                    }
+                    Slider(value: $audioSpeed, in: 0.5...2.0, step: 0.1)
+                        .tint(AnalysisTheme.accentTeal)
+                }
+            }
         }
         .padding(16)
         .background(AnalysisTheme.bgCard)
         .cornerRadius(AnalysisTheme.Radius.lg)
         .shadow(color: AnalysisTheme.shadowCard, radius: 4, y: 2)
         .padding(.horizontal, 24)
+    }
+
+    /// Get the display name for the currently selected voice
+    private var selectedVoiceName: String {
+        if let voiceID = selectedVoiceID {
+            if environment.userSettings.voiceProvider == .openai {
+                return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
+            } else {
+                return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
+            }
+        }
+        // Return default voice name
+        if environment.userSettings.voiceProvider == .openai {
+            return OpenAIVoiceRegistry.defaultVoice.name + " (Default)"
+        } else {
+            return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: .practitioner).name + " (Default)"
+        }
     }
 
     private func selectedFileCard(fileName: String) -> some View {
@@ -559,7 +661,8 @@ struct GenerationView: View {
                     author: author,
                     settings: environment.userSettings,
                     existingItemId: newItemId,
-                    summaryType: environment.userSettings.preferredSummaryType
+                    summaryType: environment.userSettings.preferredSummaryType,
+                    voiceID: selectedVoiceID
                 )
 
                 await MainActor.run {
@@ -698,5 +801,122 @@ struct GuidePreviewCard: View {
         }
         let fileURL = documentsDir.appendingPathComponent(path)
         return try? Data(contentsOf: fileURL)
+    }
+}
+
+// MARK: - Voice Selection Sheet
+
+/// Sheet for selecting a voice before generation
+struct VoiceSelectionSheet: View {
+    @Binding var selectedVoiceID: String?
+    let voiceProvider: VoiceProvider
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Select a voice for your audio narration.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+
+                    if voiceProvider == .openai {
+                        openAIVoiceList
+                    } else {
+                        elevenLabsVoiceList
+                    }
+                }
+                .padding(.vertical)
+            }
+            .navigationTitle("Select Voice")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
+        }
+    }
+
+    private var openAIVoiceList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("OPENAI VOICES")
+                .font(.caption)
+                .fontWeight(.bold)
+                .tracking(1)
+                .foregroundColor(AnalysisTheme.accentTeal)
+                .padding(.horizontal)
+
+            ForEach(OpenAIVoiceRegistry.allVoices, id: \.id) { voice in
+                voiceRow(
+                    id: voice.voiceID,
+                    name: voice.name,
+                    description: voice.description,
+                    isSelected: selectedVoiceID == voice.voiceID
+                )
+            }
+        }
+    }
+
+    private var elevenLabsVoiceList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ELEVENLABS VOICES")
+                .font(.caption)
+                .fontWeight(.bold)
+                .tracking(1)
+                .foregroundColor(AnalysisTheme.primaryGold)
+                .padding(.horizontal)
+
+            ForEach(ElevenLabsVoiceRegistry.allVoices, id: \.id) { voice in
+                voiceRow(
+                    id: voice.voiceID,
+                    name: voice.name,
+                    description: voice.description,
+                    isSelected: selectedVoiceID == voice.voiceID
+                )
+            }
+        }
+    }
+
+    private func voiceRow(id: String, name: String, description: String, isSelected: Bool) -> some View {
+        Button {
+            selectedVoiceID = id
+        } label: {
+            HStack(spacing: 12) {
+                // Selection indicator
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? AnalysisTheme.accentTeal : AnalysisTheme.textMuted)
+                    .font(.title3)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(name)
+                        .font(.headline)
+                        .foregroundColor(AnalysisTheme.textHeading)
+
+                    Text(description)
+                        .font(.caption)
+                        .foregroundColor(AnalysisTheme.textMuted)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+            }
+            .padding(12)
+            .background(isSelected ? AnalysisTheme.accentTealSubtle : AnalysisTheme.bgCard)
+            .cornerRadius(AnalysisTheme.Radius.md)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
     }
 }
