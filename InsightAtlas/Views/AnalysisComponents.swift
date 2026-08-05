@@ -1870,6 +1870,19 @@ struct ComparisonTableView: View {
     let rows: [[String]]
 
     var body: some View {
+        if headers.count > 3 {
+            // Wide tables scroll horizontally so columns keep a readable
+            // width instead of hyphenating every word
+            ScrollView(.horizontal, showsIndicators: true) {
+                tableBody
+                    .frame(minWidth: CGFloat(headers.count) * 130)
+            }
+        } else {
+            tableBody
+        }
+    }
+
+    private var tableBody: some View {
         VStack(spacing: 0) {
             // Header row
             HStack(spacing: 0) {
@@ -2008,22 +2021,29 @@ struct ConceptMapView: View {
             // Connections
             ForEach(Array(connections.enumerated()), id: \.offset) { index, connection in
                 VStack(spacing: AnalysisTheme.Spacing.xs) {
-                    // Connection line with relationship label
-                    HStack(spacing: AnalysisTheme.Spacing.sm) {
+                    // Connection line with relationship label; a plain vertical
+                    // tick when the branch has no relationship text
+                    if connection.relationship.isEmpty {
                         Rectangle()
                             .fill(AnalysisTheme.primaryGold.opacity(0.4))
-                            .frame(height: 1)
-                            .frame(maxWidth: 40)
+                            .frame(width: 2, height: 16)
+                    } else {
+                        HStack(spacing: AnalysisTheme.Spacing.sm) {
+                            Rectangle()
+                                .fill(AnalysisTheme.primaryGold.opacity(0.4))
+                                .frame(height: 1)
+                                .frame(maxWidth: 40)
 
-                        Text(connection.relationship)
-                            .font(.analysisUISmall())
-                            .foregroundColor(boxMutedColor) // Dark muted text
-                            .italic()
+                            Text(connection.relationship)
+                                .font(.analysisUISmall())
+                                .foregroundColor(boxMutedColor) // Dark muted text
+                                .italic()
 
-                        Rectangle()
-                            .fill(AnalysisTheme.primaryGold.opacity(0.4))
-                            .frame(height: 1)
-                            .frame(maxWidth: .infinity)
+                            Rectangle()
+                                .fill(AnalysisTheme.primaryGold.opacity(0.4))
+                                .frame(height: 1)
+                                .frame(maxWidth: .infinity)
+                        }
                     }
 
                     // Related concept node

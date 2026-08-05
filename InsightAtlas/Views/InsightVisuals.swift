@@ -549,10 +549,24 @@ struct InsightVisualParser {
 
         case .conceptMap:
             let centerLine = trimmed.first(where: { $0.lowercased().hasPrefix("central:") })
-            let center = centerLine?.replacingOccurrences(of: "Central:", with: "", options: .caseInsensitive)
-                .trimmingCharacters(in: .whitespaces) ?? (trimmed.first ?? "")
-            let branches = trimmed.filter { $0.contains("→") }.map {
-                $0.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? $0
+            var center = centerLine?.replacingOccurrences(of: "Central:", with: "", options: .caseInsensitive)
+                .trimmingCharacters(in: .whitespaces) ?? ""
+            // Every non-central line is a branch: strip bullets, keep the
+            // target of "→" arrows, and accept "Label: description" lines.
+            var branches: [String] = []
+            for line in trimmed {
+                if line.lowercased().hasPrefix("central:") { continue }
+                var branch = line
+                if branch.hasPrefix("- ") || branch.hasPrefix("* ") || branch.hasPrefix("• ") {
+                    branch = String(branch.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                }
+                if branch.contains("→") {
+                    branch = branch.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? branch
+                }
+                if !branch.isEmpty { branches.append(branch) }
+            }
+            if center.isEmpty && !branches.isEmpty {
+                center = branches.removeFirst()
             }
             guard !center.isEmpty else { return nil }
             return InsightVisual(type: type, title: title, payload: .conceptMap(ConceptMapData(center: center, branches: branches)))
@@ -1041,10 +1055,25 @@ private struct TableCardView: View {
 private struct ConceptMapCardView: View {
     let data: ConceptMapData
 
+    /// "Label: description" branches put the label on the connector and the
+    /// description in the node; plain branches get an unlabeled connector.
+    private var connections: [(concept: String, relationship: String)] {
+        data.branches.map { branch in
+            if let idx = branch.firstIndex(of: ":") {
+                let label = String(branch[..<idx]).trimmingCharacters(in: .whitespaces)
+                let detail = String(branch[branch.index(after: idx)...]).trimmingCharacters(in: .whitespaces)
+                if !label.isEmpty && !detail.isEmpty && label.count <= 40 {
+                    return (concept: detail, relationship: label)
+                }
+            }
+            return (concept: branch, relationship: "")
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Concept Map", icon: "point.3.connected.trianglepath.dotted")
-            ConceptMapView(centralConcept: data.center, connections: data.branches.map { ($0, "relates to") })
+            ConceptMapView(centralConcept: data.center, connections: connections)
         }
     }
 }
@@ -1163,15 +1192,22 @@ private struct BarChartCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Bar Chart", icon: "chart.bar")
-            let maxValue = (data.values.max() ?? 1)
+            let maxValue = max(data.values.max() ?? 1, 0.001)
             let count = min(data.labels.count, data.values.count)
             ForEach(0..<count, id: \.self) { index in
-                let label = data.labels[index]
-                HStack(spacing: 12) {
-                    Text(label)
-                        .font(.analysisUI())
-                        .foregroundColor(AnalysisTheme.textHeading)
-                        .frame(width: 100, alignment: .leading)
+                // Label above its bar: no fixed-width column squeezing long
+                // labels into hyphenated fragments on narrow screens
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(data.labels[index])
+                            .font(.analysisUI())
+                            .foregroundColor(AnalysisTheme.textHeading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 8)
+                        Text(String(format: "%.0f", data.values[index]))
+                            .font(.analysisUISmall())
+                            .foregroundColor(AnalysisTheme.textMuted)
+                    }
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 6)
@@ -1182,10 +1218,6 @@ private struct BarChartCardView: View {
                         }
                     }
                     .frame(height: 12)
-                    Text(String(format: "%.0f", data.values[index]))
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
-                        .frame(width: 40, alignment: .trailing)
                 }
             }
         }
@@ -1320,10 +1352,11 @@ private struct GanttChartCardView: View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Timeline", icon: "calendar")
             ForEach(data.tasks) { task in
-                HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(task.name)
                         .font(.analysisUI())
-                        .frame(width: 120, alignment: .leading)
+                        .foregroundColor(AnalysisTheme.textHeading)
+                        .fixedSize(horizontal: false, vertical: true)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 6)
@@ -1349,20 +1382,32 @@ private struct FunnelCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Funnel", icon: "line.3.horizontal.decrease.circle")
-            let maxValue = data.stages.first?.value ?? 1
-            ForEach(data.stages.indices, id: \.self) { index in
-                let stage = data.stages[index]
-                let width = max(0.4, stage.value / maxValue)
-                Text("\(stage.label) (\(Int(stage.value)))")
-                    .font(.analysisUIBold())
-                    .foregroundColor(.white)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity)
-                    .background(AnalysisTheme.primaryGold.opacity(0.7))
-                    .frame(width: CGFloat(width) * 250, alignment: .center)
+            let maxValue = max(data.stages.first?.value ?? 1, 1)
+            VStack(spacing: AnalysisTheme.Spacing.sm) {
+                ForEach(data.stages.indices, id: \.self) { index in
+                    let stage = data.stages[index]
+                    let fraction = max(0.4, min(1.0, stage.value / maxValue))
+                    Text("\(stage.label) (\(Int(stage.value)))")
+                        .font(.analysisUIBold())
+                        .foregroundColor(AnalysisTheme.textHeading)
+                        .multilineTextAlignment(.center)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            // Bar width scales with the container, not a fixed point size
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(AnalysisTheme.primaryGold.opacity(0.25))
+                                    .frame(width: geo.size.width * CGFloat(fraction), height: geo.size.height)
+                                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                            }
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -1372,17 +1417,29 @@ private struct PyramidCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Pyramid", icon: "triangle")
-            ForEach(Array(data.levels.enumerated()), id: \.offset) { index, level in
-                let width = min(1.0, 0.4 + Double(index) * 0.15)
-                Text(level.label)
-                    .font(.analysisUIBold())
-                    .foregroundColor(.white)
-                    .padding(.vertical, 6)
-                    .frame(width: CGFloat(width) * 250)
-                    .background(AnalysisTheme.primaryGold)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            VStack(spacing: AnalysisTheme.Spacing.sm) {
+                ForEach(Array(data.levels.enumerated()), id: \.offset) { index, level in
+                    let fraction = min(1.0, 0.4 + Double(index) * 0.15)
+                    Text(level.label)
+                        .font(.analysisUIBold())
+                        .foregroundColor(AnalysisTheme.textHeading)
+                        .multilineTextAlignment(.center)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(AnalysisTheme.primaryGold.opacity(0.25 + Double(index) * 0.08))
+                                    .frame(width: geo.size.width * CGFloat(fraction), height: geo.size.height)
+                                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                            }
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -1667,19 +1724,27 @@ private struct StackedBarChartCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Stacked Bars", icon: "chart.bar.fill")
+            let totals = data.labels.indices.map { index in
+                data.series.reduce(0.0) { $0 + ($1.indices.contains(index) ? $1[index] : 0) }
+            }
+            let maxTotal = max(totals.max() ?? 1, 0.001)
             ForEach(data.labels.indices, id: \.self) { index in
-                HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(data.labels[index])
                         .font(.analysisUI())
-                        .frame(width: 90, alignment: .leading)
-                    HStack(spacing: 0) {
-                        ForEach(data.series.indices, id: \.self) { seriesIndex in
-                            let value = data.series[seriesIndex].indices.contains(index) ? data.series[seriesIndex][index] : 0
-                            Rectangle()
-                                .fill(colorForIndex(seriesIndex))
-                                .frame(width: CGFloat(value) * 2, height: 12)
+                        .foregroundColor(AnalysisTheme.textHeading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    GeometryReader { geo in
+                        HStack(spacing: 0) {
+                            ForEach(data.series.indices, id: \.self) { seriesIndex in
+                                let value = data.series[seriesIndex].indices.contains(index) ? data.series[seriesIndex][index] : 0
+                                Rectangle()
+                                    .fill(colorForIndex(seriesIndex))
+                                    .frame(width: geo.size.width * CGFloat(value / maxTotal), height: 12)
+                            }
                         }
                     }
+                    .frame(height: 12)
                 }
             }
         }
@@ -1692,16 +1757,23 @@ private struct GroupedBarChartCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Grouped Bars", icon: "chart.bar.doc.horizontal")
+            let maxValue = max(data.series.flatMap { $0 }.max() ?? 1, 0.001)
             ForEach(data.labels.indices, id: \.self) { index in
-                HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(data.labels[index])
                         .font(.analysisUI())
-                        .frame(width: 90, alignment: .leading)
-                    ForEach(data.series.indices, id: \.self) { seriesIndex in
-                        let value = data.series[seriesIndex].indices.contains(index) ? data.series[seriesIndex][index] : 0
-                        Rectangle()
-                            .fill(colorForIndex(seriesIndex))
-                            .frame(width: CGFloat(value) * 2, height: 10)
+                        .foregroundColor(AnalysisTheme.textHeading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(spacing: 3) {
+                        ForEach(data.series.indices, id: \.self) { seriesIndex in
+                            let value = data.series[seriesIndex].indices.contains(index) ? data.series[seriesIndex][index] : 0
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(colorForIndex(seriesIndex))
+                                    .frame(width: geo.size.width * CGFloat(value / maxValue), height: 8)
+                            }
+                            .frame(height: 8)
+                        }
                     }
                 }
             }
@@ -1741,7 +1813,7 @@ private struct TrendBarRow: View {
     let color: Color
 
     var body: some View {
-        let maxValue = values.max() ?? 1
+        let maxValue = max(values.max() ?? 1, 0.001)
         let count = min(labels.count, values.count)
         HStack(alignment: .bottom, spacing: 6) {
             ForEach(0..<count, id: \.self) { index in
@@ -1752,8 +1824,10 @@ private struct TrendBarRow: View {
                     Text(labels[index])
                         .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.textMuted)
-                        .frame(width: 40)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
     }
