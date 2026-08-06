@@ -1939,6 +1939,100 @@ struct ParsedAnalysisContent {
                 continue
             }
 
+            // Bullet list (- item / * item / • item)
+            // Inline markdown is preserved so bold/italic render downstream.
+            if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("• ") {
+                var listItems: [String] = []
+                while i < lines.count {
+                    let listLine = lines[i].trimmingCharacters(in: .whitespaces)
+                    if listLine.hasPrefix("- ") || listLine.hasPrefix("* ") || listLine.hasPrefix("• ") {
+                        let item = String(listLine.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                        if !item.isEmpty {
+                            listItems.append(item)
+                        }
+                        i += 1
+                    } else if listLine.isEmpty {
+                        i += 1
+                        break
+                    } else {
+                        break
+                    }
+                }
+                if !listItems.isEmpty {
+                    currentBlocks.append(AnalysisContentBlock(
+                        type: .bulletList,
+                        content: "",
+                        listItems: listItems
+                    ))
+                }
+                continue
+            }
+
+            // Numbered list (1. item / 1) item)
+            if line.range(of: #"^\d{1,3}[.)]\s+"#, options: .regularExpression) != nil {
+                var listItems: [String] = []
+                while i < lines.count {
+                    let listLine = lines[i].trimmingCharacters(in: .whitespaces)
+                    if let markerRange = listLine.range(of: #"^\d{1,3}[.)]\s+"#, options: .regularExpression) {
+                        let item = String(listLine[markerRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+                        if !item.isEmpty {
+                            listItems.append(item)
+                        }
+                        i += 1
+                    } else if listLine.isEmpty {
+                        i += 1
+                        break
+                    } else {
+                        break
+                    }
+                }
+                if !listItems.isEmpty {
+                    currentBlocks.append(AnalysisContentBlock(
+                        type: .numberedList,
+                        content: "",
+                        listItems: listItems
+                    ))
+                }
+                continue
+            }
+
+            // Markdown table - render each row as a bullet item so the
+            // content isn't silently dropped
+            if line.hasPrefix("|") {
+                var rowItems: [String] = []
+                while i < lines.count {
+                    let rowLine = lines[i].trimmingCharacters(in: .whitespaces)
+                    guard rowLine.hasPrefix("|") else { break }
+
+                    let isSeparatorRow = rowLine
+                        .replacingOccurrences(of: "|", with: "")
+                        .replacingOccurrences(of: "-", with: "")
+                        .replacingOccurrences(of: ":", with: "")
+                        .trimmingCharacters(in: .whitespaces)
+                        .isEmpty
+
+                    if !isSeparatorRow {
+                        let cells = rowLine
+                            .trimmingCharacters(in: CharacterSet(charactersIn: "|"))
+                            .components(separatedBy: "|")
+                            .map { $0.trimmingCharacters(in: .whitespaces) }
+                            .filter { !$0.isEmpty }
+                        if !cells.isEmpty {
+                            rowItems.append(cells.joined(separator: " — "))
+                        }
+                    }
+                    i += 1
+                }
+                if !rowItems.isEmpty {
+                    currentBlocks.append(AnalysisContentBlock(
+                        type: .bulletList,
+                        content: "",
+                        listItems: rowItems
+                    ))
+                }
+                continue
+            }
+
             // Regular paragraph
             if !line.isEmpty && !line.hasPrefix("-") && !line.hasPrefix("*") && !line.hasPrefix("|") {
                 currentBlocks.append(AnalysisContentBlock(

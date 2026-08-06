@@ -522,3 +522,36 @@ extension PDFStyleConfiguration {
         ]
     }
 }
+
+// MARK: - Typography Utilities
+
+extension PDFStyleConfiguration {
+
+    /// Convert straight quotes and apostrophes to typographic (curly) equivalents.
+    /// A quote is treated as opening when it follows the start of the text,
+    /// whitespace, or an opening bracket/dash; otherwise it closes.
+    static func smartTypography(_ text: String) -> String {
+        guard text.contains("\"") || text.contains("'") else { return text }
+
+        let openingContext: Set<Character> = [" ", "\n", "\t", "(", "[", "{", "-", "\u{2013}", "\u{2014}", "*", "_", "\u{201C}", "\u{2018}"]
+        var result = ""
+        result.reserveCapacity(text.count)
+        var previous: Character?
+
+        for character in text {
+            switch character {
+            case "\"":
+                let isOpening = previous.map { openingContext.contains($0) } ?? true
+                result.append(isOpening ? "\u{201C}" : "\u{201D}")
+            case "'":
+                let isOpening = previous.map { openingContext.contains($0) || $0 == "\"" } ?? true
+                result.append(isOpening ? "\u{2018}" : "\u{2019}")
+            default:
+                result.append(character)
+            }
+            previous = character
+        }
+
+        return result
+    }
+}

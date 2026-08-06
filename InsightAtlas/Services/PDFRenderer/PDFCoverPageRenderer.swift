@@ -1,6 +1,6 @@
 import UIKit
-import UIKit
 import CoreGraphics
+import CoreText
 
 // MARK: - PDF Cover Page Renderer
 // Creates the scholarly cover page with logo, title, author, and branding
@@ -46,13 +46,43 @@ final class PDFCoverPageRenderer {
         drawLogo(context: context, image: logoImage)
 
         // Draw title and author
-        drawTitleBlock(context: context, title: title, author: author)
+        drawTitleBlock(
+            context: context,
+            title: PDFStyleConfiguration.smartTypography(title),
+            author: Self.displayAuthorName(author)
+        )
 
         // Draw bottom tagline and branding
         drawBottomBranding(context: context)
 
         // Draw decorative corner elements
         drawCornerDecorations(context: context)
+    }
+
+    // MARK: - Author Formatting
+
+    /// Convert catalog-style "Last, First [Middle]" author names to display order
+    /// ("First Middle Last"). Names that don't clearly match that shape are
+    /// returned unchanged.
+    static func displayAuthorName(_ author: String) -> String {
+        let trimmed = author.trimmingCharacters(in: .whitespaces)
+        let parts = trimmed.components(separatedBy: ",")
+        guard parts.count == 2 else { return trimmed }
+
+        let lastName = parts[0].trimmingCharacters(in: .whitespaces)
+        let firstNames = parts[1].trimmingCharacters(in: .whitespaces)
+
+        let looksLikeSuffix = ["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "phd", "ph.d.", "md", "m.d."]
+            .contains(firstNames.lowercased())
+
+        guard !lastName.isEmpty, !firstNames.isEmpty,
+              !looksLikeSuffix,
+              !trimmed.lowercased().contains(" and "),
+              !trimmed.contains("&"),
+              firstNames.components(separatedBy: " ").count <= 3
+        else { return trimmed }
+
+        return "\(firstNames) \(lastName)"
     }
 
     // MARK: - Private Drawing Methods
@@ -382,12 +412,100 @@ final class PDFCoverPageRenderer {
 
 extension PDFCoverPageRenderer {
 
-    /// Render a table of contents page with pagination support
+    /// Layout constants shared by TOC rendering and page-count estimation.
+    /// Keep these two paths in sync so estimated page counts always match
+    /// what actually gets drawn.
+    private enum TOCLayout {
+        static let pageNumberWidth: CGFloat = 30
+        static let titleTrailingGap: CGFloat = 24
+        static let firstPageTopY: CGFloat = 100
+        static let headerBlockHeight: CGFloat = 80  // "Contents" heading + rule + spacing
+        static let entryVerticalPadding: CGFloat = 9
+        static let subsectionIndent: CGFloat = 24
+
+        static func minEntryHeight(isSubsection: Bool) -> CGFloat {
+            isSubsection ? 24 : 28
+        }
+    }
+
+    private func tocEntryFont(isSubsection: Bool) -> UIFont {
+        isSubsection ? PDFStyleConfiguration.Typography.body() : PDFStyleConfiguration.Typography.bodyBold()
+    }
+
+    private func tocTitleAttributes(isSubsection: Bool) -> [NSAttributedString.Key: Any] {
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byWordWrapping
+        return [
+            .font: tocEntryFont(isSubsection: isSubsection),
+            .foregroundColor: isSubsection ? PDFStyleConfiguration.Colors.textBody : PDFStyleConfiguration.Colors.textHeading,
+            .paragraphStyle: style
+        ]
+    }
+
+    private func tocMaxTitleWidth(isSubsection: Bool) -> CGFloat {
+        let marginLeft = PDFStyleConfiguration.PageLayout.marginLeft
+        let marginRight = PDFStyleConfiguration.PageLayout.marginRight
+        let contentWidth = pageSize.width - marginLeft - marginRight
+        let indent = isSubsection ? TOCLayout.subsectionIndent : 0
+        return contentWidth - indent - TOCLayout.pageNumberWidth - TOCLayout.titleTrailingGap
+    }
+
+    /// Wrapped title height and total row height for one TOC entry
+    private func tocEntryMetrics(title: String, isSubsection: Bool) -> (rowHeight: CGFloat, titleHeight: CGFloat) {
+        let attributed = NSAttributedString(string: title, attributes: tocTitleAttributes(isSubsection: isSubsection))
+        let bounding = attributed.boundingRect(
+            with: CGSize(width: tocMaxTitleWidth(isSubsection: isSubsection), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
+        let titleHeight = ceil(bounding.height)
+        let rowHeight = max(TOCLayout.minEntryHeight(isSubsection: isSubsection), titleHeight + TOCLayout.entryVerticalPadding)
+        return (rowHeight, titleHeight)
+    }
+
+    /// Width of the last rendered line of a wrapped title, used to start the
+    /// dotted leader after the text ends.
+    private func tocLastLineWidth(of attributed: NSAttributedString, maxWidth: CGFloat) -> CGFloat {
+        let framesetter = CTFramesetterCreateWithAttributedString(attributed)
+        let path = CGPath(rect: CGRect(x: 0, y: 0, width: maxWidth, height: 10_000), transform: nil)
+        let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
+        let lines = CTFrameGetLines(frame)
+        let lineCount = CFArrayGetCount(lines)
+        guard lineCount > 0 else {
+            return min(ceil(attributed.size().width), maxWidth)
+        }
+        let lastLine = unsafeBitCast(CFArrayGetValueAtIndex(lines, lineCount - 1), to: CTLine.self)
+        return min(ceil(CGFloat(CTLineGetTypographicBounds(lastLine, nil, nil, nil))), maxWidth)
+    }
+
+    /// Number of pages the table of contents will occupy for the given entries.
+    /// Mirrors the pagination in `renderTableOfContents` exactly.
+    func tableOfContentsPageCount(sections: [(title: String, page: Int, isSubsection: Bool)]) -> Int {
+        let maxY = pageSize.height - PDFStyleConfiguration.PageLayout.marginBottom - 40
+        var currentY = TOCLayout.firstPageTopY + TOCLayout.headerBlockHeight
+        var pageCount = 1
+
+        for entry in sections {
+            let title = PDFStyleConfiguration.smartTypography(entry.title)
+            let rowHeight = tocEntryMetrics(title: title, isSubsection: entry.isSubsection).rowHeight
+            if currentY + rowHeight > maxY {
+                pageCount += 1
+                currentY = PDFStyleConfiguration.PageLayout.marginTop
+            }
+            currentY += rowHeight
+        }
+
+        return pageCount
+    }
+
+    /// Render the table of contents with pagination support
     /// - Parameters:
     ///   - context: The Core Graphics context
     ///   - sections: Array of (title, pageNumber, isSubsection) tuples
-    ///   - pdfRenderer: The UIGraphicsPDFRendererContext for creating new pages
-    /// Returns the number of TOC pages rendered
+    ///   - pdfRenderer: The UIGraphicsPDFRendererContext used to begin
+    ///     additional pages when entries overflow. Without it, overflowing
+    ///     entries are truncated (never drawn over already-rendered ones).
+    /// - Returns: the number of TOC pages rendered
     @discardableResult
     func renderTableOfContents(
         to context: CGContext,
@@ -396,114 +514,88 @@ extension PDFCoverPageRenderer {
     ) -> Int {
         let marginLeft = PDFStyleConfiguration.PageLayout.marginLeft
         let marginRight = PDFStyleConfiguration.PageLayout.marginRight
-        let marginBottom = PDFStyleConfiguration.PageLayout.marginBottom
-        let contentWidth = pageSize.width - marginLeft - marginRight
-        let maxY = pageSize.height - marginBottom - 40 // Leave room for page footer
+        let maxY = pageSize.height - PDFStyleConfiguration.PageLayout.marginBottom - 40 // Leave room for page footer
 
-        var currentY: CGFloat = 100
+        var currentY = TOCLayout.firstPageTopY
         var pageCount = 1
 
-        // Helper to start a new TOC page
-        func startNewPage() {
-            if let renderer = pdfRenderer {
+        func fillBackground() {
+            context.setFillColor(PDFStyleConfiguration.Colors.bgPrimary.cgColor)
+            context.fill(CGRect(origin: .zero, size: pageSize))
+        }
+
+        // First page: background plus "Contents" header
+        fillBackground()
+
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.displayH1(),
+            .foregroundColor: PDFStyleConfiguration.Colors.textHeading,
+            .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
+                lineHeight: 32,
+                alignment: .left,
+                paragraphSpacing: 8
+            )
+        ]
+        let headerText = NSAttributedString(string: "Contents", attributes: headerAttributes)
+        let contentWidth = pageSize.width - marginLeft - marginRight
+        headerText.draw(in: CGRect(x: marginLeft, y: currentY, width: contentWidth, height: 40))
+
+        currentY += 50
+
+        context.setStrokeColor(PDFStyleConfiguration.Colors.primaryGold.cgColor)
+        context.setLineWidth(2.0)
+        context.move(to: CGPoint(x: marginLeft, y: currentY))
+        context.addLine(to: CGPoint(x: marginLeft + 60, y: currentY))
+        context.strokePath()
+
+        currentY += 30
+
+        // Draw TOC entries
+        for (rawTitle, page, isSubsection) in sections {
+            let title = PDFStyleConfiguration.smartTypography(rawTitle)
+            let metrics = tocEntryMetrics(title: title, isSubsection: isSubsection)
+
+            // Page break when the next entry doesn't fit
+            if currentY + metrics.rowHeight > maxY {
+                guard let renderer = pdfRenderer else {
+                    // No renderer context to begin a new page with — stop
+                    // rather than painting over entries already drawn.
+                    break
+                }
                 renderer.beginPage()
-            }
-            // Fill background
-            context.setFillColor(PDFStyleConfiguration.Colors.bgPrimary.cgColor)
-            context.fill(CGRect(origin: .zero, size: pageSize))
-            pageCount += 1
-            currentY = PDFStyleConfiguration.PageLayout.marginTop
-        }
-
-        // Helper to draw header on first page
-        func drawHeader() {
-            // Fill background
-            context.setFillColor(PDFStyleConfiguration.Colors.bgPrimary.cgColor)
-            context.fill(CGRect(origin: .zero, size: pageSize))
-
-            // Draw "Contents" header
-            let headerAttributes: [NSAttributedString.Key: Any] = [
-                .font: PDFStyleConfiguration.Typography.displayH1(),
-                .foregroundColor: PDFStyleConfiguration.Colors.textHeading,
-                .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
-                    lineHeight: 32,
-                    alignment: .left,
-                    paragraphSpacing: 8
-                )
-            ]
-            let headerText = NSAttributedString(string: "Contents", attributes: headerAttributes)
-            let headerRect = CGRect(x: marginLeft, y: currentY, width: contentWidth, height: 40)
-            headerText.draw(in: headerRect)
-
-            currentY += 50
-
-            // Draw decorative line
-            context.setStrokeColor(PDFStyleConfiguration.Colors.primaryGold.cgColor)
-            context.setLineWidth(2.0)
-            context.move(to: CGPoint(x: marginLeft, y: currentY))
-            context.addLine(to: CGPoint(x: marginLeft + 60, y: currentY))
-            context.strokePath()
-
-            currentY += 30
-        }
-
-        // Draw header on first page
-        drawHeader()
-
-        // Draw TOC entries with improved leader lines
-        for (title, page, isSubsection) in sections {
-            let entryHeight: CGFloat = isSubsection ? 24 : 28  // Slightly increased for readability
-
-            // Check if we need a new page
-            if currentY + entryHeight > maxY {
-                startNewPage()
+                fillBackground()
+                pageCount += 1
+                currentY = PDFStyleConfiguration.PageLayout.marginTop
             }
 
-            let indent: CGFloat = isSubsection ? 24 : 0  // Increased indent for clearer hierarchy
-            let font = isSubsection ? PDFStyleConfiguration.Typography.body() : PDFStyleConfiguration.Typography.bodyBold()
-            let color = isSubsection ? PDFStyleConfiguration.Colors.textBody : PDFStyleConfiguration.Colors.textHeading
-
-            // Title attributes
-            let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: color
-            ]
-
-            // Page number attributes - right-aligned with consistent styling
-            let pageAttributes: [NSAttributedString.Key: Any] = [
-                .font: PDFStyleConfiguration.Typography.body(),
-                .foregroundColor: PDFStyleConfiguration.Colors.textMuted
-            ]
-
+            let indent: CGFloat = isSubsection ? TOCLayout.subsectionIndent : 0
+            let maxTitleWidth = tocMaxTitleWidth(isSubsection: isSubsection)
+            let titleAttributes = tocTitleAttributes(isSubsection: isSubsection)
             let titleText = NSAttributedString(string: title, attributes: titleAttributes)
-            let pageText = NSAttributedString(string: "\(page)", attributes: pageAttributes)
 
-            let titleSize = titleText.size()
-            let pageSizeCalc = pageText.size()
-
-            // Reserve fixed width for page numbers (right-aligned)
-            let pageNumberWidth: CGFloat = 30
-
-            // Draw title
-            let maxTitleWidth = contentWidth - indent - pageNumberWidth - 24
+            // Draw title (wraps onto multiple lines when needed)
             let titleRect = CGRect(
                 x: marginLeft + indent,
                 y: currentY,
                 width: maxTitleWidth,
-                height: titleSize.height
+                height: metrics.titleHeight
             )
             titleText.draw(in: titleRect)
 
-            // Draw dotted leader line - consistent 2pt dots with 4pt gaps
-            let actualTitleWidth = min(titleSize.width, maxTitleWidth)
-            let leaderStartX = marginLeft + indent + actualTitleWidth + 8
-            let leaderEndX = self.pageSize.width - marginRight - pageNumberWidth - 4
-            let leaderY = currentY + titleSize.height / 2
+            // Align leader dots and page number with the last line of the title
+            let font = tocEntryFont(isSubsection: isSubsection)
+            let lineHeight = ceil(font.lineHeight)
+            let lastLineTop = currentY + max(0, metrics.titleHeight - lineHeight)
+            let lastLineWidth = tocLastLineWidth(of: titleText, maxWidth: maxTitleWidth)
 
-            if leaderEndX > leaderStartX + 10 {  // Only draw if there's enough space
+            // Dotted leader line - 2pt dots with 4pt gaps
+            let leaderStartX = marginLeft + indent + lastLineWidth + 8
+            let leaderEndX = pageSize.width - marginRight - TOCLayout.pageNumberWidth - 4
+            let leaderY = lastLineTop + lineHeight / 2
+
+            if leaderEndX > leaderStartX + 10 {
                 context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
                 context.setLineWidth(0.5)
-                // Proper dot spacing: 2pt dots, 4pt gaps
                 context.setLineDash(phase: 0, lengths: [2, 4])
                 context.move(to: CGPoint(x: leaderStartX, y: leaderY))
                 context.addLine(to: CGPoint(x: leaderEndX, y: leaderY))
@@ -511,25 +603,24 @@ extension PDFCoverPageRenderer {
                 context.setLineDash(phase: 0, lengths: []) // Reset dash
             }
 
-            // Draw page number - right-aligned
-            let pageRect = CGRect(
-                x: self.pageSize.width - marginRight - pageNumberWidth,
-                y: currentY,
-                width: pageNumberWidth,
-                height: pageSizeCalc.height
-            )
-            // Right-align the page number
-            let rightAlignedPageStyle = NSMutableParagraphStyle()
-            rightAlignedPageStyle.alignment = .right
-            let rightAlignedPageAttributes: [NSAttributedString.Key: Any] = [
+            // Page number - right-aligned on the last title line
+            let pageStyle = NSMutableParagraphStyle()
+            pageStyle.alignment = .right
+            let pageAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.body(),
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
-                .paragraphStyle: rightAlignedPageStyle
+                .paragraphStyle: pageStyle
             ]
-            let rightAlignedPageText = NSAttributedString(string: "\(page)", attributes: rightAlignedPageAttributes)
-            rightAlignedPageText.draw(in: pageRect)
+            let pageText = NSAttributedString(string: "\(page)", attributes: pageAttributes)
+            let pageRect = CGRect(
+                x: pageSize.width - marginRight - TOCLayout.pageNumberWidth,
+                y: lastLineTop,
+                width: TOCLayout.pageNumberWidth,
+                height: lineHeight
+            )
+            pageText.draw(in: pageRect)
 
-            currentY += entryHeight
+            currentY += metrics.rowHeight
         }
 
         return pageCount
