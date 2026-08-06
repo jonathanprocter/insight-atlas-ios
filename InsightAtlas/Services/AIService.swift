@@ -182,6 +182,20 @@ actor AIService {
         let hasClaudeKey = !(settings.claudeApiKey ?? "").isEmpty
         let hasOpenAIKey = !(settings.openaiApiKey ?? "").isEmpty
 
+        // UNOFFICIAL: route generation through the user's ChatGPT subscription
+        // (Codex backend) when opted in AND signed in. Overrides provider
+        // selection and API-key checks. See ChatGPTOAuthService.
+        if UserDefaults.standard.bool(forKey: "insight_atlas_use_chatgpt_oauth"),
+           ChatGPTOAuthService.hasStoredCredentials {
+            return try await generateWithChatGPTOAuth(
+                bookText: bookText,
+                title: title,
+                author: author,
+                settings: settings,
+                onChunk: onChunk
+            )
+        }
+
         // Pre-flight validation: check input size before making API call
         // Skip for continuation/improvement requests which use smaller input
         if previousContent == nil {
@@ -357,6 +371,41 @@ actor AIService {
     }
 
     // MARK: - Claude Integration
+
+    /// UNOFFICIAL ChatGPT-subscription generation via the Codex backend.
+    /// Single-shot (non-streaming); emits the full guide once via onChunk.
+    private func generateWithChatGPTOAuth(
+        bookText: String,
+        title: String,
+        author: String,
+        settings: UserSettings,
+        onChunk: @escaping (String) -> Void
+    ) async throws -> String {
+        let token = try await ChatGPTOAuthService.shared.validAccessToken()
+        let accountID = ChatGPTOAuthService.storedAccountID
+        let system = InsightAtlasPromptGenerator.generatePrompt(
+            title: title,
+            author: author,
+            mode: settings.preferredMode,
+            tone: settings.preferredTone,
+            format: settings.preferredFormat
+        )
+        let user = InsightAtlasPromptGenerator.generateUserMessage(
+            title: title,
+            author: author,
+            bookText: bookText,
+            format: settings.preferredFormat
+        )
+        let content = try await ChatGPTCodexClient().generate(
+            systemPrompt: system,
+            userMessage: user,
+            model: ChatGPTOAuthConfig.defaultModel,
+            accessToken: token,
+            accountID: accountID
+        )
+        onChunk(content)
+        return content
+    }
 
     private func streamWithClaude(
         text: String,

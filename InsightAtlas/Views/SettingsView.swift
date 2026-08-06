@@ -532,6 +532,9 @@ struct PremiumChoiceRow: View {
 
 struct APIConfigurationView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
+    @AppStorage("insight_atlas_use_chatgpt_oauth") private var useChatGPTOAuth = false
+    @State private var showChatGPTSignIn = false
 
     var body: some View {
         List {
@@ -577,8 +580,49 @@ struct APIConfigurationView: View {
             } header: {
                 Text("Optional Narration Provider")
             }
+
+            Section {
+                if chatgpt.isSignedIn {
+                    HStack {
+                        Text("ChatGPT")
+                        Spacer()
+                        Text("Signed in")
+                            .foregroundStyle(PremiumUI.forest)
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(PremiumUI.forest)
+                    }
+                    .listRowBackground(PremiumUI.card)
+
+                    Toggle("Use for guide generation", isOn: $useChatGPTOAuth)
+                        .tint(PremiumUI.gold)
+                        .listRowBackground(PremiumUI.card)
+
+                    Button(role: .destructive) {
+                        chatgpt.signOut()
+                        useChatGPTOAuth = false
+                        PremiumHaptics.notification(.warning)
+                    } label: {
+                        Text("Sign out of ChatGPT")
+                    }
+                    .listRowBackground(PremiumUI.card)
+                } else {
+                    Button {
+                        showChatGPTSignIn = true
+                    } label: {
+                        Label("Sign in with ChatGPT", systemImage: "person.crop.circle")
+                    }
+                    .listRowBackground(PremiumUI.card)
+                }
+            } header: {
+                Text("ChatGPT Subscription (Beta)")
+            } footer: {
+                Text("Unofficial: routes guide generation through your ChatGPT subscription via the Codex backend. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or ban your account. Use at your own risk.")
+            }
         }
         .premiumSettingsList(title: "API Configuration")
+        .sheet(isPresented: $showChatGPTSignIn) {
+            ChatGPTSignInSheet()
+        }
     }
 }
 

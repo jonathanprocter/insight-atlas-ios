@@ -24,6 +24,8 @@
 		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
 		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
+		C207E5CC3024380C00843994 /* ChatGPTOAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */; };
+		C207E5CE3024382000843994 /* ChatGPTSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5CD3024382000843994 /* ChatGPTSignInView.swift */; };
 		C21355A72EE6360100B6662D /* CormorantGaramond-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */; };
 		C21355A82EE6360100B6662D /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559C2EE6360100B6662D /* Inter-Regular.ttf */; };
 		C21355A92EE6360100B6662D /* CormorantGaramond-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355922EE6360100B6662D /* CormorantGaramond-Italic.ttf */; };
@@ -143,6 +145,8 @@
 		A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = PDFTextFixerPatterns.json; sourceTree = "<group>"; };
 		A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/EditorialBlockViews.swift; sourceTree = SOURCE_ROOT; };
 		AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFContentBlockRenderer.swift; sourceTree = "<group>"; };
+		C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTOAuthService.swift; sourceTree = "<group>"; };
+		C207E5CD3024382000843994 /* ChatGPTSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTSignInView.swift; sourceTree = "<group>"; };
 		C213558F2EE6360100B6662D /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
 		C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-BoldItalic.ttf"; sourceTree = "<group>"; };
@@ -365,6 +369,7 @@
 				IAVOICEPKVW02AAA002 /* VoicePickerView.swift */,
 				C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */,
 				C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */,
+				C207E5CD3024382000843994 /* ChatGPTSignInView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -396,6 +401,7 @@
 				IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */,
 				IAVOICEPROV02AAA002 /* VoiceProvider.swift */,
 				IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */,
+				C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -654,6 +660,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */,
+				C207E5CC3024380C00843994 /* ChatGPTOAuthService.swift in Sources */,
 				82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */,
 				9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */,
 				48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */,
@@ -698,6 +705,7 @@
 				IAVISUAL003AAAAAAAAAA003 /* GuideVisualType.swift in Sources */,
 				IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */,
 				IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */,
+				C207E5CE3024382000843994 /* ChatGPTSignInView.swift in Sources */,
 				IATHEME001AAAAAAAAAA001 /* VisualTheme.swift in Sources */,
 				IALAYOUT001AAAAAAAAA001 /* LayoutScore.swift in Sources */,
 				IABULK0001AAAAAAAAAA001 /* BulkExportCoordinator.swift in Sources */,
