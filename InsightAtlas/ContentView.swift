@@ -77,22 +77,27 @@ enum PremiumUI {
         })
     }
 
-    // Accents — brand hues, lightened in dark for contrast on dark surfaces.
-    static let gold      = adaptive("#CBA135", "#D9B84A")
-    static let goldDark  = adaptive("#A9801F", "#D9B84A")
-    static let burgundy  = adaptive("#7B203D", "#C56B82")
-    static let coral     = adaptive("#EF7058", "#F0876F")
-    static let teal      = adaptive("#3B7C78", "#5FA9A4")
+    // Accents — CMV-blended palette; hero gold plus supporting hues.
+    // Dark variants are lightened for contrast on dark surfaces.
+    static let gold       = adaptive("#D4B820", "#E0C645")   // Sunny Gold (hero)
+    static let goldDark   = adaptive("#A8901A", "#E0C645")
+    static let burgundy   = adaptive("#7B203D", "#C56B82")
+    static let coral      = adaptive("#E8553A", "#F0876F")   // Coral Arrow
+    static let teal       = adaptive("#3B7C78", "#5FA9A4")
+    static let skyBlue    = adaptive("#4BA3C8", "#6FC0DF")   // Sky Blue
+    static let forest     = adaptive("#3D5840", "#7BAE80")   // Forest
+    static let warmOrange = adaptive("#D87520", "#E89B5A")   // Warm Orange
 
-    // Surfaces & text — adaptive so dark mode renders correctly.
-    static let background    = adaptive("#F7F4EC", "#1A1816")
-    static let card          = adaptive("#FFFDFC", "#2A2725")
-    static let searchFill    = adaptive("#EEECEF", "#242120")
-    static let chipFill      = adaptive("#ECEBE9", "#33302E")
-    static let ink           = adaptive("#171717", "#F5F3ED")
-    static let secondaryText = adaptive("#6E6A67", "#B8B0A3")
-    static let divider       = adaptive("#E3DDD1", "#3D3A38")
-    static let softGold      = adaptive("#F5EEDC", "#332B1A")
+    // Surfaces & text — "Warm Mist" cool-neutral base (2026 quiet-interface),
+    // adaptive so dark mode renders correctly.
+    static let background    = adaptive("#F3F4F1", "#16181A")
+    static let card          = adaptive("#FAFCFD", "#24262A")
+    static let searchFill    = adaptive("#ECEFF2", "#23262A")
+    static let chipFill      = adaptive("#E7EAEE", "#2E3237")
+    static let ink           = adaptive("#1E1E1E", "#F2F4F5")
+    static let secondaryText = adaptive("#555555", "#B4B8BC")
+    static let divider       = adaptive("#E1E4E8", "#33373B")
+    static let softGold      = adaptive("#F5EFD6", "#332B18")
 
     static let cardShadow = Color.black.opacity(0.10)
 

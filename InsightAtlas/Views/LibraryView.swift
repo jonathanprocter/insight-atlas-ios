@@ -384,7 +384,7 @@ struct LibraryView: View {
     }
 
     private func accentColor(for item: LibraryItem) -> Color {
-        let palette = [PremiumUI.gold, PremiumUI.burgundy, PremiumUI.coral, PremiumUI.teal]
+        let palette = [PremiumUI.gold, PremiumUI.coral, PremiumUI.skyBlue, PremiumUI.forest, PremiumUI.warmOrange]
         let scalarSum = item.id.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
         return palette[scalarSum % palette.count]
     }
@@ -465,9 +465,9 @@ enum PremiumGuideStatus: String {
 
     var color: Color {
         switch self {
-        case .completed: return PremiumUI.goldDark
-        case .inProgress: return PremiumUI.burgundy
-        case .draft: return PremiumUI.secondaryText
+        case .completed: return PremiumUI.forest       // green = done
+        case .inProgress: return PremiumUI.warmOrange   // orange = active
+        case .draft: return PremiumUI.secondaryText     // gray = waiting
         }
     }
 }
