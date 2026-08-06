@@ -452,81 +452,79 @@ extension PDFCoverPageRenderer {
 
         // Draw TOC entries with improved leader lines
         for (title, page, isSubsection) in sections {
-            let entryHeight: CGFloat = isSubsection ? 24 : 28  // Slightly increased for readability
+            let indent: CGFloat = isSubsection ? 24 : 0  // Increased indent for clearer hierarchy
+            let font = isSubsection ? PDFStyleConfiguration.Typography.body() : PDFStyleConfiguration.Typography.bodyBold()
+            let color = isSubsection ? PDFStyleConfiguration.Colors.textBody : PDFStyleConfiguration.Colors.textHeading
+            let pageNumberWidth: CGFloat = 30
+            let maxTitleWidth = contentWidth - indent - pageNumberWidth - 24
 
-            // Check if we need a new page
+            // Title wraps to as many lines as needed so long headings are never clipped
+            let titleParagraph = NSMutableParagraphStyle()
+            titleParagraph.lineBreakMode = .byWordWrapping
+            let titleAttributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: color,
+                .paragraphStyle: titleParagraph
+            ]
+            let titleText = NSAttributedString(string: title, attributes: titleAttributes)
+
+            let pageText = NSAttributedString(string: "\(page)", attributes: [
+                .font: PDFStyleConfiguration.Typography.body(),
+                .foregroundColor: PDFStyleConfiguration.Colors.textMuted
+            ])
+            let lineHeight = pageText.size().height
+
+            // Measure the wrapped title so the row can grow to fit it
+            let titleBounds = titleText.boundingRect(
+                with: CGSize(width: maxTitleWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                context: nil
+            )
+            let titleHeight = max(ceil(titleBounds.height), lineHeight)
+            let rowPadding: CGFloat = isSubsection ? 8 : 10
+            let entryHeight = titleHeight + rowPadding
+
+            // Page break using the actual (possibly multi-line) height
             if currentY + entryHeight > maxY {
                 startNewPage()
             }
 
-            let indent: CGFloat = isSubsection ? 24 : 0  // Increased indent for clearer hierarchy
-            let font = isSubsection ? PDFStyleConfiguration.Typography.body() : PDFStyleConfiguration.Typography.bodyBold()
-            let color = isSubsection ? PDFStyleConfiguration.Colors.textBody : PDFStyleConfiguration.Colors.textHeading
+            // Draw the wrapped title
+            let titleRect = CGRect(x: marginLeft + indent, y: currentY, width: maxTitleWidth, height: titleHeight)
+            titleText.draw(with: titleRect, options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
 
-            // Title attributes
-            let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: color
-            ]
+            let firstLineCenterY = currentY + lineHeight / 2
 
-            // Page number attributes - right-aligned with consistent styling
-            let pageAttributes: [NSAttributedString.Key: Any] = [
-                .font: PDFStyleConfiguration.Typography.body(),
-                .foregroundColor: PDFStyleConfiguration.Colors.textMuted
-            ]
-
-            let titleText = NSAttributedString(string: title, attributes: titleAttributes)
-            let pageText = NSAttributedString(string: "\(page)", attributes: pageAttributes)
-
-            let titleSize = titleText.size()
-            let pageSizeCalc = pageText.size()
-
-            // Reserve fixed width for page numbers (right-aligned)
-            let pageNumberWidth: CGFloat = 30
-
-            // Draw title
-            let maxTitleWidth = contentWidth - indent - pageNumberWidth - 24
-            let titleRect = CGRect(
-                x: marginLeft + indent,
-                y: currentY,
-                width: maxTitleWidth,
-                height: titleSize.height
-            )
-            titleText.draw(in: titleRect)
-
-            // Draw dotted leader line - consistent 2pt dots with 4pt gaps
-            let actualTitleWidth = min(titleSize.width, maxTitleWidth)
-            let leaderStartX = marginLeft + indent + actualTitleWidth + 8
-            let leaderEndX = self.pageSize.width - marginRight - pageNumberWidth - 4
-            let leaderY = currentY + titleSize.height / 2
-
-            if leaderEndX > leaderStartX + 10 {  // Only draw if there's enough space
-                context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
-                context.setLineWidth(0.5)
-                // Proper dot spacing: 2pt dots, 4pt gaps
-                context.setLineDash(phase: 0, lengths: [2, 4])
-                context.move(to: CGPoint(x: leaderStartX, y: leaderY))
-                context.addLine(to: CGPoint(x: leaderEndX, y: leaderY))
-                context.strokePath()
-                context.setLineDash(phase: 0, lengths: []) // Reset dash
+            // Dotted leader — only for single-line entries (a leader mid-wrap looks broken)
+            let isSingleLine = titleHeight <= lineHeight + 1
+            if isSingleLine {
+                let leaderStartX = marginLeft + indent + min(ceil(titleBounds.width), maxTitleWidth) + 8
+                let leaderEndX = self.pageSize.width - marginRight - pageNumberWidth - 4
+                if leaderEndX > leaderStartX + 10 {
+                    context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+                    context.setLineWidth(0.5)
+                    context.setLineDash(phase: 0, lengths: [2, 4])
+                    context.move(to: CGPoint(x: leaderStartX, y: firstLineCenterY))
+                    context.addLine(to: CGPoint(x: leaderEndX, y: firstLineCenterY))
+                    context.strokePath()
+                    context.setLineDash(phase: 0, lengths: [])
+                }
             }
 
-            // Draw page number - right-aligned
+            // Page number — right-aligned on the first line of the entry
+            let rightAlignedPageStyle = NSMutableParagraphStyle()
+            rightAlignedPageStyle.alignment = .right
+            let rightAlignedPageText = NSAttributedString(string: "\(page)", attributes: [
+                .font: PDFStyleConfiguration.Typography.body(),
+                .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
+                .paragraphStyle: rightAlignedPageStyle
+            ])
             let pageRect = CGRect(
                 x: self.pageSize.width - marginRight - pageNumberWidth,
                 y: currentY,
                 width: pageNumberWidth,
-                height: pageSizeCalc.height
+                height: lineHeight
             )
-            // Right-align the page number
-            let rightAlignedPageStyle = NSMutableParagraphStyle()
-            rightAlignedPageStyle.alignment = .right
-            let rightAlignedPageAttributes: [NSAttributedString.Key: Any] = [
-                .font: PDFStyleConfiguration.Typography.body(),
-                .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
-                .paragraphStyle: rightAlignedPageStyle
-            ]
-            let rightAlignedPageText = NSAttributedString(string: "\(page)", attributes: rightAlignedPageAttributes)
             rightAlignedPageText.draw(in: pageRect)
 
             currentY += entryHeight

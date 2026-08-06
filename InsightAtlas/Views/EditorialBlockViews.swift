@@ -63,7 +63,9 @@ struct InsightNoteBlockView: View {
     let title: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let parsed = parseStructuredNoteContent(content)
+
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "lightbulb.fill")
                     .font(.title3)
@@ -75,12 +77,60 @@ struct InsightNoteBlockView: View {
                     .foregroundColor(AnalysisTheme.accentTeal)
             }
 
-            Text(parseMarkdownBold(content))
-                .font(.analysisBody())
-                .foregroundColor(AnalysisTheme.textBody)
-                .lineSpacing(6)
+            if !parsed.coreConnection.isEmpty {
+                Text(parseMarkdownBold(parsed.coreConnection))
+                    .font(.analysisBody())
+                    .foregroundColor(AnalysisTheme.textBody)
+                    .lineSpacing(6)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let keyDistinction = parsed.keyDistinction, !keyDistinction.isEmpty {
+                NoteSubsection(
+                    label: "KEY DISTINCTION",
+                    icon: "arrow.triangle.branch",
+                    text: keyDistinction
+                )
+            }
+
+            if let practical = parsed.practicalImplication, !practical.isEmpty {
+                NoteSubsection(
+                    label: "PRACTICAL IMPLICATION",
+                    icon: "lightbulb",
+                    text: practical
+                )
+            }
+
+            if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
+                // Inset "Go Deeper" card with gold accent bar, matching the PDF layout
+                HStack(alignment: .top, spacing: 12) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(AnalysisTheme.primaryGold)
+                        .frame(width: 3)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("GO DEEPER")
+                            .font(.analysisUISmall())
+                            .fontWeight(.semibold)
+                            .tracking(1.5)
+                            .foregroundColor(AnalysisTheme.primaryGoldText)
+
+                        Text(parseMarkdownBold(goDeeper))
+                            .font(.analysisBody())
+                            .italic()
+                            .foregroundColor(AnalysisTheme.textBody)
+                            .lineSpacing(5)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AnalysisTheme.bgSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.sm))
+            }
         }
         .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(AnalysisTheme.accentTealSubtle.opacity(0.3))
         .cornerRadius(AnalysisTheme.Radius.md)
         .overlay(
@@ -88,6 +138,74 @@ struct InsightNoteBlockView: View {
                 .stroke(AnalysisTheme.accentTeal.opacity(0.3), lineWidth: 1)
         )
     }
+}
+
+/// A labeled sub-section within an Insight Atlas Note — the label always
+/// starts on its own line above the text.
+private struct NoteSubsection: View {
+    let label: String
+    let icon: String
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundColor(AnalysisTheme.accentTeal)
+
+                Text(label)
+                    .font(.analysisUISmall())
+                    .fontWeight(.semibold)
+                    .tracking(1.5)
+                    .foregroundColor(AnalysisTheme.accentTeal)
+            }
+
+            Text(parseMarkdownBold(text))
+                .font(.analysisBody())
+                .foregroundColor(AnalysisTheme.textBody)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Splits note content into its editorial sections so each labeled part
+/// ("Key Distinction:", "Practical Implication:", "Go Deeper:") renders on
+/// its own line instead of running together in one paragraph.
+func parseStructuredNoteContent(_ content: String) -> (coreConnection: String, keyDistinction: String?, practicalImplication: String?, goDeeper: String?) {
+    let normalized = content.replacingOccurrences(of: "\n", with: " ")
+
+    func stripMarkers(_ text: String) -> String {
+        text.replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func section(after marker: String, endingAt enders: [String]) -> String? {
+        guard let start = normalized.range(of: marker, options: .caseInsensitive) else { return nil }
+        var text = String(normalized[start.upperBound...])
+        for ender in enders {
+            if let end = text.range(of: ender, options: .caseInsensitive) {
+                text = String(text[..<end.lowerBound])
+            }
+        }
+        return stripMarkers(text)
+    }
+
+    let keyDistinction = section(after: "Key Distinction:", endingAt: ["Practical Implication", "Go Deeper"])
+    let practicalImplication = section(after: "Practical Implication:", endingAt: ["Go Deeper"])
+    let goDeeper = section(after: "Go Deeper:", endingAt: [])
+
+    var coreText = normalized
+    for marker in ["Key Distinction", "Practical Implication", "Go Deeper"] {
+        if let range = coreText.range(of: marker, options: .caseInsensitive) {
+            coreText = String(coreText[..<range.lowerBound])
+        }
+    }
+    // Trim any trailing bold marker left from "**Key Distinction:**"-style labels
+    let coreConnection = stripMarkers(coreText)
+
+    return (coreConnection, keyDistinction, practicalImplication, goDeeper)
 }
 
 // MARK: - Action Box Block
@@ -310,42 +428,75 @@ struct PremiumQuoteBlockView: View {
     let quote: String
     let attribution: String?
 
+    /// The big quote glyph supplies the quotation marks, so strip any that
+    /// came along in the source text.
+    private var cleanQuote: String {
+        quote.trimmingCharacters(in: CharacterSet(charactersIn: "\"\u{201C}\u{201D} \n"))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(spacing: 18) {
+            // Ornamental top rule with quote glyph
+            HStack(spacing: 12) {
+                Rectangle()
+                    .fill(LinearGradient(colors: [.clear, AnalysisTheme.primaryGold], startPoint: .leading, endPoint: .trailing))
+                    .frame(height: 1)
+
                 Image(systemName: "quote.opening")
-                    .font(.title)
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(AnalysisTheme.primaryGold)
 
-                Text(quote)
-                    .font(.analysisDisplayH4())
-                    .foregroundColor(AnalysisTheme.textHeading)
-                    .italic()
-                    .lineSpacing(8)
+                Rectangle()
+                    .fill(LinearGradient(colors: [AnalysisTheme.primaryGold, .clear], startPoint: .leading, endPoint: .trailing))
+                    .frame(height: 1)
             }
 
+            Text(cleanQuote)
+                .font(.analysisDisplayH3())
+                .italic()
+                .foregroundColor(AnalysisTheme.textHeading)
+                .multilineTextAlignment(.center)
+                .lineSpacing(8)
+                .fixedSize(horizontal: false, vertical: true)
+
             if let attribution = attribution, !attribution.isEmpty {
-                HStack {
-                    Spacer()
-                    Text("— \(attribution)")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
-                }
+                Text("— \(attribution)")
+                    .font(.analysisUIBold())
+                    .tracking(1)
+                    .foregroundColor(AnalysisTheme.primaryGoldText)
+            }
+
+            // Ornamental bottom rule
+            HStack(spacing: 12) {
+                Rectangle()
+                    .fill(LinearGradient(colors: [.clear, AnalysisTheme.primaryGold], startPoint: .leading, endPoint: .trailing))
+                    .frame(height: 1)
+
+                Image(systemName: "diamond.fill")
+                    .font(.system(size: 7))
+                    .foregroundColor(AnalysisTheme.primaryGold)
+
+                Rectangle()
+                    .fill(LinearGradient(colors: [AnalysisTheme.primaryGold, .clear], startPoint: .leading, endPoint: .trailing))
+                    .frame(height: 1)
             }
         }
-        .padding(24)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity)
         .background(
             LinearGradient(
-                colors: [AnalysisTheme.primaryGoldSubtle.opacity(0.3), AnalysisTheme.parchmentBase.opacity(0.5)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                colors: [AnalysisTheme.primaryGoldSubtle, AnalysisTheme.bgCard],
+                startPoint: .top,
+                endPoint: .bottom
             )
         )
-        .cornerRadius(AnalysisTheme.Radius.lg)
+        .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg))
         .overlay(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
-                .stroke(AnalysisTheme.primaryGold.opacity(0.3), lineWidth: 1)
+                .stroke(AnalysisTheme.primaryGold.opacity(0.35), lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
 }
 
@@ -355,63 +506,142 @@ struct BlockquoteBlockView: View {
     let content: String
     let cite: String?
 
+    private var cleanContent: String {
+        content.trimmingCharacters(in: CharacterSet(charactersIn: "\"\u{201C}\u{201D} \n"))
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Rectangle()
-                .fill(AnalysisTheme.primaryGold)
-                .frame(width: 4)
+        if cleanContent.isEmpty {
+            EmptyView()
+        } else {
+            HStack(alignment: .top, spacing: 16) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(
+                        LinearGradient(
+                            colors: [AnalysisTheme.primaryGold, AnalysisTheme.primaryGoldLight],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 4)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text(parseMarkdownBold(content))
-                    .font(.analysisBodyLarge())
-                    .foregroundColor(AnalysisTheme.textBody)
-                    .italic()
-                    .lineSpacing(4)
+                VStack(alignment: .leading, spacing: 10) {
+                    Image(systemName: "quote.opening")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(AnalysisTheme.primaryGold.opacity(0.7))
 
-                if let cite = cite, !cite.isEmpty {
-                    Text("— \(cite)")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
+                    Text(parseMarkdownBold(cleanContent))
+                        .font(.analysisDisplayH4())
+                        .italic()
+                        .foregroundColor(AnalysisTheme.textHeading)
+                        .lineSpacing(7)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let cite = cite, !cite.isEmpty {
+                        Text("— \(cite)")
+                            .font(.analysisUISmall())
+                            .foregroundColor(AnalysisTheme.textMuted)
+                    }
                 }
             }
+            .padding(.vertical, 18)
+            .padding(.horizontal, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [AnalysisTheme.primaryGoldSubtle, AnalysisTheme.bgCard],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.md))
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(AnalysisTheme.parchmentBase.opacity(0.3))
-        .cornerRadius(AnalysisTheme.Radius.sm)
     }
 }
 
 // MARK: - Author Spotlight Block
 
+/// Framed keepsake card for the author biography — a double gold frame,
+/// a labeled header band, and the author's name set large in display type.
 struct AuthorSpotlightBlockView: View {
     let content: String
+    var authorName: String = ""
+
+    // Card surface is adaptive (Warm Mist scheme), so body text follows the
+    // adaptive palette for legibility in both light and dark.
+    private let bodyTextColor = AnalysisTheme.textBody
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "person.fill")
-                    .font(.title3)
-                    .foregroundColor(AnalysisTheme.brandSepia)
+        VStack(alignment: .leading, spacing: 0) {
+            // Header band
+            HStack(spacing: 10) {
+                Image(systemName: "book.fill")
+                    .font(.system(size: 17))
+                    .foregroundColor(AnalysisTheme.primaryGoldText)
 
-                Text("ABOUT THE AUTHOR")
+                Text("AUTHOR SPOTLIGHT")
                     .font(.analysisUIBold())
-                    .tracking(1.5)
-                    .foregroundColor(AnalysisTheme.brandSepia)
+                    .tracking(2.5)
+                    .foregroundColor(AnalysisTheme.primaryGoldText)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+            .background(AnalysisTheme.goldFrameCreamMid)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(AnalysisTheme.primaryGold.opacity(0.35))
+                    .frame(height: 1)
             }
 
-            Text(parseMarkdownBold(content))
-                .font(.analysisBody())
-                .foregroundColor(AnalysisTheme.textBody)
-                .lineSpacing(6)
+            // Name + biography
+            VStack(alignment: .leading, spacing: 14) {
+                if !authorName.isEmpty {
+                    Text(authorName.uppercased())
+                        .font(.analysisDisplayH2())
+                        .fontWeight(.bold)
+                        .tracking(1)
+                        .foregroundColor(AnalysisTheme.accentOrangeText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text(parseMarkdownBold(content))
+                    .font(.analysisBodyLarge())
+                    .foregroundColor(bodyTextColor)
+                    .lineSpacing(7)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(24)
         }
-        .padding(20)
-        .background(AnalysisTheme.parchmentBase.opacity(0.5))
-        .cornerRadius(AnalysisTheme.Radius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: AnalysisTheme.Radius.md)
-                .stroke(AnalysisTheme.brandSepia.opacity(0.2), lineWidth: 1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [AnalysisTheme.goldFrameCreamLight, AnalysisTheme.goldFrameCreamMid],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         )
+        .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl))
+        // Inner hairline of the double frame
+        .overlay(
+            RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl - 4)
+                .stroke(AnalysisTheme.primaryGold.opacity(0.45), lineWidth: 1)
+                .padding(5)
+        )
+        // Outer gold frame
+        .overlay(
+            RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl)
+                .stroke(
+                    LinearGradient(
+                        colors: [AnalysisTheme.goldFrameInnerMid, AnalysisTheme.goldFrameOuterDark],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 2.5
+                )
+        )
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 6)
     }
 }
 
@@ -490,6 +720,15 @@ struct SectionHeaderBlockView: View {
     let level: Int
 
     var body: some View {
+        if text.trimmingCharacters(in: .whitespaces).isEmpty {
+            // Never render an empty header — the accent bar alone reads as a stray line
+            EmptyView()
+        } else {
+            headerContent
+        }
+    }
+
+    private var headerContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             if level == 1 {
                 Text(text)
@@ -767,44 +1006,130 @@ struct FlowchartBlockView: View {
 
 // MARK: - Concept Map Block
 
+/// Hub-and-spoke concept map: a central concept node with a visible spine
+/// connecting each branch, so the hierarchy reads at a glance. Branches
+/// written as "Label: description" split into a small-caps label over its
+/// description; full-width rows keep text from squeezing into hyphenation.
 struct ConceptMapBlockView: View {
     let central: String
     let related: [String]
     let title: String?
 
     var body: some View {
-        VStack(spacing: 16) {
-            if let title = title {
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(AnalysisTheme.textHeading)
-            }
+        if central.isEmpty && related.isEmpty {
+            EmptyView()
+        } else {
+            VStack(spacing: 0) {
+                if let title = title, !title.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "point.3.connected.trianglepath.dotted")
+                            .foregroundColor(AnalysisTheme.primaryGold)
+                        Text(title.uppercased())
+                            .font(.analysisUISmall())
+                            .fontWeight(.semibold)
+                            .tracking(1.5)
+                            .foregroundColor(AnalysisTheme.textMuted)
+                    }
+                    .padding(.bottom, 16)
+                }
 
-            // Central concept
-            Text(parseMarkdownBold(central))
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding(16)
-                .background(AnalysisTheme.primaryGold)
-                .cornerRadius(AnalysisTheme.Radius.md)
-
-            // Related concepts
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(Array(related.enumerated()), id: \.offset) { _, concept in
-                    Text(parseMarkdownBold(concept))
-                        .font(.subheadline)
-                        .foregroundColor(AnalysisTheme.textBody)
-                        .padding(12)
+                // Central hub node
+                if !central.isEmpty {
+                    Text(parseMarkdownBold(central))
+                        .font(.analysisUIBold())
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
                         .frame(maxWidth: .infinity)
-                        .background(AnalysisTheme.primaryGoldSubtle.opacity(0.3))
-                        .cornerRadius(AnalysisTheme.Radius.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [AnalysisTheme.primaryGold, AnalysisTheme.primaryGoldDark],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
+                        .shadow(color: AnalysisTheme.primaryGold.opacity(0.3), radius: 6, y: 3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                // Branches connected by a visible spine
+                if !related.isEmpty {
+                    if !central.isEmpty {
+                        Rectangle()
+                            .fill(AnalysisTheme.primaryGold.opacity(0.45))
+                            .frame(width: 2, height: 18)
+                    }
+
+                    ForEach(Array(related.enumerated()), id: \.offset) { index, concept in
+                        if index > 0 {
+                            Rectangle()
+                                .fill(AnalysisTheme.primaryGold.opacity(0.45))
+                                .frame(width: 2, height: 14)
+                        }
+                        ConceptBranchRow(text: concept)
+                    }
                 }
             }
+            .padding(20)
+            .frame(maxWidth: .infinity)
+            .background(AnalysisTheme.bgCard)
+            .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg))
+            .overlay(
+                RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
+                    .stroke(AnalysisTheme.primaryGoldMuted, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
         }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(AnalysisTheme.Radius.lg)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+}
+
+private struct ConceptBranchRow: View {
+    let text: String
+
+    /// Split "Label: description" into a heading and detail when the label
+    /// is short enough to be a name rather than part of a sentence.
+    private var parts: (label: String?, detail: String) {
+        if let idx = text.firstIndex(of: ":") {
+            let label = String(text[..<idx]).trimmingCharacters(in: .whitespaces)
+            let detail = String(text[text.index(after: idx)...]).trimmingCharacters(in: .whitespaces)
+            if !label.isEmpty && !detail.isEmpty && label.count <= 40 {
+                return (label.replacingOccurrences(of: "**", with: ""), detail)
+            }
+        }
+        return (nil, text)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let label = parts.label {
+                Text(label.uppercased())
+                    .font(.analysisUISmall())
+                    .fontWeight(.semibold)
+                    .tracking(1)
+                    .foregroundColor(AnalysisTheme.primaryGoldText)
+            }
+
+            Text(parseMarkdownBold(parts.detail))
+                .font(.analysisBody())
+                .foregroundColor(AnalysisTheme.textBody)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(AnalysisTheme.primaryGoldSubtle)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(AnalysisTheme.primaryGold.opacity(0.25), lineWidth: 1)
+        )
     }
 }
 
@@ -873,9 +1198,20 @@ struct ProcessTimelineBlockView: View {
 struct TableBlockView: View {
     let data: [[String]]
 
+    private var columnCount: Int {
+        data.map(\.count).max() ?? 0
+    }
+
     var body: some View {
-        if data.isEmpty {
+        if data.isEmpty || columnCount == 0 {
             EmptyView()
+        } else if columnCount > 3 {
+            // Wide tables scroll horizontally instead of squeezing every
+            // column into the screen width and hyphenating each word.
+            ScrollView(.horizontal, showsIndicators: true) {
+                tableContent
+                    .frame(minWidth: CGFloat(columnCount) * 130)
+            }
         } else {
             tableContent
         }

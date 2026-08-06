@@ -23,18 +23,13 @@ struct ActionBoxView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.green)
-
                 Text("APPLY IT")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .tracking(1)
-                    .foregroundStyle(.green)
+                    .font(.analysisUISmall())
+                    .tracking(1.5)
+                    .foregroundStyle(AnalysisTheme.terracotta)
 
                 if let box = actionBox {
-                    Text(": \(box.conceptName)")
+                    Text(box.conceptName)
                         .font(.headline)
                 }
 
@@ -56,9 +51,11 @@ struct ActionBoxView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.green, lineWidth: 2)
-                .background(Color.green.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .fill(AnalysisTheme.warmGray)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AnalysisTheme.lightTan, lineWidth: 1)
+                )
         )
     }
 
@@ -67,10 +64,12 @@ struct ActionBoxView: View {
             Text("\(action.number)")
                 .font(.subheadline)
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .foregroundStyle(AnalysisTheme.terracotta)
                 .frame(width: 24, height: 24)
-                .background(Color.green)
-                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(AnalysisTheme.terracotta, lineWidth: 1)
+                )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(action.instruction)

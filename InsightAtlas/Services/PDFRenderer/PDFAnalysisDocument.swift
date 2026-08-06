@@ -181,6 +181,28 @@ extension PDFAnalysisDocument {
 
     /// Parse markdown content into a structured PDF document
     static func parse(from content: String, title: String, author: String) -> PDFAnalysisDocument {
+        var content = content
+
+        // Authors: the AI emits a machine-readable byline (e.g.
+        // "[[AUTHORS: Mark Changizi and Tim Barber]]") as the single source of
+        // truth for the cover. It reflects the full authorship the model found
+        // while reading the whole book, overriding the weaker mechanical
+        // extraction (which often catches only the first author). Strip the tag
+        // so it never renders as body text; fall back to the passed-in author.
+        var resolvedAuthor = author
+        if let tagRange = content.range(of: #"\[\[AUTHORS:[^\]]*\]\]"#, options: .regularExpression) {
+            let value = content[tagRange]
+                .replacingOccurrences(of: "[[AUTHORS:", with: "")
+                .replacingOccurrences(of: "]]", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let lowered = value.lowercased()
+            if !value.isEmpty, lowered != "unknown", lowered != "unknown author" {
+                resolvedAuthor = value
+            }
+            content.removeSubrange(tagRange)
+            content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
         var quickGlance: QuickGlanceSection?
         var sections: [PDFSection] = []
         var currentSection: PDFSection?
@@ -248,6 +270,7 @@ extension PDFAnalysisDocument {
                 upper.hasPrefix("[PREMIUM_H2]") ||
                 upper.hasPrefix("[ALTERNATIVE_PERSPECTIVE]") ||
                 upper.hasPrefix("[RESEARCH_INSIGHT]") ||
+                upper.hasPrefix("[SYNTHESIS_INSERT") ||
                 upper.hasPrefix("[CONCEPT_MAP") ||
                 upper.hasPrefix("[PROCESS_TIMELINE") ||
                 upper.hasPrefix("[PREMIUM_DIVIDER]")
@@ -948,14 +971,15 @@ extension PDFAnalysisDocument {
                 continue
             }
 
-            // Research Insight block
-            if line.hasPrefix("[RESEARCH_INSIGHT]") {
+            // Research Insight block (also handles [SYNTHESIS_INSERT: Title]
+            // synthesis mini-essays, rendered as a research-insight card).
+            if line.hasPrefix("[RESEARCH_INSIGHT]") || line.hasPrefix("[SYNTHESIS_INSERT") {
                 inResearchInsight = true
                 researchInsightContent = []
                 i += 1
                 continue
             }
-            if line.hasPrefix("[/RESEARCH_INSIGHT]") {
+            if line.hasPrefix("[/RESEARCH_INSIGHT]") || line.hasPrefix("[/SYNTHESIS_INSERT]") {
                 inResearchInsight = false
                 let contentText = researchInsightContent
                     .map { stripMarkdownFromLine($0) }
@@ -1163,8 +1187,8 @@ extension PDFAnalysisDocument {
                 continue
             }
 
-            // Divider
-            if line == "---" || line == "***" || line == "___" {
+            // Divider (including heavy rule lines like "═══" / "━━━")
+            if line == "---" || line == "***" || line == "___" || isHorizontalRule(line) {
                 currentBlocks.append(PDFContentBlock(type: .divider, content: ""))
                 i += 1
                 continue
@@ -1213,6 +1237,12 @@ extension PDFAnalysisDocument {
                 continue
             }
 
+            if let implicit = parseImplicitVisualBlocks(from: lines, startIndex: i) {
+                currentBlocks.append(contentsOf: implicit.blocks)
+                i += implicit.consumed
+                continue
+            }
+
             // Regular paragraph - strip any remaining markdown syntax
             if !line.isEmpty && !line.hasPrefix("|") && !line.contains("┌") && !line.contains("│") && !line.contains("└") && !line.contains("↓") {
                 let cleanedLine = stripMarkdownFromLine(line)
@@ -1243,7 +1273,7 @@ extension PDFAnalysisDocument {
         let readingTime = max(1, wordCount / 250)
 
         return PDFAnalysisDocument(
-            book: BookMetadata(title: title, author: author),
+            book: BookMetadata(title: title, author: resolvedAuthor),
             quickGlance: quickGlance,
             sections: sections,
             metadata: DocumentMetadata(
@@ -1323,6 +1353,294 @@ extension PDFAnalysisDocument {
             options: .regularExpression
         )
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func parseImplicitVisualBlocks(
+        from lines: [String],
+        startIndex: Int
+    ) -> (blocks: [PDFContentBlock], consumed: Int)? {
+        // A "Central:"-anchored radial map is emitted as blank-line-separated
+        // paragraphs, so detect it before the contiguous scan below (which
+        // stops at the first blank line).
+        if let central = parseCentralConceptMap(from: lines, startIndex: startIndex) {
+            return central
+        }
+
+        let maxScan = min(startIndex + 8, lines.count)
+        var candidateLines: [String] = []
+
+        var index = startIndex
+        while index < maxScan {
+            let rawLine = lines[index]
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { break }
+            if trimmed.hasPrefix("[") && trimmed.contains("]") { break }
+            if trimmed.hasPrefix("#") { break }
+            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") { break }
+            if trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) != nil { break }
+            candidateLines.append(rawLine)
+            index += 1
+        }
+
+        guard !candidateLines.isEmpty else { return nil }
+
+        if let stepVisual = parseImplicitSteps(from: candidateLines) {
+            return (blocks: stepVisual.blocks, consumed: stepVisual.consumed)
+        }
+
+        let combined = candidateLines
+            .map { stripInlineMarkdown($0) }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Arrow-delimited process flow ("A → B → C"); detected before the
+        // paragraph path strips the arrows and leaves meaningless spacing.
+        if let arrowFlow = parseArrowFlow(from: combined) {
+            return (blocks: pdfBlocks(for: arrowFlow), consumed: candidateLines.count)
+        }
+
+        if let quadrant = parseQuadrant(from: combined) {
+            return (blocks: pdfBlocks(for: quadrant.visual), consumed: candidateLines.count)
+        }
+
+        if let barChart = parseGroupedBarChart(from: combined) {
+            return (blocks: pdfBlocks(for: barChart.visual), consumed: candidateLines.count)
+        }
+
+        if let concept = parseConceptMap(from: combined) {
+            return (blocks: pdfBlocks(for: concept.visual), consumed: candidateLines.count)
+        }
+
+        return nil
+    }
+
+    /// Builds a flowchart from an arrow-delimited line such as
+    /// "Activities → Engagement → Ownership → Results".
+    private static func parseArrowFlow(from text: String) -> InsightVisual? {
+        let normalized = text
+            .replacingOccurrences(of: "->", with: "→")
+            .replacingOccurrences(of: "=>", with: "→")
+            .replacingOccurrences(of: "⟶", with: "→")
+        // Require at least two arrows (three nodes) to distinguish a flow from prose.
+        guard normalized.components(separatedBy: "→").count >= 3 else { return nil }
+        let nodes = normalized
+            .components(separatedBy: "→")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && $0.count <= 40 }
+        guard nodes.count >= 3 else { return nil }
+        return InsightVisual(type: .flowchart, title: "Process Flow", payload: .flowchart(FlowchartData(nodes: nodes)))
+    }
+
+    /// Builds a concept map from a "Central: <topic>" line followed by short
+    /// branch lines, tolerating single blank lines between entries.
+    private static func parseCentralConceptMap(
+        from lines: [String],
+        startIndex: Int
+    ) -> (blocks: [PDFContentBlock], consumed: Int)? {
+        let first = lines[startIndex].trimmingCharacters(in: .whitespaces)
+        guard let centerRange = first.range(
+            of: #"^(central|center)\s*:\s*"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) else {
+            return nil
+        }
+        let center = String(first[centerRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+        guard !center.isEmpty else { return nil }
+
+        var branches: [String] = []
+        var index = startIndex + 1
+        var consumed = 1
+        var blanksSkipped = 0
+
+        while index < lines.count {
+            let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                blanksSkipped += 1
+                if blanksSkipped > 1 { break }   // two blank lines end the block
+                index += 1
+                consumed += 1
+                continue
+            }
+            // Structural boundaries end the map.
+            if trimmed.hasPrefix("[") || trimmed.hasPrefix("#") { break }
+            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") { break }
+            if trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) != nil { break }
+            if trimmed.count > 80 { break }   // long line = prose, not a branch
+            blanksSkipped = 0
+            branches.append(stripInlineMarkdown(trimmed))
+            index += 1
+            consumed += 1
+            if branches.count >= 8 { break }
+        }
+
+        guard branches.count >= 2 else { return nil }
+        let data = ConceptMapData(center: center, branches: branches)
+        let visual = InsightVisual(type: .conceptMap, title: "Concept Map", payload: .conceptMap(data))
+        return (blocks: pdfBlocks(for: visual), consumed: consumed)
+    }
+
+    private static func parseImplicitSteps(
+        from lines: [String]
+    ) -> (blocks: [PDFContentBlock], consumed: Int)? {
+        var stepLines: [String] = []
+        var index = 0
+        while index < lines.count {
+            let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { break }
+            if !isStepLine(trimmed) { break }
+            stepLines.append(stripInlineMarkdown(trimmed))
+            index += 1
+        }
+
+        guard stepLines.count >= 4 else { return nil }
+
+        let isTimeline = stepLines.contains { line in
+            let lower = line.lowercased()
+            return lower.contains("childhood")
+                || lower.contains("adolescence")
+                || lower.contains("adult")
+                || lower.contains("future")
+                || lower.contains("past")
+                || lower.contains("present")
+                || lower.contains("earlier")
+                || lower.contains("later")
+        }
+
+        if isTimeline {
+            let events = stepLines.enumerated().map { index, step in
+                TimelineData.Event(date: "Stage \(index + 1)", title: step, description: nil)
+            }
+            let visual = InsightVisual(type: .timeline, title: "Process Timeline", payload: .timeline(TimelineData(events: events)))
+            return (blocks: pdfBlocks(for: visual), consumed: stepLines.count)
+        }
+
+        let visual = InsightVisual(type: .flowchart, title: "Process Flow", payload: .flowchart(FlowchartData(nodes: stepLines)))
+        return (blocks: pdfBlocks(for: visual), consumed: stepLines.count)
+    }
+
+    private static func isStepLine(_ line: String) -> Bool {
+        if line.count > 60 { return false }
+        if line.hasSuffix(".") || line.hasSuffix("?") || line.hasSuffix("!") { return false }
+        if line.contains(":") { return false }
+        if line.hasPrefix("[") { return false }
+        if line.hasPrefix("#") { return false }
+        return true
+    }
+
+    private static func parseQuadrant(from text: String) -> (title: String, visual: InsightVisual)? {
+        let segments = extractLabeledSegments(from: text)
+        guard segments.count >= 4 else { return nil }
+        // Require an explicit axes marker ("A × B" / "A vs B") so we don't
+        // greedily treat any four-label list as a 2×2 matrix. The axes and
+        // title are derived from the content rather than hardcoded.
+        guard let axes = extractAxisPair(from: text) else { return nil }
+
+        let quadrants = segments.prefix(4).map { segment in
+            QuadrantData.Quadrant(name: segment.label, items: [segment.body].filter { !$0.isEmpty })
+        }
+        let data = QuadrantData(axesX: axes.second, axesY: axes.first, quadrants: Array(quadrants))
+        let title = "\(axes.first) × \(axes.second)"
+        let visual = InsightVisual(type: .quadrant, title: title, payload: .quadrant(data))
+        return (title: title, visual: visual)
+    }
+
+    /// Extracts an axes pair from an inline marker such as "Authenticity × Boundaries"
+    /// or "Cost vs Value". Returns the two axis names in written order.
+    private static func extractAxisPair(from text: String) -> (first: String, second: String)? {
+        guard let regex = axisPairRegex else { return nil }
+        let nsText = text as NSString
+        guard let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: nsText.length)) else {
+            return nil
+        }
+        let first = nsText.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
+        let second = nsText.substring(with: match.range(at: 2)).trimmingCharacters(in: .whitespaces)
+        guard !first.isEmpty, !second.isEmpty else { return nil }
+        return (first, second)
+    }
+
+    private static func parseGroupedBarChart(from text: String) -> (title: String, visual: InsightVisual)? {
+        let segments = extractLabeledSegments(from: text)
+        guard segments.count >= 2 else { return nil }
+        let parsedSegments = segments.compactMap { segment -> (String, [(String, Double)])? in
+            let metrics = parsePercentMetrics(from: segment.body)
+            guard !metrics.isEmpty else { return nil }
+            return (segment.label, metrics)
+        }
+        guard parsedSegments.count >= 2 else { return nil }
+
+        let metricLabels = parsedSegments.first?.1.map { $0.0 } ?? []
+        guard !metricLabels.isEmpty else { return nil }
+
+        var series: [[Double]] = Array(repeating: [], count: metricLabels.count)
+        for (_, metrics) in parsedSegments {
+            let values = metricLabels.map { label in
+                metrics.first(where: { $0.0.caseInsensitiveCompare(label) == .orderedSame })?.1 ?? 0
+            }
+            for (index, value) in values.enumerated() {
+                series[index].append(value)
+            }
+        }
+
+        let labels = parsedSegments.map { $0.0 }
+        let data = GroupedBarChartData(labels: labels, series: series, seriesLabels: metricLabels)
+        let title = metricLabels.count == 2 ? "\(metricLabels[0]) vs \(metricLabels[1])" : "Comparison"
+        let visual = InsightVisual(type: .barChartGrouped, title: title, payload: .barChartGrouped(data))
+        return (title: title, visual: visual)
+    }
+
+    private static func parseConceptMap(from text: String) -> (title: String, visual: InsightVisual)? {
+        let segments = extractLabeledSegments(from: text)
+        guard segments.count >= 3 else { return nil }
+        guard let centralSegment = segments.first(where: { $0.label.lowercased() == "central" || $0.label.lowercased() == "center" }) else {
+            return nil
+        }
+        let branches = segments.filter { $0.label.lowercased() != "central" && $0.label.lowercased() != "center" }.map { segment in
+            segment.body.isEmpty ? segment.label : "\(segment.label) — \(segment.body)"
+        }
+        guard !centralSegment.body.isEmpty else { return nil }
+        let data = ConceptMapData(center: centralSegment.body, branches: branches)
+        let visual = InsightVisual(type: .conceptMap, title: "Concept Map", payload: .conceptMap(data))
+        return (title: "Concept Map", visual: visual)
+    }
+
+    private static let labeledSegmentsRegex = try? NSRegularExpression(pattern: #"([A-Z][A-Za-z0-9'’&/,\-\s]{2,60}):"#, options: [])
+    private static let percentMetricsRegex = try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)%\s*([A-Za-z][A-Za-z\s\-]*)"#, options: [])
+    private static let axisPairRegex = try? NSRegularExpression(pattern: #"([A-Za-z][A-Za-z]{1,24})\s*(?:×|✕|vs\.?|versus)\s*([A-Za-z][A-Za-z]{1,24})"#, options: [.caseInsensitive])
+
+    private static func extractLabeledSegments(from text: String) -> [(label: String, body: String)] {
+        guard let regex = labeledSegmentsRegex else {
+            return []
+        }
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+        guard matches.count >= 2 else { return [] }
+
+        var segments: [(String, String)] = []
+        for (index, match) in matches.enumerated() {
+            let labelRange = match.range(at: 1)
+            let label = nsText.substring(with: labelRange).trimmingCharacters(in: .whitespaces)
+            let start = match.range(at: 0).location + match.range(at: 0).length
+            let end = (index + 1 < matches.count) ? matches[index + 1].range(at: 0).location : nsText.length
+            let body = nsText.substring(with: NSRange(location: start, length: max(0, end - start)))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            segments.append((label, body))
+        }
+        return segments
+    }
+
+    private static func parsePercentMetrics(from text: String) -> [(String, Double)] {
+        guard let regex = percentMetricsRegex else {
+            return []
+        }
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+        return matches.compactMap { match in
+            let valueString = nsText.substring(with: match.range(at: 1))
+            let label = nsText.substring(with: match.range(at: 2)).trimmingCharacters(in: .whitespaces)
+            guard let value = Double(valueString) else { return nil }
+            let cleanedLabel = label.isEmpty ? "Value" : label.capitalized
+            return (cleanedLabel, value)
+        }
     }
 
     private static func parseListItems(from lines: [String]) -> [String] {
@@ -1462,13 +1780,45 @@ extension PDFAnalysisDocument {
             )
         }
 
-        // Strip ASCII box drawing characters
-        let boxChars = ["┌", "┐", "└", "┘", "├", "┤", "┬", "┴", "┼", "─", "│", "↓", "→", "←", "↑"]
+        // Strip stray internal section markers that leaked mid-paragraph,
+        // e.g. "[QUICK_GLANCE]" or "[/INSIGHT_NOTE]". Real markers at the start
+        // of a line are consumed earlier; this catches inline remnants only.
+        if let markerRegex = try? NSRegularExpression(pattern: #"\[/?[A-Z][A-Z0-9_]{3,}\]"#, options: []) {
+            result = markerRegex.stringByReplacingMatches(
+                in: result,
+                options: [],
+                range: NSRange(result.startIndex..., in: result),
+                withTemplate: ""
+            )
+        }
+
+        // Strip ASCII/heavy box-drawing and rule characters. Directional arrows
+        // (→ ← ↑ ↓) are intentionally NOT stripped: multi-step flows are already
+        // extracted into flow visuals upstream, so any arrow remaining here is a
+        // semantic connector in prose (e.g. "Identify dispute → Express offer").
+        // Deleting it left a mangled double space; keeping it preserves meaning.
+        let boxChars = ["┌", "┐", "└", "┘", "├", "┤", "┬", "┴", "┼", "─", "│",
+                        "═", "━", "▬", "⎯"]
         for char in boxChars {
             result = result.replacingOccurrences(of: char, with: "")
         }
 
+        // Collapse any runs of whitespace left by earlier substitutions.
+        result = result.replacingOccurrences(
+            of: "[ \\t]{2,}",
+            with: " ",
+            options: .regularExpression
+        )
+
         return result.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// A line consisting solely of repeated rule characters, e.g. "═══" or "━━━".
+    private static func isHorizontalRule(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 3 else { return false }
+        let ruleChars: Set<Character> = ["═", "━", "─", "▬", "⎯", "=", "-", "_", "*"]
+        return trimmed.allSatisfy { ruleChars.contains($0) }
     }
 
     /// Check if a table line is a separator row (|---|---|)
@@ -1513,6 +1863,47 @@ extension PDFAnalysisDocument {
         return pdfBlocks(for: visual)
     }
 
+    /// Deterministic cache key for a visual's pre-rendered image. Content-sensitive
+    /// so distinct visuals get distinct images and identical ones are reused.
+    static func visualCacheURL(for visual: InsightVisual) -> URL {
+        let raw = visual.type.rawValue + "|" + (visual.title ?? "") + "|" + String(describing: visual.payload)
+        var hash: UInt64 = 5381
+        for byte in raw.utf8 { hash = (hash &* 33) ^ UInt64(byte) }   // djb2
+        return URL(string: "insightvisual://\(String(hash, radix: 16))")!
+    }
+
+    /// Extracts every explicit `[VISUAL_*]` block from raw guide content as
+    /// InsightVisual values, so they can be rasterized on the main actor before
+    /// the (non-isolated) PDF layout pass runs.
+    static func extractVisuals(from content: String) -> [InsightVisual] {
+        var visuals: [InsightVisual] = []
+        let lines = content.components(separatedBy: .newlines)
+        var i = 0
+        while i < lines.count {
+            let line = lines[i].trimmingCharacters(in: .whitespaces)
+            guard line.hasPrefix("[VISUAL_") else { i += 1; continue }
+
+            let parsed = parseVisualTagAndTitle(from: line)
+            var body: [String] = []
+            i += 1
+            while i < lines.count {
+                let inner = lines[i].trimmingCharacters(in: .whitespaces)
+                if inner.hasPrefix("[/VISUAL_") { break }
+                body.append(lines[i])
+                i += 1
+            }
+            if let visual = InsightVisualParser.parse(
+                tag: canonicalizeVisualTag(parsed.tag),
+                title: parsed.title,
+                lines: body
+            ) {
+                visuals.append(visual)
+            }
+            i += 1
+        }
+        return visuals
+    }
+
     private static func canonicalizeVisualTag(_ tag: String) -> String {
         switch tag {
         case "VISUAL_TABLE", "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
@@ -1533,6 +1924,15 @@ extension PDFAnalysisDocument {
     private static func pdfBlocks(for visual: InsightVisual) -> [PDFContentBlock] {
         var blocks: [PDFContentBlock] = []
         let title = visual.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // If a pre-rendered image of this visual is cached (produced on the main
+        // actor by PDFVisualPrerenderer before export), embed it directly. This
+        // reuses the shared SwiftUI card views so every visual type renders in the
+        // PDF. Uncached visuals fall through to the text/table representation below.
+        let cacheURL = visualCacheURL(for: visual)
+        if VisualAssetCache.shared.cachedImage(for: cacheURL) != nil {
+            return [PDFContentBlock(type: .visual, content: title ?? "", visualURL: cacheURL)]
+        }
 
         func addHeadingIfNeeded(useInlineTitle: Bool) {
             if !useInlineTitle, let title, !title.isEmpty {

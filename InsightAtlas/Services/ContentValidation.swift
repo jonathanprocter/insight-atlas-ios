@@ -364,10 +364,10 @@ struct OutputQualityValidator {
 
         // Encourage richer visual variety for full guides
         if !isQuickReference {
-            if totalVisuals < 8 {
+            if totalVisuals < 10 {
                 issues.append("Insufficient visuals; add more varied diagrams to clarify key concepts")
             }
-            if uniqueVisualTypes < 6 && totalVisuals >= 6 {
+            if uniqueVisualTypes < 8 && totalVisuals >= 8 {
                 issues.append("Insufficient visual variety; use more distinct visual types")
             }
         }

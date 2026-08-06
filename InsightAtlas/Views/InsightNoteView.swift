@@ -23,15 +23,10 @@ struct InsightNoteView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Image(systemName: "book.closed.fill")
-                    .font(.title3)
-                    .foregroundStyle(.purple)
-
                 Text("INSIGHT ATLAS NOTE")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .tracking(1)
-                    .foregroundStyle(.purple)
+                    .font(.analysisUISmall())
+                    .tracking(1.5)
+                    .foregroundStyle(AnalysisTheme.terracotta)
 
                 Spacer()
             }
@@ -47,10 +42,10 @@ struct InsightNoteView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.purple.opacity(0.05))
+                .fill(AnalysisTheme.warmCream)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.purple.opacity(0.3), lineWidth: 1)
+                        .stroke(AnalysisTheme.lightTan, lineWidth: 1)
                 )
         )
     }
@@ -65,8 +60,6 @@ struct InsightNoteView: View {
             // Key Distinction
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Image(systemName: "arrow.triangle.branch")
-                        .foregroundStyle(.purple)
                     Text("Key Distinction")
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -80,8 +73,6 @@ struct InsightNoteView: View {
             // Practical Implication
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.orange)
                     Text("Practical Implication")
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -113,8 +104,6 @@ struct InsightNoteView: View {
             if let keyDistinction = parsed.keyDistinction, !keyDistinction.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Image(systemName: "arrow.triangle.branch")
-                            .foregroundStyle(.purple)
                         Text("Key Distinction")
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -130,8 +119,6 @@ struct InsightNoteView: View {
             if let practical = parsed.practicalImplication, !practical.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Image(systemName: "lightbulb.fill")
-                            .foregroundStyle(.orange)
                         Text("Practical Implication")
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -147,24 +134,19 @@ struct InsightNoteView: View {
             if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .foregroundStyle(.blue)
                         Text("Go Deeper")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                     }
 
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "book")
-                            .foregroundStyle(.secondary)
-
                         Text(goDeeper)
                             .font(.body)
                             .italic()
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.systemGray6))
+                    .background(AnalysisTheme.warmGray)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
@@ -216,6 +198,8 @@ struct InsightNoteView: View {
             coreText = String(normalizedContent[..<keyRange.lowerBound])
         } else if let keyRange = normalizedContent.range(of: "**Key Distinction", options: .caseInsensitive) {
             coreText = String(normalizedContent[..<keyRange.lowerBound])
+        } else if let goRange = normalizedContent.range(of: "Go Deeper:", options: .caseInsensitive) {
+            coreText = String(normalizedContent[..<goRange.lowerBound])
         }
         coreConnection = coreText.replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -225,17 +209,12 @@ struct InsightNoteView: View {
     private func goDeepSection(_ goDeeper: GoDeeper) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Image(systemName: "arrow.right.circle.fill")
-                    .foregroundStyle(.blue)
                 Text("Go Deeper")
                     .font(.subheadline)
                     .fontWeight(.semibold)
             }
 
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "book")
-                    .foregroundStyle(.secondary)
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goDeeper.bookTitle)
                         .font(.body)
@@ -254,7 +233,7 @@ struct InsightNoteView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.systemGray6))
+            .background(AnalysisTheme.warmGray)
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }

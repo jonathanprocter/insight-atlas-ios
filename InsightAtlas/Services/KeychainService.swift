@@ -58,7 +58,12 @@ final class KeychainService {
     private enum Keys {
         static let claudeApiKey = "com.insightatlas.claude-api-key"
         static let openaiApiKey = "com.insightatlas.openai-api-key"
+        static let openRouterApiKey = "com.insightatlas.openrouter-api-key"
         static let elevenLabsApiKey = "com.insightatlas.elevenlabs-api-key"
+        static let chatgptAccessToken = "com.insightatlas.chatgpt-access-token"
+        static let chatgptRefreshToken = "com.insightatlas.chatgpt-refresh-token"
+        static let chatgptAccountID = "com.insightatlas.chatgpt-account-id"
+        static let chatgptTokenExpiry = "com.insightatlas.chatgpt-token-expiry"
     }
 
     // MARK: - Public Interface
@@ -97,6 +102,24 @@ final class KeychainService {
         openaiApiKey?.isEmpty == false
     }
 
+    /// OpenRouter API key stored securely in Keychain.
+    /// OpenRouter is an OpenAI-compatible gateway to many models.
+    var openRouterApiKey: String? {
+        get { retrieve(key: Keys.openRouterApiKey) }
+        set {
+            if let value = newValue, !value.isEmpty {
+                save(key: Keys.openRouterApiKey, value: value)
+            } else {
+                delete(key: Keys.openRouterApiKey)
+            }
+        }
+    }
+
+    /// Check if OpenRouter API key is configured
+    var hasOpenRouterApiKey: Bool {
+        openRouterApiKey?.isEmpty == false
+    }
+
     /// ElevenLabs API key stored securely in Keychain
     /// Used for text-to-speech audio narration
     var elevenLabsApiKey: String? {
@@ -115,10 +138,39 @@ final class KeychainService {
         elevenLabsApiKey?.isEmpty == false
     }
 
+    // MARK: - ChatGPT OAuth tokens (UNOFFICIAL Codex path; ToS-risky)
+
+    var chatgptAccessToken: String? {
+        get { retrieve(key: Keys.chatgptAccessToken) }
+        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptAccessToken, value: v) } else { delete(key: Keys.chatgptAccessToken) } }
+    }
+    var chatgptRefreshToken: String? {
+        get { retrieve(key: Keys.chatgptRefreshToken) }
+        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptRefreshToken, value: v) } else { delete(key: Keys.chatgptRefreshToken) } }
+    }
+    var chatgptAccountID: String? {
+        get { retrieve(key: Keys.chatgptAccountID) }
+        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptAccountID, value: v) } else { delete(key: Keys.chatgptAccountID) } }
+    }
+    /// Access-token expiry stored as an epoch-seconds string.
+    var chatgptTokenExpiry: String? {
+        get { retrieve(key: Keys.chatgptTokenExpiry) }
+        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptTokenExpiry, value: v) } else { delete(key: Keys.chatgptTokenExpiry) } }
+    }
+    var hasChatGPTAuth: Bool { chatgptAccessToken?.isEmpty == false }
+
+    func clearChatGPTAuth() {
+        delete(key: Keys.chatgptAccessToken)
+        delete(key: Keys.chatgptRefreshToken)
+        delete(key: Keys.chatgptAccountID)
+        delete(key: Keys.chatgptTokenExpiry)
+    }
+
     /// Clear all stored API keys
     func clearAllKeys() {
         delete(key: Keys.claudeApiKey)
         delete(key: Keys.openaiApiKey)
+        delete(key: Keys.openRouterApiKey)
         delete(key: Keys.elevenLabsApiKey)
     }
 

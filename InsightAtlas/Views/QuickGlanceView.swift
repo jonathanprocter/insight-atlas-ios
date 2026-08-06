@@ -12,16 +12,14 @@ struct QuickGlanceView: View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
             HStack {
-                Image(systemName: "eye")
-                    .font(.title3)
-                    .foregroundStyle(.blue)
-
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Quick Glance Summary")
-                        .font(.headline)
+                    Text("QUICK GLANCE")
+                        .font(.analysisUISmall())
+                        .tracking(1.5)
+                        .foregroundStyle(AnalysisTheme.terracotta)
                     Text(summary.readTime)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.analysisUISmall())
+                        .foregroundStyle(AnalysisTheme.terracotta)
                 }
 
                 Spacer()
@@ -73,10 +71,12 @@ struct QuickGlanceView: View {
                     HStack(alignment: .top, spacing: 12) {
                         Text("\(concept.number)")
                             .font(.headline)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AnalysisTheme.terracotta)
                             .frame(width: 28, height: 28)
-                            .background(Color.blue)
-                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(AnalysisTheme.terracotta, lineWidth: 1)
+                            )
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(concept.name)
@@ -103,7 +103,7 @@ struct QuickGlanceView: View {
                     .fontWeight(.medium)
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.blue.opacity(0.1))
+                    .background(AnalysisTheme.warmGray)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
@@ -119,9 +119,12 @@ struct QuickGlanceView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(AnalysisTheme.warmCream)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AnalysisTheme.lightTan, lineWidth: 1)
+        )
     }
 }
 

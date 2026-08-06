@@ -64,7 +64,7 @@ struct EditorialContentRenderer: View {
             BlockquoteBlockView(content: block.content, cite: block.metadata["cite"])
 
         case .authorSpotlight:
-            AuthorSpotlightBlockView(content: block.content)
+            AuthorSpotlightBlockView(content: block.content, authorName: author)
 
         case .alternativePerspective:
             AlternativePerspectiveBlockView(content: block.content, title: block.title)
@@ -371,6 +371,15 @@ struct ContentBlockParser {
                 continue
             }
 
+            // Drop stray decorative rule lines (runs of ─ — – ━ _ etc.) that would
+            // otherwise render as orphaned lines above headers or inside blocks.
+            // Exact markdown rules (---, ***, ___) are handled below as premium dividers.
+            if trimmed != "---" && trimmed != "***" && trimmed != "___" && isDecorativeRule(trimmed) {
+                flushParagraph()
+                i += 1
+                continue
+            }
+
             // Check for block start markers
             if upper.hasPrefix("[QUICK_GLANCE]") {
                 flushParagraph()
@@ -462,6 +471,16 @@ struct ContentBlockParser {
                 continue
             }
 
+            // [SYNTHESIS_INSERT: Title] — multi-source comparative mini-essay.
+            // Rendered as a research-insight synthesis card.
+            if upper.hasPrefix("[SYNTHESIS_INSERT") {
+                flushParagraph()
+                flushOpenBlocks()
+                inResearchInsight = true
+                i += 1
+                continue
+            }
+
             if upper.hasPrefix("[VISUAL_") {
                 flushParagraph()
                 flushOpenBlocks()
@@ -517,7 +536,9 @@ struct ContentBlockParser {
                 if let closeRange = trimmed.range(of: "[/PREMIUM_H1]", options: .caseInsensitive) {
                     let startIndex = trimmed.index(trimmed.startIndex, offsetBy: 12) // "[PREMIUM_H1]".count
                     let headerText = String(trimmed[startIndex..<closeRange.lowerBound]).trimmingCharacters(in: .whitespaces)
-                    if headerText.uppercased().hasPrefix("PART ") {
+                    if headerText.isEmpty {
+                        // Skip empty headers — they render as a stray accent bar
+                    } else if headerText.uppercased().hasPrefix("PART ") {
                         blocks.append(ParsedContentBlock(type: .partHeader, content: headerText, sectionIndex: thisSectionIndex))
                     } else {
                         blocks.append(ParsedContentBlock(type: .sectionHeader, content: headerText, sectionIndex: thisSectionIndex))
@@ -535,7 +556,9 @@ struct ContentBlockParser {
                         i += 1
                     }
                     let headerText = headerLines.joined(separator: " ").trimmingCharacters(in: .whitespaces)
-                    if headerText.uppercased().hasPrefix("PART ") {
+                    if headerText.isEmpty {
+                        // Skip empty headers — they render as a stray accent bar
+                    } else if headerText.uppercased().hasPrefix("PART ") {
                         blocks.append(ParsedContentBlock(type: .partHeader, content: headerText, sectionIndex: thisSectionIndex))
                     } else {
                         blocks.append(ParsedContentBlock(type: .sectionHeader, content: headerText, sectionIndex: thisSectionIndex))
@@ -555,7 +578,9 @@ struct ContentBlockParser {
                 if let closeRange = trimmed.range(of: "[/PREMIUM_H2]", options: .caseInsensitive) {
                     let startIndex = trimmed.index(trimmed.startIndex, offsetBy: 12) // "[PREMIUM_H2]".count
                     let headerText = String(trimmed[startIndex..<closeRange.lowerBound]).trimmingCharacters(in: .whitespaces)
-                    blocks.append(ParsedContentBlock(type: .subsectionHeader, content: headerText, sectionIndex: thisSectionIndex))
+                    if !headerText.isEmpty {
+                        blocks.append(ParsedContentBlock(type: .subsectionHeader, content: headerText, sectionIndex: thisSectionIndex))
+                    }
                 } else {
                     // Multi-line - collect until closing tag
                     var headerLines: [String] = []
@@ -569,7 +594,9 @@ struct ContentBlockParser {
                         i += 1
                     }
                     let headerText = headerLines.joined(separator: " ").trimmingCharacters(in: .whitespaces)
-                    blocks.append(ParsedContentBlock(type: .subsectionHeader, content: headerText, sectionIndex: thisSectionIndex))
+                    if !headerText.isEmpty {
+                        blocks.append(ParsedContentBlock(type: .subsectionHeader, content: headerText, sectionIndex: thisSectionIndex))
+                    }
                 }
                 i += 1
                 continue
@@ -648,11 +675,13 @@ struct ContentBlockParser {
                 if let cite {
                     metadata["cite"] = cite
                 }
-                blocks.append(ParsedContentBlock(
-                    type: .blockquote,
-                    content: quoteText,
-                    metadata: metadata
-                ))
+                if !quoteText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    blocks.append(ParsedContentBlock(
+                        type: .blockquote,
+                        content: quoteText,
+                        metadata: metadata
+                    ))
+                }
                 continue
             }
 
@@ -958,11 +987,25 @@ struct ContentBlockParser {
         var related: [String] = []
 
         for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            var trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || isDecorativeRule(trimmed) { continue }
+
+            // Strip bullet / numbered markers
+            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("• ") {
+                trimmed = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            } else if let match = trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) {
+                trimmed = String(trimmed[match.upperBound...])
+            }
+
             if trimmed.lowercased().hasPrefix("central:") {
                 central = String(trimmed.dropFirst("central:".count)).trimmingCharacters(in: .whitespaces)
-            } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-                related.append(String(trimmed.dropFirst(2)))
+            } else if trimmed.contains("→") {
+                // "Central → Branch" arrow syntax: keep the branch side
+                let branch = trimmed.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? trimmed
+                if !branch.isEmpty { related.append(branch) }
+            } else {
+                // Accept "Label: description" lines and plain lines as branches
+                related.append(trimmed)
             }
         }
 
@@ -998,7 +1041,17 @@ struct ContentBlockParser {
                 .components(separatedBy: "|")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
 
-            return cells.isEmpty ? nil : cells
+            // Skip rows that are entirely empty — they render as stray hairlines
+            if cells.allSatisfy({ $0.isEmpty }) { return nil }
+            return cells
         }
+    }
+
+    /// A line made up solely of dash/rule characters — decoration in the source
+    /// text that must never be rendered as literal content.
+    static func isDecorativeRule(_ line: String) -> Bool {
+        guard line.count >= 3 else { return false }
+        let ruleChars = CharacterSet(charactersIn: "-–—―─━┄┅┈┉╌╍_*=~•·▬ \t")
+        return line.unicodeScalars.allSatisfy { ruleChars.contains($0) }
     }
 }
