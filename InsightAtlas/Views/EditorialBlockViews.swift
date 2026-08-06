@@ -567,9 +567,9 @@ struct AuthorSpotlightBlockView: View {
     let content: String
     var authorName: String = ""
 
-    // The card keeps its light parchment surface in both color schemes,
-    // so text colors are pinned to the light palette.
-    private let bodyTextColor = AnalysisTheme.Light.textBody
+    // Card surface is adaptive (Warm Mist scheme), so body text follows the
+    // adaptive palette for legibility in both light and dark.
+    private let bodyTextColor = AnalysisTheme.textBody
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

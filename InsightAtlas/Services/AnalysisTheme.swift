@@ -17,9 +17,9 @@ struct AnalysisTheme {
 
     // MARK: - Brand Primary Colors (From OE Logo)
 
-    static let brandOrange = Color(hex: "#CBA135")           // Primary Orange - Primary brand
-    static let brandOrangeLight = Color(hex: "#DCBE5E")      // Orange 400
-    static let brandOrangeDark = Color(hex: "#A9801F")       // Orange 700
+    static let brandOrange = Color(hex: "#D4B820")           // Primary Orange - Primary brand
+    static let brandOrangeLight = Color(hex: "#E0C645")      // Orange 400
+    static let brandOrangeDark = Color(hex: "#A8901A")       // Orange 700
     static let brandNavy = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
     static let brandNavyLight = Color(hex: "#4A7A9D")        // Navy 400
     static let brandNavyDark = Color(hex: "#1E3D54")         // Navy 700
@@ -36,9 +36,9 @@ struct AnalysisTheme {
     }
 
     static let terracotta = adaptivePalette(light: "#CC9966", dark: "#D9A876")
-    static let warmCream = adaptivePalette(light: "#FFFDFB", dark: "#262220")
-    static let lightTan = adaptivePalette(light: "#F0E6DC", dark: "#3A342E")
-    static let warmGray = adaptivePalette(light: "#F8F6F4", dark: "#201D1A")
+    static let warmCream = adaptivePalette(light: "#FAFCFD", dark: "#24262A")
+    static let lightTan = adaptivePalette(light: "#E7EAEE", dark: "#2E3237")
+    static let warmGray = adaptivePalette(light: "#F2F4F1", dark: "#1E2022")
 
     // Legacy aliases (deprecated - use brandNavy)
     static let brandBlue = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
@@ -65,28 +65,28 @@ struct AnalysisTheme {
     // MARK: - Primary Palette - Primary Orange (Brand Primary)
     // WCAG AAA compliant on white backgrounds
 
-    static let primaryGold = Color(hex: "#CBA135")           // Primary Orange - Primary accent
-    static let primaryGoldText = Color(hex: "#A9801F")       // Orange 700 for text compliance
-    static let primaryGoldLight = Color(hex: "#DCBE5E")      // Orange 400
+    static let primaryGold = Color(hex: "#D4B820")           // Primary Orange - Primary accent
+    static let primaryGoldText = Color(hex: "#A8901A")       // Orange 700 for text compliance
+    static let primaryGoldLight = Color(hex: "#E0C645")      // Orange 400
     static let primaryGoldDark = Color(hex: "#B8912A")       // Orange 600
-    static let primaryGoldSubtle = Color(hex: "#CBA135").opacity(0.08)
-    static let primaryGoldMuted = Color(hex: "#CBA135").opacity(0.15)
+    static let primaryGoldSubtle = Color(hex: "#D4B820").opacity(0.08)
+    static let primaryGoldMuted = Color(hex: "#D4B820").opacity(0.15)
 
     // MARK: - Premium Accent Colors (Modern Minimalistic)
 
-    static let accentPrimary = Color(hex: "#CBA135")         // Primary Orange - Primary CTAs
+    static let accentPrimary = Color(hex: "#D4B820")         // Primary Orange - Primary CTAs
     static let accentSuccess = Color(hex: "#059669")         // Success green
-    static let accentHighlight = Color(hex: "#CBA135")       // Primary Orange - Highlights
+    static let accentHighlight = Color(hex: "#D4B820")       // Primary Orange - Highlights
     static let accentInfo = Color(hex: "#2E5A7D")            // Navy Blue - Information
     static let accentWarning = Color(hex: "#D97706")         // Warning
     static let accentError = Color(hex: "#DC2626")           // Error
 
     // MARK: - Secondary Palette - Refined Accents
 
-    static let accentOrange = Color(hex: "#CBA135")          // Primary Orange
-    static let accentOrangeText = Color(hex: "#A9801F")      // Orange 700 for text
-    static let accentOrangeLight = Color(hex: "#DCBE5E")     // Orange 400
-    static let accentOrangeSubtle = Color(hex: "#CBA135").opacity(0.08)
+    static let accentOrange = Color(hex: "#D4B820")          // Primary Orange
+    static let accentOrangeText = Color(hex: "#A8901A")      // Orange 700 for text
+    static let accentOrangeLight = Color(hex: "#E0C645")     // Orange 400
+    static let accentOrangeSubtle = Color(hex: "#D4B820").opacity(0.08)
 
     static let accentNavy = Color(hex: "#2E5A7D")            // Navy Blue (secondary brand)
     static let accentNavyText = Color(hex: "#2E5A7D")        // Same - already compliant
@@ -106,11 +106,11 @@ struct AnalysisTheme {
     static let accentBurgundyLight = Color(hex: "#9A4458")   // Deprecated
     static let accentBurgundySubtle = Color(hex: "#7B2D3E").opacity(0.08)
 
-    static let accentCoral = Color(hex: "#CBA135")           // Use accentOrange instead
-    static let accentCoralText = Color(hex: "#A9801F")       // Use accentOrangeText instead
-    static let accentCoralLight = Color(hex: "#DCBE5E")      // Use accentOrangeLight instead
-    static let accentCoralSubtle = Color(hex: "#CBA135").opacity(0.08)
-    static let accentCoralMuted = Color(hex: "#CBA135").opacity(0.15)
+    static let accentCoral = Color(hex: "#D4B820")           // Use accentOrange instead
+    static let accentCoralText = Color(hex: "#A8901A")       // Use accentOrangeText instead
+    static let accentCoralLight = Color(hex: "#E0C645")      // Use accentOrangeLight instead
+    static let accentCoralSubtle = Color(hex: "#D4B820").opacity(0.08)
+    static let accentCoralMuted = Color(hex: "#D4B820").opacity(0.15)
 
     // Additional accent colors for editorial blocks
     static let accentGreen = Color(hex: "#059669")           // Success green for action boxes
@@ -120,8 +120,8 @@ struct AnalysisTheme {
     // MARK: - Premium Commentary Box Colors (Modern Minimalistic)
 
     // Insight Note - Uses Primary Orange for warm highlights
-    static let insightOrange = Color(hex: "#CBA135")         // Primary Orange
-    static let insightOrangeLight = Color(hex: "#DCBE5E")    // Orange 400
+    static let insightOrange = Color(hex: "#D4B820")         // Primary Orange
+    static let insightOrangeLight = Color(hex: "#E0C645")    // Orange 400
     static let insightBgStart = Color(hex: "#FFFFFF")        // White
     static let insightBgMid = Color(hex: "#FEF0EB")          // Orange 50
     static let insightBgEnd = Color(hex: "#FCD4C4")          // Orange 100
@@ -142,35 +142,35 @@ struct AnalysisTheme {
 
     // MARK: - Premium Quote Card Colors (Clean Modern)
 
-    static let parchmentBase = Color(hex: "#FFFFFF")         // Pure White
+    static let parchmentBase = adaptivePalette(light: "#FAFCFD", dark: "#24262A")
     static let parchmentMid = Color(hex: "#F9FAFB")          // Gray 50
     static let parchmentDark = Color(hex: "#F3F4F6")         // Gray 100
     static let parchmentVignette = Color(hex: "#4B5563")     // Gray 600
-    static let goldOrnament = Color(hex: "#CBA135")          // Primary Orange
-    static let goldTitle = Color(hex: "#CBA135")             // Primary Orange
+    static let goldOrnament = Color(hex: "#D4B820")          // Primary Orange
+    static let goldTitle = Color(hex: "#D4B820")             // Primary Orange
     static let coralAuthor = Color(hex: "#2E5A7D")           // Navy Blue
     static let inkMuted = Color(hex: "#4B5563")              // Gray 600
 
     // MARK: - Premium Frame Colors (Layered Card Design)
 
     // Layer 1: Outer primary orange gradient
-    static let goldFrameOuter = Color(hex: "#CBA135")        // Primary Orange
+    static let goldFrameOuter = Color(hex: "#D4B820")        // Primary Orange
     static let goldFrameOuterMid = Color(hex: "#B8912A")     // Orange 600
-    static let goldFrameOuterDark = Color(hex: "#A9801F")    // Orange 700
+    static let goldFrameOuterDark = Color(hex: "#A8901A")    // Orange 700
 
     // Layer 2: Inner lighter orange gradient
     static let goldFrameInnerLight = Color(hex: "#FAAB8D")   // Orange 200
-    static let goldFrameInnerMid = Color(hex: "#DCBE5E")     // Orange 400
-    static let goldFrameInnerDark = Color(hex: "#CBA135")    // Primary Orange
+    static let goldFrameInnerMid = Color(hex: "#E0C645")     // Orange 400
+    static let goldFrameInnerDark = Color(hex: "#D4B820")    // Primary Orange
 
     // Layer 3: White gap
-    static let goldFrameCreamLight = Color(hex: "#FFFFFF")   // White
-    static let goldFrameCreamMid = Color(hex: "#FEF0EB")     // Orange 50
-    static let goldFrameCreamDark = Color(hex: "#FCD4C4")    // Orange 100
+    static let goldFrameCreamLight = adaptivePalette(light: "#FCFAF2", dark: "#26241C")   // subtle gold parchment
+    static let goldFrameCreamMid = adaptivePalette(light: "#F7F0DE", dark: "#2C2820")
+    static let goldFrameCreamDark = adaptivePalette(light: "#F0E7CE", dark: "#332E1F")
 
     // Layer 4: Orange pinstripe
-    static let goldPinstripeLight = Color(hex: "#DCBE5E")    // Orange 400
-    static let goldPinstripeDark = Color(hex: "#CBA135")     // Primary Orange
+    static let goldPinstripeLight = Color(hex: "#E0C645")    // Orange 400
+    static let goldPinstripeDark = Color(hex: "#D4B820")     // Primary Orange
 
     // Outer card gradient (Clean surfaces)
     static let outerCardTop = Color(hex: "#FFFFFF")          // Pure White
@@ -191,13 +191,13 @@ struct AnalysisTheme {
     // MARK: - Background Colors (Adaptive Light/Dark with Fallbacks)
 
     /// Primary background - White in light mode, Navy 900 in dark mode
-    static let bgPrimary = Color(UIColor(named: "BgPrimary") ?? UIColor(hex: "#FFFFFF"))
-    /// Secondary background - Gray 50 in light mode, Navy 800 in dark mode
-    static let bgSecondary = Color(UIColor(named: "BgSecondary") ?? UIColor(hex: "#F9FAFB"))
-    /// Card background - White in light mode, Navy 700 in dark mode
-    static let bgCard = Color(UIColor(named: "BgCard") ?? UIColor(hex: "#FFFFFF"))
-    /// Elevated surface - White in light mode, Navy 600 in dark mode
-    static let bgElevated = Color(UIColor(named: "BgElevated") ?? UIColor(hex: "#FFFFFF"))
+    static let bgPrimary = adaptivePalette(light: "#F3F4F1", dark: "#16181A")   // Warm Mist
+    /// Secondary background
+    static let bgSecondary = adaptivePalette(light: "#ECEFF2", dark: "#1E2022")
+    /// Card background
+    static let bgCard = adaptivePalette(light: "#FAFCFD", dark: "#24262A")
+    /// Elevated surface
+    static let bgElevated = adaptivePalette(light: "#FFFFFF", dark: "#2A2D31")
 
     // MARK: - Border Colors (Adaptive Light/Dark with Fallbacks)
 
