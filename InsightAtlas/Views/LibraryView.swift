@@ -153,12 +153,12 @@ struct LibraryView: View {
                     PremiumHaptics.selection()
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(PremiumUI.ink)
                         .frame(width: 44, height: 44)
-                        .background(PremiumUI.chipFill, in: Circle())
                 }
                 .accessibilityLabel("Library filters and sorting")
+                .accessibilityIdentifier("library_options_button")
 
                 Button {
                     showingGenerationView = true
@@ -172,36 +172,50 @@ struct LibraryView: View {
                         .shadow(color: PremiumUI.gold.opacity(0.25), radius: 6, x: 0, y: 3)
                 }
                 .accessibilityLabel("Create a new guide")
+                .accessibilityIdentifier("library_create_button")
             }
 
             PremiumSearchField(
                 text: $searchText,
                 placeholder: "Search your library"
             )
+            .accessibilityIdentifier("library_search_field")
+            .accessibilityLabel("Search your library")
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 9) {
-                    ForEach(PremiumLibraryFilter.allCases) { filter in
-                        Button {
-                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                                selectedFilter = filter
-                            }
-                            PremiumHaptics.selection()
-                        } label: {
-                            Text(filter.rawValue)
-                                .font(PremiumUI.ui(15, selectedFilter == filter ? .semibold : .regular))
-                                .foregroundStyle(selectedFilter == filter ? Color.white : PremiumUI.ink)
-                                .padding(.horizontal, 17)
-                                .frame(height: 40)
-                                .background(
-                                    selectedFilter == filter ? PremiumUI.gold : PremiumUI.chipFill,
-                                    in: Capsule()
-                                )
+            // Segmented control filter — native, no horizontal scroll. Active
+            // state is a white lift + micro-shadow (Design System §Segmented
+            // Control); gold is intentionally not used here so it stays special
+            // for genuinely interactive elements.
+            HStack(spacing: 2) {
+                ForEach(PremiumLibraryFilter.allCases) { filter in
+                    let isActive = selectedFilter == filter
+                    Button {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                            selectedFilter = filter
                         }
-                        .buttonStyle(.plain)
+                        PremiumHaptics.selection()
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(PremiumUI.ui(14, isActive ? .semibold : .medium))
+                            .foregroundStyle(isActive ? PremiumUI.ink : PremiumUI.secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                isActive ? PremiumUI.card : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            )
+                            .shadow(color: isActive ? Color.black.opacity(0.06) : .clear, radius: 3, y: 1)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library_filter_\(filter.rawValue.lowercased())")
+                    .accessibilityLabel(Text("Filter: \(filter.rawValue)"))
                 }
             }
+            .padding(3)
+            .background(
+                PremiumUI.chipFill,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
         }
         .padding(.horizontal, 18)
         .padding(.top, 10)
@@ -233,6 +247,7 @@ struct LibraryView: View {
                     .contextMenu {
                         itemActions(for: item)
                     }
+                    .accessibilityIdentifier("library_item_\(item.id.uuidString)")
                 }
             }
             .padding(.horizontal, 18)
@@ -285,6 +300,7 @@ struct LibraryView: View {
                 .contextMenu {
                     itemActions(for: item)
                 }
+                .accessibilityIdentifier("library_item_\(item.id.uuidString)")
             }
         }
         .listStyle(.plain)
@@ -364,6 +380,7 @@ struct LibraryView: View {
                     .clipShape(Capsule())
             }
             .padding(.top, 8)
+            .accessibilityIdentifier("library_empty_primary_button")
 
             Spacer()
         }
@@ -679,6 +696,7 @@ struct PremiumLibraryOptionsSheet: View {
                     }
                     .pickerStyle(.segmented)
                     .listRowBackground(PremiumUI.card)
+                    .accessibilityIdentifier("library_layout_picker")
                 }
 
                 Section("Sort By") {
@@ -714,6 +732,7 @@ struct PremiumLibraryOptionsSheet: View {
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("library_options_done_button")
                 }
             }
         }

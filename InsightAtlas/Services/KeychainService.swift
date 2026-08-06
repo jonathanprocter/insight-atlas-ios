@@ -58,6 +58,7 @@ final class KeychainService {
     private enum Keys {
         static let claudeApiKey = "com.insightatlas.claude-api-key"
         static let openaiApiKey = "com.insightatlas.openai-api-key"
+        static let openRouterApiKey = "com.insightatlas.openrouter-api-key"
         static let elevenLabsApiKey = "com.insightatlas.elevenlabs-api-key"
         static let chatgptAccessToken = "com.insightatlas.chatgpt-access-token"
         static let chatgptRefreshToken = "com.insightatlas.chatgpt-refresh-token"
@@ -99,6 +100,24 @@ final class KeychainService {
     /// Check if OpenAI API key is configured
     var hasOpenAIApiKey: Bool {
         openaiApiKey?.isEmpty == false
+    }
+
+    /// OpenRouter API key stored securely in Keychain.
+    /// OpenRouter is an OpenAI-compatible gateway to many models.
+    var openRouterApiKey: String? {
+        get { retrieve(key: Keys.openRouterApiKey) }
+        set {
+            if let value = newValue, !value.isEmpty {
+                save(key: Keys.openRouterApiKey, value: value)
+            } else {
+                delete(key: Keys.openRouterApiKey)
+            }
+        }
+    }
+
+    /// Check if OpenRouter API key is configured
+    var hasOpenRouterApiKey: Bool {
+        openRouterApiKey?.isEmpty == false
     }
 
     /// ElevenLabs API key stored securely in Keychain
@@ -151,6 +170,7 @@ final class KeychainService {
     func clearAllKeys() {
         delete(key: Keys.claudeApiKey)
         delete(key: Keys.openaiApiKey)
+        delete(key: Keys.openRouterApiKey)
         delete(key: Keys.elevenLabsApiKey)
     }
 

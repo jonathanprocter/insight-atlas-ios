@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
@@ -7,6 +8,13 @@ struct SettingsView: View {
     @AppStorage(PremiumUI.accentStorageKey) private var accentPreference = PremiumAccent.gold.rawValue
 
     @State private var searchText = ""
+
+    @AppStorage("settings_expand_generation") private var expandGeneration = true
+    @AppStorage("settings_expand_api") private var expandAPI = true
+    @AppStorage("settings_expand_audio") private var expandAudio = true
+    @AppStorage("settings_expand_appearance") private var expandAppearance = true
+    @AppStorage("settings_expand_about") private var expandAbout = true
+    @State private var showResetAlert = false
 
     private var selectedVoiceName: String {
         guard let voiceID = environment.userSettings.selectedVoiceID else {
@@ -33,20 +41,46 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    Text("Settings")
-                        .font(PremiumUI.display(34, .bold))
-                        .foregroundStyle(PremiumUI.ink)
+                    HStack {
+                        Text("Settings")
+                            .font(PremiumUI.display(34, .bold))
+                            .foregroundStyle(PremiumUI.ink)
+                        Spacer()
+                        Menu {
+                            Button(role: .destructive) {
+                                showResetAlert = true
+                            } label: {
+                                Label("Reset All Settings", systemImage: "arrow.counterclockwise")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(PremiumUI.ink)
+                                .accessibilityLabel("More options")
+                        }
+                    }
 
                     PremiumSearchField(
                         text: $searchText,
                         placeholder: "Search settings"
                     )
 
-                    if matches(["generation", "ai provider", "generation mode", "tone", "format", "summary"]) {
+                    if matchesSection(
+                        title: "Generation",
+                        keywords: ["ai provider", "generation mode", "tone", "format", "summary"],
+                        dynamicValues: [
+                            environment.userSettings.preferredProvider.displayName,
+                            environment.userSettings.preferredMode.displayName,
+                            environment.userSettings.preferredTone.displayName,
+                            environment.userSettings.preferredFormat.displayName,
+                            environment.userSettings.preferredSummaryType.displayName
+                        ]
+                    ) {
                         PremiumSettingsCard(
                             title: "GENERATION",
                             icon: "brain.head.profile",
-                            accentColor: accentColor
+                            accentColor: accentColor,
+                            isExpanded: $expandGeneration
                         ) {
                             PremiumSettingsNavigationRow(
                                 title: "AI Provider",
@@ -84,11 +118,16 @@ struct SettingsView: View {
                         }
                     }
 
-                    if matches(["api", "configuration", "keys", "claude", "openai"]) {
+                    if matchesSection(
+                        title: "API Configuration",
+                        keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
+                        dynamicValues: [apiConfigurationStatus]
+                    ) {
                         PremiumSettingsCard(
                             title: "API CONFIGURATION",
                             icon: "lock.fill",
-                            accentColor: accentColor
+                            accentColor: accentColor,
+                            isExpanded: $expandAPI
                         ) {
                             PremiumSettingsNavigationRow(
                                 title: "Manage API Keys",
@@ -99,11 +138,16 @@ struct SettingsView: View {
                         }
                     }
 
-                    if matches(["audio", "voice", "narration", "playback", "elevenlabs"]) {
+                    if matchesSection(
+                        title: "Audio & Narration",
+                        keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
+                        dynamicValues: [selectedVoiceName]
+                    ) {
                         PremiumSettingsCard(
                             title: "AUDIO & NARRATION",
                             icon: "waveform",
-                            accentColor: accentColor
+                            accentColor: accentColor,
+                            isExpanded: $expandAudio
                         ) {
                             PremiumSettingsNavigationRow(
                                 title: "Audio Settings",
@@ -125,11 +169,16 @@ struct SettingsView: View {
                         }
                     }
 
-                    if matches(["appearance", "theme", "light", "dark", "system", "accent", "color"]) {
+                    if matchesSection(
+                        title: "Appearance",
+                        keywords: ["appearance", "theme", "light", "dark", "system", "accent", "color", "contrast", "sepia"],
+                        dynamicValues: [themePreference, accentPreference]
+                    ) {
                         PremiumSettingsCard(
                             title: "APPEARANCE",
                             icon: "paintpalette.fill",
-                            accentColor: accentColor
+                            accentColor: accentColor,
+                            isExpanded: $expandAppearance
                         ) {
                             PremiumSettingsNavigationRow(
                                 title: "Theme",
@@ -146,14 +195,47 @@ struct SettingsView: View {
                             ) {
                                 AccentColorSettingsView()
                             }
+
+                            PremiumSettingsDivider()
+
+                            PremiumSettingsToggleRow(
+                                title: "Increase Contrast",
+                                isOn: Binding(
+                                    get: { UserDefaults.standard.bool(forKey: "insight_atlas_high_contrast") },
+                                    set: { newValue in
+                                        UserDefaults.standard.set(newValue, forKey: "insight_atlas_high_contrast")
+                                        PremiumHaptics.selection()
+                                    }
+                                ),
+                                accentColor: accentColor
+                            )
+
+                            PremiumSettingsDivider()
+
+                            PremiumSettingsToggleRow(
+                                title: "Sepia Reading Mode",
+                                isOn: Binding(
+                                    get: { UserDefaults.standard.bool(forKey: "insight_atlas_sepia_mode") },
+                                    set: { newValue in
+                                        UserDefaults.standard.set(newValue, forKey: "insight_atlas_sepia_mode")
+                                        PremiumHaptics.selection()
+                                    }
+                                ),
+                                accentColor: accentColor
+                            )
                         }
                     }
 
-                    if matches(["about", "support", "version", "help", "tutorials", "privacy"]) {
+                    if matchesSection(
+                        title: "About & Support",
+                        keywords: ["about", "support", "version", "help", "tutorials", "privacy", "rate", "contact"],
+                        dynamicValues: [versionText]
+                    ) {
                         PremiumSettingsCard(
                             title: "ABOUT & SUPPORT",
                             icon: "info.circle.fill",
-                            accentColor: accentColor
+                            accentColor: accentColor,
+                            isExpanded: $expandAbout
                         ) {
                             PremiumSettingsInfoRow(
                                 title: "Version",
@@ -171,6 +253,44 @@ struct SettingsView: View {
                             PremiumSettingsNavigationRow(title: "Privacy Policy") {
                                 PrivacyPolicySettingsView()
                             }
+
+                            PremiumSettingsDivider()
+
+                            PremiumSettingsNavigationRow(title: "System Info") {
+                                SystemInfoView()
+                            }
+
+                            PremiumSettingsDivider()
+
+                            Button {
+                                if let url = URL(string: "mailto:support@example.com") { UIApplication.shared.open(url) }
+                            } label: {
+                                HStack {
+                                    Text("Contact Support")
+                                        .font(PremiumUI.ui(16, .medium))
+                                        .foregroundStyle(PremiumUI.ink)
+                                    Spacer()
+                                    Image(systemName: "envelope")
+                                        .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            PremiumSettingsDivider()
+
+                            Button {
+                                if let url = URL(string: "itms-apps://itunes.apple.com/app/id000000000?action=write-review") { UIApplication.shared.open(url) }
+                            } label: {
+                                HStack {
+                                    Text("Rate on the App Store")
+                                        .font(PremiumUI.ui(16, .medium))
+                                        .foregroundStyle(PremiumUI.ink)
+                                    Spacer()
+                                    Image(systemName: "star.fill")
+                                        .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -188,6 +308,14 @@ struct SettingsView: View {
             .background(PremiumUI.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .tint(accentColor)
+            .alert("Reset all settings?", isPresented: $showResetAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Reset", role: .destructive) {
+                    resetAllSettings()
+                }
+            } message: {
+                Text("This will restore defaults for appearance, generation, and audio settings. API keys are not removed.")
+            }
         }
     }
 
@@ -205,16 +333,69 @@ struct SettingsView: View {
     }
 
     private var noSectionMatches: Bool {
-        !matches(["generation", "ai provider", "generation mode", "tone", "format", "summary"]) &&
-        !matches(["api", "configuration", "keys", "claude", "openai"]) &&
-        !matches(["audio", "voice", "narration", "playback", "elevenlabs"]) &&
-        !matches(["appearance", "theme", "light", "dark", "system", "accent", "color"]) &&
-        !matches(["about", "support", "version", "help", "tutorials", "privacy"])
+        !matchesSection(
+            title: "Generation",
+            keywords: ["ai provider", "generation mode", "tone", "format", "summary"],
+            dynamicValues: [
+                environment.userSettings.preferredProvider.displayName,
+                environment.userSettings.preferredMode.displayName,
+                environment.userSettings.preferredTone.displayName,
+                environment.userSettings.preferredFormat.displayName,
+                environment.userSettings.preferredSummaryType.displayName
+            ]
+        ) &&
+        !matchesSection(
+            title: "API Configuration",
+            keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
+            dynamicValues: [apiConfigurationStatus]
+        ) &&
+        !matchesSection(
+            title: "Audio & Narration",
+            keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
+            dynamicValues: [selectedVoiceName]
+        ) &&
+        !matchesSection(
+            title: "Appearance",
+            keywords: ["appearance", "theme", "light", "dark", "system", "accent", "color", "contrast", "sepia"],
+            dynamicValues: [themePreference, accentPreference]
+        ) &&
+        !matchesSection(
+            title: "About & Support",
+            keywords: ["about", "support", "version", "help", "tutorials", "privacy", "rate", "contact"],
+            dynamicValues: [versionText]
+        )
     }
 
-    private func matches(_ terms: [String]) -> Bool {
+    private func matchesSection(title: String, keywords: [String], dynamicValues: [String] = []) -> Bool {
         guard !searchText.isEmpty else { return true }
-        return terms.contains { $0.localizedCaseInsensitiveContains(searchText) }
+        let haystack = ([title] + keywords + dynamicValues)
+            .joined(separator: " ")
+            .lowercased()
+        return haystack.contains(searchText.lowercased())
+    }
+
+    private func resetAllSettings() {
+        // Appearance
+        themePreference = PremiumTheme.system.rawValue
+        accentPreference = PremiumAccent.gold.rawValue
+        UserDefaults.standard.set(false, forKey: "insight_atlas_high_contrast")
+        UserDefaults.standard.set(false, forKey: "insight_atlas_sepia_mode")
+
+        // Generation defaults (best-effort using first cases)
+        if let provider = AIProvider.allCases.first { environment.userSettings.preferredProvider = provider }
+        if let mode = GenerationMode.allCases.first { environment.userSettings.preferredMode = mode }
+        if let tone = ToneMode.allCases.first { environment.userSettings.preferredTone = tone }
+        if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
+        if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
+
+        // Audio defaults
+        if let vProvider = VoiceProvider.allCases.first { environment.userSettings.voiceProvider = vProvider }
+        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider == .openai ? "alloy" : ElevenLabsVoiceRegistry.adam.voiceID
+        if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
+        environment.userSettings.autoGenerateAudio = false
+
+        environment.saveSettings()
+        PremiumHaptics.selection()
     }
 }
 
@@ -222,25 +403,57 @@ struct PremiumSettingsCard<Content: View>: View {
     let title: String
     let icon: String
     let accentColor: Color
+    var isExpanded: Binding<Bool>? = nil
     @ViewBuilder let content: Content
+
+    init(
+        title: String,
+        icon: String,
+        accentColor: Color,
+        isExpanded: Binding<Bool>? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.icon = icon
+        self.accentColor = accentColor
+        self.isExpanded = isExpanded
+        self.content = content()
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(accentColor)
+
+            Text(title.uppercased())
+                .font(PremiumUI.ui(13, .bold))
+                .foregroundStyle(PremiumUI.ink)
+                .tracking(0.2)
+
+            Spacer()
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+        .contentShape(Rectangle())
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(accentColor)
-
-                Text(title)
-                    .font(PremiumUI.ui(13, .bold))
-                    .foregroundStyle(PremiumUI.ink)
-                    .tracking(0.2)
+            if let isExpanded {
+                DisclosureGroup(isExpanded: isExpanded) {
+                    content
+                } label: {
+                    header
+                }
+                .padding(.bottom, 4)
+                .animation(.snappy, value: isExpanded.wrappedValue)
+            } else {
+                header
+                content
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
-
-            content
         }
         .background(PremiumUI.card)
         .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
@@ -534,7 +747,14 @@ struct APIConfigurationView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
     @AppStorage("insight_atlas_use_chatgpt_oauth") private var useChatGPTOAuth = false
+    @AppStorage(ChatGPTOAuthConfig.modelStorageKey) private var chatgptModel = ChatGPTOAuthConfig.defaultModel
+    @AppStorage(OpenRouterConfig.modelStorageKey) private var openRouterModel = OpenRouterConfig.defaultModel
     @State private var showChatGPTSignIn = false
+
+    private func savedSuffix(for key: String?) -> String? {
+        guard let key, key.count >= 4 else { return nil }
+        return "Saved \u{2022}\u{2022}\u{2022}\u{2022}" + key.suffix(4)
+    }
 
     var body: some View {
         List {
@@ -546,7 +766,8 @@ struct APIConfigurationView: View {
                         get: { KeychainService.shared.claudeApiKey ?? "" },
                         set: { environment.updateClaudeApiKey($0.isEmpty ? nil : $0) }
                     ),
-                    hasValue: KeychainService.shared.hasClaudeApiKey
+                    hasValue: KeychainService.shared.hasClaudeApiKey,
+                    savedSuffix: savedSuffix(for: KeychainService.shared.claudeApiKey)
                 )
                 .listRowBackground(PremiumUI.card)
 
@@ -557,13 +778,65 @@ struct APIConfigurationView: View {
                         get: { KeychainService.shared.openaiApiKey ?? "" },
                         set: { environment.updateOpenAIApiKey($0.isEmpty ? nil : $0) }
                     ),
-                    hasValue: KeychainService.shared.hasOpenAIApiKey
+                    hasValue: KeychainService.shared.hasOpenAIApiKey,
+                    savedSuffix: savedSuffix(for: KeychainService.shared.openaiApiKey)
                 )
+                .listRowBackground(PremiumUI.card)
+
+                SecureFieldRow(
+                    label: "OpenRouter",
+                    placeholder: "OpenRouter API Key (sk-or-...)",
+                    text: Binding(
+                        get: { KeychainService.shared.openRouterApiKey ?? "" },
+                        set: { KeychainService.shared.openRouterApiKey = $0.isEmpty ? nil : $0 }
+                    ),
+                    hasValue: KeychainService.shared.hasOpenRouterApiKey,
+                    savedSuffix: savedSuffix(for: KeychainService.shared.openRouterApiKey)
+                )
+                .listRowBackground(PremiumUI.card)
+
+                // OpenRouter model selector — OpenRouter exposes many models
+                // behind one key; pick a suggestion or type any valid slug.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("OpenRouter Model")
+                        .font(PremiumUI.ui(13, .semibold))
+                        .foregroundStyle(PremiumUI.secondaryText)
+
+                    HStack(spacing: 8) {
+                        TextField(OpenRouterConfig.defaultModel, text: $openRouterModel)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .submitLabel(.done)
+                            .font(PremiumUI.ui(15, .regular))
+                            .foregroundStyle(PremiumUI.ink)
+
+                        Menu {
+                            ForEach(OpenRouterConfig.candidateModels, id: \.self) { model in
+                                Button {
+                                    openRouterModel = model
+                                    PremiumHaptics.selection()
+                                } label: {
+                                    if openRouterModel == model {
+                                        Label(model, systemImage: "checkmark")
+                                    } else {
+                                        Text(model)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(PremiumUI.gold)
+                                .frame(width: 32, height: 32)
+                        }
+                        .accessibilityLabel("Choose an OpenRouter model")
+                    }
+                }
                 .listRowBackground(PremiumUI.card)
             } header: {
                 Text("AI Providers")
             } footer: {
-                Text("API keys are stored in the iOS Keychain and are not included in app settings backups.")
+                Text("API keys are stored in the iOS Keychain and are not included in app settings backups. To generate via OpenRouter, also select it under Generation → AI Provider. OpenRouter bills separately from OpenAI and can reach OpenAI, Anthropic (incl. Claude Opus), Google, and Meta models with one key.")
             }
 
             Section {
@@ -574,7 +847,8 @@ struct APIConfigurationView: View {
                         get: { KeychainService.shared.elevenLabsApiKey ?? "" },
                         set: { KeychainService.shared.elevenLabsApiKey = $0.isEmpty ? nil : $0 }
                     ),
-                    hasValue: KeychainService.shared.hasElevenLabsApiKey
+                    hasValue: KeychainService.shared.hasElevenLabsApiKey,
+                    savedSuffix: savedSuffix(for: KeychainService.shared.elevenLabsApiKey)
                 )
                 .listRowBackground(PremiumUI.card)
             } header: {
@@ -597,6 +871,43 @@ struct APIConfigurationView: View {
                         .tint(PremiumUI.gold)
                         .listRowBackground(PremiumUI.card)
 
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Codex Model")
+                            .font(PremiumUI.ui(13, .semibold))
+                            .foregroundStyle(PremiumUI.secondaryText)
+
+                        HStack(spacing: 8) {
+                            TextField(ChatGPTOAuthConfig.defaultModel, text: $chatgptModel)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled(true)
+                                .submitLabel(.done)
+                                .font(PremiumUI.ui(15, .regular))
+                                .foregroundStyle(PremiumUI.ink)
+
+                            Menu {
+                                ForEach(ChatGPTOAuthConfig.candidateModels, id: \.self) { model in
+                                    Button {
+                                        chatgptModel = model
+                                        PremiumHaptics.selection()
+                                    } label: {
+                                        if chatgptModel == model {
+                                            Label(model, systemImage: "checkmark")
+                                        } else {
+                                            Text(model)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(PremiumUI.gold)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .accessibilityLabel("Choose a suggested Codex model")
+                        }
+                    }
+                    .listRowBackground(PremiumUI.card)
+
                     Button(role: .destructive) {
                         chatgpt.signOut()
                         useChatGPTOAuth = false
@@ -616,7 +927,7 @@ struct APIConfigurationView: View {
             } header: {
                 Text("ChatGPT Subscription (Beta)")
             } footer: {
-                Text("Unofficial: routes guide generation through your ChatGPT subscription via the Codex backend. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or ban your account. Use at your own risk.")
+                Text("Unofficial: routes guide generation through your ChatGPT subscription via the Codex backend. While enabled, it overrides the AI Provider selection above. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or ban your account. Use at your own risk. Note: this covers guide text only — audio narration still requires an OpenAI or ElevenLabs API key. If generation fails with a \"model is not supported\" error, try a different Codex Model above (tap the ▾ for suggestions); which models work depends on your ChatGPT plan.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
@@ -695,7 +1006,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("Audio generation requires a configured key for the selected voice provider.")
+                Text("Audio generation requires a configured API key for the selected voice provider (OpenAI or ElevenLabs), entered in API Configuration. Signing in with ChatGPT does not enable narration.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
@@ -707,32 +1018,53 @@ struct AudioSettingsView: View {
 struct ThemeSettingsView: View {
     @AppStorage(PremiumUI.themeStorageKey) private var selection = PremiumTheme.system.rawValue
 
+    // The app is currently locked to light mode (see ContentView's
+    // `.preferredColorScheme(.light)`), so Dark and System would be no-ops.
+    // Only surface the option that actually takes effect to avoid misleading
+    // the user; dark-mode tokens already exist for when the lock is lifted.
+    private let availableThemes: [PremiumTheme] = PremiumTheme.allCases
+
     var body: some View {
         List {
-            ForEach(PremiumTheme.allCases) { theme in
-                Button {
-                    selection = theme.rawValue
-                    PremiumHaptics.selection()
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: theme.icon)
-                            .frame(width: 24)
-                            .foregroundStyle(PremiumUI.gold)
+            Section {
+                PremiumSettingsCard(
+                    title: "Preview",
+                    icon: "paintpalette.fill",
+                    accentColor: PremiumUI.gold
+                ) {
+                    PremiumSettingsInfoRow(title: "Body Text", value: "Looks like this")
+                    PremiumSettingsDivider()
+                    PremiumSettingsToggleRow(title: "A Toggle", isOn: .constant(true), accentColor: PremiumUI.gold)
+                }
+                .listRowBackground(PremiumUI.card)
+            }
 
-                        Text(theme.rawValue)
-                            .foregroundStyle(PremiumUI.ink)
-
-                        Spacer()
-
-                        if selection == theme.rawValue {
-                            Image(systemName: "checkmark")
-                                .fontWeight(.semibold)
+            Section {
+                ForEach(availableThemes) { theme in
+                    Button {
+                        selection = theme.rawValue
+                        PremiumHaptics.selection()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: theme.icon)
+                                .frame(width: 24)
                                 .foregroundStyle(PremiumUI.gold)
+
+                            Text(theme.rawValue)
+                                .foregroundStyle(PremiumUI.ink)
+
+                            Spacer()
+
+                            if selection == theme.rawValue {
+                                Image(systemName: "checkmark")
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(PremiumUI.gold)
+                            }
                         }
                     }
+                    .buttonStyle(.plain)
+                    .listRowBackground(PremiumUI.card)
                 }
-                .buttonStyle(.plain)
-                .listRowBackground(PremiumUI.card)
             }
         }
         .premiumSettingsList(title: "Theme")
@@ -744,6 +1076,19 @@ struct AccentColorSettingsView: View {
 
     var body: some View {
         List {
+            Section {
+                PremiumSettingsCard(
+                    title: "Preview",
+                    icon: "paintpalette.fill",
+                    accentColor: PremiumUI.accent(from: selection)
+                ) {
+                    PremiumSettingsInfoRow(title: "Body Text", value: "Looks like this")
+                    PremiumSettingsDivider()
+                    PremiumSettingsToggleRow(title: "A Toggle", isOn: .constant(true), accentColor: PremiumUI.accent(from: selection))
+                }
+                .listRowBackground(PremiumUI.card)
+            }
+
             ForEach(PremiumAccent.allCases) { accent in
                 Button {
                     selection = accent.rawValue
@@ -875,6 +1220,14 @@ struct VoiceSelectionSettingsView: View {
     @EnvironmentObject var environment: AppEnvironment
     @State private var previewingVoiceID: String?
     @State private var isLoadingPreview = false
+    @State private var previewError: String?
+
+    private var hasVoiceKey: Bool {
+        switch environment.userSettings.voiceProvider {
+        case .openai: return KeychainService.shared.hasOpenAIApiKey
+        case .elevenlabs: return KeychainService.shared.hasElevenLabsApiKey
+        }
+    }
 
     var body: some View {
         List {
@@ -887,6 +1240,7 @@ struct VoiceSelectionSettingsView: View {
                             isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
                             isPreviewing: previewingVoiceID == voice.voiceID,
                             isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
+                            isPreviewEnabled: hasVoiceKey,
                             onSelect: { selectOpenAIVoice(voice) },
                             onPreview: { previewOpenAIVoice(voice) }
                         )
@@ -905,6 +1259,7 @@ struct VoiceSelectionSettingsView: View {
                             isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
                             isPreviewing: previewingVoiceID == voice.voiceID,
                             isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
+                            isPreviewEnabled: hasVoiceKey,
                             onSelect: { selectElevenLabsVoice(voice) },
                             onPreview: { previewElevenLabsVoice(voice) }
                         )
@@ -918,6 +1273,14 @@ struct VoiceSelectionSettingsView: View {
         }
         .navigationTitle("Voice Selection")
         .navigationBarTitleDisplayMode(.inline)
+        .alert(
+            "Preview failed",
+            isPresented: Binding(get: { previewError != nil }, set: { if !$0 { previewError = nil } })
+        ) {
+            Button("OK", role: .cancel) { previewError = nil }
+        } message: {
+            Text(previewError ?? "")
+        }
     }
 
     // MARK: - OpenAI Voice Selection
@@ -929,10 +1292,10 @@ struct VoiceSelectionSettingsView: View {
 
     private func previewOpenAIVoice(_ voice: OpenAIVoice) {
         guard !isLoadingPreview else { return }
+        AudioPlaybackManager.shared.stop()
 
         // Stop any current preview
         if previewingVoiceID == voice.voiceID {
-            AudioPlaybackManager.shared.stop()
             previewingVoiceID = nil
             return
         }
@@ -950,14 +1313,20 @@ struct VoiceSelectionSettingsView: View {
 
                 await MainActor.run {
                     isLoadingPreview = false
-                    try? AudioPlaybackManager.shared.play(audio) {
+                    do {
+                        try AudioPlaybackManager.shared.play(audio) {
+                            previewingVoiceID = nil
+                        }
+                    } catch {
                         previewingVoiceID = nil
+                        previewError = error.localizedDescription
                     }
                 }
             } catch {
                 await MainActor.run {
                     isLoadingPreview = false
                     previewingVoiceID = nil
+                    previewError = error.localizedDescription
                 }
             }
         }
@@ -972,10 +1341,10 @@ struct VoiceSelectionSettingsView: View {
 
     private func previewElevenLabsVoice(_ voice: ElevenLabsVoice) {
         guard !isLoadingPreview else { return }
+        AudioPlaybackManager.shared.stop()
 
         // Stop any current preview
         if previewingVoiceID == voice.voiceID {
-            AudioPlaybackManager.shared.stop()
             previewingVoiceID = nil
             return
         }
@@ -993,14 +1362,20 @@ struct VoiceSelectionSettingsView: View {
 
                 await MainActor.run {
                     isLoadingPreview = false
-                    try? AudioPlaybackManager.shared.play(audio) {
+                    do {
+                        try AudioPlaybackManager.shared.play(audio) {
+                            previewingVoiceID = nil
+                        }
+                    } catch {
                         previewingVoiceID = nil
+                        previewError = error.localizedDescription
                     }
                 }
             } catch {
                 await MainActor.run {
                     isLoadingPreview = false
                     previewingVoiceID = nil
+                    previewError = error.localizedDescription
                 }
             }
         }
@@ -1014,6 +1389,7 @@ struct OpenAIVoiceRow: View {
     let isSelected: Bool
     let isPreviewing: Bool
     let isLoading: Bool
+    let isPreviewEnabled: Bool
     let onSelect: () -> Void
     let onPreview: () -> Void
 
@@ -1057,6 +1433,10 @@ struct OpenAIVoiceRow: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .disabled(!isPreviewEnabled)
+                .opacity(isPreviewEnabled ? 1 : 0.5)
+                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
+                .accessibilityHint(isPreviewEnabled ? "Previews the selected voice" : "Add an API key in API Configuration")
 
                 // Selection indicator
                 if isSelected {
@@ -1077,6 +1457,7 @@ struct SettingsVoiceRow: View {
     let isSelected: Bool
     let isPreviewing: Bool
     let isLoading: Bool
+    let isPreviewEnabled: Bool
     let onSelect: () -> Void
     let onPreview: () -> Void
 
@@ -1122,6 +1503,10 @@ struct SettingsVoiceRow: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .disabled(!isPreviewEnabled)
+                .opacity(isPreviewEnabled ? 1 : 0.5)
+                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
+                .accessibilityHint(isPreviewEnabled ? "Previews the selected voice" : "Add an API key in API Configuration")
 
                 // Selection indicator
                 if isSelected {
@@ -1142,6 +1527,7 @@ struct SecureFieldRow: View {
     let placeholder: String
     @Binding var text: String
     let hasValue: Bool
+    var savedSuffix: String? = nil
 
     @State private var isVisible = false
 
@@ -1170,6 +1556,12 @@ struct SecureFieldRow: View {
                         .autocapitalization(.none)
                         .autocorrectionDisabled()
                 }
+
+                if let savedSuffix, savedSuffix.isEmpty == false {
+                    Text(savedSuffix)
+                        .font(PremiumUI.ui(12))
+                        .foregroundStyle(PremiumUI.secondaryText)
+                }
             }
 
             Button {
@@ -1178,6 +1570,9 @@ struct SecureFieldRow: View {
                 Image(systemName: isVisible ? "eye.slash" : "eye")
                     .foregroundStyle(.secondary)
                     .font(.body)
+                    .padding(8)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel(isVisible ? "Hide key" : "Show key")
             }
             .buttonStyle(.plain)
         }
@@ -1188,5 +1583,31 @@ struct SecureFieldRow: View {
     NavigationStack {
         SettingsView()
             .environmentObject(AppEnvironment.shared)
+    }
+}
+
+struct SystemInfoView: View {
+    var body: some View {
+        List {
+            PremiumSettingsInfoRow(title: "App Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-")
+            PremiumSettingsDivider()
+            PremiumSettingsInfoRow(title: "Build", value: Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String ?? "-")
+            PremiumSettingsDivider()
+            PremiumSettingsInfoRow(title: "Device", value: UIDevice.current.model)
+            PremiumSettingsDivider()
+            PremiumSettingsInfoRow(title: "iOS", value: UIDevice.current.systemVersion)
+        }
+        .premiumSettingsList(title: "System Info")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Copy") {
+                    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
+                    let build = Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String ?? "-"
+                    let summary = "App: \(version) (\(build))\nDevice: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
+                    UIPasteboard.general.string = summary
+                    PremiumHaptics.selection()
+                }
+            }
+        }
     }
 }

@@ -1,6 +1,38 @@
 import Foundation
 import os.log
 
+/// OpenRouter is an OpenAI-compatible gateway to many models (OpenAI, Anthropic,
+/// Google, Meta, …) behind a single API key and billing account — a practical
+/// alternative when a direct OpenAI key is out of quota.
+enum OpenRouterConfig {
+    static let endpoint = "https://openrouter.ai/api/v1/chat/completions"
+
+    /// UserDefaults key backing the user-selected OpenRouter model slug.
+    static let modelStorageKey = "insight_atlas_openrouter_model"
+
+    static let defaultModel = "openai/gpt-4o"
+
+    /// Suggested model slugs offered in Settings; users may type any valid slug.
+    static let candidateModels = [
+        "openai/gpt-4o",
+        "openai/gpt-4o-mini",
+        "openai/gpt-4.1",
+        "anthropic/claude-opus-4.1",
+        "anthropic/claude-sonnet-4",
+        "anthropic/claude-3.5-sonnet",
+        "google/gemini-2.0-flash-001",
+        "meta-llama/llama-3.3-70b-instruct"
+    ]
+
+    /// The model slug to send: a non-empty user override, otherwise the default.
+    static var resolvedModel: String {
+        let stored = UserDefaults.standard.string(forKey: modelStorageKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let stored, !stored.isEmpty { return stored }
+        return defaultModel
+    }
+}
+
 /// Service for generating Insight Atlas guides using AI providers
 actor AIService {
 
@@ -12,6 +44,7 @@ actor AIService {
 
     private let claudeEndpoint = "https://api.anthropic.com/v1/messages"
     private let openaiEndpoint = "https://api.openai.com/v1/chat/completions"
+    private let openRouterEndpoint = OpenRouterConfig.endpoint
 
     private let claudeModel = "claude-sonnet-4-20250514"  // Sonnet 4: 64K output, excellent quality
     private let openaiModel = "gpt-4.1-2025-04-14"  // Latest GPT-4.1 with 1M context
@@ -110,7 +143,7 @@ actor AIService {
         // For tandem mode (.both), use OpenAI's limit since GPT-4.1 analyzes the full book first
         let contextLimit: Int
         switch settings.preferredProvider {
-        case .openai, .both:
+        case .openai, .both, .openRouter:
             contextLimit = openaiContextLimit
         case .claude:
             contextLimit = claudeContextLimit
@@ -150,6 +183,8 @@ actor AIService {
                 providerName = "Claude"
             case .both:
                 providerName = "GPT-4.1"  // GPT handles the full book in tandem mode
+            case .openRouter:
+                providerName = "OpenRouter"
             }
             throw AIServiceError.inputTooLarge(
                 estimatedTokens: estimate.totalInputTokens,
@@ -192,7 +227,9 @@ actor AIService {
                 title: title,
                 author: author,
                 settings: settings,
-                onChunk: onChunk
+                onChunk: onChunk,
+                onStatus: onStatus,
+                shouldTerminate: shouldTerminate
             )
         }
 
@@ -241,6 +278,26 @@ actor AIService {
                 tone: settings.preferredTone,
                 format: settings.preferredFormat,
                 apiKey: settings.openaiApiKey ?? "",
+                previousContent: previousContent,
+                improvementHints: improvementHints,
+                onChunk: onChunk,
+                onStatus: onStatus,
+                shouldTerminate: shouldTerminate
+            )
+
+        case .openRouter:
+            return try await streamWithOpenAI(
+                text: bookText,
+                title: title,
+                author: author,
+                mode: settings.preferredMode,
+                tone: settings.preferredTone,
+                format: settings.preferredFormat,
+                apiKey: settings.openRouterApiKey ?? "",
+                endpoint: openRouterEndpoint,
+                model: OpenRouterConfig.resolvedModel,
+                maxTokens: 16000,  // safe across OpenRouter models (e.g. gpt-4o caps at 16384)
+                providerLabel: "OpenRouter",
                 previousContent: previousContent,
                 improvementHints: improvementHints,
                 onChunk: onChunk,
@@ -373,13 +430,16 @@ actor AIService {
     // MARK: - Claude Integration
 
     /// UNOFFICIAL ChatGPT-subscription generation via the Codex backend.
-    /// Single-shot (non-streaming); emits the full guide once via onChunk.
+    /// Streams the guide progressively via onChunk (incremental deltas),
+    /// mirroring the Claude/OpenAI streaming paths.
     private func generateWithChatGPTOAuth(
         bookText: String,
         title: String,
         author: String,
         settings: UserSettings,
-        onChunk: @escaping (String) -> Void
+        onChunk: @escaping (String) -> Void,
+        onStatus: @escaping (GenerationStatus) -> Void,
+        shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
         let token = try await ChatGPTOAuthService.shared.validAccessToken()
         let accountID = ChatGPTOAuthService.storedAccountID
@@ -396,15 +456,42 @@ actor AIService {
             bookText: bookText,
             format: settings.preferredFormat
         )
-        let content = try await ChatGPTCodexClient().generate(
+        let stream = ChatGPTCodexClient().stream(
             systemPrompt: system,
             userMessage: user,
-            model: ChatGPTOAuthConfig.defaultModel,
+            model: ChatGPTOAuthConfig.resolvedModel,
             accessToken: token,
             accountID: accountID
         )
-        onChunk(content)
-        return content
+
+        var fullText = ""
+        var wordCount = 0
+        var lastCharWasWhitespace = true
+        var lastPhaseUpdate = 0
+        var terminated = false
+
+        for try await delta in stream {
+            if shouldTerminate?() == true { terminated = true; break }
+            fullText += delta
+            onChunk(delta)
+            updateWordCount(for: delta, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
+            if wordCount > lastPhaseUpdate + 1000 {
+                lastPhaseUpdate = wordCount
+                onStatus(GenerationStatus(
+                    phase: determinePhase(wordCount: wordCount),
+                    progress: min(Double(wordCount) / 15000.0, 0.95),
+                    wordCount: wordCount,
+                    model: "ChatGPT"
+                ))
+            }
+        }
+
+        if !terminated {
+            guard !fullText.isEmpty else {
+                throw ChatGPTOAuthError.inferenceFailed("empty response from Codex stream")
+            }
+        }
+        return fullText
     }
 
     private func streamWithClaude(
@@ -686,6 +773,10 @@ actor AIService {
         tone: ToneMode,
         format: OutputFormat,
         apiKey: String,
+        endpoint: String? = nil,
+        model: String? = nil,
+        maxTokens: Int? = nil,
+        providerLabel: String = "OpenAI",
         previousContent: String? = nil,
         improvementHints: String? = nil,
         onChunk: @escaping (String) -> Void,
@@ -693,8 +784,14 @@ actor AIService {
         shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
 
+        // OpenRouter is OpenAI wire-compatible, so this path serves both by
+        // swapping the endpoint URL, model, and provider label.
+        let resolvedEndpoint = endpoint ?? openaiEndpoint
+        let resolvedModel = model ?? openaiModel
+        let resolvedMaxTokens = maxTokens ?? maxTokensOpenAI
+
         guard !apiKey.isEmpty else {
-            throw AIServiceError.missingApiKey(provider: "OpenAI")
+            throw AIServiceError.missingApiKey(provider: providerLabel)
         }
 
         let isIteration = previousContent != nil && improvementHints != nil
@@ -703,7 +800,7 @@ actor AIService {
             phase: isIteration ? .addingInsights : .analyzing,
             progress: 0.0,
             wordCount: 0,
-            model: isIteration ? "OpenAI (Improving)" : "OpenAI"
+            model: isIteration ? "\(providerLabel) (Improving)" : providerLabel
         ))
 
         let systemPrompt = InsightAtlasPromptGenerator.generatePrompt(
@@ -773,8 +870,8 @@ actor AIService {
             )
         }
 
-        guard let openaiURL = URL(string: openaiEndpoint) else {
-            throw AIServiceError.invalidURL(provider: "OpenAI")
+        guard let openaiURL = URL(string: resolvedEndpoint) else {
+            throw AIServiceError.invalidURL(provider: providerLabel)
         }
         var request = URLRequest(url: openaiURL)
         request.httpMethod = "POST"
@@ -782,8 +879,8 @@ actor AIService {
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         let requestBody: [String: Any] = [
-            "model": openaiModel,
-            "max_tokens": maxTokensOpenAI,
+            "model": resolvedModel,
+            "max_tokens": resolvedMaxTokens,
             "stream": true,
             "messages": [
                 ["role": "system", "content": systemPrompt],
@@ -867,7 +964,15 @@ actor AIService {
         }
 
         guard httpResponse.statusCode == 200 else {
-            throw AIServiceError.apiError(statusCode: httpResponse.statusCode)
+            // Drain the error payload so OpenAI's actual reason (e.g.
+            // insufficient_quota vs rate_limit_exceeded) reaches the user
+            // instead of a bare status code.
+            var errorBody = ""
+            for try await line in asyncBytes.lines {
+                errorBody += line
+                if errorBody.count > 2000 { break }
+            }
+            throw AIServiceError.apiErrorWithBody(statusCode: httpResponse.statusCode, body: errorBody)
         }
 
         var fullText = ""
@@ -1376,16 +1481,26 @@ enum AIServiceError: LocalizedError {
         case .invalidResponse:
             return "Received an invalid response from the API."
         case .apiError(let statusCode):
+            if statusCode == 429 {
+                return "API error 429 (rate limit / quota). If this persists, your OpenAI API account is most likely out of credits — add billing at platform.openai.com. Note: a ChatGPT Plus subscription does not fund API usage."
+            }
             return "API error with status code: \(statusCode)"
         case .apiErrorWithBody(let statusCode, let body):
             // Parse the error body to extract meaningful message
+            var detail = String(body.prefix(200))
             if let data = body.data(using: .utf8),
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let error = json["error"] as? [String: Any],
                let message = error["message"] as? String {
-                return "API error (\(statusCode)): \(message)"
+                detail = message
             }
-            return "API error (\(statusCode)): \(body.prefix(200))"
+            if statusCode == 429 {
+                let hint = detail.lowercased().contains("quota")
+                    ? " Your OpenAI API account is out of credits — add billing at platform.openai.com. (A ChatGPT Plus subscription does not fund API usage.)"
+                    : " You're being rate limited; wait a moment and try again."
+                return "API error (429): \(detail)\(hint)"
+            }
+            return "API error (\(statusCode)): \(detail)"
         case .streamError(let message):
             return "Stream error: \(message)"
         case .networkError(let message):

@@ -19,10 +19,31 @@ enum ChatGPTOAuthConfig {
     static let tokenURL = "https://auth.openai.com/oauth/token"
     static let redirectURI = "http://localhost:1455/auth/callback"
     static let scopes = "openid profile email offline_access"
-    /// Chat Completions–compatible Codex endpoint.
-    static let inferenceURL = "https://chatgpt.com/backend-api/codex/v1/chat/completions"
-    /// Adjust to a model your ChatGPT plan can access.
-    static let defaultModel = "gpt-5.6-terra"
+    /// Codex backend Responses API endpoint (SSE-streaming only).
+    static let inferenceURL = "https://chatgpt.com/backend-api/codex/responses"
+    /// Adjust to a model your ChatGPT plan can access via the Codex backend.
+    /// NOTE: this account's Codex backend rejected BOTH `gpt-5-codex` and
+    /// `gpt-5` with HTTP 400 "not supported when using Codex with a ChatGPT
+    /// account". `codex-mini-latest` is the remaining documented Codex model
+    /// for ChatGPT plans; if it is also rejected, the account likely lacks
+    /// Codex access and generation should use the API-key path instead.
+    static let defaultModel = "codex-mini-latest"
+
+    /// UserDefaults key backing the user-overridable Codex model (Settings).
+    static let modelStorageKey = "insight_atlas_chatgpt_model"
+
+    /// Suggested models to offer in Settings for the unofficial Codex backend.
+    /// Which of these an account may actually use depends on its ChatGPT plan.
+    static let candidateModels = ["codex-mini-latest", "gpt-5-codex", "gpt-5", "gpt-4o"]
+
+    /// The model to send: a non-empty user override from Settings, otherwise
+    /// `defaultModel`. Read from UserDefaults so it works off the main actor.
+    static var resolvedModel: String {
+        let stored = UserDefaults.standard.string(forKey: modelStorageKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let stored, !stored.isEmpty { return stored }
+        return defaultModel
+    }
 }
 
 enum ChatGPTOAuthError: LocalizedError {
@@ -214,50 +235,92 @@ final class ChatGPTOAuthService: ObservableObject {
 // MARK: - Codex inference client
 
 struct ChatGPTCodexClient {
-    func generate(
+    /// Streams `output_text` deltas from the Codex Responses backend as they
+    /// arrive, so the guide can render progressively. Terminal errors are
+    /// delivered by finishing the stream with a thrown error.
+    func stream(
         systemPrompt: String,
         userMessage: String,
         model: String,
         accessToken: String,
         accountID: String?
-    ) async throws -> String {
-        var req = URLRequest(url: URL(string: ChatGPTOAuthConfig.inferenceURL)!)
-        req.httpMethod = "POST"
-        req.timeoutInterval = 300
-        req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("codex_cli_rs", forHTTPHeaderField: "originator")
-        if let accountID { req.setValue(accountID, forHTTPHeaderField: "chatgpt-account-id") }
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    var req = URLRequest(url: URL(string: ChatGPTOAuthConfig.inferenceURL)!)
+                    req.httpMethod = "POST"
+                    req.timeoutInterval = 300
+                    req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+                    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    // Codex backend quirks: it only serves the Responses API over
+                    // SSE and requires these headers verbatim (mirrors codex_cli_rs).
+                    req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    req.setValue("codex_cli_rs", forHTTPHeaderField: "originator")
+                    req.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
+                    req.setValue(UUID().uuidString, forHTTPHeaderField: "session_id")
+                    if let accountID { req.setValue(accountID, forHTTPHeaderField: "chatgpt-account-id") }
 
-        let body: [String: Any] = [
-            "model": model,
-            "messages": [
-                ["role": "system", "content": systemPrompt],
-                ["role": "user", "content": userMessage]
-            ],
-            "stream": false
-        ]
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+                    // Responses API schema. `instructions` carries the system prompt;
+                    // `input` carries the user turn. store/stream/include are
+                    // mandatory for the Codex backend.
+                    let body: [String: Any] = [
+                        "model": model,
+                        "instructions": systemPrompt,
+                        "input": [
+                            [
+                                "type": "message",
+                                "role": "user",
+                                "content": [["type": "input_text", "text": userMessage]]
+                            ]
+                        ],
+                        "store": false,
+                        "stream": true,
+                        "include": ["reasoning.encrypted_content"]
+                    ]
+                    req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse else {
-            throw ChatGPTOAuthError.inferenceFailed("no HTTP response")
+                    let (bytes, resp) = try await URLSession.shared.bytes(for: req)
+                    guard let http = resp as? HTTPURLResponse else {
+                        throw ChatGPTOAuthError.inferenceFailed("no HTTP response")
+                    }
+                    guard (200..<300).contains(http.statusCode) else {
+                        var errBody = ""
+                        for try await line in bytes.lines {
+                            errBody += line
+                            if errBody.count > 2000 { break }
+                        }
+                        throw ChatGPTOAuthError.inferenceFailed("HTTP \(http.statusCode): \(errBody)")
+                    }
+
+                    for try await line in bytes.lines {
+                        try Task.checkCancellation()
+                        guard line.hasPrefix("data:") else { continue }
+                        let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                        if payload.isEmpty || payload == "[DONE]" { continue }
+                        guard let data = payload.data(using: .utf8),
+                              let event = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                              let type = event["type"] as? String else { continue }
+                        switch type {
+                        case "response.output_text.delta":
+                            if let delta = event["delta"] as? String { continuation.yield(delta) }
+                        case "response.failed", "error":
+                            let response = event["response"] as? [String: Any]
+                            let message = (response?["error"] as? [String: Any])?["message"] as? String
+                                ?? (event["error"] as? [String: Any])?["message"] as? String
+                                ?? "stream error"
+                            throw ChatGPTOAuthError.inferenceFailed(message)
+                        default:
+                            break
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
         }
-        guard (200..<300).contains(http.statusCode) else {
-            throw ChatGPTOAuthError.inferenceFailed("HTTP \(http.statusCode): \(String(data: data, encoding: .utf8) ?? "")")
-        }
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw ChatGPTOAuthError.inferenceFailed("unparseable response")
-        }
-        // Chat Completions shape.
-        if let choices = json["choices"] as? [[String: Any]],
-           let msg = choices.first?["message"] as? [String: Any],
-           let content = msg["content"] as? String {
-            return content
-        }
-        // Responses API fallback shape.
-        if let output = json["output_text"] as? String { return output }
-        throw ChatGPTOAuthError.inferenceFailed("unexpected response shape")
     }
 }
 

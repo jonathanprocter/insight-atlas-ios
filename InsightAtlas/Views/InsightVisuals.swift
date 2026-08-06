@@ -361,8 +361,29 @@ struct GroupedBarChartData: Codable {
 // MARK: - Parser
 
 struct InsightVisualParser {
+    /// Maps prompt visual tags that have no dedicated renderer to the closest
+    /// wired `InsightVisualType`. Without this, tags like `VISUAL_SPECTRUM`
+    /// fail the `rawValue` lookup and degrade to a generic box. Payloads are
+    /// loose natural-language line formats (see InsightAtlasPrompt.swift), so
+    /// re-typing is safe — the closest type's line parser handles the content.
+    /// (Resolves FOLLOWUPS.md §1.)
+    static let tagAliases: [String: String] = [
+        "VISUAL_SPECTRUM": "VISUAL_QUADRANT",              // poles along a range → 2-axis positioning
+        "VISUAL_MATRIX": "VISUAL_TABLE",                   // rows × columns
+        "VISUAL_COMPARISON": "VISUAL_COMPARISON_MATRIX",   // side-by-side comparison
+        "VISUAL_PROCESS": "VISUAL_FLOWCHART",              // sequential steps
+        "VISUAL_MINDMAP": "VISUAL_CONCEPT_MAP",            // central concept + branches
+        "VISUAL_GAUGE": "VISUAL_INFOGRAPHIC",              // single measurement w/ zones
+        "VISUAL_BEFORE_AFTER": "VISUAL_COMPARISON_MATRIX", // transformation comparison
+        "VISUAL_ICEBERG": "VISUAL_PYRAMID",                // visible vs hidden layers
+        "VISUAL_BRIDGE": "VISUAL_FLOWCHART",               // current → desired state
+        "VISUAL_ORBIT": "VISUAL_CONCEPT_MAP",              // central concept + orbiters
+        "VISUAL_LADDER": "VISUAL_PYRAMID"                  // progressive levels
+    ]
+
     static func parse(tag: String, title: String?, lines: [String]) -> InsightVisual? {
-        guard let type = InsightVisualType(rawValue: tag) else {
+        let canonicalTag = tagAliases[tag] ?? tag
+        guard let type = InsightVisualType(rawValue: canonicalTag) else {
             return nil
         }
 

@@ -3,11 +3,18 @@
 **Target date:** 2026-08-06 (tomorrow)
 **Logged:** 2026-08-05
 **Branch:** `claude/author-spotlight-ios-ui-ggkops` (PR #1)
-**Status:** open — not blocking; app builds green on `8d30582`
+**Status:** §1 and §2 RESOLVED 2026-08-06 (chose option (a) for both); app builds green.
+
+> **Resolved 2026-08-06:** §1 fixed via `InsightVisualParser.tagAliases` in
+> `InsightAtlas/Views/InsightVisuals.swift` — 11 unwired tags (the 8 below plus
+> `VISUAL_MATRIX`/`VISUAL_COMPARISON`/`VISUAL_PROCESS`) now map to the closest
+> wired type instead of degrading to a generic box. §2 fixed in
+> `ThemeSettingsView` (`SettingsView.swift`): Dark/System hidden, only Light
+> shown, stored preference normalized. Light-mode lock in ContentView retained.
 
 ---
 
-## 1. Reconcile unwired visual tags (prompt ↔ renderer)
+## 1. Reconcile unwired visual tags (prompt ↔ renderer)  ✅ DONE
 
 The generation prompt (`InsightAtlas/Services/InsightAtlasPrompt.swift`) instructs ~30
 `[VISUAL_*]` tags, but **8 are not among the 32 wired `InsightVisualType` cases**, so they
@@ -36,7 +43,7 @@ on-screen reader and the PDF export (both parsers share `InsightVisualParser`).
 
 ---
 
-## 2. Hide the now-inert Dark / System theme options
+## 2. Hide the now-inert Dark / System theme options  ✅ DONE
 
 The app is **locked to light mode** (`ContentView.swift`: `.preferredColorScheme(.light)`),
 so the Theme picker's **Dark** and **System** choices are no-ops and mislead the user.

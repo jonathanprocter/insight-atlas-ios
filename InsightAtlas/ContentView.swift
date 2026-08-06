@@ -62,7 +62,7 @@ struct ContentView: View {
             }
         }
         // Locked to light mode per user preference (overrides the Theme setting).
-        .preferredColorScheme(.light)
+        .preferredColorScheme(preferredColorScheme)
     }
 }
 
@@ -80,8 +80,8 @@ enum PremiumUI {
 
     // Accents — CMV-blended palette; hero gold plus supporting hues.
     // Dark variants are lightened for contrast on dark surfaces.
-    static let gold       = adaptive("#D4B820", "#E0C645")   // Sunny Gold (hero)
-    static let goldDark   = adaptive("#A8901A", "#E0C645")
+    static let gold       = adaptive("#D3AF37", "#E0C04A")   // Metallic Gold (hero) — hue 46°
+    static let goldDark   = adaptive("#B8962E", "#E0C04A")   // darkened gold for small (<20pt) icons
     static let burgundy   = adaptive("#7B203D", "#C56B82")
     static let coral      = adaptive("#E8553A", "#F0876F")   // Coral Arrow
     static let teal       = adaptive("#3B7C78", "#5FA9A4")
@@ -91,13 +91,13 @@ enum PremiumUI {
 
     // Surfaces & text — "Warm Mist" cool-neutral base (2026 quiet-interface),
     // adaptive so dark mode renders correctly.
-    static let background    = adaptive("#F3F4F1", "#16181A")
-    static let card          = adaptive("#FAFCFD", "#24262A")
-    static let searchFill    = adaptive("#ECEFF2", "#23262A")
-    static let chipFill      = adaptive("#E7EAEE", "#2E3237")
-    static let ink           = adaptive("#1E1E1E", "#F2F4F5")
-    static let secondaryText = adaptive("#555555", "#B4B8BC")
-    static let divider       = adaptive("#E1E4E8", "#33373B")
+    static let background    = adaptive("#F3F4F1", "#111315")
+    static let card          = adaptive("#FFFFFF", "#171A1D")   // pure white card surface
+    static let searchFill    = adaptive("#EDEDEB", "#1C2024")   // Inset surface (search / segmented trough)
+    static let chipFill      = adaptive("#E7EAEE", "#20252A")
+    static let ink           = adaptive("#1E1E1E", "#F5F7FA")
+    static let secondaryText = adaptive("#555555", "#C7CDD3")
+    static let divider       = adaptive("#E1E4E8", "#2A2E33")
     static let softGold      = adaptive("#F5EFD6", "#332B18")
 
     static let cardShadow = Color.black.opacity(0.10)

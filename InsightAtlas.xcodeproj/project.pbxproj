@@ -46,6 +46,9 @@
 		C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C12EE63E0800B6662D /* AnalysisComponents.swift */; };
 		C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */; };
 		C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C52EE63E3500B6662D /* AnalysisTheme.swift */; };
+		C22353FB302507090022D852 /* LLMUIRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22353FA302507080022D852 /* LLMUIRegistry.swift */; };
+		C22353FD302507CE0022D852 /* LLMActionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22353FC302507CE0022D852 /* LLMActionRouter.swift */; };
+		C22353FF30250AEA0022D852 /* UIDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22353FE30250AEA0022D852 /* UIDriver.swift */; };
 		C284A0062F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */; };
 		C284A0082F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */; };
 		C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C2E9A9242F0A4D1200480055 /* ZIPFoundation */; };
@@ -172,6 +175,9 @@
 		C21355C12EE63E0800B6662D /* AnalysisComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisComponents.swift; path = InsightAtlas/Views/AnalysisComponents.swift; sourceTree = "<group>"; };
 		C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailView.swift; path = InsightAtlas/Views/AnalysisDetailView.swift; sourceTree = "<group>"; };
 		C21355C52EE63E3500B6662D /* AnalysisTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisTheme.swift; path = InsightAtlas/Services/AnalysisTheme.swift; sourceTree = "<group>"; };
+		C22353FA302507080022D852 /* LLMUIRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMUIRegistry.swift; sourceTree = "<group>"; };
+		C22353FC302507CE0022D852 /* LLMActionRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMActionRouter.swift; sourceTree = "<group>"; };
+		C22353FE30250AEA0022D852 /* UIDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIDriver.swift; sourceTree = "<group>"; };
 		C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PREMIUM_UPGRADE_SUMMARY.md; sourceTree = "<group>"; };
 		C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_CHECKLIST.md; sourceTree = "<group>"; };
 		E81A00002D000001007AAAAA /* InsightAtlasApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasApp.swift; sourceTree = "<group>"; };
@@ -370,6 +376,9 @@
 				C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */,
 				C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */,
 				C207E5CD3024382000843994 /* ChatGPTSignInView.swift */,
+				C22353FA302507080022D852 /* LLMUIRegistry.swift */,
+				C22353FC302507CE0022D852 /* LLMActionRouter.swift */,
+				C22353FE30250AEA0022D852 /* UIDriver.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -669,6 +678,7 @@
 				B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */,
 				3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */,
 				E29C402FB823CF0FC43901BE /* PDFAudioBundler.swift in Sources */,
+				C22353FB302507090022D852 /* LLMUIRegistry.swift in Sources */,
 				F1A10D85767648BCB0B41E5F /* PDFAnalysisDocument.swift in Sources */,
 				E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */,
 				E81A00032D000001007AAAAA /* ContentView.swift in Sources */,
@@ -679,6 +689,7 @@
 				E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */,
 				C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */,
 				E81A00162D000005007AAAAA /* GuideModels.swift in Sources */,
+				C22353FF30250AEA0022D852 /* UIDriver.swift in Sources */,
 				E81A00182D000006007AAAAA /* LibraryView.swift in Sources */,
 				E81A001A2D000007007AAAAA /* GuideView.swift in Sources */,
 				E81A001C2D000008007AAAAA /* SettingsView.swift in Sources */,
@@ -705,6 +716,7 @@
 				IAVISUAL003AAAAAAAAAA003 /* GuideVisualType.swift in Sources */,
 				IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */,
 				IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */,
+				C22353FD302507CE0022D852 /* LLMActionRouter.swift in Sources */,
 				C207E5CE3024382000843994 /* ChatGPTSignInView.swift in Sources */,
 				IATHEME001AAAAAAAAAA001 /* VisualTheme.swift in Sources */,
 				IALAYOUT001AAAAAAAAA001 /* LayoutScore.swift in Sources */,
@@ -929,7 +941,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlas;
+				PRODUCT_BUNDLE_IDENTIFIER = com.echoingempathos.InsightAtlas;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -962,7 +974,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlas;
+				PRODUCT_BUNDLE_IDENTIFIER = com.echoingempathos.InsightAtlas;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;

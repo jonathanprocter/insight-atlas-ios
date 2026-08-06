@@ -116,6 +116,8 @@ class AppEnvironment: ObservableObject {
             return KeychainService.shared.hasClaudeApiKey
         case .openai:
             return KeychainService.shared.hasOpenAIApiKey
+        case .openRouter:
+            return KeychainService.shared.hasOpenRouterApiKey
         case .both:
             return KeychainService.shared.hasClaudeApiKey ||
                    KeychainService.shared.hasOpenAIApiKey

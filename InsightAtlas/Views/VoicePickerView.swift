@@ -132,6 +132,7 @@ struct VoicePickerView: View {
                         stopPreview()
                         dismiss()
                     }
+                    .accessibilityIdentifier("voice_picker_done_button")
                 }
             }
             .onDisappear {
@@ -308,6 +309,7 @@ private struct OtherVoicesSection: View {
                 .padding(.horizontal)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("voice_other_toggle_button")
 
             if isExpanded {
                 VStack(spacing: 0) {
@@ -376,6 +378,7 @@ private struct VoiceRow: View {
                 ? VoiceSelectionCopy.stopPreviewAccessibility
                 : VoiceSelectionCopy.playPreviewAccessibility
             )
+            .accessibilityIdentifier("voice_preview_\(voice.voiceID)")
 
             // Voice info
             Button {
@@ -403,6 +406,7 @@ private struct VoiceRow: View {
                 Spacer()
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("voice_row_\(voice.voiceID)")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -469,3 +473,4 @@ struct PerGuideVoicePickerView: View {
         selectedVoiceID: .constant("flq6f7yk4E4fJM5XTYuZ")
     )
 }
+

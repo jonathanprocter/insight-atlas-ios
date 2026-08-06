@@ -52,6 +52,7 @@ struct GenerationView: View {
                         dismiss()
                     }
                     .foregroundColor(AnalysisTheme.accentTeal)
+                    .accessibilityIdentifier("generation_cancel_button")
                 }
             }
             .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
@@ -128,20 +129,10 @@ struct GenerationView: View {
                         Text(selectedFileName == nil ? "Choose File" : "Change File")
                             .font(.analysisUIBold())
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(
-                            colors: [AnalysisTheme.accentTeal, AnalysisTheme.accentTealLight],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .foregroundColor(.white)
-                    .cornerRadius(AnalysisTheme.Radius.lg)
-                    .shadow(color: AnalysisTheme.accentTeal.opacity(0.3), radius: 8, y: 4)
+                    .analysisSecondaryCTA()
                 }
                 .padding(.horizontal, 24)
+                .accessibilityIdentifier("generation_choose_file_button")
 
                 // Generate button (only show when file is selected)
                 if selectedFileName != nil {
@@ -154,20 +145,10 @@ struct GenerationView: View {
                             Text("Generate Guide")
                                 .font(.analysisUIBold())
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            LinearGradient(
-                                colors: [AnalysisTheme.accentHighlight, AnalysisTheme.accentCoralLight],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .foregroundColor(.white)
-                        .cornerRadius(AnalysisTheme.Radius.lg)
-                        .shadow(color: AnalysisTheme.accentHighlight.opacity(0.3), radius: 8, y: 4)
+                        .analysisPrimaryCTA()
                     }
                     .padding(.horizontal, 24)
+                    .accessibilityIdentifier("generation_generate_button")
                 }
 
                 // Supported formats info
@@ -207,6 +188,7 @@ struct GenerationView: View {
                 .onChange(of: environment.userSettings.preferredProvider) {
                     environment.saveSettings()
                 }
+                .accessibilityIdentifier("generation_provider_picker")
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -222,6 +204,7 @@ struct GenerationView: View {
                 .onChange(of: environment.userSettings.preferredMode) {
                     environment.saveSettings()
                 }
+                .accessibilityIdentifier("generation_mode_picker")
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -237,6 +220,7 @@ struct GenerationView: View {
                 .onChange(of: environment.userSettings.preferredTone) {
                     environment.saveSettings()
                 }
+                .accessibilityIdentifier("generation_tone_picker")
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -252,6 +236,7 @@ struct GenerationView: View {
                 .onChange(of: environment.userSettings.preferredFormat) {
                     environment.saveSettings()
                 }
+                .accessibilityIdentifier("generation_format_picker")
                 Text(environment.userSettings.preferredFormat.description)
                     .font(.analysisUISmall())
                     .foregroundColor(AnalysisTheme.textMuted)
@@ -270,6 +255,7 @@ struct GenerationView: View {
                 .onChange(of: environment.userSettings.preferredSummaryType) {
                     environment.saveSettings()
                 }
+                .accessibilityIdentifier("generation_summary_type_picker")
             }
 
             Divider()
@@ -300,6 +286,7 @@ struct GenerationView: View {
                         environment.updateVoiceProvider(environment.userSettings.voiceProvider)
                         selectedVoiceID = nil // Reset voice when provider changes
                     }
+                    .accessibilityIdentifier("generation_voice_provider_picker")
 
                     if !environment.userSettings.voiceProvider.isConfigured() {
                         Text("⚠️ \(environment.userSettings.voiceProvider.displayName) API key not configured")
@@ -329,6 +316,7 @@ struct GenerationView: View {
                     .background(AnalysisTheme.bgSecondary)
                     .cornerRadius(AnalysisTheme.Radius.md)
                 }
+                .accessibilityIdentifier("generation_voice_select_button")
 
                 // Audio Speed
                 VStack(alignment: .leading, spacing: 4) {
@@ -343,6 +331,7 @@ struct GenerationView: View {
                     }
                     Slider(value: $audioSpeed, in: 0.5...2.0, step: 0.1)
                         .tint(AnalysisTheme.accentTeal)
+                        .accessibilityIdentifier("generation_audio_speed_slider")
                 }
             }
         }
@@ -447,6 +436,7 @@ struct GenerationView: View {
                     .font(.system(size: 40))
                     .foregroundColor(AnalysisTheme.accentTeal)
             }
+            .accessibilityIdentifier("generation_progress_ring")
 
             VStack(spacing: 12) {
                 Text(statusMessage.isEmpty ? "Analyzing your book..." : statusMessage)
@@ -506,18 +496,9 @@ struct GenerationView: View {
                                 Text("View Guide")
                                     .font(.analysisUIBold())
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                LinearGradient(
-                                    colors: [AnalysisTheme.accentTeal, AnalysisTheme.accentTealLight],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .foregroundColor(.white)
-                            .cornerRadius(AnalysisTheme.Radius.lg)
+                            .analysisPrimaryCTA()
                         }
+                        .accessibilityIdentifier("generation_view_guide_button")
                     }
 
                     Button {
@@ -532,12 +513,13 @@ struct GenerationView: View {
                         .padding(.vertical, 16)
                         .background(AnalysisTheme.bgCard)
                         .foregroundColor(AnalysisTheme.textHeading)
-                        .cornerRadius(AnalysisTheme.Radius.lg)
+                        .clipShape(Capsule())
                         .overlay(
-                            RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
+                            Capsule()
                                 .stroke(AnalysisTheme.borderLight, lineWidth: 1)
                         )
                     }
+                    .accessibilityIdentifier("generation_save_to_library_button")
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
@@ -574,13 +556,10 @@ struct GenerationView: View {
                     Text("Try Again")
                         .font(.analysisUIBold())
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(AnalysisTheme.accentTeal)
-                .foregroundColor(.white)
-                .cornerRadius(AnalysisTheme.Radius.lg)
+                .analysisPrimaryCTA()
             }
             .padding(.horizontal, 24)
+            .accessibilityIdentifier("generation_try_again_button")
 
             Spacer()
         }
@@ -837,12 +816,14 @@ struct VoiceSelectionSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .accessibilityIdentifier("voice_selection_cancel_button")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier("voice_selection_done_button")
                 }
             }
             .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
@@ -918,5 +899,7 @@ struct VoiceSelectionSheet: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal)
+        .accessibilityIdentifier("voice_row_\(id)")
     }
 }
+

@@ -264,12 +264,14 @@ enum BookmarkColor: String, Codable, CaseIterable {
 enum AIProvider: String, Codable, CaseIterable {
     case claude = "claude"
     case openai = "openai"
+    case openRouter = "openrouter"
     case both = "both"
 
     var displayName: String {
         switch self {
         case .claude: return "Claude"
         case .openai: return "OpenAI"
+        case .openRouter: return "OpenRouter"
         case .both: return "Both"
         }
     }
@@ -605,6 +607,12 @@ struct UserSettings: Codable {
     var openaiApiKey: String? {
         get { KeychainService.shared.openaiApiKey }
         set { KeychainService.shared.openaiApiKey = newValue }
+    }
+
+    /// OpenRouter API key - stored securely in Keychain (not Codable)
+    var openRouterApiKey: String? {
+        get { KeychainService.shared.openRouterApiKey }
+        set { KeychainService.shared.openRouterApiKey = newValue }
     }
 
     init(
