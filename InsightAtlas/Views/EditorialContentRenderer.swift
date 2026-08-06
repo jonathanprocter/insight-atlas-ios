@@ -471,6 +471,16 @@ struct ContentBlockParser {
                 continue
             }
 
+            // [SYNTHESIS_INSERT: Title] — multi-source comparative mini-essay.
+            // Rendered as a research-insight synthesis card.
+            if upper.hasPrefix("[SYNTHESIS_INSERT") {
+                flushParagraph()
+                flushOpenBlocks()
+                inResearchInsight = true
+                i += 1
+                continue
+            }
+
             if upper.hasPrefix("[VISUAL_") {
                 flushParagraph()
                 flushOpenBlocks()

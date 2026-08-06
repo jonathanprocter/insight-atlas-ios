@@ -270,6 +270,7 @@ extension PDFAnalysisDocument {
                 upper.hasPrefix("[PREMIUM_H2]") ||
                 upper.hasPrefix("[ALTERNATIVE_PERSPECTIVE]") ||
                 upper.hasPrefix("[RESEARCH_INSIGHT]") ||
+                upper.hasPrefix("[SYNTHESIS_INSERT") ||
                 upper.hasPrefix("[CONCEPT_MAP") ||
                 upper.hasPrefix("[PROCESS_TIMELINE") ||
                 upper.hasPrefix("[PREMIUM_DIVIDER]")
@@ -970,14 +971,15 @@ extension PDFAnalysisDocument {
                 continue
             }
 
-            // Research Insight block
-            if line.hasPrefix("[RESEARCH_INSIGHT]") {
+            // Research Insight block (also handles [SYNTHESIS_INSERT: Title]
+            // synthesis mini-essays, rendered as a research-insight card).
+            if line.hasPrefix("[RESEARCH_INSIGHT]") || line.hasPrefix("[SYNTHESIS_INSERT") {
                 inResearchInsight = true
                 researchInsightContent = []
                 i += 1
                 continue
             }
-            if line.hasPrefix("[/RESEARCH_INSIGHT]") {
+            if line.hasPrefix("[/RESEARCH_INSIGHT]") || line.hasPrefix("[/SYNTHESIS_INSERT]") {
                 inResearchInsight = false
                 let contentText = researchInsightContent
                     .map { stripMarkdownFromLine($0) }

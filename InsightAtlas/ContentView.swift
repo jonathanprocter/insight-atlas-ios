@@ -61,7 +61,8 @@ struct ContentView: View {
                 .toolbarBackground(.visible, for: .tabBar)
             }
         }
-        .preferredColorScheme(preferredColorScheme)
+        // Locked to light mode per user preference (overrides the Theme setting).
+        .preferredColorScheme(.light)
     }
 }
 
