@@ -39,6 +39,11 @@ struct PDFStyleConfiguration {
     //
 
     struct Colors {
+        // === MOCKUP ACCENTS ===
+        static let terracotta = UIColor(hex: "#CC9966")
+        static let warmCream = UIColor(hex: "#FFFDFB")
+        static let lightTan = UIColor(hex: "#F0E6DC")
+        static let warmGray = UIColor(hex: "#F8F6F4")
         // === BRAND COLORS (From OE Logo) ===
         static let brandOrange = UIColor(hex: "#D35F2E")         // Burnt Orange - Primary brand
         static let brandOrangeLight = UIColor(hex: "#E07A4D")    // Lighter Orange
@@ -133,83 +138,77 @@ struct PDFStyleConfiguration {
         private static let uiFontName = "Inter-Regular"
         private static let uiBoldFontName = "Inter-SemiBold"
 
+        /// Load a named font (or fallback) with ligatures disabled. The embedded
+        /// Cormorant Garamond faces map their fi/fl/ff/ft/ffi ligature glyphs to a
+        /// broken ToUnicode entry, so with ligatures ON the PDF renders correctly
+        /// but the extractable text layer corrupts (e.g. "fight" -> "\"ght").
+        /// Disabling ligatures forces per-glyph encoding with correct ToUnicode.
+        private static func make(_ name: String, _ size: CGFloat, _ fallback: UIFont) -> UIFont {
+            (UIFont(name: name, size: size) ?? fallback).ligaturesDisabled()
+        }
+
         // Display fonts (for titles and headings)
         static func displayTitle() -> UIFont {
-            UIFont(name: serifBoldFontName, size: 34) ??
-            UIFont.boldSystemFont(ofSize: 34)
+            make(serifBoldFontName, 34, .boldSystemFont(ofSize: 34))
         }
 
         static func displayH1() -> UIFont {
-            UIFont(name: serifBoldFontName, size: 30) ??
-            UIFont.boldSystemFont(ofSize: 30)
+            make(serifBoldFontName, 30, .boldSystemFont(ofSize: 30))
         }
 
         static func displayH2() -> UIFont {
-            UIFont(name: serifSemiBoldFontName, size: 28) ??
-            UIFont.systemFont(ofSize: 28, weight: .semibold)
+            make(serifSemiBoldFontName, 28, .systemFont(ofSize: 28, weight: .semibold))
         }
 
         static func displayH3() -> UIFont {
-            UIFont(name: serifSemiBoldFontName, size: 22) ??
-            UIFont.systemFont(ofSize: 22, weight: .semibold)
+            make(serifSemiBoldFontName, 22, .systemFont(ofSize: 22, weight: .semibold))
         }
 
         static func displayH4() -> UIFont {
-            UIFont(name: serifMediumFontName, size: 19) ??
-            UIFont.systemFont(ofSize: 19, weight: .medium)
+            make(serifMediumFontName, 19, .systemFont(ofSize: 19, weight: .medium))
         }
 
         // Body fonts
         static func body() -> UIFont {
-            UIFont(name: serifFontName, size: 17) ??
-            UIFont.systemFont(ofSize: 17)
+            make(serifFontName, 17, .systemFont(ofSize: 17))
         }
 
         static func bodyLarge() -> UIFont {
-            UIFont(name: serifFontName, size: 19) ??
-            UIFont.systemFont(ofSize: 19)
+            make(serifFontName, 19, .systemFont(ofSize: 19))
         }
 
         static func bodySmall() -> UIFont {
-            UIFont(name: serifFontName, size: 15) ??
-            UIFont.systemFont(ofSize: 15)
+            make(serifFontName, 15, .systemFont(ofSize: 15))
         }
 
         static func bodyBold() -> UIFont {
-            UIFont(name: serifBoldFontName, size: 17) ??
-            UIFont.boldSystemFont(ofSize: 17)
+            make(serifBoldFontName, 17, .boldSystemFont(ofSize: 17))
         }
 
         static func bodyItalic() -> UIFont {
-            UIFont(name: serifItalicFontName, size: 17) ??
-            UIFont.italicSystemFont(ofSize: 17)
+            make(serifItalicFontName, 17, .italicSystemFont(ofSize: 17))
         }
 
         // UI fonts (for labels, captions)
         static func caption() -> UIFont {
-            UIFont(name: uiFontName, size: 12) ??
-            UIFont.systemFont(ofSize: 12)
+            make(uiFontName, 12, .systemFont(ofSize: 12))
         }
 
         static func captionBold() -> UIFont {
-            UIFont(name: uiBoldFontName, size: 12) ??
-            UIFont.boldSystemFont(ofSize: 12)
+            make(uiBoldFontName, 12, .boldSystemFont(ofSize: 12))
         }
 
         static func label() -> UIFont {
-            UIFont(name: uiBoldFontName, size: 13) ??
-            UIFont.boldSystemFont(ofSize: 13)
+            make(uiBoldFontName, 13, .boldSystemFont(ofSize: 13))
         }
 
         static func pageNumber() -> UIFont {
-            UIFont(name: uiFontName, size: 12) ??
-            UIFont.systemFont(ofSize: 12)
+            make(uiFontName, 12, .systemFont(ofSize: 12))
         }
 
         // Block header fonts
         static func blockHeader() -> UIFont {
-            UIFont(name: uiBoldFontName, size: 13) ??
-            UIFont.boldSystemFont(ofSize: 13)
+            make(uiBoldFontName, 13, .boldSystemFont(ofSize: 13))
         }
     }
 
@@ -256,49 +255,49 @@ struct PDFStyleConfiguration {
         static let quickGlanceBgColor = Colors.bgCard
         static let quickGlanceHeaderBgColor = Colors.readingBgSecondary // Brand Cream
 
-        // Insight Note - Uses Burnt Orange for warm highlights
-        static let insightNoteBorderColor = Colors.accentHighlight      // Burnt Orange
-        static let insightNoteBgColor = Colors.accentHighlight.withAlphaComponent(0.08)
-        static let insightNoteIconColor = Colors.accentHighlight
+        // Insight Note - Warm cream + terracotta (mockup Option A)
+        static let insightNoteBorderColor = Colors.lightTan
+        static let insightNoteBgColor = Colors.warmCream
+        static let insightNoteIconColor = Colors.terracotta
 
         // Alternative Perspective - Unified styling matching Insight Note pattern
-        static let alternativePerspectiveBorderColor = Colors.accentInfo // Steel Blue
-        static let alternativePerspectiveBgColor = Colors.accentInfo.withAlphaComponent(0.08)
-        static let alternativePerspectiveIconColor = Colors.accentInfo
-        static let alternativePerspectiveHeaderBgColor = Colors.accentInfo
+        static let alternativePerspectiveBorderColor = Colors.lightTan
+        static let alternativePerspectiveBgColor = Colors.warmCream
+        static let alternativePerspectiveIconColor = Colors.terracotta
+        static let alternativePerspectiveHeaderBgColor = Colors.terracotta
         static let alternativePerspectiveBorderWidth: CGFloat = 1.0
         static let alternativePerspectiveCornerRadius: CGFloat = 6.0
 
         // Research Insight - Unified styling matching Insight Note pattern
-        static let researchInsightBorderColor = Colors.accentInfo       // Steel Blue
-        static let researchInsightBgColor = Colors.accentInfo.withAlphaComponent(0.08)
-        static let researchInsightIconColor = Colors.accentInfo
-        static let researchInsightHeaderBgColor = Colors.accentInfo
+        static let researchInsightBorderColor = Colors.lightTan
+        static let researchInsightBgColor = Colors.warmCream
+        static let researchInsightIconColor = Colors.terracotta
+        static let researchInsightHeaderBgColor = Colors.terracotta
         static let researchInsightBorderWidth: CGFloat = 1.0
         static let researchInsightCornerRadius: CGFloat = 6.0
 
-        // Action Box - Uses Muted Sage for actionable success
-        static let actionBoxBorderColor = Colors.accentSuccess          // Muted Sage
-        static let actionBoxBgColor = Colors.accentSuccess.withAlphaComponent(0.08)
-        static let actionBoxHeaderBgColor = Colors.accentSuccess
+        // Action Box - Warm gray container with terracotta label
+        static let actionBoxBorderColor = Colors.lightTan
+        static let actionBoxBgColor = Colors.warmGray
+        static let actionBoxHeaderBgColor = Colors.warmGray
 
-        // Exercise - Uses Burnt Orange for engagement
-        static let exerciseBorderColor = Colors.accentPrimary           // Burnt Orange
-        static let exerciseBgColor = Colors.accentPrimary.withAlphaComponent(0.08)
-        static let exerciseIconColor = Colors.accentPrimary
+        // Exercise - Warm gray container with terracotta accents
+        static let exerciseBorderColor = Colors.lightTan
+        static let exerciseBgColor = Colors.warmGray
+        static let exerciseIconColor = Colors.terracotta
 
-        // Key Takeaways - Uses Burnt Orange for primary importance
-        static let takeawaysBorderColor = Colors.accentPrimary          // Burnt Orange
-        static let takeawaysBgColor = Colors.bgCard
-        static let takeawaysIconColor = Colors.accentPrimary
+        // Key Takeaways - Warm cream container with terracotta accents
+        static let takeawaysBorderColor = Colors.lightTan
+        static let takeawaysBgColor = Colors.warmCream
+        static let takeawaysIconColor = Colors.terracotta
 
-        // Foundational Narrative - Uses Deep Burgundy for premium storytelling
-        static let narrativeBorderColor = Colors.accentPremium          // Deep Burgundy
-        static let narrativeBgColor = Colors.accentPremium.withAlphaComponent(0.06)
+        // Foundational Narrative - Warm cream with terracotta accent
+        static let narrativeBorderColor = Colors.lightTan
+        static let narrativeBgColor = Colors.warmCream
 
-        // Blockquote - Uses Deep Burgundy for literary sophistication
-        static let blockquoteBorderColor = Colors.accentPremium         // Deep Burgundy
-        static let blockquoteBgColor = Colors.readingBgSecondary        // Brand Cream
+        // Blockquote - Terracotta accent with warm cream background
+        static let blockquoteBorderColor = Colors.terracotta
+        static let blockquoteBgColor = Colors.warmCream
 
         // Flowchart - Uses Steel Blue for clear visualization
         static let flowchartArrowColor = Colors.accentInfo              // Steel Blue
@@ -334,9 +333,9 @@ struct PDFStyleConfiguration {
 
     struct PremiumStyles {
         // Premium Quote Block - Uses Deep Burgundy for literary sophistication
-        static let quoteBorderColor = Colors.accentPremium              // Deep Burgundy
+        static let quoteBorderColor = Colors.terracotta
         static let quoteBorderWidth: CGFloat = 4
-        static let quoteMarkColor = Colors.accentPremium.withAlphaComponent(0.25)
+        static let quoteMarkColor = Colors.terracotta.withAlphaComponent(0.25)
         static let quoteTextColor = Colors.textPrimary                  // Ink Black
         static let quoteAuthorColor = Colors.accentPremium              // Deep Burgundy
         static let quoteSourceColor = Colors.textSecondary              // Warm Gray
@@ -364,59 +363,49 @@ struct PDFStyleConfiguration {
     // MARK: - Premium Typography
 
     struct PremiumTypography {
+        /// See `Typography.make` — disables ligatures to keep the PDF text layer extractable.
+        private static func make(_ names: [String], _ size: CGFloat, _ fallback: UIFont) -> UIFont {
+            let resolved = names.lazy.compactMap { UIFont(name: $0, size: size) }.first ?? fallback
+            return resolved.ligaturesDisabled()
+        }
+
         // Premium Quote
         static func quoteText() -> UIFont {
-            UIFont(name: "CormorantGaramond-Italic", size: 22) ??
-            UIFont(name: "Georgia-Italic", size: 22) ??
-            UIFont.italicSystemFont(ofSize: 22)
+            make(["CormorantGaramond-Italic", "Georgia-Italic"], 22, .italicSystemFont(ofSize: 22))
         }
 
         static func quoteAuthor() -> UIFont {
-            UIFont(name: "HelveticaNeue-Bold", size: 11) ??
-            UIFont.boldSystemFont(ofSize: 11)
+            make(["HelveticaNeue-Bold"], 11, .boldSystemFont(ofSize: 11))
         }
 
         static func quoteSource() -> UIFont {
-            UIFont(name: "CormorantGaramond-Italic", size: 12) ??
-            UIFont(name: "Georgia-Italic", size: 12) ??
-            UIFont.italicSystemFont(ofSize: 12)
+            make(["CormorantGaramond-Italic", "Georgia-Italic"], 12, .italicSystemFont(ofSize: 12))
         }
 
         // Author Spotlight
         static func authorName() -> UIFont {
-            UIFont(name: "CormorantGaramond-Bold", size: 28) ??
-            UIFont(name: "Georgia-Bold", size: 28) ??
-            UIFont.boldSystemFont(ofSize: 28)
+            make(["CormorantGaramond-Bold", "Georgia-Bold"], 28, .boldSystemFont(ofSize: 28))
         }
 
         static func authorBio() -> UIFont {
-            UIFont(name: "CormorantGaramond-Regular", size: 13) ??
-            UIFont(name: "Georgia", size: 13) ??
-            UIFont.systemFont(ofSize: 13)
+            make(["CormorantGaramond-Regular", "Georgia"], 13, .systemFont(ofSize: 13))
         }
 
         static func bookTitle() -> UIFont {
-            UIFont(name: "CormorantGaramond-Italic", size: 13) ??
-            UIFont(name: "Georgia-Italic", size: 13) ??
-            UIFont.italicSystemFont(ofSize: 13)
+            make(["CormorantGaramond-Italic", "Georgia-Italic"], 13, .italicSystemFont(ofSize: 13))
         }
 
         // Premium Section Headers
         static func sectionH1() -> UIFont {
-            UIFont(name: "CormorantGaramond-Bold", size: 24) ??
-            UIFont(name: "Georgia-Bold", size: 24) ??
-            UIFont.boldSystemFont(ofSize: 24)
+            make(["CormorantGaramond-Bold", "Georgia-Bold"], 24, .boldSystemFont(ofSize: 24))
         }
 
         static func sectionH2() -> UIFont {
-            UIFont(name: "CormorantGaramond-Bold", size: 26) ??
-            UIFont(name: "Georgia-Bold", size: 26) ??
-            UIFont.boldSystemFont(ofSize: 26)
+            make(["CormorantGaramond-Bold", "Georgia-Bold"], 26, .boldSystemFont(ofSize: 26))
         }
 
         static func sectionLabel() -> UIFont {
-            UIFont(name: "HelveticaNeue-Medium", size: 10) ??
-            UIFont.systemFont(ofSize: 10, weight: .medium)
+            make(["HelveticaNeue-Medium"], 10, .systemFont(ofSize: 10, weight: .medium))
         }
     }
 
@@ -445,6 +434,23 @@ struct PDFStyleConfiguration {
 // Note: UIColor(hex:) extension is defined in InsightAtlasStyle.swift
 // This file uses that extension for hex color initialization
 
+// MARK: - Ligature Handling
+
+fileprivate extension UIFont {
+    /// Returns the same font with common and rare ligatures turned off. Used for
+    /// PDF text so ligature glyphs (whose ToUnicode mapping in the embedded serif
+    /// faces is broken) aren't substituted — keeping the extractable/searchable
+    /// text layer intact. Visual rendering is unaffected apart from the ligatures.
+    func ligaturesDisabled() -> UIFont {
+        let settings: [[UIFontDescriptor.FeatureKey: Int]] = [
+            [.type: kLigaturesType, .selector: kCommonLigaturesOffSelector],
+            [.type: kLigaturesType, .selector: kRareLigaturesOffSelector]
+        ]
+        let descriptor = fontDescriptor.addingAttributes([.featureSettings: settings])
+        return UIFont(descriptor: descriptor, size: pointSize)
+    }
+}
+
 // MARK: - NSAttributedString Helpers
 
 extension PDFStyleConfiguration {
@@ -471,6 +477,7 @@ extension PDFStyleConfiguration {
         [
             .font: Typography.body(),
             .foregroundColor: color,
+            .ligature: 0,
             .paragraphStyle: paragraphStyle(alignment: alignment)
         ]
     }
@@ -493,6 +500,7 @@ extension PDFStyleConfiguration {
         return [
             .font: font,
             .foregroundColor: color,
+            .ligature: 0,
             .paragraphStyle: paragraphStyle(
                 lineHeight: Spacing.headingLineHeight,
                 alignment: alignment,
@@ -506,6 +514,7 @@ extension PDFStyleConfiguration {
         [
             .font: Typography.blockHeader(),
             .foregroundColor: color,
+            .ligature: 0,
             .paragraphStyle: paragraphStyle(lineHeight: 14, alignment: .left, paragraphSpacing: 4)
         ]
     }
@@ -518,6 +527,7 @@ extension PDFStyleConfiguration {
         [
             .font: Typography.caption(),
             .foregroundColor: color,
+            .ligature: 0,
             .paragraphStyle: paragraphStyle(lineHeight: 12, alignment: alignment, paragraphSpacing: 4)
         ]
     }

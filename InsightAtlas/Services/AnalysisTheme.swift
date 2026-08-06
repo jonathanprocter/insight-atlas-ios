@@ -17,13 +17,43 @@ struct AnalysisTheme {
 
     // MARK: - Brand Primary Colors (From OE Logo)
 
-    static let brandOrange = Color(hex: "#E85D2D")           // Primary Orange - Primary brand
-    static let brandOrangeLight = Color(hex: "#F07348")      // Orange 400
-    static let brandOrangeDark = Color(hex: "#C74A1F")       // Orange 700
+    static let brandOrange = Color(hex: "#D3AF37")           // Primary Orange - Primary brand
+    static let brandOrangeLight = Color(hex: "#E0C04A")      // Orange 400
+    static let brandOrangeDark = Color(hex: "#B8962E")       // Orange 700
     static let brandNavy = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
     static let brandNavyLight = Color(hex: "#4A7A9D")        // Navy 400
     static let brandNavyDark = Color(hex: "#1E3D54")         // Navy 700
+
+    // MARK: - Mockup Palette (Terracotta + Warm Neutrals)
+    // Adaptive so the warm editorial reading surface has a legible dark-mode
+    // counterpart. Light values are the original paper tones; dark values are
+    // warm charcoals that keep contrast with the adaptive text colors.
+
+    private static func adaptivePalette(light: String, dark: String) -> Color {
+        Color(UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light)
+        })
+    }
     
+    // MARK: - Appearance Overrides (High Contrast & Sepia)
+    private enum AppearanceKeys {
+        static let highContrast = "insight_atlas_high_contrast"
+        static let sepiaMode = "insight_atlas_sepia_mode"
+    }
+
+    private static var isHighContrast: Bool {
+        UserDefaults.standard.bool(forKey: AppearanceKeys.highContrast)
+    }
+
+    private static var isSepia: Bool {
+        UserDefaults.standard.bool(forKey: AppearanceKeys.sepiaMode)
+    }
+
+    static let terracotta = adaptivePalette(light: "#CC9966", dark: "#D9A876")
+    static let warmCream = adaptivePalette(light: "#FAFCFD", dark: "#24262A")
+    static let lightTan = adaptivePalette(light: "#E7EAEE", dark: "#2E3237")
+    static let warmGray = adaptivePalette(light: "#F2F4F1", dark: "#1E2022")
+
     // Legacy aliases (deprecated - use brandNavy)
     static let brandBlue = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
     static let brandBlueLight = Color(hex: "#4A7A9D")        // Lighter Navy
@@ -49,28 +79,37 @@ struct AnalysisTheme {
     // MARK: - Primary Palette - Primary Orange (Brand Primary)
     // WCAG AAA compliant on white backgrounds
 
-    static let primaryGold = Color(hex: "#E85D2D")           // Primary Orange - Primary accent
-    static let primaryGoldText = Color(hex: "#C74A1F")       // Orange 700 for text compliance
-    static let primaryGoldLight = Color(hex: "#F07348")      // Orange 400
-    static let primaryGoldDark = Color(hex: "#D85426")       // Orange 600
-    static let primaryGoldSubtle = Color(hex: "#E85D2D").opacity(0.08)
-    static let primaryGoldMuted = Color(hex: "#E85D2D").opacity(0.15)
+    static let primaryGold = Color(hex: "#D3AF37")           // Primary Orange - Primary accent
+    static let primaryGoldText = Color(hex: "#B8962E")       // Orange 700 for text compliance
+    static let primaryGoldLight = Color(hex: "#E0C04A")      // Orange 400
+    static let primaryGoldDark = Color(hex: "#B8962E")       // Orange 600
+    static let primaryGoldSubtle = Color(hex: "#D3AF37").opacity(0.08)
+    static let primaryGoldMuted = Color(hex: "#D3AF37").opacity(0.15)
+
+    // MARK: - Design System Supporting Palette (v2.0 — matches PremiumUI)
+    // Status/section differentiators drawn from the Insight Atlas Design System.
+    // These never appear in navigation or primary CTAs — that territory is gold.
+
+    static let dsCoral = Color(hex: "#E8553A")               // Destructive / alerts
+    static let dsSkyBlue = Color(hex: "#4BA3C8")             // New / informational
+    static let dsForest = Color(hex: "#3D5840")              // Completed / success
+    static let dsWarmOrange = Color(hex: "#D87520")          // In-progress / active
 
     // MARK: - Premium Accent Colors (Modern Minimalistic)
 
-    static let accentPrimary = Color(hex: "#E85D2D")         // Primary Orange - Primary CTAs
+    static let accentPrimary = Color(hex: "#D3AF37")         // Primary Orange - Primary CTAs
     static let accentSuccess = Color(hex: "#059669")         // Success green
-    static let accentHighlight = Color(hex: "#E85D2D")       // Primary Orange - Highlights
+    static let accentHighlight = Color(hex: "#D3AF37")       // Primary Orange - Highlights
     static let accentInfo = Color(hex: "#2E5A7D")            // Navy Blue - Information
     static let accentWarning = Color(hex: "#D97706")         // Warning
     static let accentError = Color(hex: "#DC2626")           // Error
 
     // MARK: - Secondary Palette - Refined Accents
 
-    static let accentOrange = Color(hex: "#E85D2D")          // Primary Orange
-    static let accentOrangeText = Color(hex: "#C74A1F")      // Orange 700 for text
-    static let accentOrangeLight = Color(hex: "#F07348")     // Orange 400
-    static let accentOrangeSubtle = Color(hex: "#E85D2D").opacity(0.08)
+    static let accentOrange = Color(hex: "#D3AF37")          // Primary Orange
+    static let accentOrangeText = Color(hex: "#B8962E")      // Orange 700 for text
+    static let accentOrangeLight = Color(hex: "#E0C04A")     // Orange 400
+    static let accentOrangeSubtle = Color(hex: "#D3AF37").opacity(0.08)
 
     static let accentNavy = Color(hex: "#2E5A7D")            // Navy Blue (secondary brand)
     static let accentNavyText = Color(hex: "#2E5A7D")        // Same - already compliant
@@ -90,11 +129,11 @@ struct AnalysisTheme {
     static let accentBurgundyLight = Color(hex: "#9A4458")   // Deprecated
     static let accentBurgundySubtle = Color(hex: "#7B2D3E").opacity(0.08)
 
-    static let accentCoral = Color(hex: "#E85D2D")           // Use accentOrange instead
-    static let accentCoralText = Color(hex: "#C74A1F")       // Use accentOrangeText instead
-    static let accentCoralLight = Color(hex: "#F07348")      // Use accentOrangeLight instead
-    static let accentCoralSubtle = Color(hex: "#E85D2D").opacity(0.08)
-    static let accentCoralMuted = Color(hex: "#E85D2D").opacity(0.15)
+    static let accentCoral = Color(hex: "#D3AF37")           // Use accentOrange instead
+    static let accentCoralText = Color(hex: "#B8962E")       // Use accentOrangeText instead
+    static let accentCoralLight = Color(hex: "#E0C04A")      // Use accentOrangeLight instead
+    static let accentCoralSubtle = Color(hex: "#D3AF37").opacity(0.08)
+    static let accentCoralMuted = Color(hex: "#D3AF37").opacity(0.15)
 
     // Additional accent colors for editorial blocks
     static let accentGreen = Color(hex: "#059669")           // Success green for action boxes
@@ -104,8 +143,8 @@ struct AnalysisTheme {
     // MARK: - Premium Commentary Box Colors (Modern Minimalistic)
 
     // Insight Note - Uses Primary Orange for warm highlights
-    static let insightOrange = Color(hex: "#E85D2D")         // Primary Orange
-    static let insightOrangeLight = Color(hex: "#F07348")    // Orange 400
+    static let insightOrange = Color(hex: "#D3AF37")         // Primary Orange
+    static let insightOrangeLight = Color(hex: "#E0C04A")    // Orange 400
     static let insightBgStart = Color(hex: "#FFFFFF")        // White
     static let insightBgMid = Color(hex: "#FEF0EB")          // Orange 50
     static let insightBgEnd = Color(hex: "#FCD4C4")          // Orange 100
@@ -126,35 +165,35 @@ struct AnalysisTheme {
 
     // MARK: - Premium Quote Card Colors (Clean Modern)
 
-    static let parchmentBase = Color(hex: "#FFFFFF")         // Pure White
+    static let parchmentBase = adaptivePalette(light: "#FAFCFD", dark: "#24262A")
     static let parchmentMid = Color(hex: "#F9FAFB")          // Gray 50
     static let parchmentDark = Color(hex: "#F3F4F6")         // Gray 100
     static let parchmentVignette = Color(hex: "#4B5563")     // Gray 600
-    static let goldOrnament = Color(hex: "#E85D2D")          // Primary Orange
-    static let goldTitle = Color(hex: "#E85D2D")             // Primary Orange
+    static let goldOrnament = Color(hex: "#D3AF37")          // Primary Orange
+    static let goldTitle = Color(hex: "#D3AF37")             // Primary Orange
     static let coralAuthor = Color(hex: "#2E5A7D")           // Navy Blue
     static let inkMuted = Color(hex: "#4B5563")              // Gray 600
 
     // MARK: - Premium Frame Colors (Layered Card Design)
 
     // Layer 1: Outer primary orange gradient
-    static let goldFrameOuter = Color(hex: "#E85D2D")        // Primary Orange
-    static let goldFrameOuterMid = Color(hex: "#D85426")     // Orange 600
-    static let goldFrameOuterDark = Color(hex: "#C74A1F")    // Orange 700
+    static let goldFrameOuter = Color(hex: "#D3AF37")        // Primary Orange
+    static let goldFrameOuterMid = Color(hex: "#B8962E")     // Orange 600
+    static let goldFrameOuterDark = Color(hex: "#B8962E")    // Orange 700
 
     // Layer 2: Inner lighter orange gradient
     static let goldFrameInnerLight = Color(hex: "#FAAB8D")   // Orange 200
-    static let goldFrameInnerMid = Color(hex: "#F07348")     // Orange 400
-    static let goldFrameInnerDark = Color(hex: "#E85D2D")    // Primary Orange
+    static let goldFrameInnerMid = Color(hex: "#E0C04A")     // Orange 400
+    static let goldFrameInnerDark = Color(hex: "#D3AF37")    // Primary Orange
 
     // Layer 3: White gap
-    static let goldFrameCreamLight = Color(hex: "#FFFFFF")   // White
-    static let goldFrameCreamMid = Color(hex: "#FEF0EB")     // Orange 50
-    static let goldFrameCreamDark = Color(hex: "#FCD4C4")    // Orange 100
+    static let goldFrameCreamLight = adaptivePalette(light: "#FCFAF2", dark: "#26241C")   // subtle gold parchment
+    static let goldFrameCreamMid = adaptivePalette(light: "#F7F0DE", dark: "#2C2820")
+    static let goldFrameCreamDark = adaptivePalette(light: "#F0E7CE", dark: "#332E1F")
 
     // Layer 4: Orange pinstripe
-    static let goldPinstripeLight = Color(hex: "#F07348")    // Orange 400
-    static let goldPinstripeDark = Color(hex: "#E85D2D")     // Primary Orange
+    static let goldPinstripeLight = Color(hex: "#E0C04A")    // Orange 400
+    static let goldPinstripeDark = Color(hex: "#D3AF37")     // Primary Orange
 
     // Outer card gradient (Clean surfaces)
     static let outerCardTop = Color(hex: "#FFFFFF")          // Pure White
@@ -165,9 +204,23 @@ struct AnalysisTheme {
     // MARK: - Text Colors (Adaptive Light/Dark with Fallbacks)
 
     /// Primary text - adapts to light/dark mode
-    static let textHeading = Color(UIColor(named: "TextHeading") ?? UIColor(hex: "#111827"))
-    static let textBody = Color(UIColor(named: "TextBody") ?? UIColor(hex: "#1F2937"))
-    static let textMuted = Color(UIColor(named: "TextMuted") ?? UIColor(hex: "#6B7280"))
+    static var textHeading: Color {
+        if isSepia { return Color(hex: "#2A2725") }
+        if isHighContrast { return adaptivePalette(light: "#0C0D0E", dark: "#FFFFFF") }
+        return adaptivePalette(light: "#111827", dark: "#F5F7FA")
+    }
+
+    static var textBody: Color {
+        if isSepia { return Color(hex: "#2A2725") }
+        if isHighContrast { return adaptivePalette(light: "#1A1C1E", dark: "#F2F4F8") }
+        return adaptivePalette(light: "#1F2937", dark: "#E6EAEE")
+    }
+
+    static var textMuted: Color {
+        if isSepia { return Color(hex: "#8A8580") }
+        if isHighContrast { return adaptivePalette(light: "#4A4F55", dark: "#DEE3E8") }
+        return adaptivePalette(light: "#6B7280", dark: "#C7CDD3")
+    }
     static let textSubtle = Color(UIColor(named: "TextSubtle") ?? UIColor(hex: "#9CA3AF"))
     static let textInverse = Color(hex: "#FFFFFF")           // White (always)
     static let textHandwritten = Color(hex: "#2E5A7D")       // Navy Blue
@@ -175,13 +228,22 @@ struct AnalysisTheme {
     // MARK: - Background Colors (Adaptive Light/Dark with Fallbacks)
 
     /// Primary background - White in light mode, Navy 900 in dark mode
-    static let bgPrimary = Color(UIColor(named: "BgPrimary") ?? UIColor(hex: "#FFFFFF"))
-    /// Secondary background - Gray 50 in light mode, Navy 800 in dark mode
-    static let bgSecondary = Color(UIColor(named: "BgSecondary") ?? UIColor(hex: "#F9FAFB"))
-    /// Card background - White in light mode, Navy 700 in dark mode
-    static let bgCard = Color(UIColor(named: "BgCard") ?? UIColor(hex: "#FFFFFF"))
-    /// Elevated surface - White in light mode, Navy 600 in dark mode
-    static let bgElevated = Color(UIColor(named: "BgElevated") ?? UIColor(hex: "#FFFFFF"))
+    static var bgPrimary: Color {
+        if isSepia { return adaptivePalette(light: "#FAFAF8", dark: "#1E1B16") }
+        return adaptivePalette(light: "#F3F4F1", dark: "#111315")
+    }
+    /// Secondary background
+    static var bgSecondary: Color {
+        if isSepia { return adaptivePalette(light: "#F5F0E8", dark: "#221F19") }
+        return adaptivePalette(light: "#ECEFF2", dark: "#16191D")
+    }
+    /// Card background
+    static var bgCard: Color {
+        if isSepia { return adaptivePalette(light: "#FFFFFF", dark: "#2A251E") }
+        return adaptivePalette(light: "#FAFCFD", dark: "#171A1D")
+    }
+    /// Elevated surface
+    static let bgElevated = adaptivePalette(light: "#FFFFFF", dark: "#2A2D31")
 
     // MARK: - Border Colors (Adaptive Light/Dark with Fallbacks)
 
@@ -252,35 +314,35 @@ extension Font {
     // Display fonts (Cormorant Garamond) - with fallbacks
     static func analysisDisplayTitle() -> Font {
         if UIFont(name: "CormorantGaramond-Bold", size: 34) != nil {
-            return .custom("CormorantGaramond-Bold", size: 34)
+            return .custom("CormorantGaramond-Bold", size: 34, relativeTo: .largeTitle)
         }
         return .system(size: 34, weight: .bold, design: .serif)
     }
 
     static func analysisDisplayH1() -> Font {
         if UIFont(name: "CormorantGaramond-Bold", size: 30) != nil {
-            return .custom("CormorantGaramond-Bold", size: 30)
+            return .custom("CormorantGaramond-Bold", size: 30, relativeTo: .title)
         }
         return .system(size: 30, weight: .bold, design: .serif)
     }
 
     static func analysisDisplayH2() -> Font {
         if UIFont(name: "CormorantGaramond-SemiBold", size: 28) != nil {
-            return .custom("CormorantGaramond-SemiBold", size: 28)
+            return .custom("CormorantGaramond-SemiBold", size: 28, relativeTo: .title)
         }
         return .system(size: 28, weight: .semibold, design: .serif)
     }
 
     static func analysisDisplayH3() -> Font {
         if UIFont(name: "CormorantGaramond-SemiBold", size: 22) != nil {
-            return .custom("CormorantGaramond-SemiBold", size: 22)
+            return .custom("CormorantGaramond-SemiBold", size: 22, relativeTo: .title2)
         }
         return .system(size: 22, weight: .semibold, design: .serif)
     }
 
     static func analysisDisplayH4() -> Font {
         if UIFont(name: "CormorantGaramond-Medium", size: 19) != nil {
-            return .custom("CormorantGaramond-Medium", size: 19)
+            return .custom("CormorantGaramond-Medium", size: 19, relativeTo: .title3)
         }
         return .system(size: 19, weight: .medium, design: .serif)
     }
@@ -288,21 +350,21 @@ extension Font {
     // Body fonts (Cormorant Garamond for reading)
     static func analysisBody() -> Font {
         if UIFont(name: "CormorantGaramond-Regular", size: 17) != nil {
-            return .custom("CormorantGaramond-Regular", size: 17)
+            return .custom("CormorantGaramond-Regular", size: 17, relativeTo: .body)
         }
         return .system(size: 17, design: .serif)
     }
 
     static func analysisBodyLarge() -> Font {
         if UIFont(name: "CormorantGaramond-Regular", size: 19) != nil {
-            return .custom("CormorantGaramond-Regular", size: 19)
+            return .custom("CormorantGaramond-Regular", size: 19, relativeTo: .body)
         }
         return .system(size: 19, design: .serif)
     }
 
     static func analysisBodySmall() -> Font {
         if UIFont(name: "CormorantGaramond-Regular", size: 15) != nil {
-            return .custom("CormorantGaramond-Regular", size: 15)
+            return .custom("CormorantGaramond-Regular", size: 15, relativeTo: .subheadline)
         }
         return .system(size: 15, design: .serif)
     }
@@ -310,21 +372,21 @@ extension Font {
     // UI fonts (Inter for labels and UI elements)
     static func analysisUI() -> Font {
         if UIFont(name: "Inter-Regular", size: 15) != nil {
-            return .custom("Inter-Regular", size: 15)
+            return .custom("Inter-Regular", size: 15, relativeTo: .subheadline)
         }
         return .system(size: 15)
     }
 
     static func analysisUIBold() -> Font {
         if UIFont(name: "Inter-SemiBold", size: 15) != nil {
-            return .custom("Inter-SemiBold", size: 15)
+            return .custom("Inter-SemiBold", size: 15, relativeTo: .subheadline)
         }
         return .system(size: 15, weight: .semibold)
     }
 
     static func analysisUISmall() -> Font {
         if UIFont(name: "Inter-Regular", size: 13) != nil {
-            return .custom("Inter-Regular", size: 13)
+            return .custom("Inter-Regular", size: 13, relativeTo: .footnote)
         }
         return .system(size: 13)
     }
@@ -332,7 +394,7 @@ extension Font {
     // Handwritten accent (Caveat)
     static func analysisHandwritten() -> Font {
         if UIFont(name: "Caveat-Regular", size: 22) != nil {
-            return .custom("Caveat-Regular", size: 22)
+            return .custom("Caveat-Regular", size: 22, relativeTo: .title2)
         }
         return .system(size: 22, design: .rounded)
     }
@@ -382,6 +444,47 @@ extension View {
 
     func analysisBlockHeader(accentColor: Color = AnalysisTheme.primaryGold) -> some View {
         modifier(AnalysisBlockHeaderStyle(accentColor: accentColor))
+    }
+
+    /// Primary call-to-action: Metallic Gold capsule with white label and a
+    /// gold elevation shadow (Design System §Primary Button).
+    func analysisPrimaryCTA() -> some View {
+        modifier(AnalysisPrimaryCTAStyle())
+    }
+
+    /// Secondary call-to-action: gold "ghost" capsule (12% gold fill, gold
+    /// label) for the subordinate action in a pair.
+    func analysisSecondaryCTA() -> some View {
+        modifier(AnalysisSecondaryCTAStyle())
+    }
+}
+
+// MARK: - Call-to-Action Button Styles (Design System v2.0)
+
+/// Gold capsule primary CTA. Apply to the button's label content — it owns the
+/// full-width sizing, vertical padding, fill, capsule shape, and shadow so the
+/// icon's own font size is preserved.
+struct AnalysisPrimaryCTAStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .foregroundColor(.white)
+            .background(AnalysisTheme.primaryGold)
+            .clipShape(Capsule())
+            .shadow(color: AnalysisTheme.primaryGold.opacity(0.25), radius: 12, y: 4)
+    }
+}
+
+/// Gold-ghost secondary CTA — quiet counterpart to the primary capsule.
+struct AnalysisSecondaryCTAStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .foregroundColor(AnalysisTheme.primaryGold)
+            .background(AnalysisTheme.primaryGold.opacity(0.12))
+            .clipShape(Capsule())
     }
 }
 

@@ -186,6 +186,7 @@ struct GuideView: View {
             Image(systemName: bookmarks.isEmpty ? "bookmark" : "bookmark.fill")
                 .foregroundColor(bookmarks.isEmpty ? .secondary : AnalysisTheme.primaryGold)
         }
+        .accessibilityIdentifier("guide_bookmarks_button")
     }
 
     @ViewBuilder
@@ -206,6 +207,7 @@ struct GuideView: View {
                 Image(systemName: "ellipsis.circle")
             }
         }
+        .accessibilityIdentifier("guide_more_menu")
     }
 
     @ViewBuilder
@@ -217,6 +219,7 @@ struct GuideView: View {
                 Label("Export as PDF", systemImage: "doc.fill")
             }
             .disabled(item.summaryContent == nil)
+            .accessibilityIdentifier("guide_export_pdf_button")
 
             if item.audioFileURL != nil {
                 Button {
@@ -224,12 +227,14 @@ struct GuideView: View {
                 } label: {
                     Label("Export Audio Only", systemImage: "speaker.wave.2.fill")
                 }
+                .accessibilityIdentifier("guide_export_audio_button")
 
                 Button {
                     exportGuide(format: .bundled)
                 } label: {
                     Label("Export PDF + Audio Bundle", systemImage: "archivebox.fill")
                 }
+                .accessibilityIdentifier("guide_export_bundle_button")
             }
         } label: {
             Label("Export", systemImage: "square.and.arrow.up")
@@ -246,6 +251,7 @@ struct GuideView: View {
                     Label("Change Voice & Regenerate", systemImage: "person.wave.2")
                 }
                 .disabled(isGeneratingAudio)
+                .accessibilityIdentifier("guide_change_voice_button")
 
                 Button {
                     regenerateAudioWithCurrentVoice()
@@ -253,12 +259,14 @@ struct GuideView: View {
                     Label("Regenerate Audio", systemImage: "arrow.clockwise")
                 }
                 .disabled(isGeneratingAudio)
+                .accessibilityIdentifier("guide_regenerate_audio_button")
 
                 Button(role: .destructive) {
                     deleteAudio()
                 } label: {
                     Label("Delete Audio", systemImage: "trash")
                 }
+                .accessibilityIdentifier("guide_delete_audio_button")
             } else {
                 Button {
                     showVoicePicker = true
@@ -266,6 +274,7 @@ struct GuideView: View {
                     Label("Generate with Voice Selection", systemImage: "waveform.badge.plus")
                 }
                 .disabled(isGeneratingAudio)
+                .accessibilityIdentifier("guide_generate_with_selection_button")
 
                 Button {
                     generateAudioOnly()
@@ -273,6 +282,7 @@ struct GuideView: View {
                     Label("Generate with Default Voice", systemImage: "waveform")
                 }
                 .disabled(isGeneratingAudio)
+                .accessibilityIdentifier("guide_generate_with_default_button")
             }
         } label: {
             Label("Audio", systemImage: "speaker.wave.2")
@@ -288,6 +298,7 @@ struct GuideView: View {
                 Label("Regenerate Content", systemImage: "arrow.triangle.2.circlepath")
             }
             .disabled(isRegeneratingContent)
+            .accessibilityIdentifier("guide_regenerate_content_button")
 
             if item.audioFileURL != nil {
                 Button {
@@ -296,6 +307,7 @@ struct GuideView: View {
                     Label("Regenerate Audio Only", systemImage: "waveform.badge.plus")
                 }
                 .disabled(isGeneratingAudio)
+                .accessibilityIdentifier("guide_regenerate_audio_only_button")
             }
         } label: {
             Label("Regenerate", systemImage: "arrow.clockwise")
@@ -308,6 +320,7 @@ struct GuideView: View {
         } label: {
             Label("Delete", systemImage: "trash")
         }
+        .accessibilityIdentifier("guide_delete_button")
     }
 
     // MARK: - Table of Contents
@@ -372,6 +385,7 @@ struct GuideView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 8)
+                .accessibilityIdentifier("guide_toc_\(entry.id)")
             }
         }
         .padding(.vertical, 12)
@@ -1152,6 +1166,7 @@ struct StickyAudioPlayer: View {
 
                     ProgressView(value: progress)
                         .tint(.accentColor)
+                        .accessibilityIdentifier("audio_progress_view")
 
                     Text(formatTime(AudioPlaybackManager.shared.duration))
                         .font(.caption.monospacedDigit())
@@ -1207,6 +1222,7 @@ struct StickyAudioPlayer: View {
                                 .background(Color.accentColor.opacity(0.15))
                                 .cornerRadius(4)
                         }
+                        .accessibilityIdentifier("audio_speed_menu")
 
                         // Play/Pause button
                         Button(action: onPlayPause) {
@@ -1214,6 +1230,7 @@ struct StickyAudioPlayer: View {
                                 .font(.title2)
                                 .frame(width: 44, height: 44)
                         }
+                        .accessibilityIdentifier("audio_play_pause_button")
                     }
                 } else {
                     // Generate/Retry button
@@ -1225,6 +1242,7 @@ struct StickyAudioPlayer: View {
                                 .font(.title2)
                                 .frame(width: 44, height: 44)
                         }
+                        .accessibilityIdentifier("audio_generate_button")
                         if isRetry {
                             Text("Retry \(attempts)/\(LibraryItem.maxAudioGenerationAttempts)")
                                 .font(.caption2)

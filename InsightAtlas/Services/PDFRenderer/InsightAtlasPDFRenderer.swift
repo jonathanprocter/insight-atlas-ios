@@ -197,22 +197,59 @@ final class InsightAtlasPDFRenderer {
             )
 
             let height = blockRenderer.calculateBlockHeight(block: quickGlanceBlock, maxWidth: contentRect.width)
+            let pageBudget = contentRect.height
 
-            if currentY + height > contentRect.maxY {
+            if currentY + height <= contentRect.maxY {
+                // Fits in the remaining space on the current page.
+                recordTOCEntry("Quick Glance", isSubsection: false)
+                blockRenderer.renderBlock(
+                    quickGlanceBlock,
+                    to: context.cgContext,
+                    at: CGPoint(x: contentRect.minX, y: currentY),
+                    maxWidth: contentRect.width
+                )
+                currentY += height
+            } else if height <= pageBudget {
+                // Fits on a fresh page as a single card.
                 startNewContentPage(context: context, options: options)
                 currentY = contentRect.minY
+                recordTOCEntry("Quick Glance", isSubsection: false)
+                blockRenderer.renderBlock(
+                    quickGlanceBlock,
+                    to: context.cgContext,
+                    at: CGPoint(x: contentRect.minX, y: currentY),
+                    maxWidth: contentRect.width
+                )
+                currentY += height
+            } else {
+                // Taller than a whole page: split into self-contained cards,
+                // each on its own page, so nothing clips off the bottom edge.
+                let fragments = blockRenderer.planQuickGlanceFragments(
+                    coreMessage: quickGlance.coreMessage,
+                    keyPoints: quickGlance.keyPoints,
+                    maxWidth: contentRect.width,
+                    pageBudget: pageBudget
+                )
+                for (index, fragment) in fragments.enumerated() {
+                    if index > 0 || currentY > contentRect.minY {
+                        startNewContentPage(context: context, options: options)
+                        currentY = contentRect.minY
+                    }
+                    if index == 0 {
+                        recordTOCEntry("Quick Glance", isSubsection: false)
+                    }
+                    let drawn = blockRenderer.renderQuickGlance(
+                        coreMessage: fragment.coreMessage,
+                        keyPoints: fragment.keyPoints,
+                        readingTime: index == 0 ? "\(quickGlance.readingTime)" : nil,
+                        to: context.cgContext,
+                        at: CGPoint(x: contentRect.minX, y: currentY),
+                        maxWidth: contentRect.width,
+                        continued: fragment.continued
+                    )
+                    currentY += drawn
+                }
             }
-
-            recordTOCEntry("Quick Glance", isSubsection: false)
-
-            blockRenderer.renderBlock(
-                quickGlanceBlock,
-                to: context.cgContext,
-                at: CGPoint(x: contentRect.minX, y: currentY),
-                maxWidth: contentRect.width
-            )
-
-            currentY += height
         }
 
         // Render sections
