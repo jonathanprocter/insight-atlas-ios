@@ -269,13 +269,9 @@ final class PDFContentBlockRenderer {
             return renderBlockquote(block.content, cite: block.metadata?["cite"], to: context, at: point, maxWidth: maxWidth)
             
         case .authorSpotlight:
-            return renderSpecialBlock(
+            return renderMockupBlock(
                 content: block.content,
                 title: "Author Spotlight",
-                icon: "👤",
-                borderColor: PDFStyleConfiguration.Colors.accentBurgundy,
-                bgColor: PDFStyleConfiguration.Colors.accentBurgundy.withAlphaComponent(0.05),
-                headerBgColor: PDFStyleConfiguration.Colors.accentBurgundy,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -292,26 +288,18 @@ final class PDFContentBlockRenderer {
             
         // Additional premium block types
         case .alternativePerspective:
-            return renderSpecialBlock(
+            return renderMockupBlock(
                 content: block.content,
                 title: "Alternative Perspective",
-                icon: "🔄",
-                borderColor: PDFStyleConfiguration.Colors.accentOrange,
-                bgColor: PDFStyleConfiguration.Colors.accentOrange.withAlphaComponent(0.05),
-                headerBgColor: PDFStyleConfiguration.Colors.accentOrange,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
             )
             
         case .researchInsight:
-            return renderSpecialBlock(
+            return renderMockupBlock(
                 content: block.content,
                 title: "Research Insight",
-                icon: "🔬",
-                borderColor: PDFStyleConfiguration.Colors.accentTeal,
-                bgColor: PDFStyleConfiguration.Colors.accentTeal.withAlphaComponent(0.05),
-                headerBgColor: PDFStyleConfiguration.Colors.accentTeal,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -328,13 +316,9 @@ final class PDFContentBlockRenderer {
                 conceptText += "\(index + 1). \(concept)\n"
             }
             
-            return renderSpecialBlock(
+            return renderMockupBlock(
                 content: conceptText,
                 title: block.metadata?["title"] ?? "Concept Map",
-                icon: "🗺",
-                borderColor: PDFStyleConfiguration.Colors.primaryGold,
-                bgColor: PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.05),
-                headerBgColor: PDFStyleConfiguration.Colors.primaryGold,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -356,26 +340,19 @@ final class PDFContentBlockRenderer {
 
         // Synthesis Engine block types (v3.0)
         case .example:
-            return renderSpecialBlock(
+            return renderMockupBlock(
                 content: block.content,
                 title: block.metadata?["title"] ?? "Case Study",
-                icon: "📋",
-                borderColor: PDFStyleConfiguration.Colors.accentTeal,
-                bgColor: PDFStyleConfiguration.Colors.accentTeal.withAlphaComponent(0.05),
-                headerBgColor: PDFStyleConfiguration.Colors.accentTeal,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
             )
 
         case .exerciseReflection:
-            return renderSpecialBlock(
+            return renderMockupBlock(
                 content: block.content,
                 title: "Reflection Question",
-                icon: "💭",
-                borderColor: PDFStyleConfiguration.Colors.accentPurple,
-                bgColor: PDFStyleConfiguration.Colors.accentPurple.withAlphaComponent(0.05),
-                headerBgColor: PDFStyleConfiguration.Colors.accentPurple,
+                bgColor: PDFStyleConfiguration.Colors.warmGray,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -663,10 +640,11 @@ final class PDFContentBlockRenderer {
 
         // Draw header with enhanced label weight
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Bold", size: 13) ?? PDFStyleConfiguration.Typography.blockHeader(),
-            .foregroundColor: PDFStyleConfiguration.BlockStyles.insightNoteIconColor
+            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .foregroundColor: PDFStyleConfiguration.BlockStyles.insightNoteIconColor,
+            .kern: 1.2
         ]
-        let headerText = NSAttributedString(string: "\(PDFStyleConfiguration.Icons.insightNote) \(title.uppercased())", attributes: headerAttributes)
+        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
         let headerTextRect = CGRect(x: point.x + padding + leftAccentWidth, y: point.y + 8, width: maxWidth - padding * 2 - leftAccentWidth, height: headerHeight - 10)
         headerText.draw(in: headerTextRect)
 
@@ -688,21 +666,21 @@ final class PDFContentBlockRenderer {
             currentY += coreHeight + sectionSpacing + 4
         }
 
-        // Key Distinction section - Light orange background (distinct from Insight Note's main orange)
+        // Key Distinction section - warm gray background
         if let keyDist = parsed.keyDistinction, !keyDist.isEmpty {
             let sectionHeight = 20 + calculateTextHeight(keyDist, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20) + 12
             let sectionRect = CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: insetWidth, height: sectionHeight)
 
-            // Light orange background (0.08 opacity) - distinct for Key Distinction
-            context.setFillColor(PDFStyleConfiguration.Colors.brandOrange.withAlphaComponent(0.08).cgColor)
+            // Warm gray background
+            context.setFillColor(PDFStyleConfiguration.Colors.warmGray.cgColor)
             context.fill(sectionRect)
 
             // Left accent bar - increased to 4pt
-            context.setFillColor(PDFStyleConfiguration.Colors.brandOrange.cgColor)
+            context.setFillColor(PDFStyleConfiguration.Colors.terracotta.cgColor)
             context.fill(CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: subsectionAccentWidth, height: sectionHeight))
 
             // Subtle bottom border for visual separation
-            context.setStrokeColor(PDFStyleConfiguration.Colors.brandOrange.withAlphaComponent(0.2).cgColor)
+            context.setStrokeColor(PDFStyleConfiguration.Colors.lightTan.cgColor)
             context.setLineWidth(0.5)
             context.move(to: CGPoint(x: point.x + padding + leftAccentWidth + subsectionAccentWidth + 8, y: currentY + sectionHeight - 1))
             context.addLine(to: CGPoint(x: point.x + maxWidth - padding, y: currentY + sectionHeight - 1))
@@ -710,8 +688,8 @@ final class PDFContentBlockRenderer {
 
             // Enhanced label weight
             let labelAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont(name: "Inter-Bold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
-                .foregroundColor: PDFStyleConfiguration.Colors.brandOrange
+                .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
+                .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let labelText = NSAttributedString(string: "KEY DISTINCTION", attributes: labelAttributes)
             labelText.draw(at: CGPoint(x: point.x + padding + leftAccentWidth + subsectionAccentWidth + 8, y: currentY + 4))
@@ -722,29 +700,28 @@ final class PDFContentBlockRenderer {
             currentY += sectionHeight + sectionSpacing
         }
 
-        // Practical Implication section - Light gold background
+        // Practical Implication section - warm gray background
         if let practical = parsed.practicalImplication, !practical.isEmpty {
             let sectionHeight = 20 + calculateTextHeight(practical, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20) + 12
             let sectionRect = CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: insetWidth, height: sectionHeight)
 
-            // Light gold background (0.08 opacity)
-            context.setFillColor(PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.08).cgColor)
+            context.setFillColor(PDFStyleConfiguration.Colors.warmGray.cgColor)
             context.fill(sectionRect)
 
             // Left accent bar
-            context.setFillColor(PDFStyleConfiguration.Colors.primaryGold.cgColor)
+            context.setFillColor(PDFStyleConfiguration.Colors.terracotta.cgColor)
             context.fill(CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: subsectionAccentWidth, height: sectionHeight))
 
             // Subtle bottom border
-            context.setStrokeColor(PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.2).cgColor)
+            context.setStrokeColor(PDFStyleConfiguration.Colors.lightTan.cgColor)
             context.setLineWidth(0.5)
             context.move(to: CGPoint(x: point.x + padding + leftAccentWidth + subsectionAccentWidth + 8, y: currentY + sectionHeight - 1))
             context.addLine(to: CGPoint(x: point.x + maxWidth - padding, y: currentY + sectionHeight - 1))
             context.strokePath()
 
             let labelAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont(name: "Inter-Bold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
-                .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
+                .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
+                .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let labelText = NSAttributedString(string: "PRACTICAL IMPLICATION", attributes: labelAttributes)
             labelText.draw(at: CGPoint(x: point.x + padding + leftAccentWidth + subsectionAccentWidth + 8, y: currentY + 4))
@@ -759,17 +736,17 @@ final class PDFContentBlockRenderer {
             let sectionHeight = 20 + calculateTextHeight(goDeeper, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20) + 12
             let sectionRect = CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: insetWidth, height: sectionHeight)
 
-            // Light burgundy background (0.08 opacity)
-            context.setFillColor(PDFStyleConfiguration.Colors.accentBurgundy.withAlphaComponent(0.08).cgColor)
+            // Warm gray background
+            context.setFillColor(PDFStyleConfiguration.Colors.warmGray.cgColor)
             context.fill(sectionRect)
 
             // Left accent bar
-            context.setFillColor(PDFStyleConfiguration.Colors.accentBurgundy.cgColor)
+            context.setFillColor(PDFStyleConfiguration.Colors.terracotta.cgColor)
             context.fill(CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: subsectionAccentWidth, height: sectionHeight))
 
             let labelAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont(name: "Inter-Bold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
-                .foregroundColor: PDFStyleConfiguration.Colors.accentBurgundy
+                .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
+                .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let labelText = NSAttributedString(string: "GO DEEPER", attributes: labelAttributes)
             labelText.draw(at: CGPoint(x: point.x + padding + leftAccentWidth + subsectionAccentWidth + 8, y: currentY + 4))
@@ -820,6 +797,8 @@ final class PDFContentBlockRenderer {
             coreText = String(normalizedContent[..<keyRange.lowerBound])
         } else if let keyRange = normalizedContent.range(of: "**Key Distinction", options: .caseInsensitive) {
             coreText = String(normalizedContent[..<keyRange.lowerBound])
+        } else if let goRange = normalizedContent.range(of: "Go Deeper:", options: .caseInsensitive) {
+            coreText = String(normalizedContent[..<goRange.lowerBound])
         }
         coreConnection = coreText.replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -901,7 +880,7 @@ final class PDFContentBlockRenderer {
         context.strokePath()
         context.restoreGState()
 
-        // Draw header background
+        // Draw header background (subtle, same tone as card)
         let headerRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: headerHeight)
         let headerPath = UIBezierPath(
             roundedRect: headerRect,
@@ -912,9 +891,13 @@ final class PDFContentBlockRenderer {
         context.setFillColor(PDFStyleConfiguration.BlockStyles.actionBoxHeaderBgColor.cgColor)
         context.fillPath()
 
-        // Draw header text
-        let headerAttributes = PDFStyleConfiguration.blockHeaderAttributes(color: PDFStyleConfiguration.Colors.textInverse)
-        let headerText = NSAttributedString(string: "\(PDFStyleConfiguration.Icons.actionBox) \(title.uppercased())", attributes: headerAttributes)
+        // Draw header label (small terracotta text)
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
+            .kern: 1.1
+        ]
+        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
         let headerTextRect = CGRect(x: point.x + padding, y: point.y + 8, width: maxWidth - padding * 2, height: headerHeight - 10)
         headerText.draw(in: headerTextRect)
 
@@ -976,10 +959,11 @@ final class PDFContentBlockRenderer {
 
         // Draw header
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: PDFStyleConfiguration.Typography.blockHeader(),
-            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
+            .kern: 1.1
         ]
-        let headerText = NSAttributedString(string: "\(PDFStyleConfiguration.Icons.takeaways) KEY TAKEAWAYS", attributes: headerAttributes)
+        let headerText = NSAttributedString(string: "KEY TAKEAWAYS", attributes: headerAttributes)
         let headerRect = CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8)
         headerText.draw(in: headerRect)
 
@@ -997,9 +981,9 @@ final class PDFContentBlockRenderer {
             // Draw star bullet
             let bulletAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.body(),
-                .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
+                .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
-            let bulletText = NSAttributedString(string: "★", attributes: bulletAttributes)
+            let bulletText = NSAttributedString(string: "•", attributes: bulletAttributes)
             let bulletRect = CGRect(x: point.x + padding, y: currentY, width: 16, height: 18)
             bulletText.draw(in: bulletRect)
 
@@ -1022,10 +1006,10 @@ final class PDFContentBlockRenderer {
         return renderSpecialBlock(
             content: content,
             title: title ?? "The Story Behind the Ideas",
-            icon: PDFStyleConfiguration.Icons.narrative,
+            icon: "",
             borderColor: PDFStyleConfiguration.BlockStyles.narrativeBorderColor,
             bgColor: PDFStyleConfiguration.BlockStyles.narrativeBgColor,
-            headerBgColor: PDFStyleConfiguration.BlockStyles.narrativeBorderColor,
+            headerBgColor: PDFStyleConfiguration.Colors.terracotta,
             to: context,
             at: point,
             maxWidth: maxWidth
@@ -1080,10 +1064,11 @@ final class PDFContentBlockRenderer {
 
         // Draw header
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Bold", size: 13) ?? PDFStyleConfiguration.Typography.blockHeader(),
-            .foregroundColor: PDFStyleConfiguration.BlockStyles.exerciseIconColor
+            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .foregroundColor: PDFStyleConfiguration.BlockStyles.exerciseIconColor,
+            .kern: 1.1
         ]
-        let headerText = NSAttributedString(string: "\(PDFStyleConfiguration.Icons.exercise) \(title.uppercased())", attributes: headerAttributes)
+        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
         let headerRect = CGRect(x: point.x + padding, y: point.y + 8, width: maxWidth - padding * 2, height: headerHeight - 10)
         headerText.draw(in: headerRect)
 
@@ -1145,7 +1130,11 @@ final class PDFContentBlockRenderer {
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
-    private func renderQuickGlance(coreMessage: String, keyPoints: [String], readingTime: String?, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    /// Renders a Quick Glance card. When `continued` is true the header reads
+    /// "QUICK GLANCE (CONTINUED)" and the reading-time badge is suppressed; an
+    /// empty `coreMessage` skips the lead quote entirely. Both support splitting
+    /// an over-long Quick Glance across pages as self-contained cards.
+    func renderQuickGlance(coreMessage: String, keyPoints: [String], readingTime: String?, to context: CGContext, at point: CGPoint, maxWidth: CGFloat, continued: Bool = false) -> CGFloat {
         let padding: CGFloat = 16
         let headerHeight: CGFloat = 32
         let borderRadius: CGFloat = PDFStyleConfiguration.Radius.lg
@@ -1153,11 +1142,13 @@ final class PDFContentBlockRenderer {
         let insetWidth = maxWidth - padding * 2
 
         // Calculate heights
-        let coreMessageHeight = calculateTextHeight(coreMessage, attributes: [
+        let hasCore = !coreMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let coreMessageHeight = hasCore ? calculateTextHeight(coreMessage, attributes: [
             .font: PDFStyleConfiguration.Typography.bodyLarge(),
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
-        ], maxWidth: insetWidth)
+        ], maxWidth: insetWidth) : 0
+        let coreGap: CGFloat = hasCore ? 16 : 0
 
         var keyPointsHeight: CGFloat = 0
         for point in keyPoints {
@@ -1165,7 +1156,7 @@ final class PDFContentBlockRenderer {
             keyPointsHeight += pointHeight + 8
         }
 
-        let totalHeight = headerHeight + coreMessageHeight + 16 + keyPointsHeight + padding * 2
+        let totalHeight = headerHeight + coreMessageHeight + coreGap + keyPointsHeight + padding * 2
 
         // Draw outer border
         let outerRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
@@ -1195,20 +1186,21 @@ final class PDFContentBlockRenderer {
 
         // Draw header text and reading time badge
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: PDFStyleConfiguration.Typography.blockHeader(),
-            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
+            .kern: 1.1
         ]
-        let headerText = NSAttributedString(string: "\(PDFStyleConfiguration.Icons.quickGlance) QUICK GLANCE", attributes: headerAttributes)
-        let headerTextRect = CGRect(x: point.x + padding, y: point.y + 8, width: maxWidth / 2, height: headerHeight - 12)
+        let headerText = NSAttributedString(string: continued ? "QUICK GLANCE (CONTINUED)" : "QUICK GLANCE", attributes: headerAttributes)
+        let headerTextRect = CGRect(x: point.x + padding, y: point.y + 8, width: maxWidth * 0.7, height: headerHeight - 12)
         headerText.draw(in: headerTextRect)
 
-        // Draw reading time badge with clarification
-        if let time = readingTime, !time.isEmpty {
+        // Draw reading time badge with clarification (first fragment only)
+        if !continued, let time = readingTime, !time.isEmpty {
             // Clarify that this is the reading time for this guide, not the original book
             let badgeText = "\(time) min guide"
             let badgeAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.captionBold(),
-                .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
+                .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let badgeAttributed = NSAttributedString(string: badgeText, attributes: badgeAttributes)
             let badgeSize = badgeAttributed.size()
@@ -1222,7 +1214,7 @@ final class PDFContentBlockRenderer {
             // Badge background
             let badgeBgPath = UIBezierPath(roundedRect: badgeRect, cornerRadius: 4)
             context.addPath(badgeBgPath.cgPath)
-            context.setFillColor(PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.15).cgColor)
+            context.setFillColor(PDFStyleConfiguration.Colors.terracotta.withAlphaComponent(0.12).cgColor)
             context.fillPath()
 
             badgeAttributed.draw(in: CGRect(x: badgeRect.minX + 8, y: badgeRect.minY + 2, width: badgeSize.width, height: badgeSize.height))
@@ -1230,15 +1222,17 @@ final class PDFContentBlockRenderer {
 
         var currentY = point.y + headerHeight + padding
 
-        // Draw core message
-        let coreAttributes: [NSAttributedString.Key: Any] = [
-            .font: PDFStyleConfiguration.Typography.bodyLarge(),
-            .foregroundColor: PDFStyleConfiguration.Colors.textBody,
-            .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
-        ]
-        let coreAttributed = parseInlineMarkdown(coreMessage, baseAttributes: coreAttributes)
-        let drawnCoreHeight = drawAttributedString(coreAttributed, to: context, at: CGPoint(x: point.x + padding, y: currentY), maxWidth: insetWidth)
-        currentY += drawnCoreHeight + 16
+        // Draw core message (first fragment only)
+        if hasCore {
+            let coreAttributes: [NSAttributedString.Key: Any] = [
+                .font: PDFStyleConfiguration.Typography.bodyLarge(),
+                .foregroundColor: PDFStyleConfiguration.Colors.textBody,
+                .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
+            ]
+            let coreAttributed = parseInlineMarkdown(coreMessage, baseAttributes: coreAttributes)
+            let drawnCoreHeight = drawAttributedString(coreAttributed, to: context, at: CGPoint(x: point.x + padding, y: currentY), maxWidth: insetWidth)
+            currentY += drawnCoreHeight + 16
+        }
 
         // Draw key points
         for keyPoint in keyPoints {
@@ -1264,6 +1258,54 @@ final class PDFContentBlockRenderer {
         }
 
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// One page-sized fragment of a Quick Glance card.
+    struct QuickGlanceFragment {
+        let coreMessage: String   // empty on continuation fragments
+        let keyPoints: [String]
+        let continued: Bool
+    }
+
+    /// Partition a Quick Glance into fragments that each fit within `pageBudget`
+    /// (the full content height of a page). Used only when the whole card is
+    /// taller than a single page; each fragment renders as its own bordered card.
+    func planQuickGlanceFragments(coreMessage: String, keyPoints: [String], maxWidth: CGFloat, pageBudget: CGFloat) -> [QuickGlanceFragment] {
+        let padding: CGFloat = 16
+        let headerHeight: CGFloat = 32
+        let insetWidth = maxWidth - padding * 2
+
+        func bulletHeight(_ p: String) -> CGFloat {
+            calculateTextHeight(p, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20) + 8
+        }
+        let coreHeight = calculateTextHeight(coreMessage, attributes: [
+            .font: PDFStyleConfiguration.Typography.bodyLarge(),
+            .foregroundColor: PDFStyleConfiguration.Colors.textBody,
+            .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
+        ], maxWidth: insetWidth)
+
+        let chrome = headerHeight + padding * 2   // header + top/bottom padding
+        var fragments: [QuickGlanceFragment] = []
+        var remaining = keyPoints
+        var isFirst = true
+
+        repeat {
+            let includeCore = isFirst
+            var used = chrome + (includeCore ? coreHeight + 16 : 0)
+            var take: [String] = []
+            while let next = remaining.first {
+                let h = bulletHeight(next)
+                // Always take at least one bullet per fragment to guarantee progress.
+                if !take.isEmpty && used + h > pageBudget { break }
+                take.append(next)
+                used += h
+                remaining.removeFirst()
+            }
+            fragments.append(QuickGlanceFragment(coreMessage: includeCore ? coreMessage : "", keyPoints: take, continued: !isFirst))
+            isFirst = false
+        } while !remaining.isEmpty
+
+        return fragments
     }
 
     private func renderList(items: [String], numbered: Bool, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
@@ -1459,6 +1501,29 @@ final class PDFContentBlockRenderer {
     // MARK: - Helper: Special Block Renderer
     // Unified styling matching Insight Note pattern for consistency
 
+    /// Renders a special block using the shared mockup palette (lightTan border,
+    /// terracotta header, no icon). Background defaults to warmCream.
+    private func renderMockupBlock(
+        content: String,
+        title: String,
+        bgColor: UIColor = PDFStyleConfiguration.Colors.warmCream,
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        return renderSpecialBlock(
+            content: content,
+            title: title,
+            icon: "",
+            borderColor: PDFStyleConfiguration.Colors.lightTan,
+            bgColor: bgColor,
+            headerBgColor: PDFStyleConfiguration.Colors.terracotta,
+            to: context,
+            at: point,
+            maxWidth: maxWidth
+        )
+    }
+
     private func renderSpecialBlock(
         content: String,
         title: String,
@@ -1512,7 +1577,8 @@ final class PDFContentBlockRenderer {
             .font: PDFStyleConfiguration.Typography.blockHeader(),
             .foregroundColor: headerBgColor
         ]
-        let headerText = NSAttributedString(string: "\(icon) \(title.uppercased())", attributes: headerAttributes)
+        let headerString = icon.isEmpty ? title.uppercased() : "\(icon) \(title.uppercased())"
+        let headerText = NSAttributedString(string: headerString, attributes: headerAttributes)
         let headerTextRect = CGRect(x: point.x + padding + leftAccentWidth, y: point.y + 6, width: maxWidth - padding * 2 - leftAccentWidth, height: headerHeight - 8)
         headerText.draw(in: headerTextRect)
 

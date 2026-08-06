@@ -2519,6 +2519,11 @@ struct AnalysisExportOptionsView: View {
                     }
                 }
 
+                // Rasterize the structured visuals so the PDF embeds them as images.
+                if format == .pdf, let rawContent = item.summaryContent {
+                    await PDFVisualPrerenderer.prerender(content: rawContent)
+                }
+
                 // Generate the export file (DataManager is @MainActor so this is safe)
                 let url = try dataManager.exportGuide(item, format: format)
 

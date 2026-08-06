@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */; };
 		3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */; };
-		E29C402FB823CF0FC43901BE /* PDFAudioBundler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */; };
+		47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAF36A52505A41D8A10D838 /* InsightAtlas/Views/VoicePickerSheet.swift */; };
 		48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */; };
 		65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */; };
 		7A1B2C3D4E5F678901234581 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234580 /* XCTest.framework */; };
@@ -19,6 +19,8 @@
 		7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */; };
 		7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */; };
 		7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */; };
+		82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */; };
+		9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A77D72C5EAC28A38E529C7 /* InsightAtlas/Views/EditorialContentRenderer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
 		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
@@ -45,6 +47,7 @@
 		C284A0062F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */; };
 		C284A0082F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */; };
 		C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C2E9A9242F0A4D1200480055 /* ZIPFoundation */; };
+		E29C402FB823CF0FC43901BE /* PDFAudioBundler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */; };
 		E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00002D000001007AAAAA /* InsightAtlasApp.swift */; };
 		E81A00032D000001007AAAAA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00022D000001007AAAAA /* ContentView.swift */; };
 		E81A00052D000001007AAAAA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E81A00042D000001007AAAAA /* Assets.xcassets */; };
@@ -92,6 +95,8 @@
 		IAGOVTYPE01AAAAAAA001 /* SummaryTypeGovernor.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVTYPE02AAAAAAA002 /* SummaryTypeGovernor.swift */; };
 		IAKEYCHNSVC01AAA001 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAKEYCHNSVC02AAA002 /* KeychainService.swift */; };
 		IALAYOUT001AAAAAAAAA001 /* LayoutScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = IALAYOUT002AAAAAAAAA002 /* LayoutScore.swift */; };
+		IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */; };
+		IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */; };
 		IAOUTVAL01AAAAAAAAA01 /* OutputContractValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */; };
 		IASEMNORM01AAAAAAAAA01 /* SemanticNormalizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */; };
 		IATHEME001AAAAAAAAAA001 /* VisualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */; };
@@ -103,13 +108,8 @@
 		IAVISUALS02AAAAAAAAAA002 /* InsightVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */; };
 		IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */; };
 		IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKVW02AAA002 /* VoicePickerView.swift */; };
-		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
-		9EFF521F70C471CF39DD4588 /* EditorialContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A77D72C5EAC28A38E529C7 /* EditorialContentRenderer.swift */; };
-		82E29C53323BCC8A79E0DF58 /* EditorialBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7504ACD02AE48FB4B91A9AE /* EditorialBlockViews.swift */; };
-		47D938729D4D043EEA2D6060 /* VoicePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAF36A52505A41D8A10D838 /* VoicePickerSheet.swift */; };
 		IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPROV02AAA002 /* VoiceProvider.swift */; };
-		IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */; };
-		IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */; };
+		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -123,9 +123,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		03A77D72C5EAC28A38E529C7 /* InsightAtlas/Views/EditorialContentRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/EditorialContentRenderer.swift; sourceTree = SOURCE_ROOT; };
 		0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAnalysisDocument.swift; sourceTree = "<group>"; };
 		54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPDFRenderer.swift; sourceTree = "<group>"; };
-		F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAudioBundler.swift; sourceTree = "<group>"; };
+		5DAF36A52505A41D8A10D838 /* InsightAtlas/Views/VoicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/VoicePickerSheet.swift; sourceTree = SOURCE_ROOT; };
 		7A1B2C3D4E5F67890123456E /* InsightAtlasTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = InsightAtlasTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A1B2C3D4E5F678901234580 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceTests.swift; sourceTree = "<group>"; };
@@ -140,6 +141,7 @@
 		9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFCoverPageRenderer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = PDFTextFixerPatterns.json; sourceTree = "<group>"; };
+		A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/EditorialBlockViews.swift; sourceTree = SOURCE_ROOT; };
 		AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFContentBlockRenderer.swift; sourceTree = "<group>"; };
 		C213558F2EE6360100B6662D /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
@@ -192,6 +194,7 @@
 		E81A00312D000018007AAAAB /* RegenerateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegenerateView.swift; sourceTree = "<group>"; };
 		E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPatternLibrary.swift; sourceTree = "<group>"; };
 		E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasThematicPrompt.swift; sourceTree = "<group>"; };
+		F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAudioBundler.swift; sourceTree = "<group>"; };
 		IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasAPI.swift; sourceTree = "<group>"; };
 		IAAPI0004AAAAAAAAAAAAAA4 /* GenerateGuideRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateGuideRequest.swift; sourceTree = "<group>"; };
 		IAAPI0006AAAAAAAAAAAAAA6 /* GenerateGuideResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateGuideResponse.swift; sourceTree = "<group>"; };
@@ -215,6 +218,8 @@
 		IAGOVTYPE02AAAAAAA002 /* SummaryTypeGovernor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryTypeGovernor.swift; sourceTree = "<group>"; };
 		IAKEYCHNSVC02AAA002 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		IALAYOUT002AAAAAAAAA002 /* LayoutScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutScore.swift; sourceTree = "<group>"; };
+		IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIAudioService.swift; sourceTree = "<group>"; };
+		IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIVoiceRegistry.swift; sourceTree = "<group>"; };
 		IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputContractValidator.swift; sourceTree = "<group>"; };
 		IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticNormalizationService.swift; sourceTree = "<group>"; };
 		IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualTheme.swift; sourceTree = "<group>"; };
@@ -226,13 +231,8 @@
 		IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisuals.swift; sourceTree = "<group>"; };
 		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
 		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
-		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
 		IAVOICEPROV02AAA002 /* VoiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProvider.swift; sourceTree = "<group>"; };
-		IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIAudioService.swift; sourceTree = "<group>"; };
-		IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIVoiceRegistry.swift; sourceTree = "<group>"; };
-		03A77D72C5EAC28A38E529C7 /* EditorialContentRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/EditorialContentRenderer.swift"; sourceTree = SOURCE_ROOT; };
-		A7504ACD02AE48FB4B91A9AE /* EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/EditorialBlockViews.swift"; sourceTree = SOURCE_ROOT; };
-		5DAF36A52505A41D8A10D838 /* VoicePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InsightAtlas/Views/VoicePickerSheet.swift"; sourceTree = SOURCE_ROOT; };
+		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -331,6 +331,9 @@
 			isa = PBXGroup;
 			children = (
 				7A1B2C3D4E5F678901234580 /* XCTest.framework */,
+				5DAF36A52505A41D8A10D838 /* InsightAtlas/Views/VoicePickerSheet.swift */,
+				A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */,
+				03A77D72C5EAC28A38E529C7 /* InsightAtlas/Views/EditorialContentRenderer.swift */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -650,9 +653,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				47D938729D4D043EEA2D6060 /* VoicePickerSheet.swift in Sources */,
-				82E29C53323BCC8A79E0DF58 /* EditorialBlockViews.swift in Sources */,
-				9EFF521F70C471CF39DD4588 /* EditorialContentRenderer.swift in Sources */,
+				47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */,
+				82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */,
+				9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */,
 				48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */,
 				012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */,
 				65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */,
@@ -741,6 +744,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				INFOPLIST_FILE = InsightAtlasTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlasTests;
@@ -755,6 +760,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				INFOPLIST_FILE = InsightAtlasTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jonathanprocter.InsightAtlasTests;
@@ -899,7 +906,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
-				DEVELOPMENT_TEAM = N866QDJBQX;
+				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				"INFOPLIST_FILE[sdk=*]" = InsightAtlas/Info.plist;
@@ -932,7 +939,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
-				DEVELOPMENT_TEAM = N866QDJBQX;
+				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				"INFOPLIST_FILE[sdk=*]" = InsightAtlas/Info.plist;

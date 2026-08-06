@@ -326,6 +326,10 @@ class DataManager: ObservableObject {
         await MainActor.run {
             progress?(.converting(percent: 0.5))
         }
+        // Rasterize structured visuals into the cache before the (non-isolated) layout.
+        if format == .pdf, let rawContent = item.summaryContent {
+            await PDFVisualPrerenderer.prerender(content: rawContent)
+        }
         let url = try exportGuide(item, format: format)
 
         await MainActor.run {

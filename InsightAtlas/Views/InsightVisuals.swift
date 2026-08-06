@@ -1944,3 +1944,45 @@ private struct FlowLayout: Layout {
         }
     }
 }
+
+// MARK: - Visual Rasterizer & PDF Prerenderer
+// Preserved from the local tree (not on the PR branch); required by
+// GuideView, AnalysisDetailView, and DataManager for PDF visual export.
+@MainActor
+enum VisualRasterizer {
+    /// Renders a single visual to an image. Pinned to light mode with a white
+    /// backing so it matches the warm-paper PDF regardless of system appearance.
+    static func image(for visual: InsightVisual, width: CGFloat = 480) -> UIImage? {
+        let content = InsightVisualView(visual: visual)
+            .padding(16)
+            .frame(width: width, alignment: .leading)
+            .background(Color.white)
+            .environment(\.colorScheme, .light)
+
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 3          // print-quality raster
+        renderer.isOpaque = true
+        return renderer.uiImage
+    }
+}
+
+/// Pre-renders all of a guide's visuals into the shared asset cache on the main
+/// actor, *before* the (non-isolated) PDF layout pass reads them back by URL.
+/// Must be awaited before generating a PDF for the visuals to appear as images;
+/// any visual left uncached simply falls back to its table/text representation.
+@MainActor
+enum PDFVisualPrerenderer {
+    static func prerender(content: String) async {
+        let visuals = PDFAnalysisDocument.extractVisuals(from: content)
+        guard !visuals.isEmpty else { return }
+
+        let cache = VisualAssetCache.shared
+        for visual in visuals {
+            let url = PDFAnalysisDocument.visualCacheURL(for: visual)
+            if cache.cachedImage(for: url) != nil { continue }   // already rendered
+            guard let image = VisualRasterizer.image(for: visual),
+                  let data = image.pngData() else { continue }
+            try? data.write(to: cache.localURL(for: url), options: .atomic)
+        }
+    }
+}

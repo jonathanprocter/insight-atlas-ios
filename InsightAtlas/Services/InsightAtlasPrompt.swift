@@ -390,7 +390,16 @@ struct InsightAtlasPromptGenerator {
         VISUAL ELEMENTS (SELECTIVE, VARIED)
         ───
 
-        Use visuals only when they clarify something that prose cannot. Each visual must be preceded by substantive prose and followed by interpretation. Types available:
+        A full guide MUST include a rich, varied set of visuals — target 12–18 [VISUAL_*] blocks across at least 8 distinct types. Each visual must be preceded by substantive prose and followed by interpretation.
+
+        CRITICAL FORMAT RULE — every visual MUST be wrapped in its fenced [VISUAL_TYPE: Title] … [/VISUAL_TYPE] tags exactly as shown below. NEVER write visual content as loose prose: untagged visual content is DROPPED by the renderer and never appears. For example:
+        - WRONG (prose): a line reading "Central: Ownership" followed by "Responsibility: ...", "Resilience: ..."
+          RIGHT: wrap it in [VISUAL_CONCEPT_MAP: ...] … [/VISUAL_CONCEPT_MAP]
+        - WRONG (prose): "Activities → Engagement → Ownership → Results" on its own line
+          RIGHT: wrap it in [VISUAL_TIMELINE: ...] or [VISUAL_FLOWCHART: ...] … [/VISUAL_...]
+        Any 2×2 breakdown, ranked list, set of stages, comparison, distribution, or labeled framework should be emitted as the matching tagged visual, not as a bare list.
+
+        Types available:
 
         [VISUAL_FLOWCHART: Title]
         [Steps with → or ↓ showing flow]
@@ -536,9 +545,9 @@ struct InsightAtlasPromptGenerator {
         [/VISUAL_GENERIC]
 
         VISUAL COVERAGE STANDARD (GLOBAL):
-        - Include more visual variety than 3–4 repeated diagrams.
-        - Target 10–18 visuals in a full guide, spread across at least 8 distinct visual types.
-        - Avoid repeating any single visual type more than 3 times.
+        - Use the full visual library (30+ supported visual types) across guides to avoid repetition.
+        - Target 12–18 visuals in a full guide, spread across 8–12 distinct visual types.
+        - Avoid repeating any single visual type more than 2–3 times.
         - Do not turn the guide into a photobook: every visual must be justified and followed by interpretation.
 
         ───
@@ -833,11 +842,18 @@ struct InsightAtlasPromptGenerator {
 
         CRITICAL FIRST STEP - METADATA EXTRACTION:
         Before writing anything, extract from the text above:
-        1. AUTHOR NAME: Look at title page, copyright page, "About the Author" section. If "\(author)" is "Unknown", replace it with the actual author name found in the document.
+        1. AUTHOR NAME(S): Look at title page, copyright page, "About the Author" section. Capture EVERY author — if the book has co-authors (e.g. "X and Y"), include all of them. If "\(author)" is "Unknown", use the actual name(s) found in the document.
         2. PUBLICATION YEAR: From copyright page (e.g., "Copyright © 2023")
         3. BOOK'S CORE THESIS: The single most important argument the author makes
 
         Use the extracted metadata throughout the guide, especially in Quick Glance.
+
+        REQUIRED: Emit the full author attribution as the VERY FIRST line of your
+        output, on its own line, in exactly this machine-readable form:
+        [[AUTHORS: <full author attribution, all co-authors included>]]
+        Example: [[AUTHORS: Mark Changizi and Tim Barber]]
+        This line is the single source of truth for the cover byline and MUST list
+        the same author(s) you refer to in the body prose. Do not omit co-authors.
 
         IMPORTANT GENERATION GUIDELINES:
         1. Use the book structure analysis above to organize your synthesis thematically, NOT chapter-by-chapter.

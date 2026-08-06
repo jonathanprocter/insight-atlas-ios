@@ -417,13 +417,20 @@ actor AIService {
 
                 \(bookContext)
 
-                Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
+                Revise the guide below into a SINGLE, complete, deduplicated guide that fixes these issues. Build on the existing content and rewrite/expand sections IN PLACE — do not append a second version of anything.
+
+                HARD RULES (critical):
+                - Output exactly ONE pass through the material. Every section heading appears EXACTLY ONCE.
+                - Do NOT produce both a summary/overview version and a detailed/expanded version of the same section. The Quick Glance is the ONLY summary permitted; after it, each concept is covered exactly once.
+                - When you expand or improve a section, REPLACE the original text — never leave the original section AND an expanded copy.
+                - Do not restate the Executive Synthesis, Story Behind the Ideas, Periodic Table, Poker Game, Takeaways, or Conclusion more than once.
+                - Preserve all block markers and the overall structure.
 
                 ---PREVIOUS GUIDE START---
                 \(previous)
                 ---PREVIOUS GUIDE END---
 
-                Generate an improved, complete guide that addresses all the missing elements while preserving the valuable insights already present.
+                Return the full revised guide — complete, non-repeating, each section exactly once — from Quick Glance through Conclusion.
                 """
             } else {
                 // Resume continuation: continue from the last sentence without repeating
@@ -681,13 +688,20 @@ actor AIService {
 
                 \(bookContext)
 
-                Please improve and expand the following guide to address these issues. Maintain all existing good content while adding the missing sections and improving quality. Do NOT start from scratch - build upon and enhance this existing content:
+                Revise the guide below into a SINGLE, complete, deduplicated guide that fixes these issues. Build on the existing content and rewrite/expand sections IN PLACE — do not append a second version of anything.
+
+                HARD RULES (critical):
+                - Output exactly ONE pass through the material. Every section heading appears EXACTLY ONCE.
+                - Do NOT produce both a summary/overview version and a detailed/expanded version of the same section. The Quick Glance is the ONLY summary permitted; after it, each concept is covered exactly once.
+                - When you expand or improve a section, REPLACE the original text — never leave the original section AND an expanded copy.
+                - Do not restate the Executive Synthesis, Story Behind the Ideas, Periodic Table, Poker Game, Takeaways, or Conclusion more than once.
+                - Preserve all block markers and the overall structure.
 
                 ---PREVIOUS GUIDE START---
                 \(previous)
                 ---PREVIOUS GUIDE END---
 
-                Generate an improved, complete guide that addresses all the missing elements while preserving the valuable insights already present.
+                Return the full revised guide — complete, non-repeating, each section exactly once — from Quick Glance through Conclusion.
                 """
             } else {
                 // Resume continuation: continue from the last sentence without repeating

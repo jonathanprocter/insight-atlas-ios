@@ -17,13 +17,29 @@ struct AnalysisTheme {
 
     // MARK: - Brand Primary Colors (From OE Logo)
 
-    static let brandOrange = Color(hex: "#E85D2D")           // Primary Orange - Primary brand
-    static let brandOrangeLight = Color(hex: "#F07348")      // Orange 400
-    static let brandOrangeDark = Color(hex: "#C74A1F")       // Orange 700
+    static let brandOrange = Color(hex: "#CBA135")           // Primary Orange - Primary brand
+    static let brandOrangeLight = Color(hex: "#DCBE5E")      // Orange 400
+    static let brandOrangeDark = Color(hex: "#A9801F")       // Orange 700
     static let brandNavy = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
     static let brandNavyLight = Color(hex: "#4A7A9D")        // Navy 400
     static let brandNavyDark = Color(hex: "#1E3D54")         // Navy 700
-    
+
+    // MARK: - Mockup Palette (Terracotta + Warm Neutrals)
+    // Adaptive so the warm editorial reading surface has a legible dark-mode
+    // counterpart. Light values are the original paper tones; dark values are
+    // warm charcoals that keep contrast with the adaptive text colors.
+
+    private static func adaptivePalette(light: String, dark: String) -> Color {
+        Color(UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light)
+        })
+    }
+
+    static let terracotta = adaptivePalette(light: "#CC9966", dark: "#D9A876")
+    static let warmCream = adaptivePalette(light: "#FFFDFB", dark: "#262220")
+    static let lightTan = adaptivePalette(light: "#F0E6DC", dark: "#3A342E")
+    static let warmGray = adaptivePalette(light: "#F8F6F4", dark: "#201D1A")
+
     // Legacy aliases (deprecated - use brandNavy)
     static let brandBlue = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
     static let brandBlueLight = Color(hex: "#4A7A9D")        // Lighter Navy
@@ -49,28 +65,28 @@ struct AnalysisTheme {
     // MARK: - Primary Palette - Primary Orange (Brand Primary)
     // WCAG AAA compliant on white backgrounds
 
-    static let primaryGold = Color(hex: "#E85D2D")           // Primary Orange - Primary accent
-    static let primaryGoldText = Color(hex: "#C74A1F")       // Orange 700 for text compliance
-    static let primaryGoldLight = Color(hex: "#F07348")      // Orange 400
-    static let primaryGoldDark = Color(hex: "#D85426")       // Orange 600
-    static let primaryGoldSubtle = Color(hex: "#E85D2D").opacity(0.08)
-    static let primaryGoldMuted = Color(hex: "#E85D2D").opacity(0.15)
+    static let primaryGold = Color(hex: "#CBA135")           // Primary Orange - Primary accent
+    static let primaryGoldText = Color(hex: "#A9801F")       // Orange 700 for text compliance
+    static let primaryGoldLight = Color(hex: "#DCBE5E")      // Orange 400
+    static let primaryGoldDark = Color(hex: "#B8912A")       // Orange 600
+    static let primaryGoldSubtle = Color(hex: "#CBA135").opacity(0.08)
+    static let primaryGoldMuted = Color(hex: "#CBA135").opacity(0.15)
 
     // MARK: - Premium Accent Colors (Modern Minimalistic)
 
-    static let accentPrimary = Color(hex: "#E85D2D")         // Primary Orange - Primary CTAs
+    static let accentPrimary = Color(hex: "#CBA135")         // Primary Orange - Primary CTAs
     static let accentSuccess = Color(hex: "#059669")         // Success green
-    static let accentHighlight = Color(hex: "#E85D2D")       // Primary Orange - Highlights
+    static let accentHighlight = Color(hex: "#CBA135")       // Primary Orange - Highlights
     static let accentInfo = Color(hex: "#2E5A7D")            // Navy Blue - Information
     static let accentWarning = Color(hex: "#D97706")         // Warning
     static let accentError = Color(hex: "#DC2626")           // Error
 
     // MARK: - Secondary Palette - Refined Accents
 
-    static let accentOrange = Color(hex: "#E85D2D")          // Primary Orange
-    static let accentOrangeText = Color(hex: "#C74A1F")      // Orange 700 for text
-    static let accentOrangeLight = Color(hex: "#F07348")     // Orange 400
-    static let accentOrangeSubtle = Color(hex: "#E85D2D").opacity(0.08)
+    static let accentOrange = Color(hex: "#CBA135")          // Primary Orange
+    static let accentOrangeText = Color(hex: "#A9801F")      // Orange 700 for text
+    static let accentOrangeLight = Color(hex: "#DCBE5E")     // Orange 400
+    static let accentOrangeSubtle = Color(hex: "#CBA135").opacity(0.08)
 
     static let accentNavy = Color(hex: "#2E5A7D")            // Navy Blue (secondary brand)
     static let accentNavyText = Color(hex: "#2E5A7D")        // Same - already compliant
@@ -90,11 +106,11 @@ struct AnalysisTheme {
     static let accentBurgundyLight = Color(hex: "#9A4458")   // Deprecated
     static let accentBurgundySubtle = Color(hex: "#7B2D3E").opacity(0.08)
 
-    static let accentCoral = Color(hex: "#E85D2D")           // Use accentOrange instead
-    static let accentCoralText = Color(hex: "#C74A1F")       // Use accentOrangeText instead
-    static let accentCoralLight = Color(hex: "#F07348")      // Use accentOrangeLight instead
-    static let accentCoralSubtle = Color(hex: "#E85D2D").opacity(0.08)
-    static let accentCoralMuted = Color(hex: "#E85D2D").opacity(0.15)
+    static let accentCoral = Color(hex: "#CBA135")           // Use accentOrange instead
+    static let accentCoralText = Color(hex: "#A9801F")       // Use accentOrangeText instead
+    static let accentCoralLight = Color(hex: "#DCBE5E")      // Use accentOrangeLight instead
+    static let accentCoralSubtle = Color(hex: "#CBA135").opacity(0.08)
+    static let accentCoralMuted = Color(hex: "#CBA135").opacity(0.15)
 
     // Additional accent colors for editorial blocks
     static let accentGreen = Color(hex: "#059669")           // Success green for action boxes
@@ -104,8 +120,8 @@ struct AnalysisTheme {
     // MARK: - Premium Commentary Box Colors (Modern Minimalistic)
 
     // Insight Note - Uses Primary Orange for warm highlights
-    static let insightOrange = Color(hex: "#E85D2D")         // Primary Orange
-    static let insightOrangeLight = Color(hex: "#F07348")    // Orange 400
+    static let insightOrange = Color(hex: "#CBA135")         // Primary Orange
+    static let insightOrangeLight = Color(hex: "#DCBE5E")    // Orange 400
     static let insightBgStart = Color(hex: "#FFFFFF")        // White
     static let insightBgMid = Color(hex: "#FEF0EB")          // Orange 50
     static let insightBgEnd = Color(hex: "#FCD4C4")          // Orange 100
@@ -130,22 +146,22 @@ struct AnalysisTheme {
     static let parchmentMid = Color(hex: "#F9FAFB")          // Gray 50
     static let parchmentDark = Color(hex: "#F3F4F6")         // Gray 100
     static let parchmentVignette = Color(hex: "#4B5563")     // Gray 600
-    static let goldOrnament = Color(hex: "#E85D2D")          // Primary Orange
-    static let goldTitle = Color(hex: "#E85D2D")             // Primary Orange
+    static let goldOrnament = Color(hex: "#CBA135")          // Primary Orange
+    static let goldTitle = Color(hex: "#CBA135")             // Primary Orange
     static let coralAuthor = Color(hex: "#2E5A7D")           // Navy Blue
     static let inkMuted = Color(hex: "#4B5563")              // Gray 600
 
     // MARK: - Premium Frame Colors (Layered Card Design)
 
     // Layer 1: Outer primary orange gradient
-    static let goldFrameOuter = Color(hex: "#E85D2D")        // Primary Orange
-    static let goldFrameOuterMid = Color(hex: "#D85426")     // Orange 600
-    static let goldFrameOuterDark = Color(hex: "#C74A1F")    // Orange 700
+    static let goldFrameOuter = Color(hex: "#CBA135")        // Primary Orange
+    static let goldFrameOuterMid = Color(hex: "#B8912A")     // Orange 600
+    static let goldFrameOuterDark = Color(hex: "#A9801F")    // Orange 700
 
     // Layer 2: Inner lighter orange gradient
     static let goldFrameInnerLight = Color(hex: "#FAAB8D")   // Orange 200
-    static let goldFrameInnerMid = Color(hex: "#F07348")     // Orange 400
-    static let goldFrameInnerDark = Color(hex: "#E85D2D")    // Primary Orange
+    static let goldFrameInnerMid = Color(hex: "#DCBE5E")     // Orange 400
+    static let goldFrameInnerDark = Color(hex: "#CBA135")    // Primary Orange
 
     // Layer 3: White gap
     static let goldFrameCreamLight = Color(hex: "#FFFFFF")   // White
@@ -153,8 +169,8 @@ struct AnalysisTheme {
     static let goldFrameCreamDark = Color(hex: "#FCD4C4")    // Orange 100
 
     // Layer 4: Orange pinstripe
-    static let goldPinstripeLight = Color(hex: "#F07348")    // Orange 400
-    static let goldPinstripeDark = Color(hex: "#E85D2D")     // Primary Orange
+    static let goldPinstripeLight = Color(hex: "#DCBE5E")    // Orange 400
+    static let goldPinstripeDark = Color(hex: "#CBA135")     // Primary Orange
 
     // Outer card gradient (Clean surfaces)
     static let outerCardTop = Color(hex: "#FFFFFF")          // Pure White
@@ -252,35 +268,35 @@ extension Font {
     // Display fonts (Cormorant Garamond) - with fallbacks
     static func analysisDisplayTitle() -> Font {
         if UIFont(name: "CormorantGaramond-Bold", size: 34) != nil {
-            return .custom("CormorantGaramond-Bold", size: 34)
+            return .custom("CormorantGaramond-Bold", size: 34, relativeTo: .largeTitle)
         }
         return .system(size: 34, weight: .bold, design: .serif)
     }
 
     static func analysisDisplayH1() -> Font {
         if UIFont(name: "CormorantGaramond-Bold", size: 30) != nil {
-            return .custom("CormorantGaramond-Bold", size: 30)
+            return .custom("CormorantGaramond-Bold", size: 30, relativeTo: .title)
         }
         return .system(size: 30, weight: .bold, design: .serif)
     }
 
     static func analysisDisplayH2() -> Font {
         if UIFont(name: "CormorantGaramond-SemiBold", size: 28) != nil {
-            return .custom("CormorantGaramond-SemiBold", size: 28)
+            return .custom("CormorantGaramond-SemiBold", size: 28, relativeTo: .title)
         }
         return .system(size: 28, weight: .semibold, design: .serif)
     }
 
     static func analysisDisplayH3() -> Font {
         if UIFont(name: "CormorantGaramond-SemiBold", size: 22) != nil {
-            return .custom("CormorantGaramond-SemiBold", size: 22)
+            return .custom("CormorantGaramond-SemiBold", size: 22, relativeTo: .title2)
         }
         return .system(size: 22, weight: .semibold, design: .serif)
     }
 
     static func analysisDisplayH4() -> Font {
         if UIFont(name: "CormorantGaramond-Medium", size: 19) != nil {
-            return .custom("CormorantGaramond-Medium", size: 19)
+            return .custom("CormorantGaramond-Medium", size: 19, relativeTo: .title3)
         }
         return .system(size: 19, weight: .medium, design: .serif)
     }
@@ -288,21 +304,21 @@ extension Font {
     // Body fonts (Cormorant Garamond for reading)
     static func analysisBody() -> Font {
         if UIFont(name: "CormorantGaramond-Regular", size: 17) != nil {
-            return .custom("CormorantGaramond-Regular", size: 17)
+            return .custom("CormorantGaramond-Regular", size: 17, relativeTo: .body)
         }
         return .system(size: 17, design: .serif)
     }
 
     static func analysisBodyLarge() -> Font {
         if UIFont(name: "CormorantGaramond-Regular", size: 19) != nil {
-            return .custom("CormorantGaramond-Regular", size: 19)
+            return .custom("CormorantGaramond-Regular", size: 19, relativeTo: .body)
         }
         return .system(size: 19, design: .serif)
     }
 
     static func analysisBodySmall() -> Font {
         if UIFont(name: "CormorantGaramond-Regular", size: 15) != nil {
-            return .custom("CormorantGaramond-Regular", size: 15)
+            return .custom("CormorantGaramond-Regular", size: 15, relativeTo: .subheadline)
         }
         return .system(size: 15, design: .serif)
     }
@@ -310,21 +326,21 @@ extension Font {
     // UI fonts (Inter for labels and UI elements)
     static func analysisUI() -> Font {
         if UIFont(name: "Inter-Regular", size: 15) != nil {
-            return .custom("Inter-Regular", size: 15)
+            return .custom("Inter-Regular", size: 15, relativeTo: .subheadline)
         }
         return .system(size: 15)
     }
 
     static func analysisUIBold() -> Font {
         if UIFont(name: "Inter-SemiBold", size: 15) != nil {
-            return .custom("Inter-SemiBold", size: 15)
+            return .custom("Inter-SemiBold", size: 15, relativeTo: .subheadline)
         }
         return .system(size: 15, weight: .semibold)
     }
 
     static func analysisUISmall() -> Font {
         if UIFont(name: "Inter-Regular", size: 13) != nil {
-            return .custom("Inter-Regular", size: 13)
+            return .custom("Inter-Regular", size: 13, relativeTo: .footnote)
         }
         return .system(size: 13)
     }
@@ -332,7 +348,7 @@ extension Font {
     // Handwritten accent (Caveat)
     static func analysisHandwritten() -> Font {
         if UIFont(name: "Caveat-Regular", size: 22) != nil {
-            return .custom("Caveat-Regular", size: 22)
+            return .custom("Caveat-Regular", size: 22, relativeTo: .title2)
         }
         return .system(size: 22, design: .rounded)
     }
@@ -477,4 +493,3 @@ extension Color {
                       lroundf(b * 255))
     }
 }
-
