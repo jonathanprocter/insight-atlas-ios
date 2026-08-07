@@ -37,6 +37,12 @@ final class InsightAtlasPDFRenderer {
     private var currentPage: Int = 0
     private var tableOfContents: [(title: String, page: Int, isSubsection: Bool)] = []
 
+    /// DEBUG-only record of trailing whitespace left on each content page when a
+    /// block is pushed to the next page. Used to quantify the "half-empty page"
+    /// problem on a real render before deciding whether callout-splitting is
+    /// worth building. Populated only in DEBUG builds; empty otherwise.
+    private var debugTrailingGaps: [(page: Int, gap: CGFloat, cause: String)] = []
+
     // MARK: - Initialization
 
     init(
@@ -56,7 +62,12 @@ final class InsightAtlasPDFRenderer {
     ///   - document: The structured document to render
     ///   - options: Rendering options
     /// - Returns: RenderResult containing PDF data and metadata
-    func render(document: PDFAnalysisDocument, options: RenderOptions = .default) throws -> RenderResult {
+    func render(document rawDocument: PDFAnalysisDocument, options: RenderOptions = .default) throws -> RenderResult {
+        // Single post-assembly pass: promote arrow-chain diagrams, number
+        // figures/tables, and enforce referential integrity before any pixels.
+        // DEBUG aborts on violations; Release auto-repairs and logs.
+        let document = try PDFDocumentProcessor.process(rawDocument).document
+
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize))
         currentPage = 0
         tableOfContents = []
@@ -131,13 +142,26 @@ final class InsightAtlasPDFRenderer {
         context.beginPage()
         currentPage += 1
 
-        _ = coverRenderer.renderTableOfContents(
+        // Pass the PDF renderer so a TOC that overflows one page can begin real
+        // additional pages. Without it, `renderTableOfContents` repaints the
+        // background over the existing entries/header and redraws on the same
+        // page, leaving only the final overflow batch visible (a TOC showing
+        // just its last entries with no "Contents" header).
+        let tocPageCount = coverRenderer.renderTableOfContents(
             to: context.cgContext,
-            sections: tableOfContents
+            sections: tableOfContents,
+            pdfRenderer: context
         )
+
+        // Account for any additional pages the TOC spilled onto so page
+        // numbering stays correct for subsequent content.
+        if tocPageCount > 1 {
+            currentPage += (tocPageCount - 1)
+        }
     }
 
     private func renderContentPages(context: UIGraphicsPDFRendererContext, document: PDFAnalysisDocument, options: RenderOptions) {
+        debugTrailingGaps.removeAll()
         var currentY = contentRect.minY
         var needsNewPage = true
         let minContentAfterHeading: CGFloat = 100 // Minimum content to keep with heading to avoid orphans
@@ -220,14 +244,29 @@ final class InsightAtlasPDFRenderer {
                 // Use the section heading height calculator which handles PART headers
                 let headingHeight = blockRenderer.calculateSectionHeadingHeight(heading, level: section.headingLevel, maxWidth: contentRect.width)
 
-                // Calculate first block height to avoid orphaned headings
+                // Calculate first block height to avoid orphaned headings.
+                // Keep the heading with its ENTIRE first block when that block
+                // fits on a page — otherwise the heading renders at the bottom
+                // and the (taller) block is pushed to the next page, stranding
+                // the heading. Only fall back to a minimum reserve when the
+                // following block is itself taller than a page (unavoidable).
                 let firstBlockHeight = section.blocks.first.map {
                     blockRenderer.calculateBlockHeight(block: $0, maxWidth: contentRect.width)
                 } ?? 0
-                let combinedHeight = headingHeight + min(firstBlockHeight, minContentAfterHeading)
+                // Only keep them together if both actually fit on one page;
+                // if the block is so tall that heading+block can't co-exist on
+                // any page, keeping them together is impossible — reserve a
+                // minimum instead (the unavoidable case).
+                let headingReserve = (headingHeight + firstBlockHeight) <= contentRect.height
+                    ? firstBlockHeight
+                    : minContentAfterHeading
+                let combinedHeight = headingHeight + headingReserve
 
-                // Check if heading + some content fits, otherwise start new page
+                // Check if heading + its content fits, otherwise start new page
                 if needsNewPage || currentY + combinedHeight > contentRect.maxY - 30 {
+                    if !needsNewPage {
+                        recordTrailingGap(at: currentY, cause: "section heading kept with next (\(heading))")
+                    }
                     startNewContentPage(context: context, options: options)
                     currentY = contentRect.minY
                     needsNewPage = false
@@ -263,17 +302,26 @@ final class InsightAtlasPDFRenderer {
                 // Check if this is a heading block - apply widow/orphan control
                 let isHeadingBlock = [.heading1, .heading2, .heading3, .heading4, .premiumH1, .premiumH2].contains(block.type)
                 if isHeadingBlock {
-                    // Look ahead to see if there's content after this heading
+                    // Look ahead to see if there's content after this heading.
+                    // Keep the heading with its whole next block when that block
+                    // fits on a page (see section-heading logic above), so a
+                    // heading is never left stranded at the bottom of a page.
                     let nextBlockHeight = (index + 1 < section.blocks.count) ?
                         blockRenderer.calculateBlockHeight(block: section.blocks[index + 1], maxWidth: contentRect.width) : 0
-                    let combinedHeight = blockHeight + min(nextBlockHeight, minContentAfterHeading)
+                    // Keep together only if both fit on one page (see above).
+                    let nextReserve = (blockHeight + nextBlockHeight) <= contentRect.height
+                        ? nextBlockHeight
+                        : minContentAfterHeading
+                    let combinedHeight = blockHeight + nextReserve
 
                     if currentY + combinedHeight > contentRect.maxY - 30 {
+                        recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (heading kept with next)")
                         startNewContentPage(context: context, options: options)
                         currentY = contentRect.minY
                     }
                 } else if currentY + blockHeight > contentRect.maxY {
                     // Regular block - just check if it fits
+                    recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " pushed whole")
                     startNewContentPage(context: context, options: options)
                     currentY = contentRect.minY
                 }
@@ -288,6 +336,10 @@ final class InsightAtlasPDFRenderer {
                 currentY += renderedHeight
             }
         }
+
+        // Record the final content page's trailing gap and print a summary.
+        recordTrailingGap(at: currentY, cause: "end of content")
+        logWhitespaceSummary()
 
         // Render closing page with branding
         renderClosingPage(context: context, options: options)
@@ -306,6 +358,50 @@ final class InsightAtlasPDFRenderer {
         if options.includeFooter {
             drawPageFooter(context: context.cgContext, pageNumber: currentPage, includePageNumber: options.includePageNumbers)
         }
+    }
+
+    // MARK: - Whitespace instrumentation (DEBUG)
+
+    /// Record the trailing gap left on the current page at the moment a block is
+    /// pushed to the next one. `cause` is an @autoclosure so its (potentially
+    /// parsing) work is skipped entirely in release builds.
+    private func recordTrailingGap(at currentY: CGFloat, cause: @autoclosure () -> String) {
+        #if DEBUG
+        let gap = contentRect.maxY - currentY
+        guard gap > 1 else { return }
+        let entry = (page: currentPage, gap: gap, cause: cause())
+        debugTrailingGaps.append(entry)
+        print("[PDF whitespace] page \(entry.page): \(Int(gap.rounded()))pt gap before break — \(entry.cause)")
+        #endif
+    }
+
+    /// Print an aggregate summary of trailing whitespace across the render.
+    private func logWhitespaceSummary() {
+        #if DEBUG
+        guard !debugTrailingGaps.isEmpty else {
+            print("[PDF whitespace] no mid-page breaks recorded")
+            return
+        }
+        let gaps = debugTrailingGaps.map { $0.gap }
+        let total = gaps.reduce(0, +)
+        let maxGap = gaps.max() ?? 0
+        let avg = total / CGFloat(gaps.count)
+        let pageFrac = contentRect.height > 0 ? (avg / contentRect.height) : 0
+        let bigGaps = gaps.filter { $0 > 150 }.count
+        print("""
+        [PDF whitespace] SUMMARY — \(gaps.count) mid-page breaks; \
+        avg gap \(Int(avg.rounded()))pt (\(Int((pageFrac * 100).rounded()))% of page), \
+        max \(Int(maxGap.rounded()))pt, \(bigGaps) breaks left >150pt empty. \
+        Page content height: \(Int(contentRect.height.rounded()))pt.
+        """)
+        #endif
+    }
+
+    /// A short DEBUG label describing a block for whitespace logs.
+    private func debugBlockLabel(_ block: PDFContentBlock, height: CGFloat) -> String {
+        let sections = blockRenderer.debugCalloutSectionCount(for: block)
+        let sectionNote = sections > 0 ? " sections=\(sections)" : ""
+        return "\(block.type) h=\(Int(height.rounded()))pt\(sectionNote)"
     }
 
     private func renderClosingPage(context: UIGraphicsPDFRendererContext, options: RenderOptions) {
@@ -489,9 +585,14 @@ final class InsightAtlasPDFRenderer {
                 // Use the section heading height calculator which handles PART headers
                 let headingHeight = blockRenderer.calculateSectionHeadingHeight(heading, level: section.headingLevel, maxWidth: contentRect.width)
 
-                // Calculate first block height to ensure we don't orphan headings
+                // Calculate first block height to ensure we don't orphan headings.
+                // Mirror the render-time keep-together reserve so estimated page
+                // numbers track where headings actually land.
                 let firstBlockHeight = section.blocks.first.map { blockRenderer.calculateBlockHeight(block: $0, maxWidth: contentRect.width) } ?? 0
-                let combinedHeight = headingHeight + min(firstBlockHeight, minContentAfterHeading)
+                let headingReserve = (headingHeight + firstBlockHeight) <= contentRect.height
+                    ? firstBlockHeight
+                    : minContentAfterHeading
+                let combinedHeight = headingHeight + headingReserve
 
                 if currentY + combinedHeight > contentRect.maxY - 50 {
                     estimatedPage += 1

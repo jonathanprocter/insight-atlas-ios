@@ -243,6 +243,30 @@ struct InsightAtlasThematicPromptGenerator {
         - **TARGET LENGTH**: 15,000-25,000 words. Let the need for intellectual rigor, not the word count, drive the final length.
 
         ═══════════════════════════════════════════════════════════════════════════════
+        CITATIONS — CLASSIFY BY FUNCTION, NEVER BY GENRE
+        ═══════════════════════════════════════════════════════════════════════════════
+
+        Populate the top-level `citations` array with every external source you cite.
+        Classify each by its relationship to the CLAIM it supports, not the book's genre
+        (the same book is `counterpoint` when it limits the thesis, `mechanism` when it
+        explains it). Allowed `function` values:
+        - primary_source — where the summarized argument originates
+        - mechanism — supplies the theory/causal explanation beneath a claim
+        - evidence — an empirical study/trial/meta-analysis (note effect direction + durability)
+        - counterpoint — challenges/limits/complicates the thesis
+        - parallel_track — an adjacent tradition reaching a similar conclusion differently
+        - practitioner — a clinical manual or applied how-to
+
+        Hard rules:
+        - The string "Go deeper" must NEVER appear in any output field.
+        - `whyOneLiner` is ≤ 12 words, composed fresh per citation. NEVER use the verb
+          stems "corroborates", "expands", or "complicates".
+        - `counterpoint` is the ONLY function that may pair with a caution-styled card, and
+          every caution card must use it.
+        - `audience` is one of: Start Here, Accessible, For Practitioners, Foundational,
+          Essential, Primary, Deep End.
+
+        ═══════════════════════════════════════════════════════════════════════════════
         OUTPUT FORMAT: JSON SCHEMA v3.0
         ═══════════════════════════════════════════════════════════════════════════════
 
@@ -372,7 +396,18 @@ struct InsightAtlasThematicPromptGenerator {
           }
         ],
         "strategicConversationPrompts": ["string"]
-      }
+      },
+      "citations": [
+        {
+          "sourceId": "string (stable slug, e.g. 'herman-trauma-recovery')",
+          "title": "string",
+          "authors": "string",
+          "function": "string (primary_source | mechanism | evidence | counterpoint | parallel_track | practitioner)",
+          "audience": "string (Start Here | Accessible | For Practitioners | Foundational | Essential | Primary | Deep End)",
+          "whyOneLiner": "string (<= 12 words, fresh; never 'corroborates/expands/complicates')",
+          "claimContext": "string (the sentence/section this citation supports)"
+        }
+      ]
     }
     """
 }
@@ -388,6 +423,9 @@ struct ThematicSynthesisResponse: Codable {
     let adaptiveImplementation: AdaptiveImplementation
     let criticalAnalysisAndVerdict: CriticalAnalysisAndVerdict
     let extendedIntelligence: ExtendedIntelligence
+    /// Structured citations for The Library (Citation Spec §4). Optional so
+    /// existing payloads without citations still decode.
+    let citations: [CitationDTO]?
 
     // Legacy compatibility properties
     var bookTitle: String { metadata.bookTitle }
@@ -1030,6 +1068,14 @@ extension ThematicSynthesisResponse {
             headingLevel: 1,
             blocks: extendedBlocks
         ))
+
+        // The Library end-page — every citation registers once (Citation Spec §4).
+        if let citations = citations,
+           let library = CitationRegistry.makeLibrarySection(
+                from: citations,
+                priorComponentCount: sections.reduce(0) { $0 + $1.blocks.count }) {
+            sections.append(library)
+        }
 
         // Build Quick Glance from strategic briefing
         let quickGlance = buildQuickGlance()

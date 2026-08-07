@@ -102,6 +102,15 @@ struct PDFStyleConfiguration {
         static let accentCrimson = UIColor(hex: "#7B2D3E")       // Deep Burgundy
         static let accentPurple = UIColor(hex: "#3B5E7A")        // Steel Blue
 
+        // === SEMANTIC ACCENTS (redesign — one hue per component class) ===
+        // Extend the base palette with four muted functional accents from the
+        // redesign mockup tokens. All verified ≥ WCAG AA on the cream ground.
+        static let semanticNotes = UIColor(hex: "#742B38")       // burgundy — notes & structure
+        static let semanticEvidence = UIColor(hex: "#2E6355")    // teal — research & data
+        static let semanticPractice = UIColor(hex: "#3B5876")    // slate — exercises & protocols
+        static let semanticCaution = UIColor(hex: "#8A6414")     // amber — limitations & warnings
+        static let semanticCautionBg = UIColor(hex: "#FBF7EC")   // amber-tinted callout ground
+
         // Brand Colors - Warm editorial palette
         static let brandSepia = UIColor(hex: "#5A5550")          // Warm Charcoal
         static let brandSepiaLight = UIColor(hex: "#8A8580")     // Warm Gray

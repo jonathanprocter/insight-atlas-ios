@@ -124,6 +124,10 @@ extension PDFContentBlock: Codable {
         case "researchInsight": type = .researchInsight
         case "conceptMap": type = .conceptMap
         case "processTimeline": type = .processTimeline
+        case "loopDiagram": type = .loopDiagram
+        case "spectrum": type = .spectrum
+        case "libraryEntry": type = .libraryEntry
+        case "readingChip": type = .readingChip
         case "example": type = .example
         case "exerciseReflection": type = .exerciseReflection
         default: type = .paragraph
@@ -163,6 +167,10 @@ extension PDFContentBlock: Codable {
         case .researchInsight: typeString = "researchInsight"
         case .conceptMap: typeString = "conceptMap"
         case .processTimeline: typeString = "processTimeline"
+        case .loopDiagram: typeString = "loopDiagram"
+        case .spectrum: typeString = "spectrum"
+        case .libraryEntry: typeString = "libraryEntry"
+        case .readingChip: typeString = "readingChip"
         case .example: typeString = "example"
         case .exerciseReflection: typeString = "exerciseReflection"
         }

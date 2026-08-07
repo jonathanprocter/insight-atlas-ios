@@ -607,6 +607,299 @@ final class PDFDiagramRenderer {
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
+    // MARK: - Loop Diagram (feedback loop — Directives §A4)
+
+    /// Node bounding box + circle radius chosen to fit `maxWidth` while keeping
+    /// nodes separated. Shared by height calculation and rendering so they agree.
+    private func loopMetrics(nodeCount: Int, maxWidth: CGFloat) -> (radius: CGFloat, nodeSize: CGSize) {
+        let n = max(2, nodeCount)
+        let step = (2 * CGFloat.pi) / CGFloat(n)
+        let nodeHeight: CGFloat = 44
+
+        // Shrink node width (if needed) until the clearance-required radius also
+        // fits within the available width — keeping the geometry contract holdable.
+        func fitRadius(_ width: CGFloat) -> CGFloat { (maxWidth - width) / 2 - 8 }
+        func requiredRadius(_ width: CGFloat) -> CGFloat {
+            let halfDiagonal = hypot(width / 2, nodeHeight / 2)
+            return (halfDiagonal + PDFDiagramGeometry.clearance) / sin(step / 2)
+        }
+
+        var nodeWidth = min(150, maxWidth * 0.30)
+        while nodeWidth > 84, requiredRadius(nodeWidth) > fitRadius(nodeWidth) {
+            nodeWidth -= 6
+        }
+
+        let radius = max(88, min(fitRadius(nodeWidth), max(requiredRadius(nodeWidth), 100)))
+        return (radius, CGSize(width: nodeWidth, height: nodeHeight))
+    }
+
+    /// Calculate height for a loop diagram.
+    func calculateLoopDiagramHeight(nodes: [String], maxWidth: CGFloat) -> CGFloat {
+        guard nodes.count >= 2 else { return 0 }
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let captionHeight: CGFloat = 34
+        let (radius, nodeSize) = loopMetrics(nodeCount: nodes.count, maxWidth: maxWidth)
+        let diagramHeight = 2 * radius + nodeSize.height
+        return headerHeight + padding * 2 + diagramHeight + captionHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Render a self-confirming feedback loop. All connector-arc endpoints are
+    /// computed against the circle equation (see `PDFDiagramGeometry`), never
+    /// hand-placed, and clear each node box by ≥ the clearance margin.
+    @discardableResult
+    func renderLoopDiagram(
+        title: String,
+        nodes: [String],
+        caption: String?,
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        guard nodes.count >= 2 else { return 0 }
+
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let borderRadius = PDFStyleConfiguration.Radius.md
+        let (radius, nodeSize) = loopMetrics(nodeCount: nodes.count, maxWidth: maxWidth)
+        let diagramHeight = 2 * radius + nodeSize.height
+        let captionHeight: CGFloat = 34
+        let totalHeight = headerHeight + padding * 2 + diagramHeight + captionHeight
+
+        // Container
+        let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
+        let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: borderRadius)
+        context.addPath(bgPath.cgPath)
+        context.setFillColor(PDFStyleConfiguration.Colors.bgSecondary.cgColor)
+        context.fillPath()
+        context.addPath(bgPath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+
+        // Header
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+        ]
+        NSAttributedString(string: "↻ \(title.uppercased())", attributes: headerAttributes)
+            .draw(in: CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8))
+
+        // Circle placement: topmost node sits just under the header band.
+        let diagramTop = point.y + headerHeight + padding
+        let center = CGPoint(x: point.x + maxWidth / 2, y: diagramTop + nodeSize.height / 2 + radius)
+        let geometry = PDFDiagramGeometry.solveLoop(
+            center: center, radius: radius, nodeCount: nodes.count, nodeSize: nodeSize
+        )
+
+        // Connector arcs (drawn as circle-sampled polylines so they lie exactly
+        // on the circle regardless of the PDF's flipped coordinate space).
+        let arcColor = PDFStyleConfiguration.Colors.accentBurgundy
+        for arc in geometry.arcs {
+            drawCircleArc(context: context, center: center, radius: radius,
+                          from: arc.startAngle, to: arc.endAngle, color: arcColor)
+            let tangent = CGVector(dx: -sin(arc.endAngle), dy: cos(arc.endAngle))
+            drawArrowHead(context: context, at: arc.endPoint, direction: tangent,
+                          size: 7, color: arcColor)
+        }
+
+        // Nodes — origin node (index 0) carries the emphasis border.
+        for node in geometry.nodes {
+            let isOrigin = node.index == 0
+            drawLoopNode(context: context, text: nodes[node.index], rect: node.rect, emphasized: isOrigin)
+        }
+
+        // Caption
+        if let caption = caption, !caption.isEmpty {
+            let captionRect = CGRect(x: point.x + padding, y: point.y + totalHeight - captionHeight + 4,
+                                     width: maxWidth - padding * 2, height: captionHeight - 8)
+            NSAttributedString(string: caption, attributes: PDFStyleConfiguration.captionAttributes())
+                .draw(with: captionRect, options: [.usesLineFragmentOrigin], context: nil)
+        }
+
+        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    private func drawLoopNode(context: CGContext, text: String, rect: CGRect, emphasized: Bool) {
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: 4)
+        context.addPath(path.cgPath)
+        context.setFillColor((emphasized ? PDFStyleConfiguration.Colors.bgSecondary : PDFStyleConfiguration.Colors.bgCard).cgColor)
+        context.fillPath()
+        context.addPath(path.cgPath)
+        context.setStrokeColor((emphasized ? PDFStyleConfiguration.Colors.accentBurgundy : PDFStyleConfiguration.Colors.borderMedium).cgColor)
+        context.setLineWidth(emphasized ? 1.6 : 1.0)
+        context.strokePath()
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: emphasized ? PDFStyleConfiguration.Typography.bodyBold() : PDFStyleConfiguration.Typography.bodySmall(),
+            .foregroundColor: PDFStyleConfiguration.Colors.textBody,
+            .paragraphStyle: centeredParagraphStyle()
+        ]
+        let attributed = NSAttributedString(string: text, attributes: attributes)
+        let textHeight = attributed.boundingRect(
+            with: CGSize(width: rect.width - 8, height: rect.height),
+            options: [.usesLineFragmentOrigin], context: nil
+        ).height
+        let textRect = CGRect(x: rect.minX + 4, y: rect.midY - min(textHeight, rect.height - 6) / 2,
+                              width: rect.width - 8, height: rect.height - 6)
+        attributed.draw(with: textRect, options: [.usesLineFragmentOrigin], context: nil)
+    }
+
+    /// Stroke an arc by sampling the circle equation between two angles.
+    private func drawCircleArc(context: CGContext, center: CGPoint, radius: CGFloat,
+                               from startAngle: CGFloat, to endAngle: CGFloat, color: UIColor) {
+        let sweep = endAngle - startAngle
+        let segments = max(2, Int((abs(sweep) / (CGFloat.pi / 60)).rounded(.up)))
+        context.saveGState()
+        context.setStrokeColor(color.cgColor)
+        context.setLineWidth(1.75)
+        context.setLineCap(.round)
+        context.beginPath()
+        for i in 0...segments {
+            let t = CGFloat(i) / CGFloat(segments)
+            let angle = startAngle + sweep * t
+            let p = PDFDiagramGeometry.point(on: center, radius: radius, angle: angle)
+            if i == 0 { context.move(to: p) } else { context.addLine(to: p) }
+        }
+        context.strokePath()
+        context.restoreGState()
+    }
+
+    /// Draw a filled triangular arrowhead at `point`, pointing along `direction`.
+    private func drawArrowHead(context: CGContext, at point: CGPoint, direction: CGVector,
+                               size: CGFloat, color: UIColor) {
+        let length = hypot(direction.dx, direction.dy)
+        guard length > 0 else { return }
+        let ux = direction.dx / length
+        let uy = direction.dy / length
+        // Perpendicular unit vector.
+        let px = -uy
+        let py = ux
+        let tip = point
+        let base = CGPoint(x: point.x - ux * size, y: point.y - uy * size)
+        let left = CGPoint(x: base.x + px * (size * 0.6), y: base.y + py * (size * 0.6))
+        let right = CGPoint(x: base.x - px * (size * 0.6), y: base.y - py * (size * 0.6))
+        context.saveGState()
+        context.setFillColor(color.cgColor)
+        context.beginPath()
+        context.move(to: tip)
+        context.addLine(to: left)
+        context.addLine(to: right)
+        context.closePath()
+        context.fillPath()
+        context.restoreGState()
+    }
+
+    // MARK: - Spectrum / Slider (two-pole construct — Directives §A4)
+
+    func calculateSpectrumHeight(maxWidth: CGFloat) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let bodyHeight: CGFloat = 96
+        return headerHeight + padding * 2 + bodyHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Render a two-pole spectrum with the healthy target zone marked in the
+    /// middle. Geometry is computed from the inner content width.
+    @discardableResult
+    func renderSpectrum(
+        title: String,
+        leftPole: String,
+        rightPole: String,
+        zoneLabel: String,
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let bodyHeight: CGFloat = 96
+        let borderRadius = PDFStyleConfiguration.Radius.md
+        let totalHeight = headerHeight + padding * 2 + bodyHeight
+
+        // Container
+        let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
+        let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: borderRadius)
+        context.addPath(bgPath.cgPath)
+        context.setFillColor(PDFStyleConfiguration.Colors.bgSecondary.cgColor)
+        context.fillPath()
+        context.addPath(bgPath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+
+        // Header
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+        ]
+        NSAttributedString(string: "◄ ► \(title.uppercased())", attributes: headerAttributes)
+            .draw(in: CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8))
+
+        let innerX = point.x + padding
+        let innerW = maxWidth - padding * 2
+        let trackY = point.y + headerHeight + padding + 40
+        let trackH: CGFloat = 8
+        let trackRect = CGRect(x: innerX, y: trackY, width: innerW, height: trackH)
+
+        // Track gradient: muted burgundy pole → parchment center → slate pole.
+        let leftColor = UIColor(hex: "#B98A93")
+        let midColor = PDFStyleConfiguration.Colors.bgSecondary
+        let rightColor = UIColor(hex: "#93A3B9")
+        let trackPath = UIBezierPath(roundedRect: trackRect, cornerRadius: trackH / 2)
+        context.saveGState()
+        context.addPath(trackPath.cgPath)
+        context.clip()
+        let space = CGColorSpaceCreateDeviceRGB()
+        if let gradient = CGGradient(colorsSpace: space,
+                                     colors: [leftColor.cgColor, midColor.cgColor, midColor.cgColor, rightColor.cgColor] as CFArray,
+                                     locations: [0, 0.32, 0.68, 1]) {
+            context.drawLinearGradient(gradient,
+                                       start: CGPoint(x: trackRect.minX, y: trackRect.midY),
+                                       end: CGPoint(x: trackRect.maxX, y: trackRect.midY),
+                                       options: [])
+        }
+        context.restoreGState()
+        context.addPath(trackPath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+
+        // Healthy zone: outlined pill spanning the central 32%–68%.
+        let zoneRect = CGRect(x: innerX + innerW * 0.32, y: trackY - 6, width: innerW * 0.36, height: trackH + 12)
+        let zonePath = UIBezierPath(roundedRect: zoneRect, cornerRadius: (trackH + 12) / 2)
+        context.addPath(zonePath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.accentTeal.cgColor)
+        context.setLineWidth(1.5)
+        context.strokePath()
+
+        // Zone label above the pill.
+        let zoneAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.captionBold(),
+            .foregroundColor: PDFStyleConfiguration.Colors.accentTeal,
+            .paragraphStyle: centeredParagraphStyle()
+        ]
+        NSAttributedString(string: zoneLabel.isEmpty ? "healthy range" : zoneLabel, attributes: zoneAttributes)
+            .draw(in: CGRect(x: zoneRect.minX - 20, y: zoneRect.minY - 20, width: zoneRect.width + 40, height: 16))
+
+        // Pole labels.
+        let leftAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.bodySmall(),
+            .foregroundColor: PDFStyleConfiguration.Colors.textMuted
+        ]
+        let rightStyle = NSMutableParagraphStyle()
+        rightStyle.alignment = .right
+        var rightAttributes = leftAttributes
+        rightAttributes[.paragraphStyle] = rightStyle
+        let poleY = trackY + trackH + 12
+        NSAttributedString(string: leftPole, attributes: leftAttributes)
+            .draw(with: CGRect(x: innerX, y: poleY, width: innerW * 0.4, height: 34), options: [.usesLineFragmentOrigin], context: nil)
+        NSAttributedString(string: rightPole, attributes: rightAttributes)
+            .draw(with: CGRect(x: innerX + innerW * 0.6, y: poleY, width: innerW * 0.4, height: 34), options: [.usesLineFragmentOrigin], context: nil)
+
+        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
     // MARK: - Helper Methods
 
     private func calculateTextHeight(_ text: String, font: UIFont, maxWidth: CGFloat) -> CGFloat {

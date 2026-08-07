@@ -1,0 +1,48 @@
+{
+  "functions": {
+    "primary_source": {
+      "label": "Primary Source",
+      "colorToken": "burgundy",
+      "trigger": "The cited work is where the summarized argument originates (the book being synthesized, or the author's own chapter).",
+      "renderPriority": 1
+    },
+    "mechanism": {
+      "label": "The Mechanism",
+      "colorToken": "burgundy",
+      "trigger": "Source supplies the theory or causal explanation beneath a claim (RFT, semantic satiation, ironic process theory).",
+      "renderPriority": 2
+    },
+    "evidence": {
+      "label": "The Evidence",
+      "colorToken": "evidence",
+      "trigger": "Source is an empirical study, trial, or meta-analysis supporting a quantitative or research claim. Card must carry effect direction + durability caveat when known.",
+      "renderPriority": 2
+    },
+    "counterpoint": {
+      "label": "The Counterpoint",
+      "colorToken": "caution",
+      "trigger": "Source challenges, limits, or complicates the guide's thesis. MUST pair with the caution-styled card, never the standard note card.",
+      "renderPriority": 1
+    },
+    "parallel_track": {
+      "label": "Parallel Track",
+      "colorToken": "burgundy",
+      "trigger": "Adjacent tradition arriving at a similar conclusion by a different route (decentering, distanced self-talk, narrative therapy).",
+      "renderPriority": 3
+    },
+    "practitioner": {
+      "label": "For Practitioners",
+      "colorToken": "practice",
+      "trigger": "Clinical manual or applied how-to (Learning ACT, ACT Made Simple, Mastery of Your Anxiety and Panic).",
+      "renderPriority": 3
+    }
+  },
+  "audienceLevels": ["Start Here", "Accessible", "For Practitioners", "Foundational", "Essential", "Primary", "Deep End"],
+  "budgets": {
+    "maxCardsPerSource": 1,
+    "maxCardsPerLabelPerDocument": 3,
+    "maxConsecutiveIdenticalComponents": 2,
+    "maxCitationCardShareOfAllComponents": 0.30
+  },
+  "demotionLadder": ["card", "chip", "shelf", "library_only"]
+}

@@ -149,6 +149,21 @@ final class PDFContentBlockRenderer {
                 maxWidth: maxWidth
             )
 
+        case .loopDiagram:
+            return diagramRenderer.calculateLoopDiagramHeight(
+                nodes: block.listItems ?? [],
+                maxWidth: maxWidth
+            )
+
+        case .spectrum:
+            return diagramRenderer.calculateSpectrumHeight(maxWidth: maxWidth)
+
+        case .libraryEntry:
+            return calculateLibraryEntryHeight(block: block, maxWidth: maxWidth)
+
+        case .readingChip:
+            return 18 + PDFStyleConfiguration.Spacing.blockSpacing
+
         case .visual:
             // Calculate height for visual image
             return calculateVisualHeight(block: block, maxWidth: maxWidth)
@@ -288,18 +303,24 @@ final class PDFContentBlockRenderer {
             
         // Additional premium block types
         case .alternativePerspective:
+            // Limitations / counterpoints get a warning-toned (amber) treatment,
+            // visually distinct from supportive notes (Directives §B1, §C3).
             return renderMockupBlock(
                 content: block.content,
                 title: "Alternative Perspective",
+                bgColor: PDFStyleConfiguration.Colors.semanticCautionBg,
+                accentColor: PDFStyleConfiguration.Colors.semanticCaution,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
             )
-            
+
         case .researchInsight:
+            // Research / data get the evidence (teal) accent.
             return renderMockupBlock(
                 content: block.content,
                 title: "Research Insight",
+                accentColor: PDFStyleConfiguration.Colors.semanticEvidence,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -333,6 +354,34 @@ final class PDFContentBlockRenderer {
                 at: point,
                 maxWidth: maxWidth
             )
+
+        case .loopDiagram:
+            return diagramRenderer.renderLoopDiagram(
+                title: block.metadata?["title"] ?? "Feedback Loop",
+                nodes: block.listItems ?? [],
+                caption: block.metadata?["caption"],
+                to: context,
+                at: point,
+                maxWidth: maxWidth
+            )
+
+        case .spectrum:
+            let poles = block.listItems ?? []
+            return diagramRenderer.renderSpectrum(
+                title: block.metadata?["title"] ?? "Spectrum",
+                leftPole: poles.first ?? "",
+                rightPole: poles.count > 1 ? poles[1] : "",
+                zoneLabel: block.metadata?["zone"] ?? "healthy range",
+                to: context,
+                at: point,
+                maxWidth: maxWidth
+            )
+
+        case .libraryEntry:
+            return renderLibraryEntry(block: block, to: context, at: point, maxWidth: maxWidth)
+
+        case .readingChip:
+            return renderReadingChip(block: block, to: context, at: point, maxWidth: maxWidth)
 
         case .visual:
             // Render visual image in PDF
@@ -460,15 +509,20 @@ final class PDFContentBlockRenderer {
         // Prepare text with optional icon
         let displayText = icon.map { "\($0) \(text)" } ?? text
 
-        // Consistent color scheme per heading level
+        // Consistent color scheme per heading level.
+        // Per brand direction: near-black is the color for ALL primary reading
+        // headings; the accent color is reserved for the underline rules below,
+        // not the heading text. Previously level-1 (`#`) section titles rendered
+        // in burnt orange while level-2 (`##`) titles were near-black, which
+        // read as an inconsistent, arbitrary heading-color scheme.
         let color: UIColor
         switch level {
         case 1:
-            color = PDFStyleConfiguration.Colors.primaryGold  // Burnt Orange for PART headers
+            color = PDFStyleConfiguration.Colors.textHeading  // Near-black (accent moved to the rule)
         case 2:
-            color = PDFStyleConfiguration.Colors.textHeading  // Ink Black for section titles
+            color = PDFStyleConfiguration.Colors.textHeading  // Near-black for section titles
         case 3:
-            color = PDFStyleConfiguration.Colors.textHeading  // Ink Black for subsections
+            color = PDFStyleConfiguration.Colors.textHeading  // Near-black for subsections
         default:
             color = PDFStyleConfiguration.Colors.textSecondary // Warm Gray for minor headings
         }
@@ -847,6 +901,21 @@ final class PDFContentBlockRenderer {
         }
 
         return headerHeight + contentHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Number of populated sections in a callout block, used by the renderer's
+    /// whitespace instrumentation to gauge whether pushed callouts are
+    /// multi-section (which would favor section-boundary splitting). Returns 0
+    /// for block types without an internal section structure.
+    func debugCalloutSectionCount(for block: PDFContentBlock) -> Int {
+        guard block.type == .insightNote else { return 0 }
+        let parsed = parseInsightNoteContent(block.content)
+        var count = 0
+        if !parsed.coreConnection.isEmpty { count += 1 }
+        if let keyDist = parsed.keyDistinction, !keyDist.isEmpty { count += 1 }
+        if let practical = parsed.practicalImplication, !practical.isEmpty { count += 1 }
+        if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty { count += 1 }
+        return count
     }
 
     private func renderActionBox(title: String, steps: [String], to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
@@ -1507,17 +1576,21 @@ final class PDFContentBlockRenderer {
         content: String,
         title: String,
         bgColor: UIColor = PDFStyleConfiguration.Colors.warmCream,
+        accentColor: UIColor? = nil,
         to context: CGContext,
         at point: CGPoint,
         maxWidth: CGFloat
     ) -> CGFloat {
+        // A semantic accent (when supplied) tints both the left accent bar and the
+        // label chip so component classes are pre-attentively distinguishable —
+        // e.g. research (evidence/teal) vs limitations (caution/amber).
         return renderSpecialBlock(
             content: content,
             title: title,
             icon: "",
-            borderColor: PDFStyleConfiguration.Colors.lightTan,
+            borderColor: accentColor ?? PDFStyleConfiguration.Colors.lightTan,
             bgColor: bgColor,
-            headerBgColor: PDFStyleConfiguration.Colors.terracotta,
+            headerBgColor: accentColor ?? PDFStyleConfiguration.Colors.terracotta,
             to: context,
             at: point,
             maxWidth: maxWidth
@@ -2018,10 +2091,27 @@ final class PDFContentBlockRenderer {
             )
         }
 
-        // Strip ASCII box drawing characters
-        let boxChars = ["┌", "┐", "└", "┘", "├", "┤", "┬", "┴", "┼", "─", "│", "↓", "→", "←", "↑"]
+        // Strip ASCII/heavy box-drawing characters. Directional arrows
+        // (→ ← ↑ ↓) are intentionally NOT stripped: an arrow in paragraph text
+        // is a semantic connector in a process flow (e.g. "World → senses →
+        // internal image → action"). Deleting it left mangled double spaces;
+        // keeping it preserves meaning (CormorantGaramond renders these glyphs).
+        // Mirrors the same decision in PDFAnalysisDocument.sanitize.
+        let boxChars = ["┌", "┐", "└", "┘", "├", "┤", "┬", "┴", "┼", "─", "│"]
         for char in boxChars {
             result = result.replacingOccurrences(of: char, with: "")
+        }
+
+        // Collapse any runs of horizontal whitespace left by earlier
+        // substitutions (or by arrows already stripped upstream), so flows
+        // never render with stray double spaces.
+        if let spaceRegex = try? NSRegularExpression(pattern: "[ \\t]{2,}", options: []) {
+            result = spaceRegex.stringByReplacingMatches(
+                in: result,
+                options: [],
+                range: NSRange(result.startIndex..., in: result),
+                withTemplate: " "
+            )
         }
 
         // Clean up multiple consecutive newlines
@@ -2180,6 +2270,126 @@ final class PDFContentBlockRenderer {
         return yOffset
     }
 
+    // MARK: - The Library entry (Citation Spec §4)
+
+    private func calculateLibraryEntryHeight(block: PDFContentBlock, maxWidth: CGFloat) -> CGFloat {
+        let m = block.metadata ?? [:]
+        let authors = m["authors"].map { " · \($0)" } ?? ""
+        let title = (m["title"] ?? "") + authors
+        let why = m["why"] ?? ""
+        let textWidth = maxWidth - 18 - 72
+        let titleH = calculateTextHeight(title, attributes: [.font: PDFStyleConfiguration.Typography.bodyBold()], maxWidth: textWidth)
+        let whyH = why.isEmpty ? 0 : calculateTextHeight(why, attributes: [.font: PDFStyleConfiguration.Typography.caption()], maxWidth: maxWidth - 18)
+        return titleH + whyH + 18
+    }
+
+    /// Render one citation on The Library page: color dot (by function), title +
+    /// authors, a fresh one-line "why", and an audience-level pill.
+    @discardableResult
+    private func renderLibraryEntry(block: PDFContentBlock, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        let m = block.metadata ?? [:]
+        let color = PDFStyleConfiguration.Colors.semanticColor(for: m["colorToken"] ?? "burgundy")
+        let title = m["title"] ?? ""
+        let authors = m["authors"] ?? ""
+        let why = m["why"] ?? ""
+        let level = m["level"] ?? ""
+
+        var y = point.y
+
+        // Function color dot.
+        context.setFillColor(color.cgColor)
+        context.fillEllipse(in: CGRect(x: point.x, y: y + 5, width: 8, height: 8))
+
+        let textX = point.x + 18
+
+        // Audience-level pill, right-aligned.
+        var pillWidth: CGFloat = 0
+        if !level.isEmpty {
+            let pillText = NSAttributedString(string: level.uppercased(), attributes: [
+                .font: PDFStyleConfiguration.Typography.caption(),
+                .foregroundColor: PDFStyleConfiguration.Colors.textMuted
+            ])
+            let tw = pillText.size().width
+            pillWidth = tw + 18
+            let pillRect = CGRect(x: point.x + maxWidth - pillWidth, y: y, width: pillWidth, height: 18)
+            let pillPath = UIBezierPath(roundedRect: pillRect, cornerRadius: 9)
+            context.addPath(pillPath.cgPath)
+            context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+            context.setLineWidth(1.0)
+            context.strokePath()
+            pillText.draw(in: CGRect(x: pillRect.minX + 9, y: pillRect.minY + 3, width: tw + 2, height: 14))
+        }
+
+        // Title + authors.
+        let titleWidth = maxWidth - 18 - (pillWidth > 0 ? pillWidth + 10 : 0)
+        let titleAttr = NSMutableAttributedString(string: title, attributes: [
+            .font: PDFStyleConfiguration.Typography.bodyBold(),
+            .foregroundColor: PDFStyleConfiguration.Colors.textHeading
+        ])
+        if !authors.isEmpty {
+            titleAttr.append(NSAttributedString(string: " · \(authors)", attributes: [
+                .font: PDFStyleConfiguration.Typography.bodySmall(),
+                .foregroundColor: PDFStyleConfiguration.Colors.textMuted
+            ]))
+        }
+        let titleH = titleAttr.boundingRect(with: CGSize(width: titleWidth, height: .greatestFiniteMagnitude),
+                                            options: [.usesLineFragmentOrigin], context: nil).height
+        titleAttr.draw(with: CGRect(x: textX, y: y, width: titleWidth, height: titleH),
+                       options: [.usesLineFragmentOrigin], context: nil)
+        y += titleH + 2
+
+        // Fresh one-line "why".
+        if !why.isEmpty {
+            let whyAttr = NSAttributedString(string: why, attributes: [
+                .font: PDFStyleConfiguration.Typography.caption(),
+                .foregroundColor: PDFStyleConfiguration.Colors.textMuted
+            ])
+            let whyH = whyAttr.boundingRect(with: CGSize(width: maxWidth - 18, height: .greatestFiniteMagnitude),
+                                            options: [.usesLineFragmentOrigin], context: nil).height
+            whyAttr.draw(with: CGRect(x: textX, y: y, width: maxWidth - 18, height: whyH),
+                         options: [.usesLineFragmentOrigin], context: nil)
+            y += whyH
+        }
+
+        // Dashed separator.
+        y += 8
+        context.saveGState()
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderLight.cgColor)
+        context.setLineWidth(0.5)
+        context.setLineDash(phase: 0, lengths: [2, 2])
+        context.move(to: CGPoint(x: point.x, y: y))
+        context.addLine(to: CGPoint(x: point.x + maxWidth, y: y))
+        context.strokePath()
+        context.restoreGState()
+
+        return (y - point.y) + 6
+    }
+
+    // MARK: - Section-opener reading chip (Directives §C1)
+
+    /// Render a single muted small-caps line: "⏱ 6 MIN READ · THEME 3 OF 8".
+    @discardableResult
+    private func renderReadingChip(block: PDFContentBlock, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        let m = block.metadata ?? [:]
+        var parts: [String] = []
+        if let time = m["readingTime"], !time.isEmpty { parts.append("⏱ \(time) MIN READ") }
+        if let progress = m["progress"], !progress.isEmpty { parts.append(progress.uppercased()) }
+        guard !parts.isEmpty else { return 0 }
+
+        let style = NSMutableParagraphStyle()
+        style.alignment = .left
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.caption(),
+            .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
+            .kern: 1.2,
+            .paragraphStyle: style
+        ]
+        NSAttributedString(string: parts.joined(separator: "   ·   "), attributes: attributes)
+            .draw(in: CGRect(x: point.x, y: point.y, width: maxWidth, height: 16))
+
+        return 18 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
     /// Get a user-friendly label for visual type
     private func visualTypeLabel(_ type: GuideVisualType) -> String {
         switch type {
@@ -2225,6 +2435,13 @@ struct PDFContentBlock {
         case researchInsight
         case conceptMap
         case processTimeline
+        // Promoted diagram types (Directives §A4)
+        case loopDiagram
+        case spectrum
+        // The Library end-page entry (Citation Spec §4)
+        case libraryEntry
+        // Section-opener reading-time + progress chip (Directives §C1)
+        case readingChip
         // Synthesis Engine block types (v3.0)
         case example
         case exerciseReflection
