@@ -28,7 +28,6 @@ struct AnalysisDetailView: View {
     // MARK: - Audio Generation State
     @State private var isGeneratingAudio = false
     @State private var showingAudioReadyToast = false
-    @State private var showVoicePicker = false
 
     // MARK: - Environment
     @EnvironmentObject var environment: AppEnvironment
@@ -147,20 +146,15 @@ struct AnalysisDetailView: View {
                             Label(isPlayingAudio ? "Pause Audio" : "Listen to Guide", systemImage: isPlayingAudio ? "pause.fill" : "headphones")
                         }
 
-                        // Audio management submenu
+                        // Audio management submenu (narration is Liam-only)
                         Menu {
-                            Button(action: { showVoicePicker = true }) {
-                                Label("Change Voice & Regenerate", systemImage: "person.wave.2")
-                            }
-                            .disabled(isGeneratingAudio)
-
                             Button(action: { regenerateAudioWithCurrentVoice() }) {
-                                Label("Regenerate Audio", systemImage: "arrow.clockwise")
+                                Label("Regenerate Narration", systemImage: "arrow.clockwise")
                             }
                             .disabled(isGeneratingAudio)
 
                             Button(role: .destructive, action: { deleteAudio() }) {
-                                Label("Delete Audio", systemImage: "trash")
+                                Label("Delete Narration", systemImage: "trash")
                             }
                         } label: {
                             Label("Audio Options", systemImage: "speaker.wave.2")
@@ -169,13 +163,8 @@ struct AnalysisDetailView: View {
                         Divider()
                     }
                     if !hasPlayableAudio, item.summaryContent != nil {
-                        Button(action: { showVoicePicker = true }) {
-                            Label("Generate with Voice Selection", systemImage: "waveform.badge.plus")
-                        }
-                        .disabled(isGeneratingAudio)
-
                         Button(action: { generateAudioOnly() }) {
-                            Label(isGeneratingAudio ? "Generating Audio..." : "Generate with Default Voice", systemImage: "waveform")
+                            Label(isGeneratingAudio ? "Generating Narration..." : "Generate Narration", systemImage: "waveform")
                         }
                         .disabled(isGeneratingAudio)
                         Divider()
@@ -250,15 +239,6 @@ struct AnalysisDetailView: View {
                 // Re-parse the content
                 parsedContent = ParsedAnalysisContent.parse(from: newContent)
             })
-        }
-        .sheet(isPresented: $showVoicePicker) {
-            VoicePickerSheet(
-                currentVoiceID: item.audioVoiceID ?? environment.userSettings.selectedVoiceID,
-                onSelectVoice: { voiceID in
-                    regenerateAudioWithVoice(voiceID)
-                }
-            )
-            .environmentObject(environment)
         }
         .onAppear {
             parseContent()
@@ -500,46 +480,22 @@ struct AnalysisDetailView: View {
         guard let content = item.summaryContent else { return }
 
         isGeneratingAudio = true
+        dataManager.setNarrationState(.generating, for: item.id)
+
+        let cleanedText = sanitizeAudioContent(content)
+        let itemId = item.id
 
         Task {
             do {
-                let audioService = ElevenLabsAudioService()
-
-                let profile = dataManager.userSettings.preferredReaderProfile
-                var voiceConfig = VoiceSelectionConfig.premium(for: profile)
-                if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
-                    let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: profile)
-                    voiceConfig = .custom(profile: profile, voice: fallback)
-                }
-
-                let result = try await audioService.generateAudio(
-                    text: sanitizeAudioContent(content),
-                    voiceID: voiceConfig.voiceID
+                // Liam-only narration; the service writes the completed file into
+                // Documents and returns its descriptor.
+                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
+                    text: cleanedText,
+                    itemId: itemId
                 )
 
-                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                    await MainActor.run {
-                        isGeneratingAudio = false
-                        reportAudioPlaybackError("Unable to access documents directory for audio storage.")
-                    }
-                    return
-                }
-
-                let audioFileName = "audio_\(item.id.uuidString).mp3"
-                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
-
-                let asset = AVURLAsset(url: audioFileURL)
-                let duration = try await asset.load(.duration)
-                let durationSeconds = CMTimeGetSeconds(duration)
-
                 await MainActor.run {
-                    dataManager.updateAudioMetadata(
-                        for: item.id,
-                        audioFileURL: audioFileName,
-                        audioVoiceID: voiceConfig.voiceID,
-                        audioDuration: durationSeconds
-                    )
+                    dataManager.applyNarration(asset, for: itemId)
                     isGeneratingAudio = false
                     showingAudioReadyToast = true
                 }
@@ -550,6 +506,7 @@ struct AnalysisDetailView: View {
                 }
             } catch {
                 await MainActor.run {
+                    dataManager.markNarrationFailed(for: itemId)
                     isGeneratingAudio = false
                     reportAudioPlaybackError(error.localizedDescription)
                 }
@@ -571,11 +528,6 @@ struct AnalysisDetailView: View {
     // MARK: - Audio Management
 
     private func regenerateAudioWithCurrentVoice() {
-        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
-        regenerateAudioWithVoice(currentVoice)
-    }
-
-    private func regenerateAudioWithVoice(_ voiceID: String) {
         guard let content = item.summaryContent else { return }
 
         // Stop any current playback
@@ -584,45 +536,22 @@ struct AnalysisDetailView: View {
         }
 
         isGeneratingAudio = true
+        dataManager.setNarrationState(.generating, for: item.id)
+
+        let cleanedText = sanitizeAudioContent(content)
+        let itemId = item.id
 
         Task {
             do {
-                let audioService = ElevenLabsAudioService()
-
-                let result = try await audioService.generateAudio(
-                    text: sanitizeAudioContent(content),
-                    voiceID: voiceID
+                // The service preserves any prior audio until the new file is
+                // promoted atomically, and cleans up stale .mp3/.m4a siblings.
+                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
+                    text: cleanedText,
+                    itemId: itemId
                 )
 
-                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                    await MainActor.run {
-                        isGeneratingAudio = false
-                        reportAudioPlaybackError("Unable to access documents directory.")
-                    }
-                    return
-                }
-
-                // Delete old audio file if exists
-                if let oldPath = item.audioFileURL {
-                    let oldURL = documentsDir.appendingPathComponent(oldPath)
-                    try? FileManager.default.removeItem(at: oldURL)
-                }
-
-                let audioFileName = "audio_\(item.id.uuidString).mp3"
-                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
-
-                let asset = AVURLAsset(url: audioFileURL)
-                let duration = try await asset.load(.duration)
-                let durationSeconds = CMTimeGetSeconds(duration)
-
                 await MainActor.run {
-                    dataManager.updateAudioMetadata(
-                        for: item.id,
-                        audioFileURL: audioFileName,
-                        audioVoiceID: voiceID,
-                        audioDuration: durationSeconds
-                    )
+                    dataManager.applyNarration(asset, for: itemId)
                     isGeneratingAudio = false
                     showingAudioReadyToast = true
                 }
@@ -633,8 +562,9 @@ struct AnalysisDetailView: View {
                 }
             } catch {
                 await MainActor.run {
+                    dataManager.markNarrationFailed(for: itemId)
                     isGeneratingAudio = false
-                    reportAudioPlaybackError("Failed to regenerate audio: \(error.localizedDescription)")
+                    reportAudioPlaybackError("Failed to regenerate narration: \(error.localizedDescription)")
                 }
             }
         }

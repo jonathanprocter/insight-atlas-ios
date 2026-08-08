@@ -32,6 +32,7 @@ struct GuideView: View {
     @State private var showExportSheet = false
     @State private var isExporting = false
     @State private var exportError: String?
+    @State private var audioError: String?
     @State private var shareItem: URL?
     @State private var showRegenerateOptions = false
     @State private var isRegeneratingContent = false
@@ -143,6 +144,22 @@ struct GuideView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(exportError ?? "An unknown error occurred")
+        }
+        .alert("Narration Failed", isPresented: Binding(
+            get: { audioError != nil },
+            set: { if !$0 { audioError = nil } }
+        )) {
+            Button("Retry") {
+                audioError = nil
+                if item.audioFileURL != nil {
+                    regenerateAudioWithCurrentVoice()
+                } else {
+                    generateAudioOnly()
+                }
+            }
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(audioError ?? "An unknown error occurred")
         }
         .sheet(isPresented: $showRegenerateOptions) {
             RegenerateView(item: item, onComplete: { newContent, score in
@@ -607,6 +624,7 @@ struct GuideView: View {
                     failedItem.audioGenerationAttempts = baseAttempts + 1
                     environment.updateLibraryItem(failedItem)
                     isGeneratingAudio = false
+                    audioError = error.localizedDescription
                 }
             }
         }
@@ -666,6 +684,7 @@ struct GuideView: View {
                     failedItem.narrationState = .failed
                     environment.updateLibraryItem(failedItem)
                     isGeneratingAudio = false
+                    audioError = error.localizedDescription
                 }
             }
         }
