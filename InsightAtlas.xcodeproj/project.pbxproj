@@ -132,7 +132,6 @@
 		IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */; };
 		IAVISUALS02AAAAAAAAAA002 /* InsightVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */; };
 		IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */; };
-		IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKVW02AAA002 /* VoicePickerView.swift */; };
 		IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPROV02AAA002 /* VoiceProvider.swift */; };
 		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
 /* End PBXBuildFile section */
@@ -280,7 +279,6 @@
 		IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisualView.swift; sourceTree = "<group>"; };
 		IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisuals.swift; sourceTree = "<group>"; };
 		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
-		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		IAVOICEPROV02AAA002 /* VoiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProvider.swift; sourceTree = "<group>"; };
 		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -433,7 +431,6 @@
 				IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */,
 				E81A00312D000018007AAAAB /* RegenerateView.swift */,
 				IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */,
-				IAVOICEPKVW02AAA002 /* VoicePickerView.swift */,
 				C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */,
 				C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */,
 				C207E5CD3024382000843994 /* ChatGPTSignInView.swift */,
@@ -822,7 +819,6 @@
 				IAKEYCHNSVC01AAA001 /* KeychainService.swift in Sources */,
 				C207E5F13026234F00843994 /* PDFAccessibility.swift in Sources */,
 				IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */,
-				IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */,
 				IAGOVTYPE01AAAAAAA001 /* SummaryTypeGovernor.swift in Sources */,
 				IAGOVPRES01AAAAAAA001 /* SummaryGovernorPresets.swift in Sources */,
 				IAGOVENG01AAAAAAAA001 /* SummaryGovernorEngine.swift in Sources */,

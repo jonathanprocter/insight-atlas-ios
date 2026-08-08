@@ -29,9 +29,6 @@ public enum LLMActionRouter {
         // GUIDE
         if let result = handleGuide(identifier: identifier, value: value, environment: environment) { return result }
 
-        // VOICE PICKER
-        if let result = handleVoicePicker(identifier: identifier, value: value, environment: environment) { return result }
-
         return .failure("Unknown identifier: \(identifier)")
     }
 
@@ -51,15 +48,8 @@ public enum LLMActionRouter {
             PremiumHaptics.selection()
             return .success("Accent set to \(name)")
         }
-        if identifier.hasPrefix("voice_row_") {
-            let voiceID = String(identifier.dropFirst("voice_row_".count))
-            environment.userSettings.selectedVoiceID = voiceID
-            environment.saveSettings()
-            PremiumHaptics.selection()
-            return .success("Selected voice \(voiceID)")
-        }
-        if identifier.hasPrefix("voice_preview_") {
-            return .failure("Voice preview requires UI context for playback.")
+        if identifier.hasPrefix("voice_row_") || identifier.hasPrefix("voice_preview_") {
+            return .failure("Narration voice is fixed (Liam); voice selection is unavailable.")
         }
         if identifier.hasPrefix("securefield_toggle_visibility_") {
             return .failure("Visibility toggle is UI-only and requires a tap.")
@@ -91,14 +81,7 @@ public enum LLMActionRouter {
             return .success("Sepia Reading Mode set to \(newValue)")
 
         case "voice_provider_picker":
-            guard let v = value, let provider = parseVoiceProvider(v) else {
-                return .failure("Provide a voice provider value (e.g., OpenAI or ElevenLabs).")
-            }
-            environment.updateVoiceProvider(provider)
-            environment.userSettings.voiceProvider = provider
-            environment.userSettings.selectedVoiceID = provider == .openai ? "alloy" : ElevenLabsVoiceRegistry.adam.voiceID
-            environment.saveSettings()
-            return .success("Voice Provider set to \(provider.displayName)")
+            return .failure("Narration voice is fixed (Liam); the voice provider is not configurable.")
 
         case "playback_speed_picker":
             guard let v = value, let speed = parsePlaybackSpeed(v) else {
@@ -167,10 +150,15 @@ public enum LLMActionRouter {
             KeychainService.shared.openRouterApiKey = v.isEmpty ? nil : v
             return .success("Updated OpenRouter key")
 
-        case "securefield_elevenlabs":
-            guard let v = value else { return .failure("Provide an API key value.") }
-            KeychainService.shared.elevenLabsApiKey = v.isEmpty ? nil : v
-            return .success("Updated ElevenLabs key")
+        case "securefield_liam_token":
+            guard let v = value else { return .failure("Provide a narration token value.") }
+            let trimmed = v.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                try? KokoroTTSClient.removeAPIKey()
+                return .success("Cleared Liam narration token")
+            }
+            try? KokoroTTSClient.storeAPIKey(trimmed)
+            return .success("Updated Liam narration token")
 
         default:
             // Navigation rows require UI interaction in this architecture.
@@ -238,11 +226,7 @@ public enum LLMActionRouter {
             environment.saveSettings()
             return .success("Summary type set to \(s.displayName)")
         case "generation_voice_provider_picker":
-            guard let v = value, let provider = VoiceProvider(rawValue: v) ?? VoiceProvider.allCases.first(where: { $0.displayName.lowercased() == v.lowercased() }) else {
-                return .failure("Provide a valid voice provider.")
-            }
-            environment.updateVoiceProvider(provider)
-            return .success("Voice provider set to \(provider.displayName)")
+            return .failure("Narration voice is fixed (Liam); the voice provider is not configurable.")
         case "generation_audio_speed_slider":
             return .failure("Slider changes require UI context.")
         case "generation_choose_file_button", "generation_generate_button":
@@ -270,10 +254,7 @@ public enum LLMActionRouter {
             return .success("Toggled audio playback")
         case "audio_generate_button":
             UIDriver.post(.generateGuideAudio)
-            return .success("Requested audio generation")
-        case "guide_change_voice_button":
-            UIDriver.post(.showVoicePicker)
-            return .success("Requested voice picker")
+            return .success("Requested narration generation")
         case "guide_regenerate_content_button":
             UIDriver.post(.showRegenerateOptions)
             return .success("Requested regenerate options")
@@ -287,30 +268,7 @@ public enum LLMActionRouter {
         }
     }
 
-    // MARK: - Voice Picker
-
-    private static func handleVoicePicker(identifier: String, value: String?, environment: AppEnvironment) -> LLMActionResult? {
-        if identifier.hasPrefix("voice_row_") {
-            let voiceID = String(identifier.dropFirst("voice_row_".count))
-            environment.userSettings.selectedVoiceID = voiceID
-            environment.saveSettings()
-            PremiumHaptics.selection()
-            return .success("Selected voice \(voiceID)")
-        }
-        if identifier.hasPrefix("voice_preview_") {
-            return .failure("Voice preview requires UI context for playback.")
-        }
-        return nil
-    }
-
     // MARK: - Helpers
-
-    private static func parseVoiceProvider(_ str: String) -> VoiceProvider? {
-        let lower = str.lowercased()
-        return VoiceProvider.allCases.first {
-            $0.rawValue.lowercased() == lower || $0.displayName.lowercased() == lower
-        }
-    }
 
     private static func parsePlaybackSpeed(_ str: String) -> PlaybackSpeed? {
         let lower = str.lowercased()
@@ -333,9 +291,8 @@ public enum LLMActionRouter {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults
-        if let vProvider = VoiceProvider.allCases.first { environment.userSettings.voiceProvider = vProvider }
-        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider == .openai ? "alloy" : ElevenLabsVoiceRegistry.adam.voiceID
+        // Audio defaults — narration is Liam-only; only playback speed and the
+        // auto-generate toggle are configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
 

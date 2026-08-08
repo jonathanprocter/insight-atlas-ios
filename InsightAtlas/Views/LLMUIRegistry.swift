@@ -23,7 +23,6 @@ public enum LLMUIRegistry {
         controls += libraryControls()
         controls += generationControls()
         controls += guideControls()
-        controls += voicePickerControls()
         controls += dynamicPatternControls()
         return controls
     }
@@ -54,7 +53,7 @@ public enum LLMUIRegistry {
             LLMControl(id: "securefield_claude", title: "Claude API Key", kind: "field"),
             LLMControl(id: "securefield_openai", title: "OpenAI API Key", kind: "field"),
             LLMControl(id: "securefield_openrouter", title: "OpenRouter API Key", kind: "field"),
-            LLMControl(id: "securefield_elevenlabs", title: "ElevenLabs API Key", kind: "field"),
+            LLMControl(id: "securefield_liam_token", title: "Liam Narration Token", kind: "field"),
             LLMControl(id: "openrouter_model_field", title: "OpenRouter model slug", kind: "field"),
             LLMControl(id: "openrouter_model_menu", title: "OpenRouter model suggestions", kind: "menu"),
             LLMControl(id: "chatgpt_use_toggle", title: "Use ChatGPT for guide generation", kind: "toggle"),
@@ -63,10 +62,8 @@ public enum LLMUIRegistry {
             LLMControl(id: "chatgpt_sign_in_button", title: "Sign in with ChatGPT", kind: "button"),
             LLMControl(id: "chatgpt_sign_out_button", title: "Sign out of ChatGPT", kind: "button"),
 
-            // Audio
+            // Audio (narration is Liam-only)
             LLMControl(id: "navrow_audio_settings", title: "Audio Settings", kind: "navigation"),
-            LLMControl(id: "voice_provider_picker", title: "Voice Provider", kind: "picker"),
-            LLMControl(id: "navrow_voice_selection", title: "Voice Selection", kind: "navigation"),
             LLMControl(id: "playback_speed_picker", title: "Playback Speed", kind: "picker"),
             LLMControl(id: "toggle_auto_generate_audio", title: "Auto-generate Audio", kind: "toggle"),
 
@@ -116,17 +113,11 @@ public enum LLMUIRegistry {
             LLMControl(id: "generation_tone_picker", title: "Writing Style", kind: "picker"),
             LLMControl(id: "generation_format_picker", title: "Output Format", kind: "picker"),
             LLMControl(id: "generation_summary_type_picker", title: "Summary Length", kind: "picker"),
-            LLMControl(id: "generation_voice_provider_picker", title: "Voice Provider", kind: "picker"),
-            LLMControl(id: "generation_voice_select_button", title: "Selected Voice", kind: "navigation"),
             LLMControl(id: "generation_audio_speed_slider", title: "Playback Speed", kind: "slider"),
             LLMControl(id: "generation_progress_ring", title: "Generation Progress", kind: "progress"),
             LLMControl(id: "generation_view_guide_button", title: "View Guide", kind: "navigation"),
             LLMControl(id: "generation_save_to_library_button", title: "Save to Library", kind: "button"),
-            LLMControl(id: "generation_try_again_button", title: "Try Again", kind: "button"),
-            // Voice selection sheet
-            LLMControl(id: "voice_selection_cancel_button", title: "Cancel voice selection", kind: "button"),
-            LLMControl(id: "voice_selection_done_button", title: "Done selecting voice", kind: "button"),
-            LLMControl(id: "voice_row_*", title: "Select Voice (any voiceID)", kind: "button")
+            LLMControl(id: "generation_try_again_button", title: "Try Again", kind: "button")
         ]
     }
 
@@ -137,11 +128,9 @@ public enum LLMUIRegistry {
             LLMControl(id: "guide_export_pdf_button", title: "Export as PDF", kind: "button"),
             LLMControl(id: "guide_export_audio_button", title: "Export Audio Only", kind: "button"),
             LLMControl(id: "guide_export_bundle_button", title: "Export PDF + Audio Bundle", kind: "button"),
-            LLMControl(id: "guide_change_voice_button", title: "Change Voice & Regenerate", kind: "button"),
-            LLMControl(id: "guide_regenerate_audio_button", title: "Regenerate Audio", kind: "button"),
-            LLMControl(id: "guide_delete_audio_button", title: "Delete Audio", kind: "button"),
-            LLMControl(id: "guide_generate_with_selection_button", title: "Generate with Voice Selection", kind: "button"),
-            LLMControl(id: "guide_generate_with_default_button", title: "Generate with Default Voice", kind: "button"),
+            LLMControl(id: "guide_regenerate_audio_button", title: "Regenerate Narration", kind: "button"),
+            LLMControl(id: "guide_delete_audio_button", title: "Delete Narration", kind: "button"),
+            LLMControl(id: "guide_generate_with_default_button", title: "Generate Narration", kind: "button"),
             LLMControl(id: "guide_regenerate_content_button", title: "Regenerate Content", kind: "button"),
             LLMControl(id: "guide_regenerate_audio_only_button", title: "Regenerate Audio Only", kind: "button"),
             LLMControl(id: "guide_delete_button", title: "Delete Guide", kind: "button"),
@@ -154,21 +143,10 @@ public enum LLMUIRegistry {
         ]
     }
 
-    public static func voicePickerControls() -> [LLMControl] {
-        [
-            LLMControl(id: "voice_picker_done_button", title: "Voice Picker Done", kind: "button"),
-            LLMControl(id: "voice_other_toggle_button", title: "Other Voices Expand/Collapse", kind: "button"),
-            LLMControl(id: "voice_preview_*", title: "Preview Voice (any voiceID)", kind: "button"),
-            LLMControl(id: "voice_row_*", title: "Select Voice (any voiceID)", kind: "button")
-        ]
-    }
-
     // MARK: - Dynamic pattern docs
 
     private static func dynamicPatternControls() -> [LLMControl] {
         [
-            LLMControl(id: "voice_row_*", title: "Select Voice (any voiceID)", kind: "button"),
-            LLMControl(id: "voice_preview_*", title: "Preview Voice (any voiceID)", kind: "button"),
             LLMControl(id: "theme_option_*", title: "Theme option (by name)", kind: "button"),
             LLMControl(id: "accent_option_*", title: "Accent option (by name)", kind: "button"),
             LLMControl(id: "library_item_*", title: "Library item (by UUID)", kind: "navigation"),
@@ -184,4 +162,3 @@ public func LLMDescribeSettingsControls() -> [LLMControl] { LLMUIRegistry.settin
 public func LLMDescribeLibraryControls() -> [LLMControl] { LLMUIRegistry.libraryControls() }
 public func LLMDescribeGenerationControls() -> [LLMControl] { LLMUIRegistry.generationControls() }
 public func LLMDescribeGuideControls() -> [LLMControl] { LLMUIRegistry.guideControls() }
-public func LLMDescribeVoicePickerControls() -> [LLMControl] { LLMUIRegistry.voicePickerControls() }
