@@ -227,22 +227,3 @@ final class BookProcessorTests: XCTestCase {
         return pdfContent.data(using: .utf8) ?? Data()
     }
 }
-
-// MARK: - BookProcessorError Extension
-
-extension BookProcessorError: Equatable {
-    public static func == (lhs: BookProcessorError, rhs: BookProcessorError) -> Bool {
-        switch (lhs, rhs) {
-        case (.failedToLoad, .failedToLoad):
-            return true
-        case (.unsupportedFormat, .unsupportedFormat):
-            return true
-        case (.noTextContent, .noTextContent):
-            return true
-        case (.extractionFailed, .extractionFailed):
-            return true
-        default:
-            return false
-        }
-    }
-}
