@@ -1,5 +1,34 @@
 import SwiftUI
 
+/// The destinations surfaced by the premium bottom navigation.
+enum AppTab: String, CaseIterable, Identifiable {
+    case library
+    case listen
+    case atlas
+    case settings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .library:  return "Library"
+        case .listen:   return "Listen"
+        case .atlas:    return "Atlas"
+        case .settings: return "Settings"
+        }
+    }
+
+    /// SF Symbol for the destination; filled variant while active.
+    func icon(isSelected: Bool) -> String {
+        switch self {
+        case .library:  return isSelected ? "books.vertical.fill" : "books.vertical"
+        case .listen:   return isSelected ? "headphones.circle.fill" : "headphones"
+        case .atlas:    return isSelected ? "globe.americas.fill" : "globe.americas"
+        case .settings: return isSelected ? "gearshape.fill" : "gearshape"
+        }
+    }
+}
+
 /// The app's custom bottom navigation for compact width.
 ///
 /// Deliberately *not* a translucent glass pill: a solid porcelain surface with

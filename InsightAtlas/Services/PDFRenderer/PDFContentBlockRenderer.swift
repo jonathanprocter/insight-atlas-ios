@@ -46,6 +46,40 @@ final class PDFContentBlockRenderer {
     }
 
     /// Calculate the height required to render a block
+    // MARK: - Figure / Table numbering
+
+    /// The "Figure N" / "Table N" label assigned by `PDFReferentialIntegrity`
+    /// (stored in `metadata["figureLabel"]` + `["figureNumber"]`), or `nil` when
+    /// this block was not assigned a number. Used so the number shown on a
+    /// figure matches the "Figure N" reference rewritten into the prose.
+    private func figureLabel(for block: PDFContentBlock) -> String? {
+        guard let number = block.metadata?["figureNumber"], !number.isEmpty else { return nil }
+        let label = block.metadata?["figureLabel"] ?? "Figure"
+        return "\(label) \(number)"
+    }
+
+    /// Prefix a diagram title with its assigned figure label, if any.
+    private func titleWithFigureLabel(_ base: String, for block: PDFContentBlock) -> String {
+        guard let fig = figureLabel(for: block) else { return base }
+        let trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fig : "\(fig): \(trimmed)"
+    }
+
+    /// Fixed height reserved for a standalone "Figure N" / "Table N" caption line.
+    private var figureCaptionHeight: CGFloat { 18 }
+
+    /// Draw a standalone figure/table caption line; returns the height consumed.
+    @discardableResult
+    private func renderFigureCaption(_ text: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
+        ]
+        NSAttributedString(string: text.uppercased(), attributes: attrs)
+            .draw(at: CGPoint(x: point.x, y: point.y))
+        return figureCaptionHeight
+    }
+
     func calculateBlockHeight(block: PDFContentBlock, maxWidth: CGFloat) -> CGFloat {
         switch block.type {
         case .paragraph:
@@ -107,8 +141,9 @@ final class PDFContentBlockRenderer {
             return PDFStyleConfiguration.Spacing.xl2
 
         case .table:
-            return calculateTableHeight(tableData: block.tableData ?? [], maxWidth: maxWidth)
-            
+            let tableCaptionHeight = figureLabel(for: block) != nil ? figureCaptionHeight : 0
+            return calculateTableHeight(tableData: block.tableData ?? [], maxWidth: maxWidth) + tableCaptionHeight
+
         // Premium block types
         case .premiumQuote:
             return calculateBlockquoteHeight(block.content, maxWidth: maxWidth)
@@ -250,7 +285,7 @@ final class PDFContentBlockRenderer {
 
         case .flowchart:
             return diagramRenderer.renderFlowchart(
-                title: block.metadata?["title"] ?? "Visual Guide",
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Visual Guide", for: block),
                 steps: block.listItems ?? [],
                 to: context,
                 at: point,
@@ -277,8 +312,18 @@ final class PDFContentBlockRenderer {
             return renderDivider(to: context, at: point, maxWidth: maxWidth)
 
         case .table:
-            return renderTable(tableData: block.tableData ?? [], to: context, at: point, maxWidth: maxWidth)
-            
+            var tableUsed: CGFloat = 0
+            if let fig = figureLabel(for: block) {
+                tableUsed += renderFigureCaption(fig, to: context, at: point, maxWidth: maxWidth)
+            }
+            tableUsed += renderTable(
+                tableData: block.tableData ?? [],
+                to: context,
+                at: CGPoint(x: point.x, y: point.y + tableUsed),
+                maxWidth: maxWidth
+            )
+            return tableUsed
+
         // Premium block types
         case .premiumQuote:
             return renderBlockquote(block.content, cite: block.metadata?["cite"], to: context, at: point, maxWidth: maxWidth)
@@ -339,16 +384,16 @@ final class PDFContentBlockRenderer {
             
             return renderMockupBlock(
                 content: conceptText,
-                title: block.metadata?["title"] ?? "Concept Map",
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Concept Map", for: block),
                 to: context,
                 at: point,
                 maxWidth: maxWidth
             )
-            
+
         case .processTimeline:
             // Render process timeline
             return diagramRenderer.renderProcessDiagram(
-                title: block.metadata?["title"] ?? "Process Timeline",
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Process Timeline", for: block),
                 phases: block.listItems?.map { (name: $0, description: "") } ?? [],
                 to: context,
                 at: point,
@@ -357,7 +402,7 @@ final class PDFContentBlockRenderer {
 
         case .loopDiagram:
             return diagramRenderer.renderLoopDiagram(
-                title: block.metadata?["title"] ?? "Feedback Loop",
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Feedback Loop", for: block),
                 nodes: block.listItems ?? [],
                 caption: block.metadata?["caption"],
                 to: context,
@@ -368,7 +413,7 @@ final class PDFContentBlockRenderer {
         case .spectrum:
             let poles = block.listItems ?? []
             return diagramRenderer.renderSpectrum(
-                title: block.metadata?["title"] ?? "Spectrum",
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Spectrum", for: block),
                 leftPole: poles.first ?? "",
                 rightPole: poles.count > 1 ? poles[1] : "",
                 zoneLabel: block.metadata?["zone"] ?? "healthy range",
@@ -2135,11 +2180,14 @@ final class PDFContentBlockRenderer {
         // Load image from local cache only (no network access)
         guard let url = block.visualURL,
               let image = VisualAssetCache.shared.cachedImage(for: url) else {
-            // Fallback: render placeholder + caption if image not cached
+            // Fallback: render placeholder + caption if image not cached. The
+            // 16pt label slot is always drawn by renderVisual, so reserve it here
+            // too (matches the cached-image path below).
             let placeholderHeight: CGFloat = 120 // Consistent placeholder size
             let captionHeight = block.content.isEmpty ? 0 :
                 calculateTextHeight(block.content, attributes: PDFStyleConfiguration.captionAttributes(), maxWidth: maxWidth)
-            return placeholderHeight + captionHeight + PDFStyleConfiguration.Spacing.blockSpacing
+            let labelHeight: CGFloat = 16
+            return placeholderHeight + captionHeight + labelHeight + PDFStyleConfiguration.Spacing.blockSpacing
         }
 
         // Calculate scaled image dimensions maintaining aspect ratio
@@ -2245,17 +2293,22 @@ final class PDFContentBlockRenderer {
             yOffset += placeholderHeight + PDFStyleConfiguration.Spacing.sm
         }
 
-        // Render visual type label
-        if let visualType = block.visualType {
-            let typeLabel = visualTypeLabel(visualType)
+        // Render the assigned figure label ("Figure N") alongside the visual
+        // type label, in the 16pt slot that calculateVisualHeight always
+        // reserves. Rendering the figure number here keeps it in sync with the
+        // "Figure N" reference woven into the prose.
+        var labelParts: [String] = []
+        if let fig = figureLabel(for: block) { labelParts.append(fig) }
+        if let visualType = block.visualType { labelParts.append(visualTypeLabel(visualType)) }
+        if !labelParts.isEmpty {
             let labelAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 10, weight: .medium),
                 .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
             ]
-            let labelString = NSAttributedString(string: typeLabel, attributes: labelAttributes)
+            let labelString = NSAttributedString(string: labelParts.joined(separator: " · "), attributes: labelAttributes)
             labelString.draw(at: CGPoint(x: point.x, y: point.y + yOffset))
-            yOffset += 16
         }
+        yOffset += 16
 
         // Render caption if present
         if !block.content.isEmpty {

@@ -88,6 +88,7 @@ enum PremiumUI {
     static let skyBlue    = adaptive("#4BA3C8", "#6FC0DF")   // Sky Blue
     static let forest     = adaptive("#3D5840", "#7BAE80")   // Forest
     static let warmOrange = adaptive("#D87520", "#E89B5A")   // Warm Orange
+    static let slate      = adaptive("#33475B", "#8CA3B8")   // Deep Slate — active navigation & shell iconography
 
     // Surfaces & text — "Warm Mist" cool-neutral base (2026 quiet-interface),
     // adaptive so dark mode renders correctly.

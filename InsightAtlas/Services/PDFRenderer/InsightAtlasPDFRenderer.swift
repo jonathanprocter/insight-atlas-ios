@@ -292,10 +292,14 @@ final class InsightAtlasPDFRenderer {
             for (index, block) in section.blocks.enumerated() {
                 let blockHeight = blockRenderer.calculateBlockHeight(block: block, maxWidth: contentRect.width)
 
-                // Skip rendering empty content blocks
+                // Skip rendering empty content blocks. Metadata-only block types
+                // (dividers, and blocks that render entirely from `metadata` such
+                // as library entries and reading chips) carry no `content`/
+                // `listItems` by design and must not be filtered here.
+                let metadataOnlyTypes: Set<PDFContentBlock.BlockType> = [.divider, .libraryEntry, .readingChip]
                 if block.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
                    (block.listItems?.isEmpty ?? true) &&
-                   block.type != .divider {
+                   !metadataOnlyTypes.contains(block.type) {
                     continue
                 }
 

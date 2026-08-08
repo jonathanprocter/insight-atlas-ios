@@ -869,6 +869,24 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
         audioPlayer?.duration ?? 0
     }
 
+    /// Current playback position in seconds.
+    var currentTime: TimeInterval {
+        audioPlayer?.currentTime ?? 0
+    }
+
+    /// Seek to an absolute time (clamped to the track bounds).
+    func seek(to time: TimeInterval) {
+        guard let player = audioPlayer else { return }
+        player.currentTime = max(0, min(time, player.duration))
+    }
+
+    /// Seek to a fractional position in `0.0...1.0`.
+    func seek(toProgress fraction: Double) {
+        guard let player = audioPlayer else { return }
+        let clamped = max(0, min(fraction, 1))
+        player.currentTime = player.duration * clamped
+    }
+
     // MARK: - AVAudioPlayerDelegate
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {

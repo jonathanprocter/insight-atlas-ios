@@ -235,6 +235,74 @@ struct OutputQualityValidator {
         }
     }
 
+    // MARK: - Truncation Detection
+
+    /// Detects content that was cut off mid-generation. Returns a short reason
+    /// string when the output appears truncated, or `nil` when it ends cleanly.
+    ///
+    /// Trailing structural tags (e.g. `[PREMIUM_DIVIDER]`, `[/AUTHOR_SPOTLIGHT]`)
+    /// and blank lines are ignored so the real last line of prose is evaluated.
+    static func detectTruncation(in content: String) -> String? {
+        // Find the last meaningful line, skipping blanks and pure-tag lines.
+        var lastProse: String?
+        for raw in content.components(separatedBy: .newlines).reversed() {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || isPureTagLine(line) { continue }
+            lastProse = line
+            break
+        }
+
+        guard let line = lastProse else { return nil }
+
+        // A trailing list item is a complete thought, not a truncation.
+        if isListItem(line) { return nil }
+
+        // A lead-in that promises content but delivers none.
+        if line.hasSuffix(":") {
+            return "Ends on a lead-in colon with no following content"
+        }
+
+        // A dangling author initial (e.g. "… by Steven C.") — checked before the
+        // sentence-punctuation rule since it also ends in a period.
+        if endsWithDanglingInitial(line) {
+            return "Ends on a dangling author initial"
+        }
+
+        // Proper sentence terminator (allowing trailing quotes/brackets) = clean.
+        if endsWithSentencePunctuation(line) { return nil }
+
+        // Otherwise the prose stops mid-sentence.
+        return "Ends mid-sentence without terminal punctuation"
+    }
+
+    /// A line consisting solely of a bracketed tag, e.g. `[X]` or `[/X]`.
+    private static func isPureTagLine(_ line: String) -> Bool {
+        line.range(of: "^\\[/?[A-Za-z0-9_]+\\]$", options: .regularExpression) != nil
+    }
+
+    /// A bullet or numbered list item.
+    private static func isListItem(_ line: String) -> Bool {
+        line.range(of: "^([-*•]\\s+|\\d+[.)]\\s+)", options: .regularExpression) != nil
+    }
+
+    /// Whether the final whitespace-delimited token is a lone capital initial
+    /// followed by a period (e.g. "C."), which signals a cut-off name.
+    private static func endsWithDanglingInitial(_ line: String) -> Bool {
+        guard let token = line.split(whereSeparator: { $0.isWhitespace }).last else { return false }
+        return token.range(of: "^[A-Z]\\.$", options: .regularExpression) != nil
+    }
+
+    /// Whether the line ends with `.`, `!`, or `?`, tolerating trailing closing
+    /// quotes or brackets (e.g. `anyway."`).
+    private static func endsWithSentencePunctuation(_ line: String) -> Bool {
+        var scalars = Substring(line)
+        while let last = scalars.last, "\"'”’)]}".contains(last) {
+            scalars = scalars.dropLast()
+        }
+        guard let last = scalars.last else { return false }
+        return ".!?".contains(last)
+    }
+
     /// Validate content quality for a given summary type
     static func validate(
         content: String,

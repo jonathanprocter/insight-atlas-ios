@@ -16,18 +16,8 @@ struct SettingsView: View {
     @AppStorage("settings_expand_about") private var expandAbout = true
     @State private var showResetAlert = false
 
-    private var selectedVoiceName: String {
-        guard let voiceID = environment.userSettings.selectedVoiceID else {
-            return "Default"
-        }
-
-        switch environment.userSettings.voiceProvider {
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? "Default"
-        }
-    }
+    /// Narration uses a single fixed voice (Liam); shown for the Audio row value.
+    private var selectedVoiceName: String { "Liam" }
 
     private var accentColor: Color {
         PremiumUI.accent(from: accentPreference)
@@ -388,9 +378,8 @@ struct SettingsView: View {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults
-        if let vProvider = VoiceProvider.allCases.first { environment.userSettings.voiceProvider = vProvider }
-        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider == .openai ? "alloy" : ElevenLabsVoiceRegistry.adam.voiceID
+        // Audio defaults — narration is Liam-only, so only playback speed and
+        // the auto-generate toggle are user-configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
 
@@ -840,22 +829,6 @@ struct APIConfigurationView: View {
             }
 
             Section {
-                SecureFieldRow(
-                    label: "ElevenLabs",
-                    placeholder: "ElevenLabs API Key",
-                    text: Binding(
-                        get: { KeychainService.shared.elevenLabsApiKey ?? "" },
-                        set: { KeychainService.shared.elevenLabsApiKey = $0.isEmpty ? nil : $0 }
-                    ),
-                    hasValue: KeychainService.shared.hasElevenLabsApiKey,
-                    savedSuffix: savedSuffix(for: KeychainService.shared.elevenLabsApiKey)
-                )
-                .listRowBackground(PremiumUI.card)
-            } header: {
-                Text("Optional Narration Provider")
-            }
-
-            Section {
                 if chatgpt.isSignedIn {
                     HStack {
                         Text("ChatGPT")
@@ -927,7 +900,7 @@ struct APIConfigurationView: View {
             } header: {
                 Text("ChatGPT Subscription (Beta)")
             } footer: {
-                Text("Unofficial: routes guide generation through your ChatGPT subscription via the Codex backend. While enabled, it overrides the AI Provider selection above. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or ban your account. Use at your own risk. Note: this covers guide text only — audio narration still requires an OpenAI or ElevenLabs API key. If generation fails with a \"model is not supported\" error, try a different Codex Model above (tap the ▾ for suggestions); which models work depends on your ChatGPT plan.")
+                Text("Unofficial: routes guide generation through your ChatGPT subscription via the Codex backend. While enabled, it overrides the AI Provider selection above. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or ban your account. Use at your own risk. Note: this covers guide text only — audio narration is generated separately with the Liam voice and requires the narration token in Audio & Narration. If generation fails with a \"model is not supported\" error, try a different Codex Model above (tap the ▾ for suggestions); which models work depends on your ChatGPT plan.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
@@ -942,46 +915,22 @@ struct APIConfigurationView: View {
 struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
 
-    private var selectedVoiceName: String {
-        guard let voiceID = environment.userSettings.selectedVoiceID else {
-            return "Default"
-        }
+    // Local mirror of the Keychain-backed narration token so edits redraw the row.
+    @State private var narrationToken: String = KokoroTTSClient.currentAPIKey() ?? ""
 
-        switch environment.userSettings.voiceProvider {
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? "Default"
-        }
+    private func savedSuffix(for key: String) -> String? {
+        guard key.count >= 4 else { return nil }
+        return "Saved \u{2022}\u{2022}\u{2022}\u{2022}" + key.suffix(4)
     }
 
     var body: some View {
         List {
             Section {
-                Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
-                    ForEach(VoiceProvider.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
-                .onChange(of: environment.userSettings.voiceProvider) {
-                    environment.updateVoiceProvider(environment.userSettings.voiceProvider)
-                    environment.userSettings.selectedVoiceID =
-                        environment.userSettings.voiceProvider == .openai
-                        ? "alloy"
-                        : ElevenLabsVoiceRegistry.adam.voiceID
-                    environment.saveSettings()
-                }
-
-                NavigationLink {
-                    VoiceSelectionSettingsView()
-                        .environmentObject(environment)
-                } label: {
-                    HStack {
-                        Text("Voice")
-                        Spacer()
-                        Text(selectedVoiceName)
-                            .foregroundStyle(PremiumUI.secondaryText)
-                    }
+                HStack {
+                    Text("Voice")
+                    Spacer()
+                    Text("Liam")
+                        .foregroundStyle(PremiumUI.secondaryText)
                 }
 
                 Picker("Playback Speed", selection: $environment.userSettings.playbackSpeed) {
@@ -994,6 +943,34 @@ struct AudioSettingsView: View {
                 }
             } header: {
                 Text("Narration")
+            } footer: {
+                Text("Narration is generated with the Liam voice. The voice is fixed and not selectable.")
+            }
+
+            Section {
+                SecureFieldRow(
+                    label: "Narration Token",
+                    placeholder: "Liam narration token",
+                    text: Binding(
+                        get: { narrationToken },
+                        set: { newValue in
+                            narrationToken = newValue
+                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed.isEmpty {
+                                try? KokoroTTSClient.removeAPIKey()
+                            } else {
+                                try? KokoroTTSClient.storeAPIKey(trimmed)
+                            }
+                        }
+                    ),
+                    hasValue: !narrationToken.isEmpty,
+                    savedSuffix: savedSuffix(for: narrationToken)
+                )
+                .listRowBackground(PremiumUI.card)
+            } header: {
+                Text("Liam Narration")
+            } footer: {
+                Text("Required to generate narration. Stored securely in the iOS Keychain on this device only.")
             }
 
             Section {
@@ -1006,7 +983,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("Audio generation requires a configured API key for the selected voice provider (OpenAI or ElevenLabs), entered in API Configuration. Signing in with ChatGPT does not enable narration.")
+                Text("When on, narration is generated automatically after a guide finishes. Requires the Liam narration token above.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")

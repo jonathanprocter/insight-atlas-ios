@@ -23,9 +23,7 @@ struct GenerationView: View {
     @State private var selectedFileType: FileType?
     @State private var cachedFileData: Data?
 
-    // Voice selection state
-    @State private var showingVoicePicker = false
-    @State private var selectedVoiceID: String?
+    // Narration state — voice is fixed (Liam); no selection UI.
     @State private var audioSpeed: Double = 1.0
 
     // MARK: - Body
@@ -63,12 +61,6 @@ struct GenerationView: View {
             allowsMultipleSelection: false
         ) { result in
             handleFileSelection(result)
-        }
-        .sheet(isPresented: $showingVoicePicker) {
-            VoiceSelectionSheet(
-                selectedVoiceID: $selectedVoiceID,
-                voiceProvider: environment.userSettings.voiceProvider
-            )
         }
         .onAppear {
             syncGenerationState()
@@ -261,7 +253,7 @@ struct GenerationView: View {
             Divider()
                 .padding(.vertical, 8)
 
-            // Audio Voice Selection
+            // Audio Narration (Liam-only)
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "waveform")
@@ -271,52 +263,28 @@ struct GenerationView: View {
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
 
-                // Voice Provider
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Voice Provider")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
-                    Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
-                        ForEach(VoiceProvider.allCases, id: \.self) { provider in
-                            Text(provider.displayName).tag(provider)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: environment.userSettings.voiceProvider) {
-                        environment.updateVoiceProvider(environment.userSettings.voiceProvider)
-                        selectedVoiceID = nil // Reset voice when provider changes
-                    }
-                    .accessibilityIdentifier("generation_voice_provider_picker")
-
-                    if !environment.userSettings.voiceProvider.isConfigured() {
-                        Text("⚠️ \(environment.userSettings.voiceProvider.displayName) API key not configured")
+                // Fixed narration voice — not selectable.
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Voice")
                             .font(.analysisUISmall())
-                            .foregroundColor(AnalysisTheme.accentHighlight)
-                    }
-                }
-
-                // Voice Selection Button
-                Button {
-                    showingVoicePicker = true
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Selected Voice")
-                                .font(.analysisUISmall())
-                                .foregroundColor(AnalysisTheme.textMuted)
-                            Text(selectedVoiceName)
-                                .font(.analysisUI())
-                                .foregroundColor(AnalysisTheme.textHeading)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
                             .foregroundColor(AnalysisTheme.textMuted)
+                        Text("Liam")
+                            .font(.analysisUI())
+                            .foregroundColor(AnalysisTheme.textHeading)
                     }
-                    .padding(12)
-                    .background(AnalysisTheme.bgSecondary)
-                    .cornerRadius(AnalysisTheme.Radius.md)
+                    Spacer()
                 }
-                .accessibilityIdentifier("generation_voice_select_button")
+                .padding(12)
+                .background(AnalysisTheme.bgSecondary)
+                .cornerRadius(AnalysisTheme.Radius.md)
+                .accessibilityIdentifier("generation_voice_liam_label")
+
+                if KokoroTTSClient.currentAPIKey() == nil {
+                    Text("⚠️ Add your Liam narration token in Settings → Audio & Narration")
+                        .font(.analysisUISmall())
+                        .foregroundColor(AnalysisTheme.accentHighlight)
+                }
 
                 // Audio Speed
                 VStack(alignment: .leading, spacing: 4) {
@@ -340,23 +308,6 @@ struct GenerationView: View {
         .cornerRadius(AnalysisTheme.Radius.lg)
         .shadow(color: AnalysisTheme.shadowCard, radius: 4, y: 2)
         .padding(.horizontal, 24)
-    }
-
-    /// Get the display name for the currently selected voice
-    private var selectedVoiceName: String {
-        if let voiceID = selectedVoiceID {
-            if environment.userSettings.voiceProvider == .openai {
-                return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
-            } else {
-                return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
-            }
-        }
-        // Return default voice name
-        if environment.userSettings.voiceProvider == .openai {
-            return OpenAIVoiceRegistry.defaultVoice.name + " (Default)"
-        } else {
-            return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: .practitioner).name + " (Default)"
-        }
     }
 
     private func selectedFileCard(fileName: String) -> some View {
@@ -641,7 +592,7 @@ struct GenerationView: View {
                     settings: environment.userSettings,
                     existingItemId: newItemId,
                     summaryType: environment.userSettings.preferredSummaryType,
-                    voiceID: selectedVoiceID
+                    voiceID: nil
                 )
 
                 await MainActor.run {

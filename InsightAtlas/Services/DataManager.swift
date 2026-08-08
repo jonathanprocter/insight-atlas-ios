@@ -63,6 +63,37 @@ class DataManager: ObservableObject {
         }
     }
 
+    // MARK: - Narration State (Liam / Kokoro)
+
+    /// Persist a durable narration lifecycle state on an item so an in-progress
+    /// or failed job survives relaunch.
+    func setNarrationState(_ state: NarrationState, for itemId: UUID) {
+        guard let index = libraryItems.firstIndex(where: { $0.id == itemId }) else { return }
+        libraryItems[index].narrationState = state
+        libraryItems[index].updatedAt = Date()
+        saveLibrary()
+    }
+
+    /// Apply a completed narration asset to an item and mark it `.ready`.
+    func applyNarration(_ asset: NarrationAsset, for itemId: UUID) {
+        guard let index = libraryItems.firstIndex(where: { $0.id == itemId }) else { return }
+        libraryItems[index].audioFileURL = asset.relativeFileName
+        libraryItems[index].audioVoiceID = asset.voiceID
+        libraryItems[index].audioDuration = asset.duration
+        libraryItems[index].narrationState = .ready
+        libraryItems[index].updatedAt = Date()
+        saveLibrary()
+    }
+
+    /// Record that the most recent narration attempt failed. Any previously
+    /// valid audio is intentionally left untouched.
+    func markNarrationFailed(for itemId: UUID) {
+        guard let index = libraryItems.firstIndex(where: { $0.id == itemId }) else { return }
+        libraryItems[index].narrationState = .failed
+        libraryItems[index].updatedAt = Date()
+        saveLibrary()
+    }
+
     /// Delete a library item and its associated audio file
     func deleteLibraryItem(_ item: LibraryItem) {
         // Clean up associated audio file if it exists

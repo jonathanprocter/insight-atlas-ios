@@ -1274,116 +1274,37 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // Check for available voice provider (OpenAI or ElevenLabs)
-        let hasOpenAI = KeychainService.shared.hasOpenAIApiKey
-        let hasElevenLabs = KeychainService.shared.hasElevenLabsApiKey
-
-        guard hasOpenAI || hasElevenLabs else {
-            audioLog("⚠️ No voice provider API key found - skipping audio generation")
+        // Narration is Liam-only via the Kokoro pipeline. It requires the
+        // narration token provisioned in Settings → Audio & Narration.
+        guard KokoroTTSClient.currentAPIKey() != nil else {
+            audioLog("⚠️ No Liam narration token found - skipping audio generation")
             return nil
         }
 
-        // Determine which provider to use (prefer user's selected provider, fall back to what's available)
-        let voiceManager = await MainActor.run { VoiceServiceManager.shared }
-        let preferredProvider = await MainActor.run { voiceManager.currentProvider }
-
-        let useProvider: VoiceProvider
-        if preferredProvider.isConfigured() {
-            useProvider = preferredProvider
-        } else if hasOpenAI {
-            useProvider = .openai
-        } else {
-            useProvider = .elevenlabs
-        }
-
-        audioLog("Starting audio generation for: \(title)")
-        audioLog("Using voice provider: \(useProvider.displayName)")
-
-        // Determine voice to use based on provider
-        let voiceID: String
-        let voiceName: String
-
-        if useProvider == .elevenlabs {
-            // ElevenLabs voice selection
-            var voiceConfig: VoiceSelectionConfig
-            if let userSelectedVoiceID = selectedVoiceID,
-               let selectedVoice = ElevenLabsVoiceRegistry.voice(byVoiceID: userSelectedVoiceID) {
-                voiceConfig = .custom(profile: readerProfile, voice: selectedVoice)
-                audioLog("Using user-selected ElevenLabs voice: \(selectedVoice.name)")
-            } else {
-                voiceConfig = VoiceSelectionConfig.premium(for: readerProfile)
-                if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
-                    let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile)
-                    voiceConfig = .custom(profile: readerProfile, voice: fallback)
-                }
-                audioLog("Using profile ElevenLabs voice: \(voiceConfig.voiceName)")
-            }
-            voiceID = voiceConfig.voiceID
-            voiceName = voiceConfig.voiceName
-        } else {
-            // OpenAI voice selection
-            if let userSelectedVoiceID = selectedVoiceID,
-               OpenAIVoiceRegistry.isValidVoiceID(userSelectedVoiceID) {
-                voiceID = userSelectedVoiceID
-                voiceName = OpenAIVoiceRegistry.voice(byID: userSelectedVoiceID)?.name ?? userSelectedVoiceID
-                audioLog("Using user-selected OpenAI voice: \(voiceName)")
-            } else {
-                // Use default OpenAI voice (alloy is natural and versatile)
-                let defaultVoice = OpenAIVoiceRegistry.defaultVoice
-                voiceID = defaultVoice.voiceID
-                voiceName = defaultVoice.name
-                audioLog("Using default OpenAI voice: \(voiceName)")
-            }
-        }
+        // The item ID (or generation ID) owns the "audio_<id>.<ext>" file the
+        // service writes into Documents.
+        let audioOwnerId = libraryItemId ?? generationId
+        audioLog("Starting Liam narration for: \(title)")
 
         do {
-            // Generate audio using the appropriate service
-            let result: GeneratedAudio
-            if useProvider == .elevenlabs {
-                let audioService = ElevenLabsAudioService()
-                result = try await audioService.generateAudio(text: audioContent, voiceID: voiceID)
-            } else {
-                let audioService = OpenAIAudioService()
-                result = try await audioService.generateAudio(text: audioContent, voiceID: voiceID)
-            }
-
-            // Save audio to documents directory
-            guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                audioLog("❌ Unable to access documents directory for audio file storage")
-                return nil
-            }
-            let audioOwnerId = libraryItemId ?? generationId
-
-            // Use appropriate file extension based on provider (OpenAI uses M4A for concatenated audio)
-            let fileExtension = useProvider == .openai ? "m4a" : "mp3"
-            let audioFileName = "audio_\(audioOwnerId.uuidString).\(fileExtension)"
-            let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-
-            try result.data.write(to: audioFileURL)
-            audioLog("Audio file written to: \(audioFileURL.path)")
-
-            // Verify file exists
-            guard FileManager.default.fileExists(atPath: audioFileURL.path) else {
-                audioLog("❌ Audio file write verification failed - file does not exist")
-                return nil
-            }
-            audioLog("Audio file verified on disk")
-
-            // Calculate duration from audio data
-            let duration = try await calculateAudioDuration(from: audioFileURL)
-
-            audioLog("✅ Audio generated successfully with \(useProvider.displayName)")
-            audioLog("Duration: \(String(format: "%.1f", duration)) seconds")
-            audioLog("File: \(audioFileName)")
-
-            return AudioGenerationResult(
-                fileURL: audioFileName,
-                voiceID: voiceID,
-                duration: duration
+            // The service splits long text, synthesizes each chunk with Liam,
+            // assembles the parts, and atomically writes the completed file.
+            let asset = try await KokoroNarrationService.shared.synthesizeAsset(
+                text: audioContent,
+                itemId: audioOwnerId
             )
 
+            audioLog("✅ Liam narration generated successfully")
+            audioLog("Duration: \(String(format: "%.1f", asset.duration)) seconds")
+            audioLog("File: \(asset.relativeFileName)")
+
+            return AudioGenerationResult(
+                fileURL: asset.relativeFileName,
+                voiceID: asset.voiceID,
+                duration: asset.duration
+            )
         } catch {
-            audioLog("❌ Audio generation failed: \(error.localizedDescription)")
+            audioLog("❌ Liam narration failed: \(error.localizedDescription)")
             return nil
         }
     }

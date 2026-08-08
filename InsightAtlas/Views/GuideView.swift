@@ -33,7 +33,6 @@ struct GuideView: View {
     @State private var isExporting = false
     @State private var exportError: String?
     @State private var shareItem: URL?
-    @State private var showVoicePicker = false
     @State private var showRegenerateOptions = false
     @State private var isRegeneratingContent = false
     
@@ -145,15 +144,6 @@ struct GuideView: View {
         } message: {
             Text(exportError ?? "An unknown error occurred")
         }
-        .sheet(isPresented: $showVoicePicker) {
-            VoicePickerSheet(
-                currentVoiceID: item.audioVoiceID ?? environment.userSettings.selectedVoiceID,
-                onSelectVoice: { voiceID in
-                    regenerateAudioWithVoice(voiceID)
-                }
-            )
-            .environmentObject(environment)
-        }
         .sheet(isPresented: $showRegenerateOptions) {
             RegenerateView(item: item, onComplete: { newContent, score in
                 // Handle regenerated content
@@ -246,17 +236,9 @@ struct GuideView: View {
         Menu {
             if item.audioFileURL != nil {
                 Button {
-                    showVoicePicker = true
-                } label: {
-                    Label("Change Voice & Regenerate", systemImage: "person.wave.2")
-                }
-                .disabled(isGeneratingAudio)
-                .accessibilityIdentifier("guide_change_voice_button")
-
-                Button {
                     regenerateAudioWithCurrentVoice()
                 } label: {
-                    Label("Regenerate Audio", systemImage: "arrow.clockwise")
+                    Label("Regenerate Narration", systemImage: "arrow.clockwise")
                 }
                 .disabled(isGeneratingAudio)
                 .accessibilityIdentifier("guide_regenerate_audio_button")
@@ -264,22 +246,15 @@ struct GuideView: View {
                 Button(role: .destructive) {
                     deleteAudio()
                 } label: {
-                    Label("Delete Audio", systemImage: "trash")
+                    Label("Delete Narration", systemImage: "trash")
                 }
                 .accessibilityIdentifier("guide_delete_audio_button")
             } else {
-                Button {
-                    showVoicePicker = true
-                } label: {
-                    Label("Generate with Voice Selection", systemImage: "waveform.badge.plus")
-                }
-                .disabled(isGeneratingAudio)
-                .accessibilityIdentifier("guide_generate_with_selection_button")
-
+                // Narration uses a single fixed voice (Liam) — no voice picker.
                 Button {
                     generateAudioOnly()
                 } label: {
-                    Label("Generate with Default Voice", systemImage: "waveform")
+                    Label("Generate Narration", systemImage: "waveform")
                 }
                 .disabled(isGeneratingAudio)
                 .accessibilityIdentifier("guide_generate_with_default_button")
@@ -591,53 +566,48 @@ struct GuideView: View {
     }
 
     private func generateAudioOnly() {
+        guard let content = item.summaryContent else { return }
         isGeneratingAudio = true
 
-        // Increment attempt counter immediately
+        // Reflect the in-progress state durably and increment the attempt counter.
         var updatedItem = item
         updatedItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
+        updatedItem.narrationState = .generating
         environment.updateLibraryItem(updatedItem)
+
+        // Strip markup tags for cleaner narration.
+        let cleanedText = Self.prepareTextForAudio(content)
+        let itemId = item.id
+        let baseAttempts = item.audioGenerationAttempts ?? 0
 
         Task {
             do {
-                let audioService = environment.audioService
-                guard let content = item.summaryContent else {
-                    isGeneratingAudio = false
-                    return
-                }
-
-                // Strip markup tags for cleaner audio narration
-                let cleanedText = Self.prepareTextForAudio(content)
-
-                let result = try await audioService.generateAudio(
+                // Liam-only narration; the service writes the completed file into
+                // Documents and returns its descriptor.
+                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
                     text: cleanedText,
-                    voiceID: environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
+                    itemId: itemId
                 )
 
-                // Save audio file to documents directory
-                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                    Self.logger.error("Unable to access documents directory for audio storage")
+                await MainActor.run {
+                    var successItem = item
+                    successItem.audioFileURL = asset.relativeFileName
+                    successItem.audioDuration = asset.duration
+                    successItem.audioVoiceID = asset.voiceID
+                    successItem.narrationState = .ready
+                    successItem.audioGenerationAttempts = baseAttempts + 1
+                    environment.updateLibraryItem(successItem)
                     isGeneratingAudio = false
-                    return
                 }
-
-                // Use .m4a extension since we now export as AAC for proper concatenation
-                let audioFileName = "audio_\(item.id.uuidString).m4a"
-                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
-
-                // Update library item with audio URL on success
-                var successItem = item
-                successItem.audioFileURL = audioFileName
-                successItem.audioDuration = result.duration
-                successItem.audioVoiceID = environment.userSettings.selectedVoiceID
-                successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
-                environment.updateLibraryItem(successItem)
-
-                isGeneratingAudio = false
             } catch {
-                Self.logger.error("Audio generation failed (attempt \(item.audioGenerationAttempts ?? 1)/\(LibraryItem.maxAudioGenerationAttempts)): \(error.localizedDescription)")
-                isGeneratingAudio = false
+                Self.logger.error("Liam narration failed (attempt \(baseAttempts + 1)/\(LibraryItem.maxAudioGenerationAttempts)): \(error.localizedDescription)")
+                await MainActor.run {
+                    var failedItem = item
+                    failedItem.narrationState = .failed
+                    failedItem.audioGenerationAttempts = baseAttempts + 1
+                    environment.updateLibraryItem(failedItem)
+                    isGeneratingAudio = false
+                }
             }
         }
     }
@@ -650,11 +620,7 @@ struct GuideView: View {
     // MARK: - Audio Management
 
     private func regenerateAudioWithCurrentVoice() {
-        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
-        regenerateAudioWithVoice(currentVoice)
-    }
-
-    private func regenerateAudioWithVoice(_ voiceID: String) {
+        guard let content = item.summaryContent else { return }
         isGeneratingAudio = true
 
         // Stop any current playback
@@ -664,55 +630,43 @@ struct GuideView: View {
             stopProgressTimer()
         }
 
+        // Mark in-progress durably; prior audio is preserved by the service until
+        // the new file is promoted atomically.
+        var pending = item
+        pending.narrationState = .generating
+        environment.updateLibraryItem(pending)
+
+        let cleanedText = Self.prepareTextForAudio(content)
+        let itemId = item.id
+        let baseAttempts = item.audioGenerationAttempts ?? 0
+
         Task {
             do {
-                let audioService = environment.audioService
-                guard let content = item.summaryContent else {
-                    await MainActor.run { isGeneratingAudio = false }
-                    return
-                }
-
-                // Strip markup tags for cleaner audio narration
-                let cleanedText = Self.prepareTextForAudio(content)
-
-                let result = try await audioService.generateAudio(
+                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
                     text: cleanedText,
-                    voiceID: voiceID
+                    itemId: itemId
                 )
 
-                // Save audio file to documents directory
-                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                    Self.logger.error("Unable to access documents directory for audio storage")
-                    await MainActor.run { isGeneratingAudio = false }
-                    return
-                }
-
-                // Delete old audio file if exists (check both .mp3 and .m4a extensions)
-                if let oldPath = item.audioFileURL {
-                    let oldURL = documentsDir.appendingPathComponent(oldPath)
-                    try? FileManager.default.removeItem(at: oldURL)
-                }
-
-                // Use .m4a extension since we now export as AAC for proper concatenation
-                let audioFileName = "audio_\(item.id.uuidString).m4a"
-                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
-
-                // Update library item with new audio
                 await MainActor.run {
                     var successItem = item
-                    successItem.audioFileURL = audioFileName
-                    successItem.audioDuration = result.duration
-                    successItem.audioVoiceID = voiceID
-                    successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
+                    successItem.audioFileURL = asset.relativeFileName
+                    successItem.audioDuration = asset.duration
+                    successItem.audioVoiceID = asset.voiceID
+                    successItem.narrationState = .ready
+                    successItem.audioGenerationAttempts = baseAttempts + 1
                     environment.updateLibraryItem(successItem)
                     isGeneratingAudio = false
                 }
 
-                Self.logger.info("Audio regenerated with voice \(voiceID)")
+                Self.logger.info("Liam narration regenerated")
             } catch {
-                Self.logger.error("Audio regeneration failed: \(error.localizedDescription)")
-                await MainActor.run { isGeneratingAudio = false }
+                Self.logger.error("Liam narration regeneration failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    var failedItem = item
+                    failedItem.narrationState = .failed
+                    environment.updateLibraryItem(failedItem)
+                    isGeneratingAudio = false
+                }
             }
         }
     }
