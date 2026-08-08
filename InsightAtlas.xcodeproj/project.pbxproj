@@ -46,6 +46,14 @@
 		C207E5F33026236A00843994 /* PDFRedesignPhase456Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */; };
 		C207E5F5302624A100843994 /* DocumentStructureEnhancer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F4302624A100843994 /* DocumentStructureEnhancer.swift */; };
 		C207E5F7302624D300843994 /* PDFRedesignPhase6StructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */; };
+		C207E5F93026B37B00843994 /* KokoroTTSClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F83026B37A00843994 /* KokoroTTSClient.swift */; };
+		C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */; };
+		C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */; };
+		C207E5FF3026CA8B00843994 /* ReaderContentAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FE3026CA8B00843994 /* ReaderContentAdapter.swift */; };
+		C207E6023026CAB600843994 /* PremiumTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6013026CAB600843994 /* PremiumTabBar.swift */; };
+		C207E6043026CAC900843994 /* AtlasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6033026CAC900843994 /* AtlasView.swift */; };
+		C207E6063026D40500843994 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6053026D40500843994 /* ListenView.swift */; };
+		C207E6083026E11900843994 /* ContentTruncationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6073026E11900843994 /* ContentTruncationTests.swift */; };
 		C21355A72EE6360100B6662D /* CormorantGaramond-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */; };
 		C21355A82EE6360100B6662D /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559C2EE6360100B6662D /* Inter-Regular.ttf */; };
 		C21355A92EE6360100B6662D /* CormorantGaramond-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355922EE6360100B6662D /* CormorantGaramond-Italic.ttf */; };
@@ -190,6 +198,14 @@
 		C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFRedesignPhase456Tests.swift; sourceTree = "<group>"; };
 		C207E5F4302624A100843994 /* DocumentStructureEnhancer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentStructureEnhancer.swift; sourceTree = "<group>"; };
 		C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFRedesignPhase6StructureTests.swift; sourceTree = "<group>"; };
+		C207E5F83026B37A00843994 /* KokoroTTSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTTSClient.swift; sourceTree = "<group>"; };
+		C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationService.swift; sourceTree = "<group>"; };
+		C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationTests.swift; sourceTree = "<group>"; };
+		C207E5FE3026CA8B00843994 /* ReaderContentAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderContentAdapter.swift; sourceTree = "<group>"; };
+		C207E6013026CAB600843994 /* PremiumTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumTabBar.swift; sourceTree = "<group>"; };
+		C207E6033026CAC900843994 /* AtlasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasView.swift; sourceTree = "<group>"; };
+		C207E6053026D40500843994 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
+		C207E6073026E11900843994 /* ContentTruncationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentTruncationTests.swift; sourceTree = "<group>"; };
 		C213558F2EE6360100B6662D /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
 		C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-BoldItalic.ttf"; sourceTree = "<group>"; };
@@ -318,6 +334,8 @@
 				C207E5E830261DD100843994 /* PDFRedesignPhase123Tests.swift */,
 				C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */,
 				C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */,
+				C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */,
+				C207E6073026E11900843994 /* ContentTruncationTests.swift */,
 			);
 			path = InsightAtlasTests;
 			sourceTree = "<group>";
@@ -355,6 +373,7 @@
 				C207E5D830252F2B00843994 /* ReaderView.swift */,
 				C207E5DA30252F7E00843994 /* SectionDrawer.swift */,
 				C207E5DC30252FDF00843994 /* ReaderContainerView.swift */,
+				C207E5FE3026CA8B00843994 /* ReaderContentAdapter.swift */,
 			);
 			path = Reader;
 			sourceTree = "<group>";
@@ -446,6 +465,9 @@
 				C22353FC302507CE0022D852 /* LLMActionRouter.swift */,
 				C22353FE30250AEA0022D852 /* UIDriver.swift */,
 				C207E5CF30252E2C00843994 /* Reader */,
+				C207E6013026CAB600843994 /* PremiumTabBar.swift */,
+				C207E6033026CAC900843994 /* AtlasView.swift */,
+				C207E6053026D40500843994 /* ListenView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -479,6 +501,8 @@
 				IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */,
 				C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */,
 				C207E5EA3026217B00843994 /* citation-taxonomy.json */,
+				C207E5F83026B37A00843994 /* KokoroTTSClient.swift */,
+				C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -724,6 +748,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C207E6083026E11900843994 /* ContentTruncationTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
@@ -733,6 +758,7 @@
 				7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */,
 				C207E5F33026236A00843994 /* PDFRedesignPhase456Tests.swift in Sources */,
 				C207E5F7302624D300843994 /* PDFRedesignPhase6StructureTests.swift in Sources */,
+				C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -750,6 +776,8 @@
 				012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */,
 				C207E5E130261B6A00843994 /* PDFDiagramGeometry.swift in Sources */,
 				65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */,
+				C207E5F93026B37B00843994 /* KokoroTTSClient.swift in Sources */,
+				C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */,
 				B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */,
 				C207E5DB30252F7E00843994 /* SectionDrawer.swift in Sources */,
 				3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */,
@@ -765,6 +793,8 @@
 				E81A00122D000003007AAAAA /* AIService.swift in Sources */,
 				E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */,
 				C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */,
+				C207E6023026CAB600843994 /* PremiumTabBar.swift in Sources */,
+				C207E5FF3026CA8B00843994 /* ReaderContentAdapter.swift in Sources */,
 				E81A00162D000005007AAAAA /* GuideModels.swift in Sources */,
 				C22353FF30250AEA0022D852 /* UIDriver.swift in Sources */,
 				E81A00182D000006007AAAAA /* LibraryView.swift in Sources */,
@@ -832,6 +862,8 @@
 				IAAPPENV001AAAAAAAAA001 /* AppEnvironment.swift in Sources */,
 				IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */,
 				IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */,
+				C207E6043026CAC900843994 /* AtlasView.swift in Sources */,
+				C207E6063026D40500843994 /* ListenView.swift in Sources */,
 				C207E5DD30252FDF00843994 /* ReaderContainerView.swift in Sources */,
 				IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */,
 			);
