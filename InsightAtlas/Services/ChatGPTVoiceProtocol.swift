@@ -8,8 +8,29 @@ struct ChatGPTVoiceConfig: Equatable, Sendable {
     let defaultVoiceID: String
     let maximumTextChunkBytes: Int
     let maximumEventBytes: Int
+    let maximumOutputAudioBytes: Int
     let sessionTimeout: TimeInterval
     let turnTimeout: TimeInterval
+
+    init(
+        endpoint: URL,
+        model: String,
+        defaultVoiceID: String,
+        maximumTextChunkBytes: Int,
+        maximumEventBytes: Int,
+        maximumOutputAudioBytes: Int = 360_000_000,
+        sessionTimeout: TimeInterval,
+        turnTimeout: TimeInterval
+    ) {
+        self.endpoint = endpoint
+        self.model = model
+        self.defaultVoiceID = defaultVoiceID
+        self.maximumTextChunkBytes = maximumTextChunkBytes
+        self.maximumEventBytes = maximumEventBytes
+        self.maximumOutputAudioBytes = maximumOutputAudioBytes
+        self.sessionTimeout = sessionTimeout
+        self.turnTimeout = turnTimeout
+    }
 
     static let `default` = ChatGPTVoiceConfig(
         endpoint: URL(string: "wss://api.openai.com/v1/live")!,
@@ -17,6 +38,7 @@ struct ChatGPTVoiceConfig: Equatable, Sendable {
         defaultVoiceID: "marin",
         maximumTextChunkBytes: 500,
         maximumEventBytes: 1_000_000,
+        maximumOutputAudioBytes: 360_000_000,
         sessionTimeout: 45,
         turnTimeout: 90
     )
@@ -99,6 +121,7 @@ enum ChatGPTVoiceRequestBuilder {
               config.endpoint.path == "/v1/live",
               config.maximumTextChunkBytes > 0,
               config.maximumEventBytes > 0,
+              config.maximumOutputAudioBytes > 0,
               config.sessionTimeout > 0,
               config.turnTimeout > 0 else {
             throw ChatGPTVoiceProtocolError.invalidEndpoint
@@ -285,9 +308,10 @@ enum ChatGPTVoiceEventParser {
                 ?? (error?["status"] as? NSNumber)?.intValue
             let code = ((error?["code"] as? String) ?? (dictionary["code"] as? String) ?? "")
                 .lowercased()
-            let message = (error?["message"] as? String)
+            let rawMessage = (error?["message"] as? String)
                 ?? (dictionary["message"] as? String)
                 ?? "ChatGPT Voice returned an unknown error."
+            let message = String(rawMessage.prefix(500))
             let fatalCodes = [
                 "authentication_error", "invalid_api_key", "invalid_token", "token_expired"
             ]

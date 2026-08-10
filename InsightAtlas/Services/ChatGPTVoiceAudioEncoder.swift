@@ -66,12 +66,18 @@ actor ChatGPTVoiceM4AEncoder: ChatGPTVoiceAudioEncoding {
         self.pcmURL = directory.appendingPathComponent("narration.caf")
         self.outputURL = directory.appendingPathComponent("narration.m4a")
         self.format = format
-        self.audioFile = try AVAudioFile(
-            forWriting: pcmURL,
-            settings: format.settings,
-            commonFormat: .pcmFormatInt16,
-            interleaved: true
-        )
+        self.audioFile = nil
+        do {
+            self.audioFile = try AVAudioFile(
+                forWriting: pcmURL,
+                settings: format.settings,
+                commonFormat: .pcmFormatInt16,
+                interleaved: true
+            )
+        } catch {
+            try? fileManager.removeItem(at: directory)
+            throw error
+        }
     }
 
     func appendPCM(_ data: Data) async throws {

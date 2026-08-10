@@ -133,6 +133,7 @@ actor URLSessionChatGPTVoiceTransport: ChatGPTVoiceTransporting {
             group.addTask {
                 let nanoseconds = UInt64(max(timeout, 0.001) * 1_000_000_000)
                 try await Task.sleep(nanoseconds: nanoseconds)
+                task.cancel(with: .goingAway, reason: nil)
                 throw URLError(.timedOut)
             }
 
@@ -161,6 +162,7 @@ enum ChatGPTVoiceServiceError: LocalizedError, Equatable {
     case timeout
     case connectionClosed
     case emptyAudio
+    case outputTooLarge
     case unsupportedVoice
 
     var errorDescription: String? {
@@ -177,6 +179,8 @@ enum ChatGPTVoiceServiceError: LocalizedError, Equatable {
             return "ChatGPT Voice closed before narration completed."
         case .emptyAudio:
             return "ChatGPT Voice produced no playable audio."
+        case .outputTooLarge:
+            return "ChatGPT Voice exceeded the safe narration output limit."
         case .unsupportedVoice:
             return "The selected ChatGPT Voice is not supported."
         }
@@ -263,7 +267,8 @@ final class ChatGPTVoiceService: AudioServiceProtocol, @unchecked Sendable {
                 try await transport.send(payload)
                 receivedAudioBytes += try await receiveTurnAudio(
                     using: transport,
-                    encoder: encoder
+                    encoder: encoder,
+                    currentAudioByteCount: receivedAudioBytes
                 )
             }
 
@@ -316,7 +321,8 @@ final class ChatGPTVoiceService: AudioServiceProtocol, @unchecked Sendable {
 
     private func receiveTurnAudio(
         using transport: any ChatGPTVoiceTransporting,
-        encoder: any ChatGPTVoiceAudioEncoding
+        encoder: any ChatGPTVoiceAudioEncoding,
+        currentAudioByteCount: Int
     ) async throws -> Int {
         var audioByteCount = 0
         while true {
@@ -328,6 +334,9 @@ final class ChatGPTVoiceService: AudioServiceProtocol, @unchecked Sendable {
             switch event {
             case .audio(let pcm):
                 try ChatGPTPCMValidator.validate(pcm)
+                guard currentAudioByteCount + audioByteCount <= config.maximumOutputAudioBytes - pcm.count else {
+                    throw ChatGPTVoiceServiceError.outputTooLarge
+                }
                 try await encoder.appendPCM(pcm)
                 audioByteCount += pcm.count
             case .turnDone(let role, _):

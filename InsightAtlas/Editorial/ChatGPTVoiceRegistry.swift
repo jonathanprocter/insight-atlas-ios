@@ -24,7 +24,11 @@ enum ChatGPTVoiceRegistry {
         .init(voiceID: "verse", name: "Verse", description: "Dynamic and polished")
     ]
 
-    static let defaultVoice = allVoices.first { $0.voiceID == "marin" }!
+    static let defaultVoice = ChatGPTVoice(
+        voiceID: "marin",
+        name: "Marin",
+        description: "Natural long-form narration"
+    )
 
     static func voice(byID id: String) -> ChatGPTVoice? {
         allVoices.first { $0.voiceID == id }
