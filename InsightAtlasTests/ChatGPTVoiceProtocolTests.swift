@@ -127,6 +127,20 @@ final class ChatGPTVoiceProtocolTests: XCTestCase {
         )
     }
 
+    func testEventParserBoundsProviderErrorMessages() throws {
+        let untrustedMessage = String(repeating: "x", count: 5_000)
+        let payloadData = try JSONSerialization.data(withJSONObject: [
+            "type": "error",
+            "error": ["code": "provider_error", "message": untrustedMessage]
+        ])
+        let payload = try XCTUnwrap(String(data: payloadData, encoding: .utf8))
+
+        guard case .providerError(let message, _) = try ChatGPTVoiceEventParser.parse(payload) else {
+            return XCTFail("Expected provider error")
+        }
+        XCTAssertLessThanOrEqual(message.count, 500)
+    }
+
     func testEventParserRejectsMalformedJSONAndBase64() {
         XCTAssertThrowsError(try ChatGPTVoiceEventParser.parse("not-json"))
         XCTAssertThrowsError(try ChatGPTVoiceEventParser.parse("{\"type\":\"output_audio.delta\",\"audio\":\"***\"}"))

@@ -126,6 +126,37 @@ final class ChatGPTVoiceServiceTests: XCTestCase {
         }
     }
 
+    func testServiceRejectsAudioBeyondConfiguredOutputLimit() async throws {
+        let pcm = Data([0x00, 0x01, 0x02, 0x03])
+        let transport = RecordingChatGPTVoiceTransport(inbound: [
+            .text("{\"type\":\"session.started\"}"),
+            .text(try audioDeltaPayload(pcm)),
+            .text("{\"type\":\"turn.done\",\"turn\":{\"role\":\"assistant\",\"transcript\":\"Narrated.\"}}")
+        ])
+        let encoder = RecordingChatGPTVoiceEncoder(result: .init(data: Data([1]), duration: 1))
+        let config = ChatGPTVoiceConfig(
+            endpoint: URL(string: "wss://api.openai.com/v1/live")!,
+            model: "gpt-live-1-codex",
+            defaultVoiceID: "marin",
+            maximumTextChunkBytes: 500,
+            maximumEventBytes: 1_000_000,
+            maximumOutputAudioBytes: 2,
+            sessionTimeout: 30,
+            turnTimeout: 30
+        )
+        let service = makeService(transport: transport, encoder: encoder, config: config)
+
+        do {
+            _ = try await service.generateAudio(text: "Narrate this.", voiceID: "marin")
+            XCTFail("Expected output limit failure")
+        } catch let error as ChatGPTVoiceServiceError {
+            XCTAssertEqual(error, .outputTooLarge)
+        }
+
+        let encoderCancelled = await encoder.wasCancelled()
+        XCTAssertTrue(encoderCancelled)
+    }
+
     func testServiceMapsTransportTimeout() async throws {
         let transport = RecordingChatGPTVoiceTransport(inbound: [
             .failure(URLError(.timedOut))
