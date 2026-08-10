@@ -25,7 +25,8 @@ final class ChatGPTVoiceServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.request?.value(forHTTPHeaderField: "Authorization"), "Bearer oauth-token")
         XCTAssertEqual(snapshot.request?.value(forHTTPHeaderField: "chatgpt-account-id"), "acct_123")
         XCTAssertTrue(snapshot.closed)
-        XCTAssertEqual(await encoder.appendedPCM(), [pcm])
+        let appendedPCM = await encoder.appendedPCM()
+        XCTAssertEqual(appendedPCM, [pcm])
     }
 
     func testServiceSendsSessionUpdateBeforeSequentialSpeakableChunks() async throws {
@@ -62,7 +63,8 @@ final class ChatGPTVoiceServiceTests: XCTestCase {
         XCTAssertEqual(try payloadType(messages[2]), "session.context.append")
         XCTAssertEqual(try contextText(messages[1]), "First sentence.")
         XCTAssertEqual(try contextText(messages[2]), "Second sentence.")
-        XCTAssertEqual(await encoder.appendedPCM(), [pcm1, pcm2])
+        let appendedPCM = await encoder.appendedPCM()
+        XCTAssertEqual(appendedPCM, [pcm1, pcm2])
     }
 
     func testServiceRejectsEmptyAudioAndClosesResources() async throws {
@@ -80,8 +82,10 @@ final class ChatGPTVoiceServiceTests: XCTestCase {
             XCTAssertEqual(error, .emptyAudio)
         }
 
-        XCTAssertTrue(await transport.snapshot().closed)
-        XCTAssertTrue(await encoder.wasCancelled())
+        let transportSnapshot = await transport.snapshot()
+        let encoderCancelled = await encoder.wasCancelled()
+        XCTAssertTrue(transportSnapshot.closed)
+        XCTAssertTrue(encoderCancelled)
     }
 
     func testServiceMapsProviderAuthenticationErrorAndClosesResources() async throws {
@@ -99,8 +103,10 @@ final class ChatGPTVoiceServiceTests: XCTestCase {
             XCTAssertEqual(error, .authenticationFailed)
         }
 
-        XCTAssertTrue(await transport.snapshot().closed)
-        XCTAssertTrue(await encoder.wasCancelled())
+        let transportSnapshot = await transport.snapshot()
+        let encoderCancelled = await encoder.wasCancelled()
+        XCTAssertTrue(transportSnapshot.closed)
+        XCTAssertTrue(encoderCancelled)
     }
 
     func testServiceRejectsMalformedPCM() async throws {
@@ -134,7 +140,8 @@ final class ChatGPTVoiceServiceTests: XCTestCase {
             XCTAssertEqual(error, .timeout)
         }
 
-        XCTAssertTrue(await transport.snapshot().closed)
+        let transportSnapshot = await transport.snapshot()
+        XCTAssertTrue(transportSnapshot.closed)
     }
 
     private func audioDeltaPayload(_ data: Data) throws -> String {
