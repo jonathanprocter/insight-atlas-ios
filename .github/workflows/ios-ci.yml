@@ -51,5 +51,4 @@ jobs:
             -project InsightAtlas.xcodeproj \
             -scheme InsightAtlas \
             -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO
+            -configuration Debug
