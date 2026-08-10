@@ -112,7 +112,7 @@ actor ChatGPTVoiceM4AEncoder: ChatGPTVoiceAudioEncoding {
             throw ChatGPTVoiceEncodingError.emptyAudio
         }
 
-        audioFile?.close()
+        // Releasing AVAudioFile flushes and closes it on iOS 17.
         audioFile = nil
 
         guard let exporter = AVAssetExportSession(
@@ -148,7 +148,7 @@ actor ChatGPTVoiceM4AEncoder: ChatGPTVoiceAudioEncoding {
 
     func cancel() async {
         guard !isFinished else { return }
-        audioFile?.close()
+        // Releasing AVAudioFile flushes and closes it on iOS 17.
         audioFile = nil
         isFinished = true
         cleanupTemporaryFiles()

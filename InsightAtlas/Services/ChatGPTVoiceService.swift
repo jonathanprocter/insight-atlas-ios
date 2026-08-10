@@ -58,9 +58,9 @@ private final class ChatGPTVoiceURLSessionDelegate: NSObject, URLSessionTaskDele
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
-        willPerformHTTPRedirection newRequest: URLRequest,
+        willPerformHTTPRedirection response: HTTPURLResponse,
         newRequest request: URLRequest,
-        completionHandler: @escaping (URLRequest?) -> Void
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
     ) {
         // Never forward an OAuth bearer token across a redirect.
         completionHandler(nil)
