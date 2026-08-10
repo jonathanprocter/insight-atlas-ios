@@ -70,3 +70,14 @@ The Linux development environment cannot run `xcodebuild`, so repository-level v
 ## Success Criteria
 
 The feature is complete when ChatGPT Voice is the default narration provider, a signed-in account can produce a playable M4A from guide text, provider failures fall back in the documented order, existing narration services still work, settings and voice pickers handle all three providers, tests cover the new pure logic, and an Apple-toolchain build reports no compile or test failures.
+
+## Verified Platform Support
+
+Apple documents `URLSessionWebSocketTask` as available from iOS 13, supporting asynchronous UTF-8 text and binary messages, request-based task creation, authentication and redirect delegates, bounded message size, ping frames, and explicit close frames. InsightAtlas can therefore attach the OAuth/account headers to a `URLRequest`, enforce a maximum inbound message size, and close the transport deterministically.
+
+Apple also documents `AVAudioFile` as available from iOS 8 and designed for sequential `AVAudioPCMBuffer` reads and writes regardless of the on-disk format. The encoder can stream each validated PCM delta into a temporary audio file rather than retaining a full audiobook-sized raw buffer in memory, then export the finished asset to M4A.
+
+References:
+
+1. [URLSessionWebSocketTask — Apple Developer Documentation](https://developer.apple.com/documentation/foundation/urlsessionwebsockettask)
+2. [AVAudioFile — Apple Developer Documentation](https://developer.apple.com/documentation/avfaudio/avaudiofile)
