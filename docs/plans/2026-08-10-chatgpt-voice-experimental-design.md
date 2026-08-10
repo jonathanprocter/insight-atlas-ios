@@ -1,6 +1,6 @@
 # ChatGPT Voice Experimental Design
 
-**Author:** Manus AI  
+**Author:** Manus AI
 **Date:** August 10, 2026
 
 ## Objective
