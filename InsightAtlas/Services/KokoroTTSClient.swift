@@ -68,9 +68,21 @@ public actor KokoroTTSClient {
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
 
-    public init(baseURL: URL = KokoroTTSClient.defaultBaseURL, session: URLSession = .shared) {
+    public init(baseURL: URL = KokoroTTSClient.defaultBaseURL, session: URLSession = KokoroTTSClient.makeDefaultSession()) {
         self.baseURL = baseURL
         self.session = session
+    }
+
+    /// A session with sane timeouts so a stalled request can't wedge narration.
+    /// The previous default (`.shared` + a 320s request timeout) could keep a
+    /// single chunk pending for over five minutes, which is what made narration
+    /// appear to hang.
+    public static func makeDefaultSession() -> URLSession {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 90    // no progress for 90s → fail
+        config.timeoutIntervalForResource = 180  // whole request must finish in 180s
+        config.waitsForConnectivity = true
+        return URLSession(configuration: config)
     }
 
     /// Call once during private development or secure provisioning. Never
@@ -204,7 +216,7 @@ public actor KokoroTTSClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 320
+        request.timeoutInterval = 90
         try authorize(&request)
         request.httpBody = try encoder.encode(
             KokoroSpeechRequest(

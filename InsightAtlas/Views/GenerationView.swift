@@ -602,7 +602,7 @@ struct GenerationView: View {
                     let resolvedAuthor = output.resolvedAuthor
 
                     // Create library item with cover image path (using pre-created ID)
-                    let item = LibraryItem(
+                    var item = LibraryItem(
                         id: newItemId,
                         title: resolvedTitle,
                         author: resolvedAuthor,
@@ -620,19 +620,74 @@ struct GenerationView: View {
                         audioDuration: output.metadata?.audioDuration
                     )
 
-                    // Save to library
+                    // Narration is generated in the background (never inline), so the
+                    // completed guide shows immediately. Mark it pending when the user
+                    // has auto-narration on AND at least one provider is configured —
+                    // Mega Transcript (primary) or the Liam token (fallback). Otherwise leave
+                    // narration unset (it can be generated on demand later).
+                    let hasNarrationProvider = KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+                        || KokoroTTSClient.currentAPIKey() != nil
+                    let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
+                    if willNarrate {
+                        item.narrationState = .generating
+                    }
+
+                    // Save to library and present the completed guide right away.
                     environment.addLibraryItem(item)
                     generatedItem = item
                     generationState = .completed
 
                     // Clear cached data to free memory
                     cachedFileData = nil
+
+                    // Kick off narration without blocking completion.
+                    if willNarrate {
+                        startBackgroundNarration(for: item)
+                    }
                 }
 
             } catch {
                 await MainActor.run {
                     generationState = .error(error.localizedDescription)
                     cachedFileData = nil
+                }
+            }
+        }
+    }
+
+    /// Generates narration in the background after the guide is
+    /// already saved and shown, so audio never blocks completion. Updates the
+    /// persisted item's `narrationState` as it progresses. Any failure/hang
+    /// surfaces as `.failed` on the item rather than freezing the UI.
+    private func startBackgroundNarration(for item: LibraryItem) {
+        guard let content = item.summaryContent else { return }
+        guard !NarrationTextSanitizer.prepare(content).isEmpty else { return }
+        let itemId = item.id
+
+        Task {
+            do {
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
+                    itemId: itemId
+                )
+                await MainActor.run {
+                    // Re-fetch in case the item changed while narration ran.
+                    if var updated = environment.dataManager.getLibraryItem(id: itemId) {
+                        updated.audioFileURL = asset.relativeFileName
+                        updated.audioDuration = asset.duration
+                        updated.audioVoiceID = asset.voiceID
+                        updated.narrationState = .ready
+                        environment.updateLibraryItem(updated)
+                        if generatedItem?.id == itemId { generatedItem = updated }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    if var updated = environment.dataManager.getLibraryItem(id: itemId) {
+                        updated.narrationState = .failed
+                        environment.updateLibraryItem(updated)
+                        if generatedItem?.id == itemId { generatedItem = updated }
+                    }
                 }
             }
         }
@@ -735,4 +790,3 @@ struct GuidePreviewCard: View {
 }
 
 // Voice selection was removed: narration is Liam-only (see AudioSettingsView).
-

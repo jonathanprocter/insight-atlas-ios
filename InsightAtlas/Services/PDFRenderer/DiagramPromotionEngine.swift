@@ -37,6 +37,16 @@ struct DiagramPromotionEngine {
             s.blocks = section.blocks.flatMap { promoteBlock($0) }
             return s
         }
+        // Accounting: promoted arrow-chain diagrams render via the native path and
+        // never pass through pdfBlocks(for:), so they emit no 🖼️ line and the 📊
+        // manifest would otherwise undercount on-page visuals. Log the count so a
+        // future misparse leaves a trace instead of vanishing silently.
+        let promotedCount = doc.sections.reduce(0) { acc, s in
+            acc + s.blocks.filter { $0.metadata?["promoted"] != nil }.count
+        }
+        if promotedCount > 0 {
+            print("🖼️ [PDF Visual] promoted \(promotedCount) arrow-chain diagram(s) (native path)")
+        }
         return doc
     }
 

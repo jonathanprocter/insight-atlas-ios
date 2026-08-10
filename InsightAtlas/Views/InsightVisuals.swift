@@ -572,19 +572,21 @@ struct InsightVisualParser {
             let centerLine = trimmed.first(where: { $0.lowercased().hasPrefix("central:") })
             var center = centerLine?.replacingOccurrences(of: "Central:", with: "", options: .caseInsensitive)
                 .trimmingCharacters(in: .whitespaces) ?? ""
-            // Every non-central line is a branch: strip bullets, keep the
-            // target of "→" arrows, and accept "Label: description" lines.
+            // Central detection + "A → B" arrow-target extraction are #2-LOCAL
+            // (idiosyncratic to this path); bullet-strip / header-skip / "X: Y"
+            // formatting / markdown all route through the shared source of truth
+            // (PDFAnalysisDocument.sanitizeConceptBranch, rulings 1/2/3) so the
+            // three concept-map parsers can no longer diverge.
             var branches: [String] = []
             for line in trimmed {
                 if line.lowercased().hasPrefix("central:") { continue }
-                var branch = line
-                if branch.hasPrefix("- ") || branch.hasPrefix("* ") || branch.hasPrefix("• ") {
-                    branch = String(branch.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                var pre = line
+                if pre.contains("→") {
+                    pre = pre.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? pre
                 }
-                if branch.contains("→") {
-                    branch = branch.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? branch
+                if let branch = PDFAnalysisDocument.sanitizeConceptBranch(pre) {
+                    branches.append(branch)
                 }
-                if !branch.isEmpty { branches.append(branch) }
             }
             if center.isEmpty && !branches.isEmpty {
                 center = branches.removeFirst()
@@ -2001,8 +2003,15 @@ enum PDFVisualPrerenderer {
         for visual in visuals {
             let url = PDFAnalysisDocument.visualCacheURL(for: visual)
             if cache.cachedImage(for: url) != nil { continue }   // already rendered
-            guard let image = VisualRasterizer.image(for: visual),
-                  let data = image.pngData() else { continue }
+            guard let image = VisualRasterizer.image(for: visual) else {
+                // Named signal instead of a silent nil-return: the rasterizer
+                // requires a JSON-decodable payload; if it can't decode, this
+                // visual will miss the cache and take its native fallback at draw
+                // time. Pairs with the draw-time 🖼️ line to make misses self-sorting.
+                print("🖼️ [PDF Visual] prerender could NOT rasterize type=\(visual.type) title=\(visual.title ?? "—") — payload not decodable")
+                continue
+            }
+            guard let data = image.pngData() else { continue }
             try? data.write(to: cache.localURL(for: url), options: .atomic)
         }
     }

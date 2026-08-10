@@ -369,7 +369,7 @@ extension PDFAnalysisDocument {
                     type: .exercise,
                     content: exerciseText,
                     listItems: steps,
-                    metadata: ["title": formatExerciseTitle(exerciseType), "time": "10-15 minutes"]
+                    metadata: ["title": formatExerciseTitle(exerciseType), "time": estimateExerciseMinutes(text: exerciseText, steps: steps)]
                 ))
                 exerciseContent = []
                 exerciseType = nil
@@ -436,7 +436,16 @@ extension PDFAnalysisDocument {
                     .joined(separator: " ")
                     .trimmingCharacters(in: .whitespaces)
                 if !titleText.isEmpty {
-                    currentBlocks.append(PDFContentBlock(type: .premiumH1, content: titleText))
+                    // Premium H1 opens a real SECTION (not an in-section block) so
+                    // premium-heading guides get §-anchors instead of one "untitled"
+                    // section. Mirrors the #/## handler. (H2 stays in-section.)
+                    if let current = currentSection {
+                        var updated = current
+                        updated.blocks = currentBlocks
+                        sections.append(updated)
+                    }
+                    currentSection = PDFSection(heading: titleText, headingLevel: 1, blocks: [])
+                    currentBlocks = []
                 }
                 premiumH1Content = []
             }
@@ -509,7 +518,17 @@ extension PDFAnalysisDocument {
             let line = lines[i].trimmingCharacters(in: .whitespaces)
 
             if let inline = inlineTagContent(line, tag: "PREMIUM_H1") {
-                currentBlocks.append(PDFContentBlock(type: .premiumH1, content: stripMarkdownFromLine(inline.content)))
+                // Inline premium H1 also opens a section (see block-form above).
+                let h1 = stripMarkdownFromLine(inline.content).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !h1.isEmpty {
+                    if let current = currentSection {
+                        var updated = current
+                        updated.blocks = currentBlocks
+                        sections.append(updated)
+                    }
+                    currentSection = PDFSection(heading: h1, headingLevel: 1, blocks: [])
+                    currentBlocks = []
+                }
                 i += 1
                 continue
             }
@@ -602,7 +621,7 @@ extension PDFAnalysisDocument {
                     type: .exercise,
                     content: exerciseText,
                     listItems: steps,
-                    metadata: ["title": formatExerciseTitle(inline.type), "time": "10-15 minutes"]
+                    metadata: ["title": formatExerciseTitle(inline.type), "time": estimateExerciseMinutes(text: exerciseText, steps: steps)]
                 ))
                 i += 1
                 continue
@@ -766,7 +785,7 @@ extension PDFAnalysisDocument {
                     type: .exercise,
                     content: exerciseText,
                     listItems: steps,
-                    metadata: ["title": formatExerciseTitle(exerciseType), "time": "10-15 minutes"]
+                    metadata: ["title": formatExerciseTitle(exerciseType), "time": estimateExerciseMinutes(text: exerciseText, steps: steps)]
                 ))
                 i += 1
                 continue
@@ -917,7 +936,16 @@ extension PDFAnalysisDocument {
                     .joined(separator: " ")
                     .trimmingCharacters(in: .whitespaces)
                 if !titleText.isEmpty {
-                    currentBlocks.append(PDFContentBlock(type: .premiumH1, content: titleText))
+                    // Premium H1 opens a real SECTION (not an in-section block) so
+                    // premium-heading guides get §-anchors instead of one "untitled"
+                    // section. Mirrors the #/## handler. (H2 stays in-section.)
+                    if let current = currentSection {
+                        var updated = current
+                        updated.blocks = currentBlocks
+                        sections.append(updated)
+                    }
+                    currentSection = PDFSection(heading: titleText, headingLevel: 1, blocks: [])
+                    currentBlocks = []
                 }
                 i += 1
                 continue
@@ -1475,10 +1503,21 @@ extension PDFAnalysisDocument {
             if trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) != nil { break }
             if trimmed.count > 80 { break }   // long line = prose, not a branch
             blanksSkipped = 0
-            branches.append(stripInlineMarkdown(trimmed))
+            // Per-branch sanitization via the shared source (rulings 1/2/3). The
+            // structural boundaries above ("- "/"* "/[/#/numbered/prose>80) are
+            // LOCAL collection logic and run first, so any line reaching here is a
+            // concept, not a boundary — which is why the canonical set including
+            // "- "/"* " is harmless here (those lines already broke the loop).
+            if let branch = sanitizeConceptBranch(trimmed) {
+                branches.append(branch)
+            }
             index += 1
             consumed += 1
-            if branches.count >= 8 { break }
+            // No hard branch cap. The adaptive radial geometry (grow-to-hold,
+            // width-binds, ceiling-tested to n≥30) sizes to any real count; the
+            // former `>= 8` cap silently truncated maps (Defect C — concepts
+            // spilled as loose bullets past the eighth). The structural guards
+            // above (blank×2, prose>80, [ / # / numbered prefixes) bound collection.
         }
 
         guard branches.count >= 2 else { return nil }
@@ -1942,6 +1981,18 @@ extension PDFAnalysisDocument {
             return [PDFContentBlock(type: .visual, content: title ?? "", visualURL: cacheURL)]
         }
 
+        // Prerender cache miss → native fallback below, rendered from the TYPED
+        // payload (independent of the rasterizer's text-decode). Every producible
+        // visual type now falls back to a native diagram/table and renders fine.
+        // radar/hierarchy — the former "diagram-to-bullets producers" — were REMOVED
+        // from the generator offer (2026-08-10, ruling (d)): they were never drawable
+        // (prose payload → no rasterization → bullet fallback), so offering them was
+        // a broken promise. The parse-side stays TOLERANT so any pre-cut STORED guide
+        // still degrades to clean bullets on re-export; there is simply no producible
+        // type left that degrades, so the DEGRADED label retires as resolved-by-removal.
+        // conceptMap likewise renders a real adaptive radial map (fixed 2026-08-10).
+        print("🖼️ [PDF Visual] Prerender miss → native fallback (renders fine): type=\(visual.type) title=\(title ?? "—")")
+
         func addHeadingIfNeeded(useInlineTitle: Bool) {
             if !useInlineTitle, let title, !title.isEmpty {
                 blocks.append(PDFContentBlock(type: .heading4, content: title))
@@ -1989,6 +2040,13 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
 
         case .conceptMap(let data):
+            // Defect-C diagnostic (no behavior change): dump the parsed branch
+            // list so a spill can be attributed. Concepts that render as loose
+            // bullets OUTSIDE the map but are ABSENT here were dropped at block
+            // collection upstream (tag-boundary/generator) — not by this parser
+            // or the radial renderer. If they're PRESENT here yet missing from
+            // the drawn map, the defect is downstream. Reads against the PDF.
+            print("🗺️ [PDF ConceptMap] central=\"\(data.center)\" branches(\(data.branches.count))=\(data.branches)")
             blocks.append(PDFContentBlock(
                 type: .conceptMap,
                 content: "",
@@ -2215,7 +2273,37 @@ extension PDFAnalysisDocument {
         return (quoteLines.joined(separator: " "), attribution)
     }
 
-    private static func parseConceptMap(from lines: [String]) -> (central: String, related: [String]) {
+    /// SINGLE SOURCE of concept-map per-branch sanitization (RULED CONSOLIDATION
+    /// 2026-08-10 — see memory pdf-visual-pipeline). Handles ONLY the per-concept
+    /// transform; collection/boundary logic (blank lines, structural breaks) and
+    /// idiosyncratic transforms (#2's arrow-target) stay LOCAL to each caller —
+    /// that separation is why the former "- = strip vs boundary" contradiction was
+    /// a category error, not a real conflict. Rulings:
+    ///   1. strip ONE leading bullet token from { - * • — → } (spaced or bare);
+    ///   2. strip inline markdown incl. **bold** — concept nodes render plain text,
+    ///      so preserved bold was a latent literal-asterisk bug, not a policy;
+    ///   3. a bare colon-terminated header ("Orbiting domains:") → nil (skip);
+    ///      an "X: Y" line → "X — Y".
+    /// Returns nil when the line is not a concept, so callers `continue`.
+    static func sanitizeConceptBranch(_ raw: String) -> String? {
+        var entry = raw.trimmingCharacters(in: .whitespaces)
+        for bullet in ["— ", "→ ", "- ", "* ", "• ", "—", "→", "-", "*", "•"] {
+            if entry.hasPrefix(bullet) {
+                entry = String(entry.dropFirst(bullet.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+        if entry.hasSuffix(":") { return nil }
+        if entry.isEmpty { return nil }
+        if let colon = entry.firstIndex(of: ":") {
+            let head = String(entry[..<colon]).trimmingCharacters(in: .whitespaces)
+            let tail = String(entry[entry.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            entry = tail.isEmpty ? head : "\(head) — \(tail)"
+        }
+        return stripInlineMarkdown(entry)
+    }
+
+    static func parseConceptMap(from lines: [String]) -> (central: String, related: [String]) {
         var central = ""
         var related: [String] = []
 
@@ -2223,6 +2311,8 @@ extension PDFAnalysisDocument {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty { continue }
 
+            // Central detection is LOCAL (collection concern): first non-empty line,
+            // via central:/main:/core: prefix or the whole line.
             if central.isEmpty {
                 if trimmed.lowercased().hasPrefix("central:") ||
                     trimmed.lowercased().hasPrefix("main:") ||
@@ -2236,21 +2326,9 @@ extension PDFAnalysisDocument {
                 continue
             }
 
-            var entry = trimmed
-            if entry.hasPrefix("→") || entry.hasPrefix("-") || entry.hasPrefix("•") || entry.hasPrefix("*") {
-                entry = String(entry.dropFirst()).trimmingCharacters(in: .whitespaces)
-            }
-
-            if let colonIndex = entry.firstIndex(of: ":") {
-                let concept = String(entry[..<colonIndex]).trimmingCharacters(in: .whitespaces)
-                let relationship = String(entry[entry.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
-                if relationship.isEmpty {
-                    related.append(stripMarkdownFromLine(concept))
-                } else {
-                    related.append(stripMarkdownFromLine("\(concept) — \(relationship)"))
-                }
-            } else {
-                related.append(stripMarkdownFromLine(entry))
+            // Per-branch sanitization via the shared source (rulings 1/2/3).
+            if let branch = sanitizeConceptBranch(trimmed) {
+                related.append(branch)
             }
         }
 
@@ -2279,6 +2357,18 @@ extension PDFAnalysisDocument {
             .replacingOccurrences(of: "_", with: " ")
             .capitalized
         return formatted + " Exercise"
+    }
+
+    /// Estimate an exercise's duration from its OWN content instead of a fixed
+    /// "10-15 minutes" that was visibly wrong on quick items (e.g. a "Ninety-Second
+    /// Reset"). Rough model: ~1.5 min per step (read + do + write) plus prose at
+    /// ~120 effective words/min, floored at 1 minute. Honest estimate over a
+    /// precise-looking constant that erodes trust.
+    private static func estimateExerciseMinutes(text: String, steps: [String]) -> String {
+        let wordCount: (String) -> Int = { $0.split(whereSeparator: { $0.isWhitespace }).count }
+        let words = wordCount(text) + steps.reduce(0) { $0 + wordCount($1) }
+        let minutes = max(1, Int((Double(steps.count) * 1.5 + Double(words) / 120.0).rounded()))
+        return "~\(minutes) min"
     }
 }
 

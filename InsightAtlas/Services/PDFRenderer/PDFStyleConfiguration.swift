@@ -166,7 +166,15 @@ struct PDFStyleConfiguration {
         }
 
         static func displayH2() -> UIFont {
-            make(serifSemiBoldFontName, 28, .systemFont(ofSize: 28, weight: .semibold))
+            // B5 heading ramp: 26pt (was 28) so section titles sit a clear step
+            // below the 30pt level-1 chapter headings (was only 2pt apart) while
+            // staying above 22pt level-3 subsections → 30/26/22. Differentiation is
+            // by SHRINKING L2, not growing L1: level-1 headings recur with the
+            // keep-with-next reserve at every chapter boundary, so growing them
+            // would inflate that joint total (airy chapter starts). Shrinking L2
+            // leaves the level-1 heading+reserve sum unchanged. Auto-syncs height
+            // and render (both read headingAttributes → displayH2).
+            make(serifSemiBoldFontName, 26, .systemFont(ofSize: 26, weight: .semibold))
         }
 
         static func displayH3() -> UIFont {

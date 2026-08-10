@@ -48,8 +48,6 @@ enum ContentMarkers {
         "[VISUAL_COMPARISON_MATRIX",
         "[VISUAL_CONCEPT_MAP",
         "[VISUAL_TIMELINE",
-        "[VISUAL_HIERARCHY",
-        "[VISUAL_RADAR",
         "[VISUAL_BAR_CHART",
         "[VISUAL_PIE_CHART"
     ]

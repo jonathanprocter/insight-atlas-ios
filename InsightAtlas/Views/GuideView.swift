@@ -36,6 +36,7 @@ struct GuideView: View {
     @State private var shareItem: URL?
     @State private var showRegenerateOptions = false
     @State private var isRegeneratingContent = false
+    @State private var showOnDevicePreview = false  // SPIKE: on-device Foundation Models preview
     
     // MARK: - Computed Properties
     
@@ -75,28 +76,18 @@ struct GuideView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, hasPlayableAudio || canGenerateAudio ? 120 : 20)
+                    .padding(.bottom, item.summaryContent != nil ? 150 : 20)
                     .frame(maxWidth: 800, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(PremiumUI.background)
             
-            // Sticky Audio Player
-            if hasPlayableAudio || canGenerateAudio {
-                StickyAudioPlayer(
-                    item: item,
-                    isPlaying: $isPlayingAudio,
-                    progress: $audioPlaybackProgress,
-                    isGenerating: $isGeneratingAudio,
-                    playbackRate: $audioPlaybackRate,
-                    onPlayPause: toggleAudioPlayback,
-                    onGenerate: generateAudioOnly,
-                    onRateChange: setPlaybackRate
-                )
+            // Shared narration control: Mega Transcript / Arthur first, Liam fallback.
+            if item.summaryContent != nil {
+                NarrationControlsView(item: item)
                 .padding(.horizontal)
                 .padding(.bottom, 8)
-                .background(.ultraThinMaterial)
             }
         }
         .navigationTitle(item.title)
@@ -170,6 +161,20 @@ struct GuideView: View {
             })
                 .environmentObject(environment)
         }
+        .sheet(isPresented: $showOnDevicePreview) {
+            NavigationStack {
+                OnDeviceInsightPreviewView(
+                    title: item.title,
+                    author: item.author,
+                    bodyText: Self.prepareTextForAudio(item.summaryContent ?? "")
+                )
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { showOnDevicePreview = false }
+                    }
+                }
+            }
+        }
         .onAppear {
             generateTableOfContents()
             loadBookmarks()
@@ -205,6 +210,15 @@ struct GuideView: View {
                 audioSubmenu
             }
             regenerateSubmenu
+            if item.summaryContent != nil {
+                Divider()
+                Button {
+                    showOnDevicePreview = true
+                } label: {
+                    Label("Offline Preview (spike)", systemImage: "cpu")
+                }
+                .accessibilityIdentifier("guide_ondevice_preview_button")
+            }
             Divider()
             deleteButton
         } label: {
@@ -227,6 +241,27 @@ struct GuideView: View {
             }
             .disabled(item.summaryContent == nil)
             .accessibilityIdentifier("guide_export_pdf_button")
+            
+            Button {
+                exportDocument(format: .html)
+            } label: {
+                Label("Export as HTML", systemImage: "safari.fill")
+            }
+            .disabled(item.summaryContent == nil)
+            
+            Button {
+                exportDocument(format: .markdown)
+            } label: {
+                Label("Export as Markdown", systemImage: "text.alignleft")
+            }
+            .disabled(item.summaryContent == nil)
+            
+            Button {
+                exportDocument(format: .docx)
+            } label: {
+                Label("Export as Word (.docx)", systemImage: "doc.text.fill")
+            }
+            .disabled(item.summaryContent == nil)
 
             if item.audioFileURL != nil {
                 Button {
@@ -372,7 +407,7 @@ struct GuideView: View {
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(entry.level == 1 ? Color(.secondarySystemGroupedBackground) : Color.clear)
+                            .fill(entry.level == 1 ? PremiumUI.searchFill : Color.clear)
                     )
                 }
                 .buttonStyle(.plain)
@@ -383,7 +418,7 @@ struct GuideView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
+                .fill(PremiumUI.card)
                 .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         )
         .padding(.horizontal, 4)
@@ -535,8 +570,9 @@ struct GuideView: View {
     // MARK: - Actions
 
     private func toggleAudioPlayback() {
-        guard let audioURLString = item.audioFileURL,
-              let audioURL = URL(string: audioURLString) ?? URL(fileURLWithPath: audioURLString) as URL? else { return }
+        guard let audioFileName = item.audioFileURL else { return }
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let audioURL = documentsDir.appendingPathComponent(audioFileName)
 
         if isPlayingAudio {
             // Pause playback
@@ -592,17 +628,15 @@ struct GuideView: View {
         updatedItem.narrationState = .generating
         environment.updateLibraryItem(updatedItem)
 
-        // Strip markup tags for cleaner narration.
-        let cleanedText = Self.prepareTextForAudio(content)
         let itemId = item.id
         let baseAttempts = item.audioGenerationAttempts ?? 0
 
         Task {
             do {
-                // Liam-only narration; the service writes the completed file into
-                // Documents and returns its descriptor.
-                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
-                    text: cleanedText,
+                // Mega Transcript is preferred; Liam is the fallback. The
+                // service sanitizes the spoken copy while caching by exact text.
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
                     itemId: itemId
                 )
 
@@ -617,7 +651,7 @@ struct GuideView: View {
                     isGeneratingAudio = false
                 }
             } catch {
-                Self.logger.error("Liam narration failed (attempt \(baseAttempts + 1)/\(LibraryItem.maxAudioGenerationAttempts)): \(error.localizedDescription)")
+                Self.logger.error("Narration failed (attempt \(baseAttempts + 1)/\(LibraryItem.maxAudioGenerationAttempts)): \(error.localizedDescription)")
                 await MainActor.run {
                     var failedItem = item
                     failedItem.narrationState = .failed
@@ -654,14 +688,13 @@ struct GuideView: View {
         pending.narrationState = .generating
         environment.updateLibraryItem(pending)
 
-        let cleanedText = Self.prepareTextForAudio(content)
         let itemId = item.id
         let baseAttempts = item.audioGenerationAttempts ?? 0
 
         Task {
             do {
-                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
-                    text: cleanedText,
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
                     itemId: itemId
                 )
 
@@ -676,9 +709,9 @@ struct GuideView: View {
                     isGeneratingAudio = false
                 }
 
-                Self.logger.info("Liam narration regenerated")
+                Self.logger.info("Narration regenerated")
             } catch {
-                Self.logger.error("Liam narration regeneration failed: \(error.localizedDescription)")
+                Self.logger.error("Narration regeneration failed: \(error.localizedDescription)")
                 await MainActor.run {
                     var failedItem = item
                     failedItem.narrationState = .failed
@@ -716,6 +749,24 @@ struct GuideView: View {
         Self.logger.info("Audio deleted for item: \(item.title)")
     }
 
+    private func exportDocument(format: ExportFormat) {
+        isExporting = true
+        Task {
+            do {
+                let url = try environment.dataManager.exportGuide(item, format: format)
+                await MainActor.run {
+                    isExporting = false
+                    shareItem = url
+                }
+            } catch {
+                await MainActor.run {
+                    isExporting = false
+                    exportError = error.localizedDescription
+                }
+            }
+        }
+    }
+
     private func exportGuide(format: PDFAudioBundler.ExportFormat) {
         isExporting = true
 
@@ -727,7 +778,19 @@ struct GuideView: View {
                 var pdfData: Data? = nil
                 if format == .pdfOnly || format == .bundled {
                     if let content = item.summaryContent {
+                        // Rasterize structured visuals into the cache BEFORE layout
+                        // (else [VISUAL_*] blocks miss the cache and fall back).
+                        await PDFVisualPrerenderer.prerender(content: content)
                         let pdfRenderer = InsightAtlasPDFRenderer()
+
+                        // Use the RICH parser (render(markdownContent:) →
+                        // PDFAnalysisDocument.parse): it builds real .table and
+                        // [VISUAL_*] blocks and sections on #/##. The
+                        // ParsedAnalysisContent path was a REGRESSION here — its model
+                        // (AnalysisBlockType) has no `.table` case, so every `|` table
+                        // row was silently dropped, producing phantom Table N refs.
+                        // (Premium-heading → section anchoring is fixed separately in
+                        // PDFAnalysisDocument.parse.)
                         let result = try pdfRenderer.render(
                             markdownContent: content,
                             title: item.title,
@@ -739,8 +802,9 @@ struct GuideView: View {
 
                 // Convert audio file path to URL
                 var audioURL: URL? = nil
-                if let audioPath = item.audioFileURL {
-                    audioURL = URL(string: audioPath) ?? URL(fileURLWithPath: audioPath)
+                if let audioFileName = item.audioFileURL {
+                    let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    audioURL = documentsDir.appendingPathComponent(audioFileName)
                 }
 
                 let result = try bundler.createBundle(
@@ -1226,7 +1290,7 @@ struct StickyAudioPlayer: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(PremiumUI.card)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 5)
     }

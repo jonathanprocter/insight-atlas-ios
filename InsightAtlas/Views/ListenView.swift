@@ -36,7 +36,7 @@ struct ListenView: View {
                             ForEach(narratedItems) { item in
                                 Button {
                                     playingItem = item
-                                    PremiumHaptics.impact()
+                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 } label: {
                                     ListenQueueRow(item: item)
                                 }
@@ -113,12 +113,12 @@ private struct ListenQueueRow: View {
         }
         .padding(.horizontal, 13)
         .frame(minHeight: 68)
-        .background(PremiumUI.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(AnalysisTheme.bgCard, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(PremiumUI.divider.opacity(0.7), lineWidth: 0.7)
         }
-        .shadow(color: PremiumUI.cardShadow.opacity(0.7), radius: 5, x: 0, y: 2)
+        .shadow(color: Color.black.opacity(0.1).opacity(0.7), radius: 5, x: 0, y: 2)
         .accessibilityElement(children: .combine)
     }
 }
@@ -180,7 +180,7 @@ struct ListenPlayerView: View {
         }
         .padding(.horizontal, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(PremiumUI.card.ignoresSafeArea())
+        .background(AnalysisTheme.bgCard.ignoresSafeArea())
         .onAppear { player.start() }
         .onDisappear { player.stop() }
         .sheet(isPresented: $showTranscript) {

@@ -416,25 +416,25 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 }
             }
 
-            // MARK: - Audio Generation
+            // MARK: - Audio Generation (deferred, non-blocking)
+            //
+            // Narration is intentionally NOT generated here. Doing it inline used
+            // to block completion: the guide text was already 100% done, but the
+            // coordinator awaited full Liam (Kokoro) narration before signaling
+            // completion — so if narration hung or was slow, the UI froze at 100%
+            // with nothing shown. The guide now completes on text alone, and the
+            // caller (GenerationView) kicks off narration in the background after
+            // the item is saved, updating `narrationState` as it progresses.
 
-            let audioResult = await generateAudioIfAvailable(
-                content: finalResult.content,
-                title: resolvedTitle,
-                generationId: generationId,
-                libraryItemId: existingItemId,
-                readerProfile: settings.preferredReaderProfile
-            )
-
-            // Create metadata
+            // Create metadata (audio is attached later, out of band)
             let metadata = GenerationMetadata(
                 summaryType: effectiveSummaryType,
                 governedWordCount: finalResult.wordCount,
                 cutPolicyActivated: finalResult.cutPolicyActivated,
                 cutEventCount: finalResult.cutEventCount,
-                audioFileURL: audioResult?.fileURL,
-                audioVoiceID: audioResult?.voiceID,
-                audioDuration: audioResult?.duration
+                audioFileURL: nil,
+                audioVoiceID: nil,
+                audioDuration: nil
             )
 
             // Update state to completed
@@ -1274,27 +1274,25 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // Narration is Liam-only via the Kokoro pipeline. It requires the
-        // narration token provisioned in Settings → Audio & Narration.
-        guard KokoroTTSClient.currentAPIKey() != nil else {
-            audioLog("⚠️ No Liam narration token found - skipping audio generation")
+        // Mega Transcript is preferred; Liam remains the fallback.
+        guard KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+                || KokoroTTSClient.currentAPIKey() != nil else {
+            audioLog("⚠️ No Mega Transcript or Liam narration credential found - skipping audio generation")
             return nil
         }
 
         // The item ID (or generation ID) owns the "audio_<id>.<ext>" file the
         // service writes into Documents.
         let audioOwnerId = libraryItemId ?? generationId
-        audioLog("Starting Liam narration for: \(title)")
+        audioLog("Starting narration for: \(title)")
 
         do {
-            // The service splits long text, synthesizes each chunk with Liam,
-            // assembles the parts, and atomically writes the completed file.
-            let asset = try await KokoroNarrationService.shared.synthesizeAsset(
-                text: audioContent,
+            let asset = try await NarrationService.shared.synthesize(
+                text: content,
                 itemId: audioOwnerId
             )
 
-            audioLog("✅ Liam narration generated successfully")
+            audioLog("✅ Narration generated successfully")
             audioLog("Duration: \(String(format: "%.1f", asset.duration)) seconds")
             audioLog("File: \(asset.relativeFileName)")
 
@@ -1304,7 +1302,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 duration: asset.duration
             )
         } catch {
-            audioLog("❌ Liam narration failed: \(error.localizedDescription)")
+            audioLog("❌ Narration failed: \(error.localizedDescription)")
             return nil
         }
     }

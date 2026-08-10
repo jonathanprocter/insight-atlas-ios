@@ -57,6 +57,15 @@ struct PDFDocumentProcessor {
         }
         #endif
 
+        // Builds-stage triage — always logged (independent of violations) so the
+        // manifest/distance checklist is available on any real export.
+        if !report.visualManifest.isEmpty {
+            print("📊 [PDF Visual Manifest]\n  " + report.visualManifest.joined(separator: "\n  "))
+        }
+        if !report.referenceDistances.isEmpty {
+            print("📏 [PDF Reference Distances — farthest first]\n  " + report.referenceDistances.joined(separator: "\n  "))
+        }
+
         // Additive structure pass: section-opener chips + pull quotes (Phase 6).
         let enhanced = DocumentStructureEnhancer().enhance(checked)
         return Processed(document: enhanced, integrityReport: report)

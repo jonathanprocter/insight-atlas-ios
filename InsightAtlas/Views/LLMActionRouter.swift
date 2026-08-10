@@ -39,13 +39,13 @@ public enum LLMActionRouter {
         if identifier.hasPrefix("theme_option_") {
             let name = identifier.replacingOccurrences(of: "theme_option_", with: "").replacingOccurrences(of: "_", with: " ")
             UserDefaults.standard.set(name.capitalized, forKey: PremiumUI.themeStorageKey)
-            PremiumHaptics.selection()
+            UISelectionFeedbackGenerator().selectionChanged()
             return .success("Theme set to \(name)")
         }
         if identifier.hasPrefix("accent_option_") {
             let name = identifier.replacingOccurrences(of: "accent_option_", with: "").replacingOccurrences(of: "_", with: " ")
             UserDefaults.standard.set(name.capitalized, forKey: PremiumUI.accentStorageKey)
-            PremiumHaptics.selection()
+            UISelectionFeedbackGenerator().selectionChanged()
             return .success("Accent set to \(name)")
         }
         if identifier.hasPrefix("voice_row_") || identifier.hasPrefix("voice_preview_") {
@@ -70,14 +70,14 @@ public enum LLMActionRouter {
             let key = "insight_atlas_high_contrast"
             let newValue = !(UserDefaults.standard.bool(forKey: key))
             UserDefaults.standard.set(newValue, forKey: key)
-            PremiumHaptics.selection()
+            UISelectionFeedbackGenerator().selectionChanged()
             return .success("Increase Contrast set to \(newValue)")
 
         case "togglerow_sepia_reading_mode":
             let key = "insight_atlas_sepia_mode"
             let newValue = !(UserDefaults.standard.bool(forKey: key))
             UserDefaults.standard.set(newValue, forKey: key)
-            PremiumHaptics.selection()
+            UISelectionFeedbackGenerator().selectionChanged()
             return .success("Sepia Reading Mode set to \(newValue)")
 
         case "voice_provider_picker":
@@ -94,7 +94,7 @@ public enum LLMActionRouter {
         case "openrouter_model_field":
             if let v = value, !v.isEmpty {
                 UserDefaults.standard.set(v, forKey: OpenRouterConfig.modelStorageKey)
-                PremiumHaptics.selection()
+                UISelectionFeedbackGenerator().selectionChanged()
                 return .success("OpenRouter model set to \(v)")
             } else {
                 return .failure("Provide a model slug for OpenRouter.")
@@ -109,13 +109,13 @@ public enum LLMActionRouter {
                 newValue = !(UserDefaults.standard.bool(forKey: key))
             }
             UserDefaults.standard.set(newValue, forKey: key)
-            PremiumHaptics.selection()
+            UISelectionFeedbackGenerator().selectionChanged()
             return .success("Use ChatGPT set to \(newValue)")
 
         case "chatgpt_model_field":
             if let v = value, !v.isEmpty {
                 UserDefaults.standard.set(v, forKey: ChatGPTOAuthConfig.modelStorageKey)
-                PremiumHaptics.selection()
+                UISelectionFeedbackGenerator().selectionChanged()
                 return .success("ChatGPT model set to \(v)")
             } else {
                 return .failure("Provide a model slug for ChatGPT.")
@@ -297,6 +297,6 @@ public enum LLMActionRouter {
         environment.userSettings.autoGenerateAudio = false
 
         environment.saveSettings()
-        PremiumHaptics.selection()
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 }

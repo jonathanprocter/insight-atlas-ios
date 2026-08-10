@@ -286,10 +286,13 @@ class DataManager: ObservableObject {
         } catch {
             logger.error("Failed to decode library: \(error.localizedDescription)")
 
-            // Attempt recovery: backup the corrupted data
+            // Attempt recovery: back up the corrupted data, then clear the
+            // primary key so we don't re-read (and re-fail on) the same blob
+            // every launch — otherwise the error recurs and backups accumulate.
             let backupKey = "\(libraryKey)_backup_\(Int(Date().timeIntervalSince1970))"
             UserDefaults.standard.set(data, forKey: backupKey)
-            logger.warning("Corrupted library data backed up to '\(backupKey)'")
+            UserDefaults.standard.removeObject(forKey: libraryKey)
+            logger.warning("Corrupted library data backed up to '\(backupKey)' and cleared")
 
             // Post notification so UI can inform user
             NotificationCenter.default.post(

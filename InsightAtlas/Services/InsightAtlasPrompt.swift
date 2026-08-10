@@ -168,6 +168,8 @@ struct InsightAtlasPromptGenerator {
 
         CITATION INTEGRITY (NON-NEGOTIABLE): Only cite sources, studies, or findings you are genuinely confident actually exist and truly support the point. NEVER invent researchers, book titles, study names, institutions, dates, sample sizes, or percentages. If you are not certain a specific study or statistic is real, do NOT fabricate one — instead attribute the idea to a well-known thinker or work you are confident about, describe the concept without false specifics, or omit the note entirely. A few accurate Atlas Notes are far better than many with fabricated precision. Inventing a citation is a critical failure, not a stylistic choice.
 
+        VISUAL REFERENCE INTEGRITY (NON-NEGOTIABLE): Never reference a figure, table, diagram, or chart unless you are actually emitting that visual in this guide. This bans BOTH explicit numbered references ("Figure 1", "Table 2", "see Table 3 below") AND relative/deictic ones ("the table above", "as shown below", "the preceding figure", "this diagram", "the chart that follows"). The renderer assigns all figure and table numbers and decides placement — you do NOT, and you cannot know a visual's number or whether it lands above or below your prose. Write prose that stands on its own without leaning on a visual. If a comparison genuinely warrants a table, EMIT the table rather than gesturing at one. A dangling reference to a visual that does not exist is a fabrication — the same critical failure as inventing a citation.
+
         ───
         PRIMARY READER PERSONA
         ───
@@ -212,6 +214,8 @@ struct InsightAtlasPromptGenerator {
         - A varied sequence of blocks (not the same order every time)
         - Visuals only when they add clarity beyond prose
         - Atlas Notes that vary across the four functions (don't only corroborate)
+
+        NOTE CADENCE (density control): Never place more than TWO [INSIGHT_NOTE] blocks back-to-back. After at most two consecutive notes you MUST resume with a substantive connective paragraph that does real analytical work — show how the notes relate, what tension they create together, or what the reader should conclude before the next claim. This paragraph must ADVANCE the argument; a filler sentence written only to separate notes is WORSE than the run it breaks up. If you cannot write a genuine connective passage, MERGE the adjacent notes or CUT the weaker one instead. Three or four notes stacked with no prose between them read as a wall of margin cards, not a guide.
 
         FORMATTING ESSENTIALS:
         - Use [PREMIUM_H1] and [PREMIUM_H2] for section headers (not markdown #)
@@ -450,10 +454,6 @@ struct InsightAtlasPromptGenerator {
         Rows × Columns with cell content
         [/VISUAL_MATRIX]
 
-        [VISUAL_HIERARCHY: Title]
-        Parent-child relationships
-        [/VISUAL_HIERARCHY]
-
         [VISUAL_TIMELINE: Title]
         Chronological progression
         [/VISUAL_TIMELINE]
@@ -469,10 +469,6 @@ struct InsightAtlasPromptGenerator {
         [VISUAL_VENN: Title]
         Overlapping categories
         [/VISUAL_VENN]
-
-        [VISUAL_RADAR: Title]
-        Multi-axis assessment
-        [/VISUAL_RADAR]
 
         [VISUAL_FUNNEL: Title]
         Narrowing stages

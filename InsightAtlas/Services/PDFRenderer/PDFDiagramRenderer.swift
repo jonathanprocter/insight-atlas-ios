@@ -100,7 +100,7 @@ final class PDFDiagramRenderer {
             .font: PDFStyleConfiguration.Typography.blockHeader(),
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
-        let headerText = NSAttributedString(string: "\(PDFStyleConfiguration.Icons.flowchart) \(title.uppercased())", attributes: headerAttributes)
+        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
         let headerRect = CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8)
         headerText.draw(in: headerRect)
 
@@ -356,11 +356,49 @@ final class PDFDiagramRenderer {
     // MARK: - Concept Map Rendering
 
     /// Calculate height for a simple concept map
+    struct ConceptMapGeometry: Equatable {
+        let central: CGFloat
+        let satellite: CGFloat
+        let orbit: CGFloat
+        let mapHeight: CGFloat
+    }
+
+    /// Shared adaptive radial geometry — the SINGLE SOURCE for renderConceptMap
+    /// (draw) and calculateConceptMapHeight (measure), so the map GROWS to hold
+    /// every concept as a non-overlapping, non-clipping node (no cap, no spill).
+    /// Orbit is bounded by width; when width binds, satellites shrink (text
+    /// autoshrinks to match). Height plateaus under the page ceiling on real
+    /// content because width binds first.
+    func conceptMapGeometry(count: Int, maxWidth: CGFloat) -> ConceptMapGeometry {
+        let central: CGFloat = 46
+        let margin: CGFloat = 12
+        let gap: CGFloat = 8
+        let base: CGFloat = 34
+        let floor: CGFloat = 16
+        let n = max(1, count)
+        if n == 1 {
+            return ConceptMapGeometry(central: central, satellite: 0, orbit: 0, mapHeight: 2 * central + 2 * margin)
+        }
+        let half = sin(.pi / CGFloat(n))                        // half-angle sine (neighbor spacing)
+        let orbitMax = maxWidth / 2 - floor - margin            // widest orbit (min-satellite headroom)
+        let orbitIdeal = max(central + base + gap, base / half) // non-overlap orbit at base satellite
+        var orbit = min(orbitIdeal, orbitMax)
+        // Largest satellite that neither overlaps its neighbor (orbit*sin) nor
+        // exceeds the container width, floored so it stays a node.
+        let sat = max(floor, min(base, orbit * half, maxWidth / 2 - orbit - margin))
+        // Keep satellites clear of the central node, then re-clamp to width.
+        orbit = max(orbit, central + sat + gap)
+        orbit = min(orbit, maxWidth / 2 - sat - margin)
+        let mapHeight = 2 * (orbit + sat) + 2 * margin
+        return ConceptMapGeometry(central: central, satellite: sat, orbit: orbit, mapHeight: mapHeight)
+    }
+
     func calculateConceptMapHeight(centralConcept: String, relatedConcepts: [String], maxWidth: CGFloat) -> CGFloat {
-        let baseHeight: CGFloat = 200 // Minimum height for visual appeal
-        let conceptsPerRow = 3
-        let rows = ceil(Double(relatedConcepts.count) / Double(conceptsPerRow))
-        return baseHeight + CGFloat(rows - 1) * 60 + PDFStyleConfiguration.Spacing.blockSpacing
+        // Adaptive: mirrors renderConceptMap's geometry so reserved == drawn.
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let geo = conceptMapGeometry(count: relatedConcepts.count, maxWidth: maxWidth)
+        return headerHeight + geo.mapHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
     /// Render a simple radial concept map
@@ -377,9 +415,11 @@ final class PDFDiagramRenderer {
         let padding: CGFloat = 16
         let borderRadius = PDFStyleConfiguration.Radius.md
 
-        // Calculate layout
+        // Adaptive radial geometry (shared with calculateConceptMapHeight so
+        // reserved == drawn). Grows to hold every concept; no cap, no clip.
         let conceptCount = relatedConcepts.count
-        let mapHeight: CGFloat = 180
+        let geo = conceptMapGeometry(count: conceptCount, maxWidth: maxWidth)
+        let mapHeight = geo.mapHeight
         let totalHeight = headerHeight + mapHeight + padding * 2
 
         // Draw container
@@ -400,7 +440,7 @@ final class PDFDiagramRenderer {
             .font: PDFStyleConfiguration.Typography.blockHeader(),
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
-        let headerText = NSAttributedString(string: "🗺️ \(title.uppercased())", attributes: headerAttributes)
+        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
         let headerRect = CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8)
         headerText.draw(in: headerRect)
 
@@ -410,18 +450,18 @@ final class PDFDiagramRenderer {
         let centerY = mapY + mapHeight / 2
 
         // Draw central concept
-        let centralRadius: CGFloat = 50
         drawConceptNode(
             context: context,
             text: centralConcept,
             center: CGPoint(x: centerX, y: centerY),
-            radius: centralRadius,
+            radius: geo.central,
             color: PDFStyleConfiguration.Colors.primaryGold,
             isCenter: true
         )
 
-        // Draw related concepts in a circle around the center
-        let orbitRadius: CGFloat = 75
+        // Draw related concepts in a circle around the center (adaptive orbit +
+        // satellite radius so they never overlap or clip the container).
+        let orbitRadius = geo.orbit
         let angleStep = (2 * CGFloat.pi) / CGFloat(max(1, conceptCount))
 
         for (index, concept) in relatedConcepts.enumerated() {
@@ -441,7 +481,7 @@ final class PDFDiagramRenderer {
                 context: context,
                 text: concept.label,
                 center: CGPoint(x: nodeX, y: nodeY),
-                radius: 35,
+                radius: geo.satellite,
                 color: PDFStyleConfiguration.Colors.accentTeal,
                 isCenter: false
             )
@@ -467,30 +507,41 @@ final class PDFDiagramRenderer {
 
         context.restoreGState()
 
-        // Draw text
-        let textFont = isCenter ? PDFStyleConfiguration.Typography.bodyBold() : PDFStyleConfiguration.Typography.bodySmall()
+        // Draw text — autoshrink to fit the node (shrink → wrap → ellipsis) so a
+        // label can never clip or overflow its circle. Ladder: try the base font
+        // down to a floor within the node's inner box; if even the floor overflows,
+        // truncate with a tail ellipsis (honest truncation beats clipping).
         let textColor = isCenter ? PDFStyleConfiguration.Colors.textHeading : PDFStyleConfiguration.Colors.textBody
+        let inner = CGSize(width: radius * 1.7, height: radius * 1.7)
+        let baseSize: CGFloat = isCenter ? 12 : 10
+        let floorSize: CGFloat = 7
+        let fontName = isCenter ? "Inter-Semibold" : "Inter-Regular"
 
-        let textAttributes: [NSAttributedString.Key: Any] = [
-            .font: textFont,
+        func nodeFont(_ s: CGFloat) -> UIFont {
+            UIFont(name: fontName, size: s) ?? UIFont.systemFont(ofSize: s, weight: isCenter ? .semibold : .regular)
+        }
+        func nodePara(_ mode: NSLineBreakMode) -> NSParagraphStyle {
+            let p = NSMutableParagraphStyle(); p.alignment = .center; p.lineBreakMode = mode; return p
+        }
+
+        var chosenSize = floorSize
+        var truncate = true
+        var s = baseSize
+        while s >= floorSize {
+            let a = NSAttributedString(string: text, attributes: [.font: nodeFont(s), .paragraphStyle: nodePara(.byWordWrapping)])
+            let b = a.boundingRect(with: CGSize(width: inner.width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin], context: nil)
+            if b.height <= inner.height { chosenSize = s; truncate = false; break }
+            s -= 1
+        }
+
+        let attributedText = NSAttributedString(string: text, attributes: [
+            .font: nodeFont(chosenSize),
             .foregroundColor: textColor,
-            .paragraphStyle: centeredParagraphStyle()
-        ]
-
-        let attributedText = NSAttributedString(string: text, attributes: textAttributes)
-        let textSize = attributedText.boundingRect(
-            with: CGSize(width: radius * 1.6, height: radius * 2),
-            options: [.usesLineFragmentOrigin],
-            context: nil
-        )
-
-        let textRect = CGRect(
-            x: center.x - textSize.width / 2,
-            y: center.y - textSize.height / 2,
-            width: textSize.width,
-            height: textSize.height
-        )
-
+            .paragraphStyle: nodePara(truncate ? .byTruncatingTail : .byWordWrapping)
+        ])
+        let measured = attributedText.boundingRect(with: inner, options: [.usesLineFragmentOrigin], context: nil)
+        let drawn = min(measured.height, inner.height)
+        let textRect = CGRect(x: center.x - inner.width / 2, y: center.y - drawn / 2, width: inner.width, height: drawn)
         attributedText.draw(in: textRect)
     }
 
@@ -541,7 +592,7 @@ final class PDFDiagramRenderer {
             .font: PDFStyleConfiguration.Typography.blockHeader(),
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
-        let headerText = NSAttributedString(string: "⟶ \(title.uppercased())", attributes: headerAttributes)
+        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
         let headerRect = CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8)
         headerText.draw(in: headerRect)
 

@@ -107,9 +107,10 @@ struct AnalysisDetailView: View {
         }
         .background(AnalysisTheme.bgPrimary)
         .safeAreaInset(edge: .bottom) {
-            // Floating audio player (only shown when audio is available)
-            if hasPlayableAudio {
-                audioPlayerBar
+            if item.summaryContent != nil {
+                NarrationControlsView(item: item)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
             }
         }
         .overlay(alignment: .bottom) {
@@ -482,15 +483,13 @@ struct AnalysisDetailView: View {
         isGeneratingAudio = true
         dataManager.setNarrationState(.generating, for: item.id)
 
-        let cleanedText = sanitizeAudioContent(content)
         let itemId = item.id
 
         Task {
             do {
-                // Liam-only narration; the service writes the completed file into
-                // Documents and returns its descriptor.
-                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
-                    text: cleanedText,
+                // Mega Transcript is preferred; Liam remains the fallback.
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
                     itemId: itemId
                 )
 
@@ -538,15 +537,14 @@ struct AnalysisDetailView: View {
         isGeneratingAudio = true
         dataManager.setNarrationState(.generating, for: item.id)
 
-        let cleanedText = sanitizeAudioContent(content)
         let itemId = item.id
 
         Task {
             do {
                 // The service preserves any prior audio until the new file is
                 // promoted atomically, and cleans up stale .mp3/.m4a siblings.
-                let asset = try await KokoroNarrationService.shared.synthesizeAsset(
-                    text: cleanedText,
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
                     itemId: itemId
                 )
 

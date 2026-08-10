@@ -2,6 +2,13 @@
 //  VisualSelectionService.swift
 //  InsightAtlas
 //
+//  ⚠️ DEAD CODE — MARKED FOR DELETION (2026-08-10).
+//  This service is NEVER instantiated anywhere (`grep 'VisualSelectionService('`
+//  is empty). PDF visuals come from `[VISUAL_*]` markdown → InsightVisual →
+//  PDFVisualPrerenderer/pdfBlocks; this selector governs nothing. Leaving it in
+//  is a hazard: a stale-but-plausible path is exactly how GuideView's PDF export
+//  got routed onto the lossy `ParsedAnalysisContent` parser. Delete on next cleanup.
+//
 //  Visual Selection by Meaning.
 //
 //  This service determines appropriate visual types based on semantic block types.

@@ -11,56 +11,61 @@ struct InsightAtlasHTMLTemplate {
             /* Complete Design System with All Unique Elements */
 
             :root {
-                /* Brand Colors */
-                --brand-sepia: #54585b;
-                --brand-parchment: #e7e3da;
-                --brand-ink: #54585b;
-
-                /* Primary Palette - Gold */
-                --primary-gold: #C9A227;
-                --primary-gold-light: #DCBE5E;
-                --primary-gold-dark: #A88A1F;
-                --primary-gold-subtle: rgba(201, 162, 39, 0.08);
-
-                /* Secondary Palette (reserved) */
-                --accent-burgundy: #54585b;
-                --accent-coral: #54585b;
-                --accent-coral-text: #54585b;
-                --accent-teal: #54585b;
-                --accent-teal-text: #54585b;
-                --accent-orange: #54585b;
-                --accent-orange-text: #54585b;
+                --ivory: #FAF9F6;
+                --surface: #FFFFFF;
+                --surface-dim: #F2F1ED;
+                --deep-slate: #2C3E50;
+                --ink: #111111;
+                --gold: #B8962E;
+                --gold-glow: rgba(184,150,46,0.15);
+                --sky-blue: #3A8FB7;
+                --coral: #E8553A;
+                --warm-orange: #D87520;
+                --emerald: #059669;
+                --text-1: #111111;
+                --text-2: #555555;
+                --text-3: #999999;
+                --border: #E0DFDB;
+                --border-light: #EEEDEA;
+                --nav-bg: rgba(255,255,255,0.82);
+                --section-bg: rgba(255,255,255,0.5);
+                --card-bg: rgba(250,249,246,0.99);
+                --card-border: #E5E5E0;
+                --action-bg: #F5F4F0;
+                
+                /* Legacy mappings to keep the rest of the template working */
+                --brand-sepia: var(--deep-slate);
+                --brand-parchment: var(--surface-dim);
+                --brand-ink: var(--ink);
+                --primary-gold: var(--gold);
+                --primary-gold-text: var(--gold);
+                --primary-gold-light: #d4af37;
+                --primary-gold-dark: #8b7318;
+                --primary-gold-subtle: var(--gold-glow);
+                --accent-coral: var(--coral);
+                --accent-coral-text: var(--coral);
+                --accent-teal: var(--sky-blue);
+                --accent-teal-text: var(--sky-blue);
+                --accent-orange: var(--warm-orange);
+                --accent-orange-text: var(--warm-orange);
                 --accent-crimson: #B12A2A;
-                --primary-gold-text: #8B7318;
-
-                /* Text Colors */
-                --text-heading: #54585b;
-                --text-body: #54585b;
-                --text-muted: #979c9f;
-                --text-subtle: #979c9f;
-                --text-inverse: #f9f9f9;
-
-                /* Background Colors */
-                --bg-primary: #f9f9f9;
-                --bg-secondary: #e7e3da;
-                --bg-card: #ffffff;
-                --bg-cream: #f9f9f9;
-
-                /* Border Colors */
-                --border-light: #e7e3da;
-                --border-medium: #d4d5d8;
-
-                /* Fonts */
-                --font-display: 'SF Pro Text', 'Helvetica Neue', 'Avenir Next', sans-serif;
-                --font-ui: 'SF Pro Text', 'Helvetica Neue', 'Avenir Next', sans-serif;
-                --font-handwritten: 'SF Pro Text', 'Helvetica Neue', 'Avenir Next', sans-serif;
-
-                /* Spacing */
+                --text-heading: var(--text-1);
+                --text-body: var(--text-2);
+                --text-muted: var(--text-3);
+                --text-subtle: var(--text-3);
+                --text-inverse: var(--surface);
+                --bg-primary: var(--ivory);
+                --bg-secondary: var(--section-bg);
+                --bg-card: var(--card-bg);
+                --bg-cream: var(--action-bg);
+                --border-light: var(--border-light);
+                --border-medium: var(--border);
+                --font-display: 'Cormorant Garamond', Georgia, serif;
+                --font-ui: 'Inter', system-ui, sans-serif;
+                --font-handwritten: 'Cormorant Garamond', Georgia, serif;
                 --content-width: 720px;
-                --radius-lg: 10px;
-                --radius-xl: 12px;
-
-                /* Transitions */
+                --radius-lg: 14px;
+                --radius-xl: 16px;
                 --transition-fast: 0.15s ease;
                 --transition-normal: 0.3s ease;
             }
@@ -68,22 +73,21 @@ struct InsightAtlasHTMLTemplate {
             /* ═══ DARK MODE ═══ */
             @media (prefers-color-scheme: dark) {
                 :root {
-                    --text-heading: #f9f9f9;
-                    --text-body: #e7e3da;
-                    --text-muted: #979c9f;
-                    --text-subtle: #979c9f;
-                    --bg-primary: #1f1f1f;
-                    --bg-secondary: #2a2a2a;
+                    --text-1: #FAF9F6;
+                    --text-2: #A0A0A0;
+                    --text-3: #666666;
+                    --bg-primary: #0D0D0D;
+                    --bg-secondary: #1A1A1A;
                     --bg-card: #242424;
-                    --border-light: #3a3a3a;
-                    --border-medium: #4a4a4a;
-                    --primary-gold: #D4AF37;
-                    --primary-gold-text: #D4AF37;
-                    --accent-coral: #54585b;
-                    --accent-coral-text: #54585b;
-                    --accent-teal: #54585b;
-                    --accent-teal-text: #54585b;
-                    --accent-crimson: #B12A2A;
+                    --bg-cream: #1A1A1A;
+                    --border-light: #2A2A2A;
+                    --border-medium: #3A3A3A;
+                    --border: #3A3A3A;
+                    --card-border: #2A2A2A;
+                    --nav-bg: rgba(13,13,13,0.82);
+                    --section-bg: rgba(26,26,26,0.5);
+                    --card-bg: rgba(36,36,36,0.99);
+                    --action-bg: #1A1A1A;
                 }
             }
 

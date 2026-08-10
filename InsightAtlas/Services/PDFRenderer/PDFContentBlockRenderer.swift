@@ -118,7 +118,7 @@ final class PDFContentBlockRenderer {
             return calculateNarrativeHeight(content: block.content, title: block.metadata?["title"], maxWidth: maxWidth)
 
         case .exercise:
-            return calculateExerciseHeight(content: block.content, steps: block.listItems ?? [], maxWidth: maxWidth)
+            return calculateExerciseHeight(title: block.metadata?["title"] ?? "Exercise", content: block.content, steps: block.listItems ?? [], maxWidth: maxWidth)
 
         case .flowchart:
             return diagramRenderer.calculateFlowchartHeight(steps: block.listItems ?? [], maxWidth: maxWidth)
@@ -372,19 +372,14 @@ final class PDFContentBlockRenderer {
             )
             
         case .conceptMap:
-            // Render concept map as a list for now (could be enhanced with actual diagram)
-            let centralConcept = block.metadata?["central"] ?? "Core Concept"
-            let concepts = block.listItems ?? []
-            
-            // Create a simple textual representation
-            var conceptText = "Central Concept: \(centralConcept)\n\nRelated Concepts:\n"
-            for (index, concept) in concepts.enumerated() {
-                conceptText += "\(index + 1). \(concept)\n"
-            }
-            
-            return renderMockupBlock(
-                content: conceptText,
+            // Render an actual radial concept-map DIAGRAM. This was a bulleted text
+            // list via renderMockupBlock — both the diagram-to-bullets bug and a
+            // measure/draw mismatch (the height calc already used the diagram
+            // calculator). listItems are the related concepts.
+            return diagramRenderer.renderConceptMap(
                 title: titleWithFigureLabel(block.metadata?["title"] ?? "Concept Map", for: block),
+                centralConcept: block.metadata?["central"] ?? "Core Concept",
+                relatedConcepts: (block.listItems ?? []).map { (label: $0, description: "") },
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -665,10 +660,100 @@ final class PDFContentBlockRenderer {
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
-    private func renderInsightNote(content: String, title: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
-        // Parse structured content
-        let parsed = parseInsightNoteContent(content)
+    /// The three editorial jobs an Insight Atlas note performs. Differentiating
+    /// them visually is what lets a skimmer spot where the book gets pushed back
+    /// on — the product's real differentiator — instead of 30 identical cards.
+    private enum InsightNoteType {
+        case corroboration  // supporting evidence — stays quiet
+        case expansion      // extends the idea — distinct accent
+        case challenge      // limitation / counterpoint — strongest treatment
 
+        var accentColor: UIColor {
+            switch self {
+            case .challenge: return PDFStyleConfiguration.Colors.semanticNotes      // deep burgundy/maroon
+            case .expansion: return PDFStyleConfiguration.Colors.primaryGold        // gold
+            case .corroboration: return PDFStyleConfiguration.BlockStyles.insightNoteBorderColor
+            }
+        }
+
+        func label(defaultTitle: String) -> String {
+            switch self {
+            case .challenge: return "KEY CHALLENGE"
+            case .expansion: return "EXPANSION"
+            case .corroboration:
+                let t = defaultTitle.trimmingCharacters(in: .whitespaces)
+                return (t.isEmpty || t.lowercased().contains("insight atlas note"))
+                    ? "CORROBORATION" : t.uppercased()
+            }
+        }
+    }
+
+    /// Heuristic classification from the note's own text. Conservative: only the
+    /// strong pushback/extension signals promote a card off the quiet default, so
+    /// a mislabel errs toward "corroboration". (Superseded automatically once the
+    /// Phase 4/5 CitationTaxonomy pipeline is enabled.)
+    /// Manual type pins — a bridge until the CitationTaxonomy Phase 4/5 pipeline
+    /// is live. Key is `noteSignature(_:)`; add one line here to correct any
+    /// mislabel spotted in review instead of tweaking the heuristic.
+    ///
+    /// NOTE: keys are derived from the note's RAW content, which includes any
+    /// leading type prefix (e.g. a "Key Challenge:" card's signature begins
+    /// "keychallenge…"). If a later stage strips prefixes upstream, re-derive
+    /// these keys or the pins will silently stop matching.
+    private static let manualNoteTypeOverrides: [String: InsightNoteType] = [:]
+
+    /// Stable, whitespace/punctuation-insensitive signature of a note's opening,
+    /// used to key manual overrides.
+    private static func noteSignature(_ content: String) -> String {
+        String(content.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(48))
+    }
+
+    private static func classifyInsightNote(content: String, title: String) -> InsightNoteType {
+        if let pinned = manualNoteTypeOverrides[noteSignature(content)] { return pinned }
+        let hay = (title + " " + content).lowercased()
+        // Deliberately narrow: only unambiguous pushback markers promote a card
+        // to the LOUD burgundy treatment, so a mislabel errs toward quiet
+        // corroboration. Bare "limitation"/"complicat"/"caveat" were dropped —
+        // they match ordinary prose ("despite some limitations…").
+        let challengeSignals = ["key challenge", "key limitation", "counterpoint",
+                                "counter-point", "pushback", "critique", "objection"]
+        if challengeSignals.contains(where: { hay.contains($0) }) { return .challenge }
+        let expansionSignals = ["expand", "extends", "builds on", "build on", "goes beyond", "broaden"]
+        if expansionSignals.contains(where: { hay.contains($0) }) { return .expansion }
+        return .corroboration
+    }
+
+    /// Builds the exact composite footer string — small-caps label + em dash +
+    /// inline italic body. Shared by the renderer and both height calcs so the
+    /// string that is measured is byte-for-byte the string that is drawn; this is
+    /// what prevents the measure/draw font mismatch from causing wrap drift.
+    /// `label` is a parameter so per-note-type footers ("THE OTHER SIDE",
+    /// "SEE ALSO") can reuse this verbatim once the generator emits those markers.
+    private func buildInsightFooter(label: String, body: String) -> NSAttributedString {
+        let labelAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont(name: "Inter-Semibold", size: 9) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
+            .kern: 0.8
+        ]
+        var italicAttributes = PDFStyleConfiguration.bodyAttributes()
+        italicAttributes[.font] = PDFStyleConfiguration.Typography.bodyItalic()
+        let footer = NSMutableAttributedString(string: "\(label) — ", attributes: labelAttributes)
+        footer.append(parseInlineMarkdown(body, baseAttributes: italicAttributes))
+        return footer
+    }
+
+    private func renderInsightNote(content: String, title: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        let parsed = parseInsightNoteContent(content)
+        let noteType = Self.classifyInsightNote(content: content, title: title)
+        return drawInsightNoteCard(parsed: parsed, accentColor: noteType.accentColor, headerLabel: noteType.label(defaultTitle: title), to: context, at: point, maxWidth: maxWidth)
+    }
+
+    /// Draws one insight-note card — or one fragment of a split note. The caller
+    /// supplies the already-parsed sections, the accent color, and the header
+    /// label; a continuation fragment passes a SUBSET of sections and a
+    /// "… (CONTINUED)" label. Total height comes from the shared
+    /// insightNoteCardHeight so the drawn card matches every measurer.
+    private func drawInsightNoteCard(parsed: InsightNoteParsed, accentColor: UIColor, headerLabel: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let padding: CGFloat = 14
         let headerHeight: CGFloat = 30
         let sectionSpacing: CGFloat = 8
@@ -677,39 +762,7 @@ final class PDFContentBlockRenderer {
         let subsectionAccentWidth: CGFloat = 4  // Left accent bar for subsections
         let insetWidth = maxWidth - padding * 2 - leftAccentWidth
 
-        // Calculate heights for each section
-        var contentHeight: CGFloat = 0
-
-        // Core connection
-        if !parsed.coreConnection.isEmpty {
-            contentHeight += calculateTextHeight(parsed.coreConnection, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth)
-            contentHeight += sectionSpacing + 4
-        }
-
-        // Key Distinction section
-        if let keyDist = parsed.keyDistinction, !keyDist.isEmpty {
-            contentHeight += 20 // Label height (increased)
-            contentHeight += calculateTextHeight(keyDist, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20)
-            contentHeight += 16 // Section padding
-            contentHeight += sectionSpacing
-        }
-
-        // Practical Implication section
-        if let practical = parsed.practicalImplication, !practical.isEmpty {
-            contentHeight += 20 // Label height (increased)
-            contentHeight += calculateTextHeight(practical, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20)
-            contentHeight += 16 // Section padding
-            contentHeight += sectionSpacing
-        }
-
-        // Go Deeper section
-        if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
-            contentHeight += 20 // Label height (increased)
-            contentHeight += calculateTextHeight(goDeeper, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20)
-            contentHeight += 16 // Section padding
-        }
-
-        let totalHeight = headerHeight + contentHeight + padding * 2
+        let totalHeight = insightNoteCardHeight(parsed, maxWidth: maxWidth)
 
         // Draw background with border
         let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
@@ -733,23 +786,23 @@ final class PDFContentBlockRenderer {
             cornerRadii: CGSize(width: borderRadius, height: borderRadius)
         )
         context.addPath(accentPath.cgPath)
-        context.setFillColor(PDFStyleConfiguration.BlockStyles.insightNoteBorderColor.cgColor)
+        context.setFillColor(accentColor.cgColor)
         context.fillPath()
         context.restoreGState()
 
-        // Draw header with enhanced label weight
+        // Draw header with enhanced label weight, colored by note type.
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
-            .foregroundColor: PDFStyleConfiguration.BlockStyles.insightNoteIconColor,
+            .foregroundColor: accentColor,
             .kern: 1.2
         ]
-        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
+        let headerText = NSAttributedString(string: headerLabel, attributes: headerAttributes)
         let headerTextRect = CGRect(x: point.x + padding + leftAccentWidth, y: point.y + 8, width: maxWidth - padding * 2 - leftAccentWidth, height: headerHeight - 10)
         headerText.draw(in: headerTextRect)
 
         // Draw divider
         let dividerY = point.y + headerHeight
-        context.setStrokeColor(PDFStyleConfiguration.BlockStyles.insightNoteBorderColor.withAlphaComponent(0.3).cgColor)
+        context.setStrokeColor(accentColor.withAlphaComponent(0.3).cgColor)
         context.setLineWidth(0.5)
         context.move(to: CGPoint(x: point.x + padding + leftAccentWidth, y: dividerY))
         context.addLine(to: CGPoint(x: point.x + maxWidth - padding, y: dividerY))
@@ -830,33 +883,142 @@ final class PDFContentBlockRenderer {
             currentY += sectionHeight + sectionSpacing
         }
 
-        // Go Deeper section - Light burgundy/gold background
+        // Go Deeper — compact italic footer line (small-caps label + em dash +
+        // italic description), no nested box-in-box.
         if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
-            let sectionHeight = 20 + calculateTextHeight(goDeeper, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20) + 12
-            let sectionRect = CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: insetWidth, height: sectionHeight)
+            let footerX = point.x + padding + leftAccentWidth
 
-            // Warm gray background
-            context.setFillColor(PDFStyleConfiguration.Colors.warmGray.cgColor)
-            context.fill(sectionRect)
+            // Thin separator hairline above the footer.
+            context.setStrokeColor(accentColor.withAlphaComponent(0.25).cgColor)
+            context.setLineWidth(0.5)
+            context.move(to: CGPoint(x: footerX, y: currentY + 2))
+            context.addLine(to: CGPoint(x: point.x + maxWidth - padding, y: currentY + 2))
+            context.strokePath()
 
-            // Left accent bar
-            context.setFillColor(PDFStyleConfiguration.Colors.terracotta.cgColor)
-            context.fill(CGRect(x: point.x + padding + leftAccentWidth, y: currentY, width: subsectionAccentWidth, height: sectionHeight))
-
-            let labelAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
-                .foregroundColor: PDFStyleConfiguration.Colors.terracotta
-            ]
-            let labelText = NSAttributedString(string: "GO DEEPER", attributes: labelAttributes)
-            labelText.draw(at: CGPoint(x: point.x + padding + leftAccentWidth + subsectionAccentWidth + 8, y: currentY + 4))
-
-            var italicAttributes = PDFStyleConfiguration.bodyAttributes()
-            italicAttributes[.font] = PDFStyleConfiguration.Typography.bodyItalic()
-            let goAttributed = parseInlineMarkdown(goDeeper, baseAttributes: italicAttributes)
-            drawAttributedString(goAttributed, to: context, at: CGPoint(x: point.x + padding + leftAccentWidth + subsectionAccentWidth + 8, y: currentY + 22), maxWidth: insetWidth - 20)
+            let footer = buildInsightFooter(label: "GO DEEPER", body: goDeeper)
+            drawAttributedString(footer, to: context, at: CGPoint(x: footerX, y: currentY + 10), maxWidth: insetWidth)
         }
 
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    // MARK: - Insight Note Fragmentation (parallel to Quick Glance / Exercise)
+
+    /// One page-sized fragment of a split insight note. Carries a SUBSET of the
+    /// four sections plus its header label ("… (CONTINUED)" for continuations).
+    struct InsightNoteFragment {
+        let core: String
+        let keyDistinction: String?
+        let practicalImplication: String?
+        let goDeeper: String?
+        let headerLabel: String
+        let accentColor: UIColor
+        let plannedHeight: CGFloat   // == renderInsightNoteFragment's return (measure==draw)
+        var parsed: InsightNoteParsed { (core, keyDistinction, practicalImplication, goDeeper) }
+    }
+
+    /// PROVISIONAL floor — the minimum real content (sections only, excluding the
+    /// 58pt header+padding chrome) a fragment must carry to be worth creating. A
+    /// note that can't split into fragments all clearing this pushes whole
+    /// instead (no runt fragments). Higher than the exercise floor on purpose: a
+    /// two-line orphan of a note card reads worse than a two-step exercise
+    /// fragment. Confirm against real note sizes on the first fragmented export.
+    static let insightNoteFragmentContentFloor: CGFloat = 120
+
+    /// A note may split only when it is NOT a KEY CHALLENGE — a burgundy
+    /// interruption must stay whole (a halved interruption costs more than the gap
+    /// it would fill). The renderer gates on this before calling the planner.
+    func insightNoteIsSplittable(content: String, title: String) -> Bool {
+        Self.classifyInsightNote(content: content, title: title) != .challenge
+    }
+
+    /// Split an oversized, splittable note into self-contained fragment cards at
+    /// SECTION SEAMS (sections are atomic — never split mid-section). Fragment 1
+    /// packs to `firstBudget` (space left on the page), later fragments to
+    /// `pageBudget`. Returns nil when the note should NOT be split — fewer than
+    /// two sections, only one fragment results, or any fragment falls below the
+    /// content floor — so the caller pushes the whole note instead.
+    func planInsightNoteFragments(content: String, title: String, maxWidth: CGFloat, firstBudget: CGFloat, pageBudget: CGFloat) -> [InsightNoteFragment]? {
+        let noteType = Self.classifyInsightNote(content: content, title: title)
+        // Code-side invariant (belt-and-suspenders with the caller's gate): a
+        // KEY CHALLENGE must never reach the planner.
+        precondition(noteType != .challenge, "KEY CHALLENGE notes must never enter the insight-note fragment planner")
+
+        let parsed = parseInsightNoteContent(content)
+        let baseLabel = noteType.label(defaultTitle: title)
+        let accent = noteType.accentColor
+        let heights = insightNoteSectionHeights(parsed, maxWidth: maxWidth)
+
+        enum Sec { case core, keyDist, practical, goDeeper }
+        var units: [(sec: Sec, height: CGFloat)] = []
+        if !parsed.coreConnection.isEmpty { units.append((.core, heights.core)) }
+        if let kd = parsed.keyDistinction, !kd.isEmpty { units.append((.keyDist, heights.keyDistinction)) }
+        if let pr = parsed.practicalImplication, !pr.isEmpty { units.append((.practical, heights.practicalImplication)) }
+        if let gd = parsed.goDeeper, !gd.isEmpty { units.append((.goDeeper, heights.goDeeper)) }
+        guard units.count >= 2 else { return nil }   // nothing to split at
+
+        // Fixed per-fragment chrome: header(30) + padding*2(28) + trailing spacing.
+        let chrome: CGFloat = 30 + 14 * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+
+        // Greedy pack section units into groups, ≥1 unit per group (progress).
+        var groups: [[Int]] = []
+        var idx = 0
+        var isFirst = true
+        while idx < units.count {
+            let budget = isFirst ? firstBudget : pageBudget
+            var used = chrome
+            var group: [Int] = []
+            while idx < units.count {
+                let h = units[idx].height
+                if !group.isEmpty && used + h > budget { break }
+                group.append(idx); used += h; idx += 1
+            }
+            groups.append(group)
+            isFirst = false
+        }
+
+        // Must actually split, and every fragment must clear the content floor.
+        guard groups.count >= 2 else { return nil }
+        for g in groups {
+            let contentH = g.reduce(CGFloat(0)) { $0 + units[$1].height }
+            if contentH < Self.insightNoteFragmentContentFloor { return nil }
+        }
+
+        var fragments: [InsightNoteFragment] = []
+        for (gi, g) in groups.enumerated() {
+            var fp: InsightNoteParsed = ("", nil, nil, nil)
+            for u in g {
+                switch units[u].sec {
+                case .core: fp.coreConnection = parsed.coreConnection
+                case .keyDist: fp.keyDistinction = parsed.keyDistinction
+                case .practical: fp.practicalImplication = parsed.practicalImplication
+                case .goDeeper: fp.goDeeper = parsed.goDeeper
+                }
+            }
+            let label = gi == 0 ? baseLabel : "\(baseLabel) (CONTINUED)"
+            let planned = insightNoteCardHeight(fp, maxWidth: maxWidth) + PDFStyleConfiguration.Spacing.blockSpacing
+            fragments.append(InsightNoteFragment(core: fp.coreConnection, keyDistinction: fp.keyDistinction, practicalImplication: fp.practicalImplication, goDeeper: fp.goDeeper, headerLabel: label, accentColor: accent, plannedHeight: planned))
+        }
+        return fragments
+    }
+
+    /// Draw one planned note fragment (used by the paginating renderer).
+    func renderInsightNoteFragment(_ fragment: InsightNoteFragment, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        drawInsightNoteCard(parsed: fragment.parsed, accentColor: fragment.accentColor, headerLabel: fragment.headerLabel, to: context, at: point, maxWidth: maxWidth)
+    }
+
+    /// Strip a redundant leading type prefix ("Key Challenge:" / "Key
+    /// Limitation:") from a note's opening. The card header now announces the
+    /// type in burgundy, so repeating it as the first words is double-labeling.
+    private static func stripRedundantTypePrefix(_ text: String) -> String {
+        let prefixes = ["Key Challenge:", "Key Limitation:",
+                        "Key Challenge —", "Key Challenge -",
+                        "Key Limitation —", "Key Limitation -"]
+        let lower = text.lowercased()
+        for prefix in prefixes where lower.hasPrefix(prefix.lowercased()) {
+            return String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return text
     }
 
     /// Parse insight note content into structured components
@@ -900,52 +1062,63 @@ final class PDFContentBlockRenderer {
             coreText = String(normalizedContent[..<goRange.lowerBound])
         }
         coreConnection = coreText.replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        coreConnection = Self.stripRedundantTypePrefix(coreConnection)
 
         return (coreConnection, keyDistinction, practicalImplication, goDeeper)
     }
 
-    /// Calculate height for structured insight note
-    private func calculateInsightNoteHeight(content: String, maxWidth: CGFloat) -> CGFloat {
-        let parsed = parseInsightNoteContent(content)
+    /// The four parsed sections of an insight note, in draw order.
+    typealias InsightNoteParsed = (coreConnection: String, keyDistinction: String?, practicalImplication: String?, goDeeper: String?)
 
+    /// Per-section drawn heights (0 when a section is empty). SINGLE SOURCE OF
+    /// TRUTH shared by drawInsightNoteCard (draw), calculateInsightNoteHeight
+    /// (measure), and planInsightNoteFragments (split) — so a fragment's planned
+    /// height cannot drift from what is drawn. Mirrors the inline math that used
+    /// to be duplicated across the draw and measure paths.
+    private struct InsightNoteSectionHeights {
+        var core: CGFloat = 0
+        var keyDistinction: CGFloat = 0
+        var practicalImplication: CGFloat = 0
+        var goDeeper: CGFloat = 0
+        var total: CGFloat { core + keyDistinction + practicalImplication + goDeeper }
+    }
+
+    private func insightNoteSectionHeights(_ parsed: InsightNoteParsed, maxWidth: CGFloat) -> InsightNoteSectionHeights {
+        let padding: CGFloat = 14
+        let leftAccentWidth: CGFloat = 4
+        let sectionSpacing: CGFloat = 8
+        let insetWidth = maxWidth - padding * 2 - leftAccentWidth
+        var h = InsightNoteSectionHeights()
+        if !parsed.coreConnection.isEmpty {
+            h.core = calculateTextHeight(parsed.coreConnection, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth) + sectionSpacing + 4
+        }
+        if let keyDist = parsed.keyDistinction, !keyDist.isEmpty {
+            h.keyDistinction = 20 + calculateTextHeight(keyDist, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20) + 16 + sectionSpacing
+        }
+        if let practical = parsed.practicalImplication, !practical.isEmpty {
+            h.practicalImplication = 20 + calculateTextHeight(practical, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20) + 16 + sectionSpacing
+        }
+        if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
+            let footer = buildInsightFooter(label: "GO DEEPER", body: goDeeper)
+            h.goDeeper = 10 + measureAttributed(footer, maxWidth: insetWidth) + 4
+        }
+        return h
+    }
+
+    /// Total drawn card height EXCLUDING the trailing blockSpacing. header(30) +
+    /// sections + padding*2. Because the header is a FIXED 30pt slot regardless
+    /// of label text, a continuation fragment's "(CONTINUED)" header overhead is
+    /// counted for EVERY fragment automatically — measure==draw holds per fragment.
+    private func insightNoteCardHeight(_ parsed: InsightNoteParsed, maxWidth: CGFloat) -> CGFloat {
         let padding: CGFloat = 14
         let headerHeight: CGFloat = 30
-        let sectionSpacing: CGFloat = 8
-        let leftAccentWidth: CGFloat = 4
-        let insetWidth = maxWidth - padding * 2 - leftAccentWidth
+        return headerHeight + insightNoteSectionHeights(parsed, maxWidth: maxWidth).total + padding * 2
+    }
 
-        var contentHeight: CGFloat = 0
-
-        // Core connection
-        if !parsed.coreConnection.isEmpty {
-            contentHeight += calculateTextHeight(parsed.coreConnection, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth)
-            contentHeight += sectionSpacing + 4
-        }
-
-        // Key Distinction section
-        if let keyDist = parsed.keyDistinction, !keyDist.isEmpty {
-            contentHeight += 20 // Label height (increased)
-            contentHeight += calculateTextHeight(keyDist, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20)
-            contentHeight += 16 // Section padding
-            contentHeight += sectionSpacing
-        }
-
-        // Practical Implication section
-        if let practical = parsed.practicalImplication, !practical.isEmpty {
-            contentHeight += 20 // Label height (increased)
-            contentHeight += calculateTextHeight(practical, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20)
-            contentHeight += 16 // Section padding
-            contentHeight += sectionSpacing
-        }
-
-        // Go Deeper section
-        if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
-            contentHeight += 20 // Label height (increased)
-            contentHeight += calculateTextHeight(goDeeper, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - 20)
-            contentHeight += 16 // Section padding
-        }
-
-        return headerHeight + contentHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    /// Calculate height for structured insight note (measure twin of the draw path).
+    private func calculateInsightNoteHeight(content: String, maxWidth: CGFloat) -> CGFloat {
+        let parsed = parseInsightNoteContent(content)
+        return insightNoteCardHeight(parsed, maxWidth: maxWidth) + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
     /// Number of populated sections in a callout block, used by the renderer's
@@ -1130,9 +1303,63 @@ final class PDFContentBlockRenderer {
         )
     }
 
-    private func renderExercise(content: String, title: String, steps: [String], estimatedTime: String?, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    /// Shared exercise-header text attributes (font/kern) — used by BOTH the
+    /// wrapped-height measure and the draw so they can't drift.
+    private static let exerciseHeaderAttributes: [NSAttributedString.Key: Any] = [
+        .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+        .kern: 1.1
+    ]
+
+    /// Exercise header height grown to fit a WRAPPED title (fixes the p90
+    /// "…CORE FRAMEWORK INTO" single-line clip). Single-line titles stay ≈ 30.
+    private func exerciseHeaderHeight(_ title: String, maxWidth: CGFloat) -> CGFloat {
+        let insetWidth = maxWidth - 14 * 2   // padding = 14
+        let h = calculateTextHeight(title.uppercased(), attributes: Self.exerciseHeaderAttributes, maxWidth: insetWidth)
+        return max(30, ceil(h) + 16)
+    }
+
+    /// Height contributed by one exercise step (number gutter + wrapped step text
+    /// + inter-step gap). Shared by exerciseCardHeight and planExerciseFragments
+    /// so a fragment's packing decision matches the drawn layout exactly.
+    private func exerciseStepHeight(_ step: String, insetWidth: CGFloat, numberWidth: CGFloat = 28) -> CGFloat {
+        calculateTextHeight(step, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - numberWidth) + 10
+    }
+
+    /// Single source of truth for an exercise card's drawn height (EXCLUDING the
+    /// trailing blockSpacing). renderExercise draws to exactly this; both
+    /// calculateExerciseHeight and planExerciseFragments measure to exactly this,
+    /// so a planned fragment height equals what renderExercise actually returns.
+    private func exerciseCardHeight(displayTitle: String, content: String, steps: [String], hasTime: Bool, maxWidth: CGFloat) -> CGFloat {
         let padding: CGFloat = 14
-        let headerHeight: CGFloat = 30
+        let numberWidth: CGFloat = 28
+        let insetWidth = maxWidth - padding * 2
+        let headerHeight = exerciseHeaderHeight(displayTitle, maxWidth: maxWidth)
+
+        let (regularContent, tableData) = parseContentForTables(content)
+        var contentHeight: CGFloat = 0
+        if !regularContent.isEmpty {
+            contentHeight += calculateTextHeight(regularContent, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth) + 12
+        }
+        if !tableData.isEmpty {
+            contentHeight += calculateTableHeight(tableData: tableData, maxWidth: insetWidth) + 8
+        }
+        for step in steps {
+            contentHeight += exerciseStepHeight(step, insetWidth: insetWidth, numberWidth: numberWidth)
+        }
+        if hasTime { contentHeight += 24 } // Time badge height
+        return headerHeight + contentHeight + padding * 2
+    }
+
+    /// Renders an exercise card. When `continued` is true the header reads
+    /// "TITLE (CONTINUED)" and the caller passes an empty `content` (intro text /
+    /// table ride on fragment 1) — see planExerciseFragments. Internal (not
+    /// private) so the paginating renderer can draw fragments directly.
+    func renderExercise(content: String, title: String, steps: [String], estimatedTime: String?, to context: CGContext, at point: CGPoint, maxWidth: CGFloat, continued: Bool = false, startNumber: Int = 1) -> CGFloat {
+        let padding: CGFloat = 14
+        // displayTitle drives BOTH the measured header height and the drawn header
+        // string, so a continuation card's taller/longer header stays measure==draw.
+        let displayTitle = continued ? "\(title) (Continued)" : title
+        let headerHeight = exerciseHeaderHeight(displayTitle, maxWidth: maxWidth)
         let borderRadius: CGFloat = 6.0
         let numberWidth: CGFloat = 28
         let insetWidth = maxWidth - padding * 2
@@ -1140,28 +1367,10 @@ final class PDFContentBlockRenderer {
         // Parse content for potential markdown tables
         let (regularContent, tableData) = parseContentForTables(content)
 
-        // Calculate content height
-        var contentHeight: CGFloat = 0
-
-        if !regularContent.isEmpty {
-            contentHeight += calculateTextHeight(regularContent, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth) + 12
-        }
-
-        // Add table height if table was found
-        if !tableData.isEmpty {
-            contentHeight += calculateTableHeight(tableData: tableData, maxWidth: insetWidth) + 8
-        }
-
-        for step in steps {
-            let stepHeight = calculateTextHeight(step, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - numberWidth)
-            contentHeight += stepHeight + 10
-        }
-
-        if let time = estimatedTime, !time.isEmpty {
-            contentHeight += 24 // Time badge height
-        }
-
-        let totalHeight = headerHeight + contentHeight + padding * 2
+        // Total card height comes from the shared calculator so it can never
+        // drift from calculateExerciseHeight / the fragment planner.
+        let hasTime = (estimatedTime.map { !$0.isEmpty } ?? false)
+        let totalHeight = exerciseCardHeight(displayTitle: displayTitle, content: content, steps: steps, hasTime: hasTime, maxWidth: maxWidth)
 
         // Draw background
         let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
@@ -1176,14 +1385,12 @@ final class PDFContentBlockRenderer {
         context.setLineWidth(1.0)
         context.strokePath()
 
-        // Draw header
-        let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
-            .foregroundColor: PDFStyleConfiguration.BlockStyles.exerciseIconColor,
-            .kern: 1.1
-        ]
-        let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
-        let headerRect = CGRect(x: point.x + padding, y: point.y + 8, width: maxWidth - padding * 2, height: headerHeight - 10)
+        // Draw header — wraps to multiple lines for long titles; the rect grows
+        // with the dynamic headerHeight so it never clips (was a fixed 20pt slot).
+        var headerAttributes = Self.exerciseHeaderAttributes
+        headerAttributes[.foregroundColor] = PDFStyleConfiguration.BlockStyles.exerciseIconColor
+        let headerText = NSAttributedString(string: displayTitle.uppercased(), attributes: headerAttributes)
+        let headerRect = CGRect(x: point.x + padding, y: point.y + 8, width: insetWidth, height: headerHeight - 12)
         headerText.draw(in: headerRect)
 
         // Draw divider
@@ -1215,7 +1422,9 @@ final class PDFContentBlockRenderer {
                 .font: UIFont(name: "Inter-Bold", size: 17) ?? PDFStyleConfiguration.Typography.bodyBold(),
                 .foregroundColor: PDFStyleConfiguration.BlockStyles.exerciseIconColor
             ]
-            let numberText = NSAttributedString(string: "\(index + 1).", attributes: numberAttributes)
+            // startNumber offsets continuation fragments so a split exercise keeps
+            // one continuous sequence (fragment 2 shows 4., 5., … not 1., 2., …).
+            let numberText = NSAttributedString(string: "\(startNumber + index).", attributes: numberAttributes)
             let numberRect = CGRect(x: point.x + padding, y: currentY, width: numberWidth - 4, height: 20)
             numberText.draw(in: numberRect)
 
@@ -1236,7 +1445,7 @@ final class PDFContentBlockRenderer {
                 .font: PDFStyleConfiguration.Typography.caption(),
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted
             ]
-            let timeText = NSAttributedString(string: "⏱ \(time)", attributes: timeAttributes)
+            let timeText = NSAttributedString(string: time, attributes: timeAttributes)
             let timeRect = CGRect(x: point.x + padding, y: currentY + 4, width: insetWidth, height: 16)
             timeText.draw(in: timeRect)
         }
@@ -1422,6 +1631,106 @@ final class PDFContentBlockRenderer {
         return fragments
     }
 
+    /// One page-sized fragment of an exercise card. Mirrors QuickGlanceFragment.
+    struct ExerciseFragment {
+        let title: String           // raw title; renderExercise adds the CONTINUED suffix
+        let content: String         // intro text / table — carried by fragment 1 only
+        let steps: [String]
+        let estimatedTime: String?  // time badge — carried by the LAST fragment only
+        let continued: Bool
+        let startNumber: Int        // 1-based index of this fragment's first step in the whole exercise
+        let plannedHeight: CGFloat  // == renderExercise's return value (measure==draw)
+    }
+
+    /// Partition an oversized exercise into self-contained bordered cards, one per
+    /// page — the exercise analogue of planQuickGlanceFragments. The FIRST fragment
+    /// is packed to `firstBudget` (the space left on the current page) so it can
+    /// sit under its section heading without stranding it; every later fragment is
+    /// packed to the full `pageBudget`. Intro text/table ride on fragment 1; the
+    /// time badge rides on the last. All height math routes through
+    /// exerciseStepHeight/exerciseCardHeight — the same code the draw path uses —
+    /// so each fragment's planned height equals what renderExercise draws.
+    func planExerciseFragments(title: String, content: String, steps: [String], estimatedTime: String?, maxWidth: CGFloat, firstBudget: CGFloat, pageBudget: CGFloat) -> [ExerciseFragment] {
+        let padding: CGFloat = 14
+        let numberWidth: CGFloat = 28
+        let insetWidth = maxWidth - padding * 2
+        let hasTime = (estimatedTime.map { !$0.isEmpty } ?? false)
+        let timeReserve: CGFloat = hasTime ? 24 : 0   // reserved on every fragment; drawn only on the last
+
+        let firstTitle = title
+        let contTitle = "\(title) (Continued)"
+
+        // Fragment-1 chrome carries intro content/table; continuation chrome is
+        // just its (longer) header + padding.
+        let (regularContent, tableData) = parseContentForTables(content)
+        var headContentH: CGFloat = 0
+        if !regularContent.isEmpty {
+            headContentH += calculateTextHeight(regularContent, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth) + 12
+        }
+        if !tableData.isEmpty {
+            headContentH += calculateTableHeight(tableData: tableData, maxWidth: insetWidth) + 8
+        }
+        let firstChrome = exerciseHeaderHeight(firstTitle, maxWidth: maxWidth) + padding * 2 + headContentH
+        let contChrome = exerciseHeaderHeight(contTitle, maxWidth: maxWidth) + padding * 2
+
+        // Greedy pack — always take ≥1 step per fragment to guarantee progress.
+        var groups: [[String]] = []
+        var remaining = steps
+        var isFirst = true
+        while !remaining.isEmpty {
+            let chrome = isFirst ? firstChrome : contChrome
+            let budget = isFirst ? firstBudget : pageBudget
+            var used = chrome + timeReserve
+            var take: [String] = []
+            while let next = remaining.first {
+                let h = exerciseStepHeight(next, insetWidth: insetWidth, numberWidth: numberWidth)
+                if !take.isEmpty && used + h > budget { break }
+                if take.isEmpty && used + h > budget {
+                    // Unsplittable atom: a single step + chrome already exceeds the
+                    // page. Take it anyway (progress) and leave a ⏭️ trace — it
+                    // draws past the page edge, the same defined fallback QG uses.
+                    print("⏭️ [PDF Renderer] exercise step exceeds page budget (chrome+step=\(Int((used + h).rounded()))pt > \(Int(budget.rounded()))pt) — fragment renders with overflow")
+                }
+                take.append(next)
+                used += h
+                remaining.removeFirst()
+            }
+            groups.append(take)
+            isFirst = false
+        }
+
+        // Tail floor: a lone runt step at the end is only acceptable when the
+        // prior fragment was genuinely full — log it so it isn't a silent quirk.
+        if groups.count > 1, let last = groups.last, last.count < 2 {
+            print("ℹ️ [PDF Renderer] exercise final fragment has \(last.count) step(s) — unavoidable at these step heights")
+        }
+
+        var fragments: [ExerciseFragment] = []
+        let lastIndex = groups.count - 1
+        var stepCursor = 1   // 1-based running index so step numbers stay continuous across fragments
+        for (i, group) in groups.enumerated() {
+            let isFirstFrag = (i == 0)
+            let dispTitle = isFirstFrag ? firstTitle : contTitle
+            let fragContent = isFirstFrag ? content : ""
+            let fragTime = (i == lastIndex) ? estimatedTime : nil
+            let fragHasTime = (fragTime.map { !$0.isEmpty } ?? false)
+            let h = exerciseCardHeight(displayTitle: dispTitle, content: fragContent, steps: group, hasTime: fragHasTime, maxWidth: maxWidth)
+                + PDFStyleConfiguration.Spacing.blockSpacing
+            fragments.append(ExerciseFragment(title: title, content: fragContent, steps: group, estimatedTime: fragTime, continued: !isFirstFrag, startNumber: stepCursor, plannedHeight: h))
+            stepCursor += group.count
+        }
+        return fragments
+    }
+
+    /// Minimum height a viable FIRST fragment needs (header + intro + a 2-step
+    /// floor). The renderer uses this to decide whether the current page has room
+    /// to start the exercise here or should break first — avoiding a runt
+    /// fragment-1 that carries only chrome and no meaningful body.
+    func minExerciseFragmentHeight(title: String, content: String, steps: [String], maxWidth: CGFloat) -> CGFloat {
+        let floorSteps = Array(steps.prefix(2))
+        return exerciseCardHeight(displayTitle: title, content: content, steps: floorSteps, hasTime: false, maxWidth: maxWidth)
+    }
+
     private func renderList(items: [String], numbered: Bool, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         var currentY = point.y
 
@@ -1484,6 +1793,27 @@ final class PDFContentBlockRenderer {
 
     // MARK: - Table Rendering
 
+    /// Per-row drawn heights (min 20pt + cell padding). SINGLE SOURCE OF TRUTH
+    /// shared by renderTable (draw), calculateTableHeight (measure), and
+    /// planTableFragments (split) so a fragment's planned height cannot drift.
+    /// Column widths are an EVEN split by column count (content-independent), so
+    /// every fragment with the same columnCount + maxWidth aligns identically.
+    private func tableRowHeights(_ tableData: [[String]], maxWidth: CGFloat) -> [CGFloat] {
+        let padding: CGFloat = 8
+        let cellPadding: CGFloat = 10
+        let columnCount = tableData.first?.count ?? 1
+        let cellWidth = (maxWidth - padding * 2) / CGFloat(columnCount)
+        let cellContentWidth = cellWidth - cellPadding * 2
+        return tableData.map { row in
+            var maxCellHeight: CGFloat = 20
+            for cell in row {
+                let cellHeight = calculateTextHeight(stripMarkdownSyntax(cell), attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: cellContentWidth)
+                maxCellHeight = max(maxCellHeight, cellHeight + cellPadding * 2)
+            }
+            return maxCellHeight
+        }
+    }
+
     private func renderTable(tableData: [[String]], to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         guard !tableData.isEmpty else { return 0 }
 
@@ -1496,17 +1826,8 @@ final class PDFContentBlockRenderer {
         let cellWidth = (maxWidth - padding * 2) / CGFloat(columnCount)
         let cellContentWidth = cellWidth - cellPadding * 2
 
-        // Calculate row heights
-        var rowHeights: [CGFloat] = []
-        for row in tableData {
-            var maxCellHeight: CGFloat = 20
-            for cell in row {
-                let cellText = stripMarkdownSyntax(cell)
-                let cellHeight = calculateTextHeight(cellText, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: cellContentWidth)
-                maxCellHeight = max(maxCellHeight, cellHeight + cellPadding * 2)
-            }
-            rowHeights.append(maxCellHeight)
-        }
+        // Row heights — shared single source (see tableRowHeights).
+        let rowHeights = tableRowHeights(tableData, maxWidth: maxWidth)
 
         let totalHeight = rowHeights.reduce(0, +) + padding * 2
 
@@ -1590,26 +1911,119 @@ final class PDFContentBlockRenderer {
 
     private func calculateTableHeight(tableData: [[String]], maxWidth: CGFloat) -> CGFloat {
         guard !tableData.isEmpty else { return 0 }
-
         let padding: CGFloat = 8
-        let cellPadding: CGFloat = 10
-        let columnCount = tableData.first?.count ?? 1
-        let cellWidth = (maxWidth - padding * 2) / CGFloat(columnCount)
-        let cellContentWidth = cellWidth - cellPadding * 2
+        return tableRowHeights(tableData, maxWidth: maxWidth).reduce(0, +) + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
 
-        var totalHeight: CGFloat = padding * 2
+    // MARK: - Table Fragmentation (row-atomic, header repeats per fragment)
 
-        for row in tableData {
-            var maxCellHeight: CGFloat = 20
-            for cell in row {
-                let cellText = stripMarkdownSyntax(cell)
-                let cellHeight = calculateTextHeight(cellText, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: cellContentWidth)
-                maxCellHeight = max(maxCellHeight, cellHeight + cellPadding * 2)
+    struct TableFragment {
+        let rows: [[String]]        // row 0 is the repeated header; then this fragment's data rows
+        let plannedHeight: CGFloat  // == renderTableFragment's return (measure==draw)
+    }
+
+    /// Caption ("TABLE N: …") height for a table block — 0 when unnumbered. The
+    /// caption rides fragment 1 ONLY; the renderer reserves this from fragment-1's
+    /// budget and draws it once.
+    func tableCaptionHeight(for block: PDFContentBlock) -> CGFloat {
+        figureLabel(for: block) != nil ? figureCaptionHeight : 0
+    }
+
+    /// Draw the table caption once (fragment 1). Returns drawn height (0 if none).
+    func renderTableCaption(for block: PDFContentBlock, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        guard let fig = figureLabel(for: block) else { return 0 }
+        return renderFigureCaption(fig, to: context, at: point, maxWidth: maxWidth)
+    }
+
+    /// Split an oversized table at ROW boundaries (never mid-row). Each fragment
+    /// is a complete small table = [repeated header row] + a subset of data rows,
+    /// so the existing renderTable draws it verbatim (header once, columns aligned
+    /// by the even-split width). Fragment 1 packs to `firstBudget`, the rest to
+    /// `pageBudget`. Returns nil — push the whole table — when there are fewer
+    /// than 4 data rows or any fragment would carry fewer than 2 data rows.
+    func planTableFragments(tableData: [[String]], maxWidth: CGFloat, firstBudget: CGFloat, pageBudget: CGFloat) -> [TableFragment]? {
+        guard tableData.count >= 5 else { return nil }   // header + ≥4 data rows to make two ≥2-row groups
+        let padding: CGFloat = 8
+        let rowHeights = tableRowHeights(tableData, maxWidth: maxWidth)
+        let headerH = rowHeights[0]
+        let chrome = padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing + headerH
+
+        // Greedy pack DATA row indices (1...) into groups, ≥1 per group.
+        var groups: [[Int]] = []
+        var idx = 1
+        var isFirst = true
+        while idx < tableData.count {
+            let budget = isFirst ? firstBudget : pageBudget
+            var used = chrome
+            var group: [Int] = []
+            while idx < tableData.count {
+                let h = rowHeights[idx]
+                if !group.isEmpty && used + h > budget { break }
+                group.append(idx); used += h; idx += 1
             }
-            totalHeight += maxCellHeight
+            groups.append(group); isFirst = false
         }
 
-        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+        guard groups.count >= 2 else { return nil }
+        for g in groups where g.count < 2 { return nil }   // floor: no orphan single-row runt
+
+        return groups.map { g in
+            var rows: [[String]] = [tableData[0]]
+            for i in g { rows.append(tableData[i]) }
+            let h = tableRowHeights(rows, maxWidth: maxWidth).reduce(0, +) + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+            return TableFragment(rows: rows, plannedHeight: h)
+        }
+    }
+
+    /// Draw one table fragment — it is a complete small table, so this defers to
+    /// renderTable (header drawn once as row 0, columns aligned by even split).
+    func renderTableFragment(_ fragment: TableFragment, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        renderTable(tableData: fragment.rows, to: context, at: point, maxWidth: maxWidth)
+    }
+
+    // MARK: - Diagram Scale-to-Fit (whitespace lever for vector diagrams)
+
+    /// Diagram block types that are pure vector drawings — safe to scale
+    /// uniformly (text scales with the figure, legibility ratio preserved).
+    /// Text-heavy blocks (notes/tables/paragraphs) are NEVER scaled.
+    static let scalableDiagramTypes: Set<PDFContentBlock.BlockType> = [.flowchart, .conceptMap, .processTimeline, .loopDiagram, .spectrum]
+
+    /// Below this uniform scale, a diagram is judged illegible — push whole
+    /// instead (legibility outranks whitespace). Observed real gaps (458–510pt
+    /// against ~526pt diagrams) yield s≈0.87–0.97, so the floor should not bind
+    /// on measured content; it only guards genuinely monstrous diagrams.
+    static let diagramLegibilityFloor: CGFloat = 0.70
+
+    enum DiagramFit: Equatable {
+        case fits                                   // H ≤ remaining — draw normally
+        case scale(factor: CGFloat, target: CGFloat) // draw uniformly scaled to fill `target` (== the height the loop advances by)
+        case pushWhole                              // scale would fall below the floor — push to a fresh page at 100%
+    }
+
+    /// PURE decision (no canvas) — the measure==draw contract lives here: when we
+    /// scale, `target` is exactly the height the renderer draws AND the height the
+    /// paginator advances currentY by. Unit-tested directly.
+    func diagramScaleDecision(naturalHeight H: CGFloat, remaining R: CGFloat, floor: CGFloat = PDFContentBlockRenderer.diagramLegibilityFloor) -> DiagramFit {
+        if H <= R { return .fits }
+        guard H > 0 else { return .fits }
+        let s = R / H
+        return s >= floor ? .scale(factor: s, target: R) : .pushWhole
+    }
+
+    /// Draw a diagram block uniformly scaled by `factor` so it fills `target`
+    /// height, horizontally centered. Pure CGContext transform around the
+    /// existing renderBlock draw — PDFDiagramRenderer is untouched. Returns
+    /// `target` (the scaled drawn height == what the paginator advances by).
+    func renderDiagramScaledToFit(_ block: PDFContentBlock, factor: CGFloat, target: CGFloat, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        context.saveGState()
+        // Center the shrunken figure horizontally, anchor its top at point.y,
+        // then scale both axes by `factor` so the natural-size draw lands at
+        // `target` tall and (maxWidth*factor) wide.
+        context.translateBy(x: point.x + maxWidth * (1 - factor) / 2, y: point.y)
+        context.scaleBy(x: factor, y: factor)
+        _ = renderBlock(block, to: context, at: .zero, maxWidth: maxWidth)
+        context.restoreGState()
+        return target
     }
 
     // MARK: - Helper: Special Block Renderer
@@ -1812,34 +2226,12 @@ final class PDFContentBlockRenderer {
         return calculateSpecialBlockHeight(content: content, title: title ?? "The Story Behind the Ideas", maxWidth: maxWidth)
     }
 
-    private func calculateExerciseHeight(content: String, steps: [String], maxWidth: CGFloat) -> CGFloat {
-        let padding: CGFloat = 14
-        let headerHeight: CGFloat = 30
-        let numberWidth: CGFloat = 28
-        let insetWidth = maxWidth - padding * 2
-
-        // Parse content for potential tables
-        let (regularContent, tableData) = parseContentForTables(content)
-
-        var contentHeight: CGFloat = 0
-
-        if !regularContent.isEmpty {
-            contentHeight += calculateTextHeight(regularContent, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth) + 12
-        }
-
-        // Add table height if present
-        if !tableData.isEmpty {
-            contentHeight += calculateTableHeight(tableData: tableData, maxWidth: insetWidth) + 8
-        }
-
-        for step in steps {
-            let stepHeight = calculateTextHeight(step, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - numberWidth)
-            contentHeight += stepHeight + 10
-        }
-
-        contentHeight += 24 // Time badge
-
-        return headerHeight + contentHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    private func calculateExerciseHeight(title: String, content: String, steps: [String], maxWidth: CGFloat) -> CGFloat {
+        // hasTime: true mirrors the non-fragmented render path — PDFAnalysisDocument
+        // always attaches a "~N min" estimate, so the whole-card height reserves
+        // the time badge just as renderExercise draws it.
+        return exerciseCardHeight(displayTitle: title, content: content, steps: steps, hasTime: true, maxWidth: maxWidth)
+            + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
     private func calculateQuickGlanceHeight(coreMessage: String, keyPoints: [String], readingTime: String?, maxWidth: CGFloat) -> CGFloat {
@@ -1916,6 +2308,35 @@ final class PDFContentBlockRenderer {
         mutableString.draw(in: drawRect)
         UIGraphicsPopContext()
 
+        return ceil(boundingRect.height) + 2
+    }
+
+    /// Height of an attributed string using the EXACT same layout as
+    /// `drawAttributedString` (same word-wrap paragraph style, same bounding
+    /// options, same +2 buffer), so a measured height matches the drawn height
+    /// for the identical string. Draw-free counterpart for height calcs.
+    private func measureAttributed(_ attributedString: NSAttributedString, maxWidth: CGFloat) -> CGFloat {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        guard mutableString.length > 0 else { return 0 }
+        let fullRange = NSRange(location: 0, length: mutableString.length)
+
+        var paragraphStyle: NSMutableParagraphStyle
+        if let existingStyle = mutableString.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle,
+           let mutableStyle = existingStyle.mutableCopy() as? NSMutableParagraphStyle {
+            paragraphStyle = mutableStyle
+        } else {
+            paragraphStyle = NSMutableParagraphStyle()
+        }
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        paragraphStyle.hyphenationFactor = 0.0
+        paragraphStyle.allowsDefaultTighteningForTruncation = false
+        mutableString.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
+
+        let boundingRect = mutableString.boundingRect(
+            with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
         return ceil(boundingRect.height) + 2
     }
 
@@ -2425,7 +2846,7 @@ final class PDFContentBlockRenderer {
     private func renderReadingChip(block: PDFContentBlock, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let m = block.metadata ?? [:]
         var parts: [String] = []
-        if let time = m["readingTime"], !time.isEmpty { parts.append("⏱ \(time) MIN READ") }
+        if let time = m["readingTime"], !time.isEmpty { parts.append("\(time) MIN READ") }
         if let progress = m["progress"], !progress.isEmpty { parts.append(progress.uppercased()) }
         guard !parts.isEmpty else { return 0 }
 
@@ -2446,12 +2867,14 @@ final class PDFContentBlockRenderer {
     /// Get a user-friendly label for visual type
     private func visualTypeLabel(_ type: GuideVisualType) -> String {
         switch type {
-        case .timeline: return "📅 Timeline"
-        case .flowDiagram: return "🔀 Flow Diagram"
-        case .comparisonMatrix: return "📊 Comparison Matrix"
-        case .barChart: return "📈 Bar Chart"
-        case .quadrant: return "⊞ Quadrant Analysis"
-        case .conceptMap: return "🗺 Concept Map"
+        // Emoji removed — the embedded serif/sans fonts don't contain these
+        // glyphs, so they rendered as the missing-glyph box in the PDF.
+        case .timeline: return "Timeline"
+        case .flowDiagram: return "Flow Diagram"
+        case .comparisonMatrix: return "Comparison Matrix"
+        case .barChart: return "Bar Chart"
+        case .quadrant: return "Quadrant Analysis"
+        case .conceptMap: return "Concept Map"
         }
     }
 }

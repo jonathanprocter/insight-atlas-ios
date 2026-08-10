@@ -46,6 +46,7 @@ enum NarrationServiceError: LocalizedError {
     case emptyText
     case documentsDirectoryUnavailable
     case assemblyFailed
+    case network(String)
     case underlying(KokoroTTSError)
 
     var errorDescription: String? {
@@ -60,10 +61,38 @@ enum NarrationServiceError: LocalizedError {
             return "The app's Documents directory is unavailable."
         case .assemblyFailed:
             return "Failed to assemble the narration audio segments."
+        case let .network(detail):
+            return "Network error during narration: \(detail)"
         case let .underlying(error):
             return error.errorDescription
         }
     }
+}
+
+// MARK: - Narration Diagnostics
+
+/// Result of the Settings → Audio "Test Liam narration" self-test. Each stage
+/// is checked independently so the first failing stage pinpoints the cause.
+struct NarrationDiagnostics: Sendable {
+    var tokenPresent: Bool = false
+    var healthOK: Bool = false
+    var healthDetail: String = "Not run"
+    var singleChunkOK: Bool = false
+    var singleChunkDetail: String = "Not run"
+    var assemblyOK: Bool = false
+    var assemblyDetail: String = "Not run"
+
+    // OpenAI TTS (primary provider) — via standalone API key.
+    var openAIKeyPresent: Bool = false
+    var openAISynthOK: Bool = false
+    var openAISynthDetail: String = "Not run"
+
+    // OpenAI TTS — via ChatGPT login (OAuth access token).
+    var openAIOAuthPresent: Bool = false
+    var openAIOAuthSynthOK: Bool = false
+    var openAIOAuthDetail: String = "Not run"
+
+    var allPassed: Bool { tokenPresent && healthOK && singleChunkOK && assemblyOK }
 }
 
 // MARK: - Kokoro Narration Service
@@ -149,6 +178,153 @@ actor KokoroNarrationService {
 
         let duration = try await loadDuration(of: finalURL)
         return NarrationAsset(relativeFileName: relativeName, voiceID: Self.voice, duration: duration)
+    }
+
+    // MARK: - Diagnostics
+
+    /// Runs a staged self-test against the Liam gateway: token → health →
+    /// single-chunk synthesis → two-segment assembly. Never throws; each stage's
+    /// outcome is captured so the first failure identifies the cause.
+    func runDiagnostics() async -> NarrationDiagnostics {
+        var result = NarrationDiagnostics()
+
+        // Primary provider: OpenAI TTS (onyx). Direct probes report the raw HTTP
+        // outcome for each credential, independent of Liam.
+        // (a) standalone OpenAI API key
+        result.openAIKeyPresent = KeychainService.shared.hasOpenAIApiKey
+        if let key = KeychainService.shared.openaiApiKey {
+            if key.hasPrefix("sk-or-") {
+                // OpenRouter key in the OpenAI field — a common mix-up. OpenRouter
+                // has no TTS endpoint and its keys only authenticate at
+                // openrouter.ai, so this would just 401 against OpenAI.
+                result.openAISynthOK = false
+                result.openAISynthDetail = "Looks like an OpenRouter key (sk-or-…); OpenRouter has no TTS. Use an OpenAI key."
+            } else {
+                let probe = await Self.probeOpenAITTS(bearer: key, accountID: nil)
+                result.openAISynthOK = probe.ok
+                result.openAISynthDetail = probe.detail
+            }
+        } else {
+            result.openAISynthDetail = "No OpenAI API key"
+        }
+        // (b) ChatGPT login (OAuth access token, Codex-CLI style)
+        result.openAIOAuthPresent = ChatGPTOAuthService.hasStoredCredentials
+        if result.openAIOAuthPresent {
+            do {
+                let token = try await ChatGPTOAuthService.shared.validAccessToken()
+                let probe = await Self.probeOpenAITTS(bearer: token, accountID: ChatGPTOAuthService.storedAccountID)
+                result.openAIOAuthSynthOK = probe.ok
+                result.openAIOAuthDetail = probe.detail
+            } catch {
+                result.openAIOAuthDetail = Self.readable(error)
+            }
+        } else {
+            result.openAIOAuthDetail = "Not signed in with ChatGPT"
+        }
+
+        result.tokenPresent = KokoroTTSClient.currentAPIKey() != nil
+        guard result.tokenPresent else {
+            result.healthDetail = "Skipped — no token"
+            result.singleChunkDetail = "Skipped — no token"
+            result.assemblyDetail = "Skipped — no token"
+            return result
+        }
+
+        // Stage 1: gateway reachability. The `/health` endpoint is informational
+        // only — narration uses `/v1/audio/speech`, so "reachable" is the pass
+        // condition here. A non-200 from `/health` must not read as a failure.
+        do {
+            let returns200 = try await client.health()
+            result.healthOK = true // any HTTP response means the gateway is reachable
+            result.healthDetail = returns200
+                ? "200 OK"
+                : "Reachable (health endpoint non-200; not used for narration)"
+        } catch {
+            result.healthOK = false
+            result.healthDetail = "Unreachable — \(Self.readable(error))"
+        }
+
+        // Stage 2: single-chunk synthesis (exercises auth + audio return).
+        let tmp = FileManager.default.temporaryDirectory
+        let oneURL = tmp.appendingPathComponent("kokoro_diag_one_\(UUID().uuidString).mp3")
+        defer { try? FileManager.default.removeItem(at: oneURL) }
+        do {
+            _ = try await client.synthesizeAndSave(
+                text: "Insight Atlas narration check. This is the Liam voice.",
+                to: oneURL
+            )
+            let bytes = (try? FileManager.default.attributesOfItem(atPath: oneURL.path)[.size] as? Int) ?? nil
+            result.singleChunkOK = (bytes ?? 0) > 0
+            result.singleChunkDetail = result.singleChunkOK
+                ? "OK — \((bytes ?? 0) / 1024) KB"
+                : "Empty audio returned"
+        } catch {
+            result.singleChunkDetail = Self.readable(error)
+        }
+
+        // Stage 3: two-segment assembly (only meaningful if synthesis works).
+        guard result.singleChunkOK else {
+            result.assemblyDetail = "Skipped — synthesis failed"
+            return result
+        }
+        let aURL = tmp.appendingPathComponent("kokoro_diag_a_\(UUID().uuidString).mp3")
+        let bURL = tmp.appendingPathComponent("kokoro_diag_b_\(UUID().uuidString).mp3")
+        let outURL = tmp.appendingPathComponent("kokoro_diag_out_\(UUID().uuidString).m4a")
+        defer { [aURL, bURL, outURL].forEach { try? FileManager.default.removeItem(at: $0) } }
+        do {
+            _ = try await client.synthesizeAndSave(text: "First narration segment for the assembly check.", to: aURL)
+            _ = try await client.synthesizeAndSave(text: "Second narration segment for the assembly check.", to: bURL)
+            try await assemble(parts: [aURL, bURL], to: outURL)
+            let duration = try await loadDuration(of: outURL)
+            result.assemblyOK = duration > 0
+            result.assemblyDetail = result.assemblyOK
+                ? String(format: "OK — %.1fs combined", duration)
+                : "Zero-length output"
+        } catch {
+            result.assemblyDetail = Self.readable(error)
+        }
+
+        return result
+    }
+
+    /// Direct minimal POST to OpenAI TTS reporting the raw HTTP outcome for the
+    /// given bearer credential. Diagnostics-only; deliberately does not go
+    /// through OpenAIAudioService so status codes aren't remapped.
+    private static func probeOpenAITTS(bearer: String, accountID: String?) async -> (ok: Bool, detail: String) {
+        guard let url = URL(string: "https://api.openai.com/v1/audio/speech") else {
+            return (false, "Bad URL")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 30
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        if let accountID { req.setValue(accountID, forHTTPHeaderField: "chatgpt-account-id") }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "model": "tts-1-hd",
+            "input": "Insight Atlas narration check. This is the onyx voice.",
+            "voice": NarrationService.openAIVoice,
+            "response_format": "mp3"
+        ])
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            if code == 200 {
+                return (true, "OK — \(data.count / 1024) KB (\(NarrationService.openAIVoice))")
+            }
+            let body = String(data: data.prefix(180), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return (false, "HTTP \(code): \(body)")
+        } catch {
+            return (false, readable(error))
+        }
+    }
+
+    private static func readable(_ error: Error) -> String {
+        if let n = error as? NarrationServiceError { return n.errorDescription ?? "\(n)" }
+        if let k = error as? KokoroTTSError { return k.errorDescription ?? "\(k)" }
+        if let u = error as? URLError { return "Network: \(u.code)" }
+        return error.localizedDescription
     }
 
     // MARK: - Managed regeneration (persists state via DataManager)
@@ -275,6 +451,15 @@ actor KokoroNarrationService {
                     throw NarrationServiceError.underlying(error)
                 }
                 logger.warning("Transient narration error (attempt \(attempt)): \(error.localizedDescription)")
+                try await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
+                delaySeconds = min(delaySeconds * 2, 8)
+            } catch let urlError as URLError {
+                // Network failures (timeout, connection loss) are thrown as
+                // URLError by URLSession and previously bypassed retry entirely.
+                guard attempt < maxAttempts else {
+                    throw NarrationServiceError.network(urlError.localizedDescription)
+                }
+                logger.warning("Network narration error (attempt \(attempt)): \(urlError.localizedDescription)")
                 try await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
                 delaySeconds = min(delaySeconds * 2, 8)
             }

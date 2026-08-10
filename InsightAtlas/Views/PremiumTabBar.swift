@@ -9,6 +9,10 @@ enum AppTab: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static var displayCases: [AppTab] {
+        [.library, .listen, .atlas, .settings]
+    }
+
     var title: String {
         switch self {
         case .library:  return "Library"
@@ -42,14 +46,14 @@ struct PremiumTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(AppTab.allCases) { tab in
+            ForEach(AppTab.displayCases) { tab in
                 item(for: tab)
             }
         }
         .padding(.top, 8)
         .padding(.horizontal, 8)
         .background(
-            PremiumUI.card
+            AnalysisTheme.bgPrimary
                 .overlay(alignment: .top) {
                     Rectangle()
                         .fill(PremiumUI.divider)
@@ -69,11 +73,13 @@ struct PremiumTabBar: View {
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: tab.icon(isSelected: isSelected))
+                    .foregroundStyle(isSelected ? PremiumUI.slate : PremiumUI.secondaryText)
                     .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
                     .frame(height: 24)
 
                 Text(tab.title)
                     .font(PremiumUI.ui(11, isSelected ? .semibold : .medium, relativeTo: .caption2))
+                    .foregroundStyle(isSelected ? PremiumUI.slate : PremiumUI.secondaryText)
 
                 // Coral indicator — signature of the active destination.
                 Capsule()
@@ -98,7 +104,7 @@ struct PremiumTabBar: View {
                 Spacer()
                 PremiumTabBar(selection: $tab)
             }
-            .background(PremiumUI.background)
+            .background(AnalysisTheme.bgPrimary)
         }
     }
     return Harness()

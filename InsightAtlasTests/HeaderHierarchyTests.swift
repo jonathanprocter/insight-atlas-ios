@@ -362,7 +362,3 @@ final class HeaderHierarchyTests: XCTestCase {
         }
     }
 }
-
-// MARK: - PDFContentBlock.BlockType Equatable
-
-extension PDFContentBlock.BlockType: Equatable {}

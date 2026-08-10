@@ -40,15 +40,42 @@ struct ReferentialIntegrityValidator {
         var violations: [Violation]
         var figureCount: Int
         var tableCount: Int
+        /// Invariant residue: explicit "Figure/Table N" strings that still have no
+        /// rendered target N after the pass (load-bearing danglers awaiting a build
+        /// or an authored rewrite). Empty ⇒ the referential invariant holds.
+        var unresolvedReferences: [String] = []
+        /// Builds-stage triage manifest: one row per rendered figure/table with
+        /// its cache and referenced state (the "cached surplus" column — assets
+        /// that never became blocks — is not recoverable at render time and is
+        /// gathered separately from VisualSelectionService).
+        var visualManifest: [String] = []
+        /// Soft signal for the "exists but distant" case (e.g. p73): block-distance
+        /// from each in-prose reference to its resolved target, sorted farthest-first.
+        var referenceDistances: [String] = []
         var isValid: Bool { violations.isEmpty }
+        /// The hard, boolean invariant the cut stage must satisfy.
+        var invariantHolds: Bool { unresolvedReferences.isEmpty }
         var summary: String {
+            var out: String
             if violations.isEmpty {
-                return "Referential integrity OK — \(figureCount) figure(s), \(tableCount) table(s), 0 violations."
+                out = "Referential integrity OK — \(figureCount) figure(s), \(tableCount) table(s), 0 violations."
+            } else {
+                let lines = violations.map {
+                    "  • [\($0.category.rawValue)] §\($0.sectionIndex).\($0.blockIndex): \($0.message)\($0.repaired ? " (repaired)" : "")"
+                }
+                out = "Referential integrity: \(violations.count) violation(s)\n" + lines.joined(separator: "\n")
             }
-            let lines = violations.map {
-                "  • [\($0.category.rawValue)] §\($0.sectionIndex).\($0.blockIndex): \($0.message)\($0.repaired ? " (repaired)" : "")"
+            if !unresolvedReferences.isEmpty {
+                out += "\n❌ INVARIANT FAILED — \(unresolvedReferences.count) reference(s) with no rendered target:\n  - "
+                    + unresolvedReferences.joined(separator: "\n  - ")
             }
-            return "Referential integrity: \(violations.count) violation(s)\n" + lines.joined(separator: "\n")
+            if !visualManifest.isEmpty {
+                out += "\n— Visual manifest —\n  " + visualManifest.joined(separator: "\n  ")
+            }
+            if !referenceDistances.isEmpty {
+                out += "\n— Reference distances (farthest first) —\n  " + referenceDistances.joined(separator: "\n  ")
+            }
+            return out
         }
     }
 
@@ -142,42 +169,16 @@ struct ReferentialIntegrityValidator {
         return (doc, index)
     }
 
-    // MARK: - Deictic → explicit rewrite
-
-    private func rewriteResolvableReferences(_ document: PDFAnalysisDocument, index: FigureIndex) -> PDFAnalysisDocument {
-        var doc = document
-        for (sIdx, section) in doc.sections.enumerated() {
-            let hasFigure = index.sectionHasFigure[sIdx] ?? false
-            let hasTable = index.sectionHasTable[sIdx] ?? false
-            let figNum = index.sectionFirstFigure[sIdx]
-            let tblNum = index.sectionFirstTable[sIdx]
-
-            var blocks = section.blocks
-            for (bIdx, block) in blocks.enumerated() where Self.proseTypes.contains(block.type) {
-                var text = block.content
-                if hasFigure, let figNum = figNum {
-                    for phrase in Self.figureDeictic {
-                        text = replace(phrase, with: "Figure \(figNum)", in: text)
-                    }
-                }
-                if hasTable, let tblNum = tblNum {
-                    for phrase in Self.tableDeictic {
-                        text = replace(phrase, with: "Table \(tblNum)", in: text)
-                    }
-                }
-                for phrase in Self.ambiguousDeictic {
-                    if hasTable, let tblNum = tblNum {
-                        text = replace(phrase, with: "Table \(tblNum)", in: text)
-                    } else if hasFigure, let figNum = figNum {
-                        text = replace(phrase, with: "Figure \(figNum)", in: text)
-                    }
-                }
-                if text != block.content { blocks[bIdx] = block.replacingContent(text) }
-            }
-            doc.sections[sIdx].blocks = blocks
-        }
-        return doc
-    }
+    // MARK: - Deictic → explicit rewrite (REMOVED)
+    //
+    // `rewriteResolvableReferences` was deleted. It mapped ordinary deictic
+    // phrases ("the figure", "the loop") onto a section's FIRST figure, silently
+    // fabricating explicit references that then passed the referential invariant.
+    // On the degenerate single-section export path it mapped everything onto
+    // "Figure 1". This violated the shipped policy (strip decorative, flag
+    // load-bearing, never fabricate/silently-correct), so the behavior is gone —
+    // deictics stay as natural prose and only explicit numeric references are
+    // validated.
 
     // MARK: - Violation detection
 
@@ -185,31 +186,13 @@ struct ReferentialIntegrityValidator {
         var violations: [Violation] = []
 
         for (sIdx, section) in document.sections.enumerated() {
-            let hasFigure = index.sectionHasFigure[sIdx] ?? false
-            let hasTable = index.sectionHasTable[sIdx] ?? false
-
             for (bIdx, block) in section.blocks.enumerated() {
 
-                // 1. Ghost references — deictic phrases that survived the rewrite.
                 if Self.proseTypes.contains(block.type) {
-                    let lowered = block.content.lowercased()
-                    for phrase in Self.figureDeictic where lowered.contains(phrase) && !hasFigure {
-                        violations.append(Violation(
-                            category: .ghostReference, sectionIndex: sIdx, blockIndex: bIdx,
-                            message: "references \"\(phrase)\" but no figure renders in this section"))
-                    }
-                    for phrase in Self.tableDeictic where lowered.contains(phrase) && !hasTable {
-                        violations.append(Violation(
-                            category: .ghostReference, sectionIndex: sIdx, blockIndex: bIdx,
-                            message: "references \"\(phrase)\" but no table renders in this section"))
-                    }
-                    for phrase in Self.ambiguousDeictic where lowered.contains(phrase) && !(hasFigure || hasTable) {
-                        violations.append(Violation(
-                            category: .ghostReference, sectionIndex: sIdx, blockIndex: bIdx,
-                            message: "references \"\(phrase)\" but no figure or table renders in this section"))
-                    }
-
-                    // 2. Dangling explicit figure/table numbers.
+                    // Deictic ghost detection removed: idioms like "the loop" / "the
+                    // figure" are ordinary language, not figure references. Flagging
+                    // them produced false positives (and, via the removed rewriter,
+                    // fabricated refs). Only EXPLICIT numeric references are validated.
                     for (kind, assigned) in [("Figure", index.assignedFigures), ("Table", index.assignedTables)] {
                         for number in explicitReferences(kind: kind, in: block.content) where !assigned.contains(number) {
                             violations.append(Violation(
@@ -296,7 +279,6 @@ struct ReferentialIntegrityValidator {
     private func suppressSentences(in content: String, for violations: [Violation]) -> String {
         let ghostPhrases = Self.figureDeictic + Self.tableDeictic + Self.ambiguousDeictic
         let hasGhost = violations.contains { $0.category == .ghostReference }
-        let hasDangling = violations.contains { $0.category == .danglingFigureNumber }
         let hasOrphan = violations.contains { $0.category == .orphanLeadIn }
 
         let units = splitSentences(content)
@@ -304,7 +286,6 @@ struct ReferentialIntegrityValidator {
             let lowered = unit.lowercased()
             if hasOrphan && unit.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix(":") { return false }
             if hasGhost && ghostPhrases.contains(where: { lowered.contains($0) }) { return false }
-            if hasDangling && (lowered.range(of: #"\b(figure|table)\s+\d+"#, options: .regularExpression) != nil) { return false }
             return true
         }
         return kept.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -320,28 +301,190 @@ struct ReferentialIntegrityValidator {
     /// unrepaired and the caller decides how to react to the report.
     func process(_ document: PDFAnalysisDocument, repairViolations: Bool) -> (PDFAnalysisDocument, Report) {
         let (numbered, index) = assignFigureNumbers(document)
-        let rewritten = rewriteResolvableReferences(numbered, index: index)
-        var violations = findViolations(rewritten, index: index)
+
+        // Deictic REWRITING removed (policy violation): converting ordinary phrases
+        // like "the figure"/"the loop" into explicit "Figure N" references silently
+        // FABRICATED references that then satisfied the invariant — strictly worse
+        // than the sentence-suppressor we removed, because it manufactured
+        // invariant-passing garbage. Deictics now stay as natural prose; only
+        // explicit numeric references are validated. Policy: strip decorative,
+        // flag load-bearing, never fabricate or silently correct.
+
+        // Tiered dangling-reference handling (pre-layout, block→block, so no height
+        // calc ever sees the stripped text):
+        //  • auto-strip PARENTHETICAL refs to non-existent numbers — "(see Figure 5)",
+        //    ", as shown in Table 2" — decoration, meaning-preserving, safe.
+        //  • LOAD-BEARING refs — "Table 1 helps distinguish…" — are left untouched;
+        //    a machine must not mangle a sentence whose argument IS the missing
+        //    figure. They surface as violations + in `unresolvedReferences`.
+        let dereferenced = stripDecorativeDanglingReferences(numbered, index: index)
+
+        var violations = findViolations(dereferenced, index: index)
 
         var report = Report(
             violations: violations,
             figureCount: index.assignedFigures.count,
             tableCount: index.assignedTables.count
         )
+        report.unresolvedReferences = unresolvedReferences(dereferenced, index: index)
+        (report.visualManifest, report.referenceDistances) = buildManifest(dereferenced, index: index)
 
         guard !violations.isEmpty, repairViolations else {
-            return (rewritten, report)
+            return (dereferenced, report)
         }
 
-        // Only sentence-suppressible categories are auto-repaired; reconciliation
-        // violations signal a construction bug and are reported, not rewritten.
-        let repairable: Set<Violation.Category> = [.ghostReference, .danglingFigureNumber, .orphanLeadIn]
-        let repaired = repair(rewritten, violations: violations.filter { repairable.contains($0.category) })
+        // Dangling numbers are deliberately NOT sentence-suppressed — they are
+        // resolved by the decorative strip, satisfied by a built figure/table
+        // later, or flagged for authoring. Only deictic ghosts and orphan lead-ins
+        // are safe to atomically suppress.
+        let repairable: Set<Violation.Category> = [.ghostReference, .orphanLeadIn]
+        let repaired = repair(dereferenced, violations: violations.filter { repairable.contains($0.category) })
         for i in violations.indices where repairable.contains(violations[i].category) {
             violations[i].repaired = true
         }
         report.violations = violations
+        report.unresolvedReferences = unresolvedReferences(repaired, index: index)
+        (report.visualManifest, report.referenceDistances) = buildManifest(repaired, index: index)
         return (repaired, report)
+    }
+
+    // MARK: - Tiered dangling-reference handling
+
+    /// Auto-strip PARENTHETICAL references to non-existent figure/table numbers,
+    /// preserving the surrounding sentence. Load-bearing references (where the
+    /// number is integral to the clause) match no decorative pattern and are left
+    /// intact for `findViolations` / `unresolvedReferences` to flag.
+    private func stripDecorativeDanglingReferences(_ document: PDFAnalysisDocument, index: FigureIndex) -> PDFAnalysisDocument {
+        var doc = document
+        for (sIdx, section) in doc.sections.enumerated() {
+            var blocks = section.blocks
+            for (bIdx, block) in blocks.enumerated() where Self.proseTypes.contains(block.type) {
+                var text = block.content
+                for (kind, assigned) in [("Figure", index.assignedFigures), ("Table", index.assignedTables)] {
+                    let danglers = Set(explicitReferences(kind: kind, in: text).filter { !assigned.contains($0) })
+                    for number in danglers {
+                        text = stripDecorativeReference(kind: kind, number: number, in: text)
+                    }
+                }
+                if text != block.content { blocks[bIdx] = block.replacingContent(text) }
+            }
+            doc.sections[sIdx].blocks = blocks
+        }
+        return doc
+    }
+
+    /// Remove only clearly-decorative occurrences of `kind number`
+    /// (e.g. "(see Figure 5)", ", as shown in Table 2", "; see Figure 3 below").
+    /// A load-bearing occurrence ("Figure 5 shows…", "closes Figure 5") matches
+    /// none of these and is returned unchanged.
+    private func stripDecorativeReference(kind: String, number: Int, in text: String) -> String {
+        let ref = "\(kind)\\s+\(number)"
+        let patterns = [
+            // Parenthetical: "(Figure 5)", "(see Figure 5)", "(see also Figure 5 below)"
+            "\\s*\\(\\s*(?:see\\s+(?:also\\s+)?)?\(ref)(?:\\s*[,;]?\\s*(?:above|below))?\\s*\\)",
+            // Trailing decorative clause: ", as shown in Figure 5", "; see Table 2"
+            "[,;]?\\s*(?:as\\s+(?:shown|illustrated|depicted|seen)\\s+in|see(?:\\s+also)?)\\s+\(ref)\\b"
+        ]
+        var result = text
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let range = NSRange(result.startIndex..<result.endIndex, in: result)
+            result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+        }
+        return normalizeWhitespaceAfterStrip(result)
+    }
+
+    /// Tidy the punctuation/spacing a strip can leave behind ("word ." → "word.",
+    /// empty "()", doubled spaces).
+    private func normalizeWhitespaceAfterStrip(_ text: String) -> String {
+        var t = text
+        for (pattern, template) in [("\\s+([,.;:!?])", "$1"), ("\\(\\s*\\)", ""), ("\\s{2,}", " ")] {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range = NSRange(t.startIndex..<t.endIndex, in: t)
+            t = regex.stringByReplacingMatches(in: t, range: range, withTemplate: template)
+        }
+        return t.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The invariant enumerator: every explicit "Figure/Table N" still present with
+    /// no rendered target N. Empty ⇒ invariant holds.
+    private func unresolvedReferences(_ document: PDFAnalysisDocument, index: FigureIndex) -> [String] {
+        var out: [String] = []
+        for (sIdx, section) in document.sections.enumerated() {
+            for (bIdx, block) in section.blocks.enumerated() where Self.proseTypes.contains(block.type) {
+                for (kind, assigned) in [("Figure", index.assignedFigures), ("Table", index.assignedTables)] {
+                    for number in explicitReferences(kind: kind, in: block.content) where !assigned.contains(number) {
+                        out.append("\(kind) \(number) — §\(sIdx).\(bIdx) (load-bearing; needs a built \(kind.lowercased()) or an authored rewrite)")
+                    }
+                }
+            }
+        }
+        return out
+    }
+
+    // MARK: - Builds-stage manifest + distance diagnostics
+
+    /// Render-time triage: one manifest row per rendered figure/table (type,
+    /// cache state for visuals, and whether prose references it) plus a
+    /// farthest-first list of reference→target block distances.
+    ///
+    /// NOT computable here: "cached but never emitted" surplus — the cache has no
+    /// key enumeration and `localURL(for:)` is a one-way hash, so that column is
+    /// gathered in the builds stage from the upstream candidate list
+    /// (`VisualSelectionService`), not at the render choke point.
+    private func buildManifest(_ document: PDFAnalysisDocument, index: FigureIndex) -> (manifest: [String], distances: [String]) {
+        struct Target { let type: String; let global: Int; let cached: Bool? }
+        struct Ref { let key: String; let global: Int; let sIdx: Int; let bIdx: Int }
+        var targets: [String: Target] = [:]
+        var refs: [Ref] = []
+
+        var global = 0
+        for (sIdx, section) in document.sections.enumerated() {
+            for (bIdx, block) in section.blocks.enumerated() {
+                if Self.figureTypes.contains(block.type) || block.type == .table {
+                    let kind = (block.type == .table) ? "Table" : "Figure"
+                    if let numStr = block.metadata?["figureNumber"], Int(numStr) != nil {
+                        let cached: Bool? = block.type == .visual
+                            ? (block.visualURL.map { VisualAssetCache.shared.isCached(remoteURL: $0) } ?? false)
+                            : nil
+                        targets["\(kind) \(numStr)"] = Target(type: "\(block.type)", global: global, cached: cached)
+                    }
+                }
+                if Self.proseTypes.contains(block.type) {
+                    for kind in ["Figure", "Table"] {
+                        for number in explicitReferences(kind: kind, in: block.content) {
+                            refs.append(Ref(key: "\(kind) \(number)", global: global, sIdx: sIdx, bIdx: bIdx))
+                        }
+                    }
+                }
+                global += 1
+            }
+        }
+
+        let referenced = Set(refs.map { $0.key })
+        func numericParts(_ key: String) -> (String, Int) {
+            let comps = key.split(separator: " ")
+            return (String(comps.first ?? ""), Int(comps.last ?? "") ?? 0)
+        }
+        let manifest: [String] = targets.keys.sorted { a, b in
+            let (ak, an) = numericParts(a), (bk, bn) = numericParts(b)
+            return ak == bk ? an < bn : ak < bk
+        }.map { key in
+            let t = targets[key]!
+            let cachedStr = t.cached.map { $0 ? "cached:yes" : "cached:NO" } ?? "cached:n/a"
+            return "\(key) [\(t.type)] \(cachedStr) \(referenced.contains(key) ? "referenced:yes" : "referenced:NO")"
+        }
+
+        // Distances (only for references that resolve to a real target).
+        let sortable: [(dist: Int, line: String)] = refs.compactMap { r in
+            guard let t = targets[r.key] else { return nil }
+            let d = abs(r.global - t.global)
+            return (d, "\(r.key) @ §\(r.sIdx).\(r.bIdx) → target \(d) block(s) away")
+        }.sorted { $0.dist > $1.dist }
+        var distances = sortable.prefix(15).map { $0.line }
+        if sortable.count > 15 { distances.append("… \(sortable.count - 15) more") }
+
+        return (manifest, distances)
     }
 
     // MARK: - Text helpers

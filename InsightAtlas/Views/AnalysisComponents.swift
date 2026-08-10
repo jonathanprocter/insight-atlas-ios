@@ -119,27 +119,62 @@ struct BookReferenceLink: View {
 func parseMarkdownBold(_ text: String) -> AttributedString {
     var result = AttributedString(text)
 
-    let boldPattern = #"\*\*([^*]+)\*\*"#
-    guard let boldRegex = try? NSRegularExpression(pattern: boldPattern) else {
-        return result
+    // 1. Process citations: "[Book Title]" by [Author Name]
+    let citationPattern = #"\"([^\"]+)\"\s+by\s+([A-Z][A-Za-z\.\-\']+(?:\s+[A-Z][A-Za-z\.\-\']+){0,3})"#
+    if let citationRegex = try? NSRegularExpression(pattern: citationPattern) {
+        let matches = citationRegex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        for match in matches.reversed() {
+            guard let fullRange = Range(match.range, in: text),
+                  let titleRange = Range(match.range(at: 1), in: text),
+                  let authorRange = Range(match.range(at: 2), in: text) else {
+                continue
+            }
+            
+            let fullText = String(text[fullRange])
+            let bookTitle = String(text[titleRange])
+            let authorName = String(text[authorRange])
+            
+            if let attrRange = result.range(of: fullText) {
+                var styledCitation = AttributedString("")
+                
+                var titleAttr = AttributedString(bookTitle)
+                // Gold italic for book title
+                titleAttr.font = .custom("CormorantGaramond-Italic", size: 17)
+                titleAttr.foregroundColor = Color(hex: "#B8962E")
+                
+                var byAttr = AttributedString(" by ")
+                byAttr.font = .custom("CormorantGaramond-Regular", size: 17)
+                byAttr.foregroundColor = AnalysisTheme.textBody
+                
+                var authorAttr = AttributedString(authorName.uppercased())
+                // Coral small caps (uppercased) for author
+                authorAttr.font = .custom("Inter-SemiBold", size: 15) // Mimicking small caps
+                authorAttr.foregroundColor = Color(hex: "#E8553A")
+                
+                styledCitation.append(titleAttr)
+                styledCitation.append(byAttr)
+                styledCitation.append(authorAttr)
+                
+                result.replaceSubrange(attrRange, with: styledCitation)
+            }
+        }
     }
 
-    let matches = boldRegex.matches(in: text, range: NSRange(text.startIndex..., in: text))
-
-    // Process matches in reverse to preserve indices
-    for match in matches.reversed() {
-        guard Range(match.range, in: text) != nil,
-              let captureRange = Range(match.range(at: 1), in: text) else {
-            continue
-        }
-
-        let boldText = String(text[captureRange])
-
-        // Find and replace in AttributedString
-        if let attrRange = result.range(of: "**\(boldText)**") {
-            var boldString = AttributedString(boldText)
-            boldString.font = .system(size: 17, weight: .bold)
-            result.replaceSubrange(attrRange, with: boldString)
+    // 2. Process bold markdown syntax (**text**)
+    let currentText = String(result.characters) // Convert back to plain string to find matches
+    let boldPattern = #"\*\*([^*]+)\*\*"#
+    if let boldRegex = try? NSRegularExpression(pattern: boldPattern) {
+        let matches = boldRegex.matches(in: currentText, range: NSRange(currentText.startIndex..., in: currentText))
+        for match in matches.reversed() {
+            guard let captureRange = Range(match.range(at: 1), in: currentText) else { continue }
+            let boldText = String(currentText[captureRange])
+            let fullMatch = "**\(boldText)**"
+            
+            if let attrRange = result.range(of: fullMatch) {
+                var styledBold = AttributedString(boldText)
+                styledBold.font = .system(size: 17, weight: .bold)
+                result.replaceSubrange(attrRange, with: styledBold)
+            }
         }
     }
 
@@ -445,7 +480,7 @@ struct PremiumBlockquoteView: View {
         }
         .padding(AnalysisTheme.Spacing.xl)
         .padding(.leading, AnalysisTheme.Spacing.lg)
-        .background(AnalysisTheme.bgCard)
+        .background(PremiumUI.card)
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(AnalysisTheme.primaryGold)
@@ -1916,7 +1951,7 @@ struct ComparisonTableView: View {
                             .padding(.horizontal, AnalysisTheme.Spacing.sm)
                     }
                 }
-                .background(index % 2 == 0 ? Color(hex: "#FDF8F3").opacity(0.5) : AnalysisTheme.bgCard)
+                .background(index % 2 == 0 ? Color(hex: "#FDF8F3").opacity(0.5) : PremiumUI.card)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg))
@@ -2228,7 +2263,7 @@ struct OrnamentalSectionHeader: View {
         }
         .padding()
     }
-    .background(AnalysisTheme.bgPrimary)
+    .background(PremiumUI.background)
 }
 
 #Preview("Premium Section Headers") {
@@ -2251,7 +2286,7 @@ struct OrnamentalSectionHeader: View {
         }
         .padding()
     }
-    .background(AnalysisTheme.bgPrimary)
+    .background(PremiumUI.background)
 }
 
 #Preview("Premium Quote") {
@@ -2265,7 +2300,7 @@ struct OrnamentalSectionHeader: View {
         }
         .padding()
     }
-    .background(AnalysisTheme.bgPrimary)
+    .background(PremiumUI.background)
 }
 
 #Preview("Premium Author Spotlight") {
@@ -2279,7 +2314,7 @@ struct OrnamentalSectionHeader: View {
         }
         .padding()
     }
-    .background(AnalysisTheme.bgPrimary)
+    .background(PremiumUI.background)
 }
 
 // MARK: - Premium Quote Card (Exportable Artifact)
@@ -2331,7 +2366,7 @@ struct PremiumQuoteCardView: View {
                 colors: [
                     AnalysisTheme.parchmentBase,           // #F8F3E8
                     AnalysisTheme.parchmentBase.opacity(0.95),
-                    AnalysisTheme.bgSecondary,             // #F5F3ED
+                    PremiumUI.searchFill,             // #F5F3ED
                     AnalysisTheme.parchmentMid,            // #E8DFCD
                     AnalysisTheme.brandParchmentDark,      // #E8E4DC
                     AnalysisTheme.parchmentDark.opacity(0.8),

@@ -140,6 +140,12 @@ final class OpenAIAudioService: AudioServiceProtocol {
     let provider: VoiceProvider = .openai
     private let urlSession: URLSession
 
+    /// Optional bearer token used INSTEAD of the stored OpenAI API key — e.g. a
+    /// ChatGPT OAuth access token. When set, `accountIDHeader` is sent too, so
+    /// the request mirrors how the Codex CLI authenticates with a ChatGPT login.
+    var bearerOverride: String?
+    var accountIDHeader: String?
+
     // MARK: - Initialization
 
     init() {
@@ -465,8 +471,14 @@ final class OpenAIAudioService: AudioServiceProtocol {
         voiceID: String,
         speed: Double
     ) async throws -> GeneratedAudio {
-        // SECURITY: Retrieve API key from Keychain at request time
-        guard let apiKey = KeychainService.shared.openaiApiKey else {
+        // Credential: prefer an explicit bearer override (ChatGPT OAuth token),
+        // otherwise the standalone OpenAI API key from the Keychain.
+        let bearer: String
+        if let override = bearerOverride {
+            bearer = override
+        } else if let apiKey = KeychainService.shared.openaiApiKey {
+            bearer = apiKey
+        } else {
             throw OpenAIAudioError.apiKeyMissing
         }
 
@@ -478,7 +490,10 @@ final class OpenAIAudioService: AudioServiceProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        if let accountID = accountIDHeader {
+            request.setValue(accountID, forHTTPHeaderField: "chatgpt-account-id")
+        }
 
         // Build request body
         let requestBody = OpenAITTSRequest(text: text, voiceID: voiceID, speed: speed)

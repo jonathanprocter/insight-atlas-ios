@@ -16,8 +16,8 @@ struct SettingsView: View {
     @AppStorage("settings_expand_about") private var expandAbout = true
     @State private var showResetAlert = false
 
-    /// Narration uses a single fixed voice (Liam); shown for the Audio row value.
-    private var selectedVoiceName: String { "Liam" }
+    @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
+    private var selectedVoiceName = "Arthur"
 
     private var accentColor: Color {
         PremiumUI.accent(from: accentPreference)
@@ -130,7 +130,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
+                        keywords: ["audio", "voice", "narration", "playback", "mega transcript", "arthur", "liam"],
                         dynamicValues: [selectedVoiceName]
                     ) {
                         PremiumSettingsCard(
@@ -194,7 +194,7 @@ struct SettingsView: View {
                                     get: { UserDefaults.standard.bool(forKey: "insight_atlas_high_contrast") },
                                     set: { newValue in
                                         UserDefaults.standard.set(newValue, forKey: "insight_atlas_high_contrast")
-                                        PremiumHaptics.selection()
+                                        UISelectionFeedbackGenerator().selectionChanged()
                                     }
                                 ),
                                 accentColor: accentColor
@@ -208,7 +208,7 @@ struct SettingsView: View {
                                     get: { UserDefaults.standard.bool(forKey: "insight_atlas_sepia_mode") },
                                     set: { newValue in
                                         UserDefaults.standard.set(newValue, forKey: "insight_atlas_sepia_mode")
-                                        PremiumHaptics.selection()
+                                        UISelectionFeedbackGenerator().selectionChanged()
                                     }
                                 ),
                                 accentColor: accentColor
@@ -384,7 +384,7 @@ struct SettingsView: View {
         environment.userSettings.autoGenerateAudio = false
 
         environment.saveSettings()
-        PremiumHaptics.selection()
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 }
 
@@ -626,7 +626,7 @@ struct DefaultFormatSettingsView: View {
                     Button {
                         environment.userSettings.preferredFormat = format
                         environment.saveSettings()
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         PremiumChoiceRow(
                             title: format.displayName,
@@ -644,7 +644,7 @@ struct DefaultFormatSettingsView: View {
                     Button {
                         environment.userSettings.preferredSummaryType = summaryType
                         environment.saveSettings()
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         PremiumChoiceRow(
                             title: summaryType.displayName,
@@ -679,7 +679,7 @@ struct PremiumChoiceList: View {
                 ForEach(choices) { choice in
                     Button {
                         onSelect(choice.id)
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         PremiumChoiceRow(
                             title: choice.title,
@@ -803,7 +803,7 @@ struct APIConfigurationView: View {
                             ForEach(OpenRouterConfig.candidateModels, id: \.self) { model in
                                 Button {
                                     openRouterModel = model
-                                    PremiumHaptics.selection()
+                                    UISelectionFeedbackGenerator().selectionChanged()
                                 } label: {
                                     if openRouterModel == model {
                                         Label(model, systemImage: "checkmark")
@@ -861,7 +861,7 @@ struct APIConfigurationView: View {
                                 ForEach(ChatGPTOAuthConfig.candidateModels, id: \.self) { model in
                                     Button {
                                         chatgptModel = model
-                                        PremiumHaptics.selection()
+                                        UISelectionFeedbackGenerator().selectionChanged()
                                     } label: {
                                         if chatgptModel == model {
                                             Label(model, systemImage: "checkmark")
@@ -884,7 +884,7 @@ struct APIConfigurationView: View {
                     Button(role: .destructive) {
                         chatgpt.signOut()
                         useChatGPTOAuth = false
-                        PremiumHaptics.notification(.warning)
+                        UINotificationFeedbackGenerator().notificationOccurred(.warning)
                     } label: {
                         Text("Sign out of ChatGPT")
                     }
@@ -915,19 +915,61 @@ struct APIConfigurationView: View {
 struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
 
+    @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
+    private var megaVoiceName = "Arthur"
+
     // Local mirror of the Keychain-backed narration token so edits redraw the row.
     @State private var narrationToken: String = KokoroTTSClient.currentAPIKey() ?? ""
+
+    // Liam narration self-test state.
+    @State private var isTestingNarration = false
+    @State private var narrationDiagnostics: NarrationDiagnostics?
 
     private func savedSuffix(for key: String) -> String? {
         guard key.count >= 4 else { return nil }
         return "Saved \u{2022}\u{2022}\u{2022}\u{2022}" + key.suffix(4)
     }
 
+    private func diagnosticRow(_ label: String, _ ok: Bool, _ detail: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                .foregroundStyle(ok ? Color.green : Color.red)
+            Text(label)
+            Spacer()
+            Text(detail)
+                .font(.footnote)
+                .foregroundStyle(PremiumUI.secondaryText)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
     var body: some View {
         List {
             Section {
+                NavigationLink {
+                    MegaTranscriptDeveloperSettingsView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Mega Transcript")
+                            Text(KeychainMegaTranscriptCredentialStore.shared.hasAPIKey ? "API key configured" : "Developer key not configured")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(megaVoiceName)
+                            .foregroundStyle(PremiumUI.secondaryText)
+                    }
+                }
+            } header: {
+                Text("Primary Narrator")
+            } footer: {
+                Text("Arthur is preferred from the live English catalog. Configure the regenerated key, choose another narrator, generate a paid preview, or clear the local narration cache here.")
+            }
+
+            Section {
                 HStack {
-                    Text("Voice")
+                    Text("Fallback Voice")
                     Spacer()
                     Text("Liam")
                         .foregroundStyle(PremiumUI.secondaryText)
@@ -942,9 +984,9 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } header: {
-                Text("Narration")
+                Text("Playback & Fallback")
             } footer: {
-                Text("Narration is generated with the Liam voice. The voice is fixed and not selectable.")
+                Text("Mega Transcript uses \(megaVoiceName) when configured. Liam is the fixed fallback when Mega is unavailable or cannot complete.")
             }
 
             Section {
@@ -983,7 +1025,53 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration is generated automatically after a guide finishes. Requires the Liam narration token above.")
+                Text("When on, narration is generated after a guide finishes using Mega Transcript first and Liam as fallback. At least one credential must be configured.")
+            }
+
+            Section {
+                Button {
+                    Task {
+                        isTestingNarration = true
+                        narrationDiagnostics = nil
+                        narrationDiagnostics = await KokoroNarrationService.shared.runDiagnostics()
+                        isTestingNarration = false
+                    }
+                } label: {
+                    HStack {
+                        Text(isTestingNarration ? "Testing…" : "Test Liam Fallback")
+                        Spacer()
+                        if isTestingNarration { ProgressView() }
+                    }
+                }
+                .disabled(isTestingNarration)
+                .listRowBackground(PremiumUI.card)
+
+                if let diag = narrationDiagnostics {
+                    // Legacy OpenAI diagnostics remain available for existing
+                    // installations, but production narration now prefers Mega.
+                    diagnosticRow("OpenAI Key", diag.openAIKeyPresent, diag.openAIKeyPresent ? "Present" : "Missing")
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("OpenAI TTS (key)", diag.openAISynthOK, diag.openAISynthDetail)
+                        .listRowBackground(PremiumUI.card)
+                    // Legacy OpenAI TTS via ChatGPT login (OAuth token).
+                    diagnosticRow("ChatGPT Login", diag.openAIOAuthPresent, diag.openAIOAuthPresent ? "Signed in" : "Not signed in")
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("ChatGPT TTS", diag.openAIOAuthSynthOK, diag.openAIOAuthDetail)
+                        .listRowBackground(PremiumUI.card)
+                    // Active fallback provider: Kokoro / Liam.
+                    diagnosticRow("Liam Token", diag.tokenPresent, diag.tokenPresent ? "Present" : "Missing")
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("Liam Gateway", diag.healthOK, diag.healthDetail)
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("Liam Synthesis", diag.singleChunkOK, diag.singleChunkDetail)
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("Liam Assembly", diag.assemblyOK, diag.assemblyDetail)
+                        .listRowBackground(PremiumUI.card)
+                }
+            } header: {
+                Text("Diagnostics")
+            } footer: {
+                Text("Runs the existing local diagnostics for Liam plus legacy OpenAI configurations. Mega Transcript credential and voice-catalog status are shown in Primary Narrator above.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
@@ -1020,7 +1108,7 @@ struct ThemeSettingsView: View {
                 ForEach(availableThemes) { theme in
                     Button {
                         selection = theme.rawValue
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: theme.icon)
@@ -1069,7 +1157,7 @@ struct AccentColorSettingsView: View {
             ForEach(PremiumAccent.allCases) { accent in
                 Button {
                     selection = accent.rawValue
-                    PremiumHaptics.selection()
+                    UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     HStack(spacing: 12) {
                         Circle()
@@ -1277,9 +1365,41 @@ struct SystemInfoView: View {
                     let build = Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String ?? "-"
                     let summary = "App: \(version) (\(build))\nDevice: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
                     UIPasteboard.general.string = summary
-                    PremiumHaptics.selection()
+                    UISelectionFeedbackGenerator().selectionChanged()
                 }
             }
         }
+    }
+}
+
+struct PremiumSearchField: View {
+    @Binding var text: String
+    var placeholder: String
+
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(PremiumUI.secondaryText)
+            TextField(placeholder, text: $text)
+                .font(PremiumUI.ui(16))
+                .foregroundColor(PremiumUI.ink)
+            
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(PremiumUI.secondaryText.opacity(0.7))
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 42)
+        .background(PremiumUI.card)
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(PremiumUI.divider, lineWidth: 1)
+        )
     }
 }
