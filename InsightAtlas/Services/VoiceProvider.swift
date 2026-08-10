@@ -2,20 +2,16 @@
 //  VoiceProvider.swift
 //  InsightAtlas
 //
-//  Voice Provider abstraction for multi-provider TTS support.
-//
-//  Supports OpenAI (default) and ElevenLabs voice providers.
-//  OpenAI uses the existing OpenAI API key from Keychain.
-//
-//  VERSION: 1.0.0
+//  Voice provider abstraction for ChatGPT Voice, OpenAI TTS, and ElevenLabs.
 //
 
 import Foundation
 
 // MARK: - Voice Provider Enum
 
-/// Available voice generation providers
-enum VoiceProvider: String, Codable, CaseIterable, Identifiable {
+/// Available voice-generation providers, ordered by the default primary route.
+enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
+    case chatgptVoice = "chatgpt_voice"
     case openai = "openai"
     case elevenlabs = "elevenlabs"
 
@@ -23,6 +19,8 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
+        case .chatgptVoice:
+            return "ChatGPT Voice (Experimental)"
         case .openai:
             return "OpenAI"
         case .elevenlabs:
@@ -32,26 +30,50 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable {
 
     var description: String {
         switch self {
+        case .chatgptVoice:
+            return "Experimental GPT-Live narration using your ChatGPT sign-in"
         case .openai:
-            return "High-quality voices using your OpenAI API key"
+            return "High-quality narration using your OpenAI API key"
         case .elevenlabs:
             return "Premium voices with advanced customization"
         }
     }
 
-    /// Whether this provider requires a separate API key
+    /// Whether this provider requires a provider-specific key beyond existing app credentials.
     var requiresSeparateApiKey: Bool {
         switch self {
-        case .openai:
-            return false // Uses existing OpenAI key
+        case .chatgptVoice, .openai:
+            return false
         case .elevenlabs:
             return true
         }
     }
 
-    /// Check if the provider is configured
+    var defaultVoiceID: String {
+        switch self {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.defaultVoice.voiceID
+        case .openai:
+            return OpenAIVoiceRegistry.defaultVoice.voiceID
+        case .elevenlabs:
+            return ElevenLabsVoiceRegistry.adam.voiceID
+        }
+    }
+
+    var audioFileExtension: String {
+        switch self {
+        case .chatgptVoice, .openai:
+            return "m4a"
+        case .elevenlabs:
+            return "mp3"
+        }
+    }
+
+    /// Check whether this provider has credentials available on this device.
     func isConfigured() -> Bool {
         switch self {
+        case .chatgptVoice:
+            return ChatGPTOAuthService.hasStoredCredentials
         case .openai:
             return KeychainService.shared.hasOpenAIApiKey
         case .elevenlabs:
@@ -60,9 +82,53 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Provider Availability and Fallbacks
+
+struct VoiceProviderAvailability: Equatable, Sendable {
+    let chatgptVoice: Bool
+    let openAI: Bool
+    let elevenLabs: Bool
+
+    static var current: VoiceProviderAvailability {
+        VoiceProviderAvailability(
+            chatgptVoice: ChatGPTOAuthService.hasStoredCredentials,
+            openAI: KeychainService.shared.hasOpenAIApiKey,
+            elevenLabs: KeychainService.shared.hasElevenLabsApiKey
+        )
+    }
+
+    func contains(_ provider: VoiceProvider) -> Bool {
+        switch provider {
+        case .chatgptVoice:
+            return chatgptVoice
+        case .openai:
+            return openAI
+        case .elevenlabs:
+            return elevenLabs
+        }
+    }
+}
+
+enum VoiceProviderFallbackPlanner {
+    static func orderedProviders(
+        preferred: VoiceProvider,
+        availability: VoiceProviderAvailability
+    ) -> [VoiceProvider] {
+        var candidates: [VoiceProvider] = [.chatgptVoice]
+        if preferred != .chatgptVoice {
+            candidates.append(preferred)
+        }
+        candidates.append(contentsOf: [.openai, .elevenlabs])
+
+        var seen = Set<VoiceProvider>()
+        return candidates.filter { provider in
+            availability.contains(provider) && seen.insert(provider).inserted
+        }
+    }
+}
+
 // MARK: - Unified Voice Protocol
 
-/// Protocol for voice representation across providers
 protocol UnifiedVoice: Identifiable, Equatable {
     var id: String { get }
     var voiceID: String { get }
@@ -74,7 +140,6 @@ protocol UnifiedVoice: Identifiable, Equatable {
 
 // MARK: - Audio Service Protocol
 
-/// Protocol for audio generation services
 protocol AudioServiceProtocol {
     var provider: VoiceProvider { get }
     var isConfigured: Bool { get }
@@ -89,39 +154,28 @@ protocol AudioServiceProtocol {
 
 // MARK: - Voice Service Manager
 
-/// Unified manager for voice generation across providers
 @MainActor
 final class VoiceServiceManager: ObservableObject {
-
-    // MARK: - Singleton
-
     static let shared = VoiceServiceManager()
 
-    // MARK: - Services
-
+    private let chatGPTVoiceService: ChatGPTVoiceService
     private let openAIService: OpenAIAudioService
     private let elevenLabsService: ElevenLabsAudioService
 
-    // MARK: - Published State
-
     @Published var currentProvider: VoiceProvider
 
-    // MARK: - Initialization
-
     private init() {
+        self.chatGPTVoiceService = ChatGPTVoiceService()
         self.openAIService = OpenAIAudioService()
         self.elevenLabsService = ElevenLabsAudioService()
 
-        // Load saved provider preference, default to OpenAI
         if let savedProvider = UserDefaults.standard.string(forKey: "voice_provider"),
            let provider = VoiceProvider(rawValue: savedProvider) {
             self.currentProvider = provider
         } else {
-            self.currentProvider = .openai
+            self.currentProvider = .chatgptVoice
         }
     }
-
-    // MARK: - Provider Management
 
     func setProvider(_ provider: VoiceProvider) {
         currentProvider = provider
@@ -132,28 +186,21 @@ final class VoiceServiceManager: ObservableObject {
         currentProvider.isConfigured()
     }
 
-    // MARK: - Audio Generation
-
-    /// Generate audio using the current provider
     func generateAudio(
         text: String,
         voiceID: String
     ) async throws -> GeneratedAudio {
-        switch currentProvider {
-        case .openai:
-            return try await openAIService.generateAudio(text: text, voiceID: voiceID)
-        case .elevenlabs:
-            return try await elevenLabsService.generateAudio(text: text, voiceID: voiceID)
-        }
+        try await generateAudio(text: text, voiceID: voiceID, provider: currentProvider)
     }
 
-    /// Generate audio with specific provider
     func generateAudio(
         text: String,
         voiceID: String,
         provider: VoiceProvider
     ) async throws -> GeneratedAudio {
         switch provider {
+        case .chatgptVoice:
+            return try await chatGPTVoiceService.generateAudio(text: text, voiceID: voiceID)
         case .openai:
             return try await openAIService.generateAudio(text: text, voiceID: voiceID)
         case .elevenlabs:
@@ -161,11 +208,10 @@ final class VoiceServiceManager: ObservableObject {
         }
     }
 
-    // MARK: - Voice Access
-
-    /// Get all voices for current provider
     func availableVoices() -> [any UnifiedVoice] {
         switch currentProvider {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.allVoices
         case .openai:
             return OpenAIVoiceRegistry.allVoices
         case .elevenlabs:
@@ -173,9 +219,10 @@ final class VoiceServiceManager: ObservableObject {
         }
     }
 
-    /// Get default voice for current provider
     func defaultVoice() -> any UnifiedVoice {
         switch currentProvider {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.defaultVoice
         case .openai:
             return OpenAIVoiceRegistry.defaultVoice
         case .elevenlabs:
@@ -183,23 +230,21 @@ final class VoiceServiceManager: ObservableObject {
         }
     }
 
-    /// Get voice by ID for current provider
     func voice(byID id: String) -> (any UnifiedVoice)? {
         switch currentProvider {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.voice(byID: id)
         case .openai:
             return OpenAIVoiceRegistry.voice(byID: id)
         case .elevenlabs:
-            if let voice = ElevenLabsVoiceRegistry.voice(byID: id) {
-                return ElevenLabsUnifiedVoice(voice: voice)
-            }
-            return nil
+            guard let voice = ElevenLabsVoiceRegistry.voice(byID: id) else { return nil }
+            return ElevenLabsUnifiedVoice(voice: voice)
         }
     }
 }
 
 // MARK: - ElevenLabs Unified Voice Wrapper
 
-/// Wrapper to make ElevenLabsVoice conform to UnifiedVoice
 struct ElevenLabsUnifiedVoice: UnifiedVoice {
     let voice: ElevenLabsVoice
 

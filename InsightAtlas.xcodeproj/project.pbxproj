@@ -28,6 +28,10 @@
 		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
 		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
 		C207E5CC3024380C00843994 /* ChatGPTOAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */; };
+		IACGVPROTOBLD00000000001 /* ChatGPTVoiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVPROTOFILE0000000001 /* ChatGPTVoiceProtocol.swift */; };
+		IACGVSVCBLD0000000000001 /* ChatGPTVoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVSVCFILE000000000001 /* ChatGPTVoiceService.swift */; };
+		IACGVAUDIOBLD00000000001 /* ChatGPTVoiceAudioEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVAUDIOFILE0000000001 /* ChatGPTVoiceAudioEncoder.swift */; };
+		IACGVREGBLD0000000000001 /* ChatGPTVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVREGFILE000000000001 /* ChatGPTVoiceRegistry.swift */; };
 		C207E5CE3024382000843994 /* ChatGPTSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5CD3024382000843994 /* ChatGPTSignInView.swift */; };
 		C21355A72EE6360100B6662D /* CormorantGaramond-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */; };
 		C21355A82EE6360100B6662D /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559C2EE6360100B6662D /* Inter-Regular.ttf */; };
@@ -155,6 +159,10 @@
 		A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/EditorialBlockViews.swift; sourceTree = SOURCE_ROOT; };
 		AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFContentBlockRenderer.swift; sourceTree = "<group>"; };
 		C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTOAuthService.swift; sourceTree = "<group>"; };
+		IACGVPROTOFILE0000000001 /* ChatGPTVoiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProtocol.swift; sourceTree = "<group>"; };
+		IACGVSVCFILE000000000001 /* ChatGPTVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceService.swift; sourceTree = "<group>"; };
+		IACGVAUDIOFILE0000000001 /* ChatGPTVoiceAudioEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceAudioEncoder.swift; sourceTree = "<group>"; };
+		IACGVREGFILE000000000001 /* ChatGPTVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceRegistry.swift; sourceTree = "<group>"; };
 		C207E5CD3024382000843994 /* ChatGPTSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTSignInView.swift; sourceTree = "<group>"; };
 		C213558F2EE6360100B6662D /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
@@ -420,6 +428,9 @@
 				IAVOICEPROV02AAA002 /* VoiceProvider.swift */,
 				IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */,
 				C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */,
+				IACGVPROTOFILE0000000001 /* ChatGPTVoiceProtocol.swift */,
+				IACGVSVCFILE000000000001 /* ChatGPTVoiceService.swift */,
+				IACGVAUDIOFILE0000000001 /* ChatGPTVoiceAudioEncoder.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -525,6 +536,7 @@
 				IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */,
 				IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */,
 				IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */,
+				IACGVREGFILE000000000001 /* ChatGPTVoiceRegistry.swift */,
 				IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */,
 				IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */,
 			);
@@ -682,6 +694,10 @@
 			files = (
 				47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */,
 				C207E5CC3024380C00843994 /* ChatGPTOAuthService.swift in Sources */,
+				IACGVPROTOBLD00000000001 /* ChatGPTVoiceProtocol.swift in Sources */,
+				IACGVSVCBLD0000000000001 /* ChatGPTVoiceService.swift in Sources */,
+				IACGVAUDIOBLD00000000001 /* ChatGPTVoiceAudioEncoder.swift in Sources */,
+				IACGVREGBLD0000000000001 /* ChatGPTVoiceRegistry.swift in Sources */,
 				82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */,
 				9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */,
 				48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */,
