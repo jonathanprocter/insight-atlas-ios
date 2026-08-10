@@ -7,6 +7,12 @@
 
 import SwiftUI
 
+private struct VoicePickerOption: Identifiable {
+    let id: String
+    let name: String
+    let description: String
+}
+
 struct VoicePickerSheet: View {
     let currentVoiceID: String?
     let onSelectVoice: (String) -> Void
@@ -18,19 +24,46 @@ struct VoicePickerSheet: View {
     @State private var previewingVoiceID: String?
     @State private var isLoadingPreview = false
 
+    private var provider: VoiceProvider {
+        environment.userSettings.voiceProvider
+    }
+
     private var profile: ReaderProfile {
         environment.userSettings.preferredReaderProfile
     }
 
-    private var recommendedVoices: [ElevenLabsVoice] {
-        ElevenLabsVoiceRegistry.allVoices.filter {
-            $0.recommendedProfiles.contains(profile)
+    private var recommendedVoices: [VoicePickerOption] {
+        switch provider {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.allVoices.map {
+                VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
+            }
+        case .openai:
+            return OpenAIVoiceRegistry.allVoices.map {
+                VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
+            }
+        case .elevenlabs:
+            return ElevenLabsVoiceRegistry.allVoices
+                .filter { $0.recommendedProfiles.contains(profile) }
+                .map { VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description) }
         }
     }
 
-    private var otherVoices: [ElevenLabsVoice] {
-        ElevenLabsVoiceRegistry.allVoices.filter {
-            !$0.recommendedProfiles.contains(profile)
+    private var otherVoices: [VoicePickerOption] {
+        guard provider == .elevenlabs else { return [] }
+        return ElevenLabsVoiceRegistry.allVoices
+            .filter { !$0.recommendedProfiles.contains(profile) }
+            .map { VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description) }
+    }
+
+    private var primarySectionTitle: String {
+        switch provider {
+        case .chatgptVoice:
+            return "CHATGPT VOICES · EXPERIMENTAL"
+        case .openai:
+            return "OPENAI VOICES"
+        case .elevenlabs:
+            return "RECOMMENDED FOR YOU"
         }
     }
 
@@ -38,15 +71,13 @@ struct VoicePickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Header description
-                    Text("Select a voice for your audio narration. The audio will be regenerated with the selected voice.")
+                    Text("Select a \(provider.displayName) voice. Audio regeneration tries ChatGPT Voice first, then configured stable fallbacks if needed.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
 
-                    // Recommended voices
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("RECOMMENDED FOR YOU")
+                        Text(primarySectionTitle)
                             .font(.caption)
                             .fontWeight(.bold)
                             .tracking(1)
@@ -56,16 +87,16 @@ struct VoicePickerSheet: View {
                         ForEach(recommendedVoices) { voice in
                             VoiceSelectionRow(
                                 voice: voice,
-                                isSelected: selectedVoiceID == voice.voiceID,
+                                isSelected: selectedVoiceID == voice.id,
                                 isPreviewing: previewingVoiceID == voice.id,
                                 isLoadingPreview: isLoadingPreview && previewingVoiceID == voice.id,
+                                isPreviewEnabled: provider.isConfigured(),
                                 onSelect: { selectVoice(voice) },
                                 onPreview: { previewVoice(voice) }
                             )
                         }
                     }
 
-                    // Other voices
                     if !otherVoices.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("OTHER VOICES")
@@ -78,9 +109,10 @@ struct VoicePickerSheet: View {
                             ForEach(otherVoices) { voice in
                                 VoiceSelectionRow(
                                     voice: voice,
-                                    isSelected: selectedVoiceID == voice.voiceID,
+                                    isSelected: selectedVoiceID == voice.id,
                                     isPreviewing: previewingVoiceID == voice.id,
                                     isLoadingPreview: isLoadingPreview && previewingVoiceID == voice.id,
+                                    isPreviewEnabled: provider.isConfigured(),
                                     onSelect: { selectVoice(voice) },
                                     onPreview: { previewVoice(voice) }
                                 )
@@ -110,39 +142,51 @@ struct VoicePickerSheet: View {
             }
         }
         .onAppear {
-            selectedVoiceID = currentVoiceID ?? environment.userSettings.selectedVoiceID ?? recommendedVoices.first?.voiceID ?? ""
+            let preferred = currentVoiceID ?? environment.userSettings.selectedVoiceID
+            selectedVoiceID = isValidVoiceID(preferred)
+                ? preferred!
+                : provider.defaultVoiceID
         }
     }
 
-    private func selectVoice(_ voice: ElevenLabsVoice) {
-        selectedVoiceID = voice.voiceID
+    private func isValidVoiceID(_ voiceID: String?) -> Bool {
+        guard let voiceID else { return false }
+        return (recommendedVoices + otherVoices).contains { $0.id == voiceID }
     }
 
-    private func previewVoice(_ voice: ElevenLabsVoice) {
-        guard !isLoadingPreview else { return }
+    private func selectVoice(_ voice: VoicePickerOption) {
+        selectedVoiceID = voice.id
+    }
 
+    private func previewVoice(_ voice: VoicePickerOption) {
+        guard !isLoadingPreview, provider.isConfigured() else { return }
+
+        if previewingVoiceID == voice.id {
+            AudioPlaybackManager.shared.stop()
+            previewingVoiceID = nil
+            return
+        }
+
+        AudioPlaybackManager.shared.stop()
         isLoadingPreview = true
         previewingVoiceID = voice.id
 
         Task {
             do {
-                let previewText = "This is how I sound when narrating your Insight Atlas guide. My voice will accompany you through key concepts and practical applications."
-
-                let result = try await environment.audioService.generateAudio(
+                let previewText = "This is how I sound when narrating your InsightAtlas guide. My voice will accompany you through key concepts and practical applications."
+                let result = try await VoiceServiceManager.shared.generateAudio(
                     text: previewText,
-                    voiceID: voice.id
+                    voiceID: voice.id,
+                    provider: provider
                 )
 
-                try AudioPlaybackManager.shared.play(result)
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
+                try AudioPlaybackManager.shared.play(result) {
                     previewingVoiceID = nil
                 }
+                isLoadingPreview = false
+            } catch {
+                isLoadingPreview = false
+                previewingVoiceID = nil
             }
         }
     }
@@ -150,23 +194,22 @@ struct VoicePickerSheet: View {
 
 // MARK: - Voice Selection Row
 
-struct VoiceSelectionRow: View {
-    let voice: ElevenLabsVoice
+private struct VoiceSelectionRow: View {
+    let voice: VoicePickerOption
     let isSelected: Bool
     let isPreviewing: Bool
     let isLoadingPreview: Bool
+    let isPreviewEnabled: Bool
     let onSelect: () -> Void
     let onPreview: () -> Void
 
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                // Selection indicator
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundColor(isSelected ? AnalysisTheme.primaryGold : .secondary)
 
-                // Voice info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(voice.name)
                         .font(.headline)
@@ -179,7 +222,6 @@ struct VoiceSelectionRow: View {
 
                 Spacer()
 
-                // Preview button
                 Button(action: onPreview) {
                     if isLoadingPreview {
                         ProgressView()
@@ -194,6 +236,8 @@ struct VoiceSelectionRow: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .disabled(!isPreviewEnabled)
+                .opacity(isPreviewEnabled ? 1 : 0.45)
             }
             .padding()
             .background(isSelected ? AnalysisTheme.primaryGoldSubtle.opacity(0.2) : Color(.secondarySystemBackground))

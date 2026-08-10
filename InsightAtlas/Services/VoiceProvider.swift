@@ -152,6 +152,28 @@ protocol AudioServiceProtocol {
     func validateApiKey() async throws -> Bool
 }
 
+// MARK: - Routed Audio Result
+
+struct RoutedGeneratedAudio: Sendable {
+    let audio: GeneratedAudio
+    let provider: VoiceProvider
+    let voiceID: String
+}
+
+enum VoiceRoutingError: LocalizedError {
+    case noConfiguredProvider
+    case allProvidersFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .noConfiguredProvider:
+            return "No narration provider is configured. Sign in with ChatGPT or add an OpenAI or ElevenLabs key."
+        case .allProvidersFailed(let detail):
+            return "All configured narration providers failed. \(detail)"
+        }
+    }
+}
+
 // MARK: - Voice Service Manager
 
 @MainActor
@@ -205,6 +227,71 @@ final class VoiceServiceManager: ObservableObject {
             return try await openAIService.generateAudio(text: text, voiceID: voiceID)
         case .elevenlabs:
             return try await elevenLabsService.generateAudio(text: text, voiceID: voiceID)
+        }
+    }
+
+    func generateAudioWithFallback(
+        text: String,
+        preferredVoiceID: String?,
+        preferredProvider: VoiceProvider? = nil,
+        readerProfile: ReaderProfile = .practitioner
+    ) async throws -> RoutedGeneratedAudio {
+        let providers = VoiceProviderFallbackPlanner.orderedProviders(
+            preferred: preferredProvider ?? currentProvider,
+            availability: .current
+        )
+        guard !providers.isEmpty else {
+            throw VoiceRoutingError.noConfiguredProvider
+        }
+
+        var lastError: Error?
+        for provider in providers {
+            let voiceID = resolvedVoiceID(
+                for: provider,
+                preferredVoiceID: preferredVoiceID,
+                readerProfile: readerProfile
+            )
+            do {
+                let audio = try await generateAudio(
+                    text: text,
+                    voiceID: voiceID,
+                    provider: provider
+                )
+                return RoutedGeneratedAudio(audio: audio, provider: provider, voiceID: voiceID)
+            } catch {
+                lastError = error
+            }
+        }
+
+        throw VoiceRoutingError.allProvidersFailed(
+            lastError?.localizedDescription ?? "No provider returned playable audio."
+        )
+    }
+
+    private func resolvedVoiceID(
+        for provider: VoiceProvider,
+        preferredVoiceID: String?,
+        readerProfile: ReaderProfile
+    ) -> String {
+        switch provider {
+        case .chatgptVoice:
+            if let preferredVoiceID, ChatGPTVoiceRegistry.isValidVoiceID(preferredVoiceID) {
+                return preferredVoiceID
+            }
+            return ChatGPTVoiceRegistry.defaultVoice.voiceID
+
+        case .openai:
+            if let preferredVoiceID, OpenAIVoiceRegistry.isValidVoiceID(preferredVoiceID) {
+                return preferredVoiceID
+            }
+            return OpenAIVoiceRegistry.defaultVoice.voiceID
+
+        case .elevenlabs:
+            if let preferredVoiceID,
+               ElevenLabsVoiceRegistry.voice(byVoiceID: preferredVoiceID) != nil {
+                return preferredVoiceID
+            }
+            return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile).voiceID
         }
     }
 

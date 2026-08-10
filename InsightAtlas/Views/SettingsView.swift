@@ -22,6 +22,8 @@ struct SettingsView: View {
         }
 
         switch environment.userSettings.voiceProvider {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
         case .openai:
             return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
         case .elevenlabs:
@@ -390,7 +392,7 @@ struct SettingsView: View {
 
         // Audio defaults
         if let vProvider = VoiceProvider.allCases.first { environment.userSettings.voiceProvider = vProvider }
-        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider == .openai ? "alloy" : ElevenLabsVoiceRegistry.adam.voiceID
+        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider.defaultVoiceID
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
 
@@ -927,7 +929,7 @@ struct APIConfigurationView: View {
             } header: {
                 Text("ChatGPT Subscription (Beta)")
             } footer: {
-                Text("Unofficial: routes guide generation through your ChatGPT subscription via the Codex backend. While enabled, it overrides the AI Provider selection above. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or ban your account. Use at your own risk. Note: this covers guide text only — audio narration still requires an OpenAI or ElevenLabs API key. If generation fails with a \"model is not supported\" error, try a different Codex Model above (tap the ▾ for suggestions); which models work depends on your ChatGPT plan.")
+                Text("Unofficial: uses your ChatGPT subscription for Codex guide generation and, when selected under Audio & Narration, experimental GPT-Live voice generation. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or restrict your account. GPT-Live availability depends on your ChatGPT account. If voice generation fails, InsightAtlas automatically tries a configured OpenAI or ElevenLabs fallback.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
@@ -948,6 +950,8 @@ struct AudioSettingsView: View {
         }
 
         switch environment.userSettings.voiceProvider {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
         case .openai:
             return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
         case .elevenlabs:
@@ -965,10 +969,7 @@ struct AudioSettingsView: View {
                 }
                 .onChange(of: environment.userSettings.voiceProvider) {
                     environment.updateVoiceProvider(environment.userSettings.voiceProvider)
-                    environment.userSettings.selectedVoiceID =
-                        environment.userSettings.voiceProvider == .openai
-                        ? "alloy"
-                        : ElevenLabsVoiceRegistry.adam.voiceID
+                    environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider.defaultVoiceID
                     environment.saveSettings()
                 }
 
@@ -1006,7 +1007,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("Audio generation requires a configured API key for the selected voice provider (OpenAI or ElevenLabs), entered in API Configuration. Signing in with ChatGPT does not enable narration.")
+                Text("ChatGPT Voice uses your ChatGPT sign-in and is the primary experimental narration path. If it is unavailable or fails, InsightAtlas automatically tries configured OpenAI and ElevenLabs providers. OpenAI and ElevenLabs keys are entered under API Configuration.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
@@ -1224,6 +1225,7 @@ struct VoiceSelectionSettingsView: View {
 
     private var hasVoiceKey: Bool {
         switch environment.userSettings.voiceProvider {
+        case .chatgptVoice: return ChatGPTOAuthService.hasStoredCredentials
         case .openai: return KeychainService.shared.hasOpenAIApiKey
         case .elevenlabs: return KeychainService.shared.hasElevenLabsApiKey
         }
@@ -1231,8 +1233,27 @@ struct VoiceSelectionSettingsView: View {
 
     var body: some View {
         List {
-            if environment.userSettings.voiceProvider == .openai {
-                // OpenAI Voices
+            switch environment.userSettings.voiceProvider {
+            case .chatgptVoice:
+                Section {
+                    ForEach(ChatGPTVoiceRegistry.allVoices) { voice in
+                        ChatGPTVoiceSettingsRow(
+                            voice: voice,
+                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
+                            isPreviewing: previewingVoiceID == voice.voiceID,
+                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
+                            isPreviewEnabled: hasVoiceKey,
+                            onSelect: { selectChatGPTVoice(voice) },
+                            onPreview: { previewChatGPTVoice(voice) }
+                        )
+                    }
+                } header: {
+                    Text("ChatGPT Voices")
+                } footer: {
+                    Text("Experimental GPT-Live voices. Preview requires an active ChatGPT sign-in.")
+                }
+
+            case .openai:
                 Section {
                     ForEach(OpenAIVoiceRegistry.allVoices) { voice in
                         OpenAIVoiceRow(
@@ -1250,8 +1271,8 @@ struct VoiceSelectionSettingsView: View {
                 } footer: {
                     Text("Tap to select, tap play to preview")
                 }
-            } else {
-                // ElevenLabs Voices
+
+            case .elevenlabs:
                 Section {
                     ForEach(ElevenLabsVoiceRegistry.allVoices) { voice in
                         SettingsVoiceRow(
@@ -1280,6 +1301,54 @@ struct VoiceSelectionSettingsView: View {
             Button("OK", role: .cancel) { previewError = nil }
         } message: {
             Text(previewError ?? "")
+        }
+    }
+
+    // MARK: - ChatGPT Voice Selection
+
+    private func selectChatGPTVoice(_ voice: ChatGPTVoice) {
+        environment.userSettings.selectedVoiceID = voice.voiceID
+        environment.saveSettings()
+    }
+
+    private func previewChatGPTVoice(_ voice: ChatGPTVoice) {
+        guard !isLoadingPreview else { return }
+        AudioPlaybackManager.shared.stop()
+
+        if previewingVoiceID == voice.voiceID {
+            previewingVoiceID = nil
+            return
+        }
+
+        previewingVoiceID = voice.voiceID
+        isLoadingPreview = true
+
+        Task {
+            do {
+                let sampleText = "Hello, I'm \(voice.name). This is an experimental ChatGPT Voice preview for InsightAtlas."
+                let audio = try await ChatGPTVoiceService().generateAudio(
+                    text: sampleText,
+                    voiceID: voice.voiceID
+                )
+
+                await MainActor.run {
+                    isLoadingPreview = false
+                    do {
+                        try AudioPlaybackManager.shared.play(audio) {
+                            previewingVoiceID = nil
+                        }
+                    } catch {
+                        previewingVoiceID = nil
+                        previewError = error.localizedDescription
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPreview = false
+                    previewingVoiceID = nil
+                    previewError = error.localizedDescription
+                }
+            }
         }
     }
 
@@ -1379,6 +1448,73 @@ struct VoiceSelectionSettingsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - ChatGPT Voice Row
+
+struct ChatGPTVoiceSettingsRow: View {
+    let voice: ChatGPTVoice
+    let isSelected: Bool
+    let isPreviewing: Bool
+    let isLoading: Bool
+    let isPreviewEnabled: Bool
+    let onSelect: () -> Void
+    let onPreview: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(voice.name)
+                            .font(.body)
+                            .fontWeight(.medium)
+
+                        if voice.voiceID == ChatGPTVoiceRegistry.defaultVoice.voiceID {
+                            Text("DEFAULT")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(PremiumUI.gold.opacity(0.2))
+                                .foregroundColor(PremiumUI.goldDark)
+                                .cornerRadius(4)
+                        }
+                    }
+
+                    Text(voice.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Button(action: onPreview) {
+                    if isLoading {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(!isPreviewEnabled)
+                .opacity(isPreviewEnabled ? 1 : 0.5)
+                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
+                .accessibilityHint(isPreviewEnabled ? "Previews the experimental ChatGPT voice" : "Sign in with ChatGPT in API Configuration")
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(PremiumUI.gold)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

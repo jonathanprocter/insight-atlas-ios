@@ -92,11 +92,11 @@ public enum LLMActionRouter {
 
         case "voice_provider_picker":
             guard let v = value, let provider = parseVoiceProvider(v) else {
-                return .failure("Provide a voice provider value (e.g., OpenAI or ElevenLabs).")
+                return .failure("Provide a voice provider value (e.g., ChatGPT Voice, OpenAI, or ElevenLabs).")
             }
             environment.updateVoiceProvider(provider)
             environment.userSettings.voiceProvider = provider
-            environment.userSettings.selectedVoiceID = provider == .openai ? "alloy" : ElevenLabsVoiceRegistry.adam.voiceID
+            environment.userSettings.selectedVoiceID = provider.defaultVoiceID
             environment.saveSettings()
             return .success("Voice Provider set to \(provider.displayName)")
 
@@ -242,6 +242,8 @@ public enum LLMActionRouter {
                 return .failure("Provide a valid voice provider.")
             }
             environment.updateVoiceProvider(provider)
+            environment.userSettings.selectedVoiceID = provider.defaultVoiceID
+            environment.saveSettings()
             return .success("Voice provider set to \(provider.displayName)")
         case "generation_audio_speed_slider":
             return .failure("Slider changes require UI context.")
@@ -335,7 +337,7 @@ public enum LLMActionRouter {
 
         // Audio defaults
         if let vProvider = VoiceProvider.allCases.first { environment.userSettings.voiceProvider = vProvider }
-        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider == .openai ? "alloy" : ElevenLabsVoiceRegistry.adam.voiceID
+        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider.defaultVoiceID
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
 

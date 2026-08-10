@@ -281,15 +281,19 @@ struct GenerationView: View {
                             Text(provider.displayName).tag(provider)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                     .onChange(of: environment.userSettings.voiceProvider) {
                         environment.updateVoiceProvider(environment.userSettings.voiceProvider)
-                        selectedVoiceID = nil // Reset voice when provider changes
+                        selectedVoiceID = environment.userSettings.voiceProvider.defaultVoiceID
+                        environment.userSettings.selectedVoiceID = selectedVoiceID
+                        environment.saveSettings()
                     }
                     .accessibilityIdentifier("generation_voice_provider_picker")
 
                     if !environment.userSettings.voiceProvider.isConfigured() {
-                        Text("⚠️ \(environment.userSettings.voiceProvider.displayName) API key not configured")
+                        Text(environment.userSettings.voiceProvider == .chatgptVoice
+                             ? "Sign in with ChatGPT under API Configuration to use experimental narration."
+                             : "\(environment.userSettings.voiceProvider.displayName) API key not configured.")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.accentHighlight)
                     }
@@ -344,18 +348,25 @@ struct GenerationView: View {
 
     /// Get the display name for the currently selected voice
     private var selectedVoiceName: String {
-        if let voiceID = selectedVoiceID {
-            if environment.userSettings.voiceProvider == .openai {
-                return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
-            } else {
-                return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
+        let provider = environment.userSettings.voiceProvider
+        guard let voiceID = selectedVoiceID else {
+            switch provider {
+            case .chatgptVoice:
+                return ChatGPTVoiceRegistry.defaultVoice.name + " (Default)"
+            case .openai:
+                return OpenAIVoiceRegistry.defaultVoice.name + " (Default)"
+            case .elevenlabs:
+                return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: .practitioner).name + " (Default)"
             }
         }
-        // Return default voice name
-        if environment.userSettings.voiceProvider == .openai {
-            return OpenAIVoiceRegistry.defaultVoice.name + " (Default)"
-        } else {
-            return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: .practitioner).name + " (Default)"
+
+        switch provider {
+        case .chatgptVoice:
+            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
+        case .openai:
+            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
+        case .elevenlabs:
+            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
         }
     }
 
@@ -801,9 +812,12 @@ struct VoiceSelectionSheet: View {
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
 
-                    if voiceProvider == .openai {
+                    switch voiceProvider {
+                    case .chatgptVoice:
+                        chatGPTVoiceList
+                    case .openai:
                         openAIVoiceList
-                    } else {
+                    case .elevenlabs:
                         elevenLabsVoiceList
                     }
                 }
@@ -827,6 +841,26 @@ struct VoiceSelectionSheet: View {
                 }
             }
             .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
+        }
+    }
+
+    private var chatGPTVoiceList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("CHATGPT VOICES · EXPERIMENTAL")
+                .font(.caption)
+                .fontWeight(.bold)
+                .tracking(1)
+                .foregroundColor(AnalysisTheme.accentTeal)
+                .padding(.horizontal)
+
+            ForEach(ChatGPTVoiceRegistry.allVoices, id: \.id) { voice in
+                voiceRow(
+                    id: voice.voiceID,
+                    name: voice.name,
+                    description: voice.description,
+                    isSelected: selectedVoiceID == voice.voiceID
+                )
+            }
         }
     }
 

@@ -305,9 +305,13 @@ struct AnalysisDetailView: View {
             }
         }
 
-        let fallback = documentsDir.appendingPathComponent("audio_\(item.id.uuidString).mp3")
-        if FileManager.default.fileExists(atPath: fallback.path) {
-            return fallback
+        for fileExtension in ["m4a", "mp3"] {
+            let fallback = documentsDir.appendingPathComponent(
+                "audio_\(item.id.uuidString).\(fileExtension)"
+            )
+            if FileManager.default.fileExists(atPath: fallback.path) {
+                return fallback
+            }
         }
 
         return nil
@@ -503,19 +507,14 @@ struct AnalysisDetailView: View {
 
         Task {
             do {
-                let audioService = ElevenLabsAudioService()
-
-                let profile = dataManager.userSettings.preferredReaderProfile
-                var voiceConfig = VoiceSelectionConfig.premium(for: profile)
-                if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
-                    let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: profile)
-                    voiceConfig = .custom(profile: profile, voice: fallback)
-                }
-
-                let result = try await audioService.generateAudio(
+                let settings = dataManager.userSettings
+                let routed = try await VoiceServiceManager.shared.generateAudioWithFallback(
                     text: sanitizeAudioContent(content),
-                    voiceID: voiceConfig.voiceID
+                    preferredVoiceID: settings.selectedVoiceID,
+                    preferredProvider: settings.voiceProvider,
+                    readerProfile: settings.preferredReaderProfile
                 )
+                let result = routed.audio
 
                 guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
                     await MainActor.run {
@@ -525,19 +524,17 @@ struct AnalysisDetailView: View {
                     return
                 }
 
-                let audioFileName = "audio_\(item.id.uuidString).mp3"
+                let audioFileName = "audio_\(item.id.uuidString).\(routed.provider.audioFileExtension)"
                 let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
+                try result.data.write(to: audioFileURL, options: .atomic)
 
-                let asset = AVURLAsset(url: audioFileURL)
-                let duration = try await asset.load(.duration)
-                let durationSeconds = CMTimeGetSeconds(duration)
+                let durationSeconds = result.duration
 
                 await MainActor.run {
                     dataManager.updateAudioMetadata(
                         for: item.id,
                         audioFileURL: audioFileName,
-                        audioVoiceID: voiceConfig.voiceID,
+                        audioVoiceID: routed.voiceID,
                         audioDuration: durationSeconds
                     )
                     isGeneratingAudio = false
@@ -571,7 +568,7 @@ struct AnalysisDetailView: View {
     // MARK: - Audio Management
 
     private func regenerateAudioWithCurrentVoice() {
-        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
+        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? environment.userSettings.voiceProvider.defaultVoiceID
         regenerateAudioWithVoice(currentVoice)
     }
 
@@ -587,12 +584,13 @@ struct AnalysisDetailView: View {
 
         Task {
             do {
-                let audioService = ElevenLabsAudioService()
-
-                let result = try await audioService.generateAudio(
+                let routed = try await VoiceServiceManager.shared.generateAudioWithFallback(
                     text: sanitizeAudioContent(content),
-                    voiceID: voiceID
+                    preferredVoiceID: voiceID,
+                    preferredProvider: environment.userSettings.voiceProvider,
+                    readerProfile: environment.userSettings.preferredReaderProfile
                 )
+                let result = routed.audio
 
                 guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
                     await MainActor.run {
@@ -608,19 +606,17 @@ struct AnalysisDetailView: View {
                     try? FileManager.default.removeItem(at: oldURL)
                 }
 
-                let audioFileName = "audio_\(item.id.uuidString).mp3"
+                let audioFileName = "audio_\(item.id.uuidString).\(routed.provider.audioFileExtension)"
                 let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
+                try result.data.write(to: audioFileURL, options: .atomic)
 
-                let asset = AVURLAsset(url: audioFileURL)
-                let duration = try await asset.load(.duration)
-                let durationSeconds = CMTimeGetSeconds(duration)
+                let durationSeconds = result.duration
 
                 await MainActor.run {
                     dataManager.updateAudioMetadata(
                         for: item.id,
                         audioFileURL: audioFileName,
-                        audioVoiceID: voiceID,
+                        audioVoiceID: routed.voiceID,
                         audioDuration: durationSeconds
                     )
                     isGeneratingAudio = false

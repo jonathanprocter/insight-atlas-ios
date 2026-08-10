@@ -1274,118 +1274,109 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // Check for available voice provider (OpenAI or ElevenLabs)
-        let hasOpenAI = KeychainService.shared.hasOpenAIApiKey
-        let hasElevenLabs = KeychainService.shared.hasElevenLabsApiKey
-
-        guard hasOpenAI || hasElevenLabs else {
-            audioLog("⚠️ No voice provider API key found - skipping audio generation")
-            return nil
-        }
-
-        // Determine which provider to use (prefer user's selected provider, fall back to what's available)
+        let availability = VoiceProviderAvailability.current
         let voiceManager = await MainActor.run { VoiceServiceManager.shared }
         let preferredProvider = await MainActor.run { voiceManager.currentProvider }
+        let providers = VoiceProviderFallbackPlanner.orderedProviders(
+            preferred: preferredProvider,
+            availability: availability
+        )
 
-        let useProvider: VoiceProvider
-        if preferredProvider.isConfigured() {
-            useProvider = preferredProvider
-        } else if hasOpenAI {
-            useProvider = .openai
-        } else {
-            useProvider = .elevenlabs
+        guard !providers.isEmpty else {
+            audioLog("⚠️ No configured voice provider found - skipping audio generation")
+            return nil
+        }
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            audioLog("❌ Unable to access documents directory for audio file storage")
+            return nil
         }
 
         audioLog("Starting audio generation for: \(title)")
-        audioLog("Using voice provider: \(useProvider.displayName)")
+        audioLog("Provider order: \(providers.map(\.displayName).joined(separator: " → "))")
 
-        // Determine voice to use based on provider
-        let voiceID: String
-        let voiceName: String
+        for provider in providers {
+            let voiceID: String
+            let voiceName: String
 
-        if useProvider == .elevenlabs {
-            // ElevenLabs voice selection
-            var voiceConfig: VoiceSelectionConfig
-            if let userSelectedVoiceID = selectedVoiceID,
-               let selectedVoice = ElevenLabsVoiceRegistry.voice(byVoiceID: userSelectedVoiceID) {
-                voiceConfig = .custom(profile: readerProfile, voice: selectedVoice)
-                audioLog("Using user-selected ElevenLabs voice: \(selectedVoice.name)")
-            } else {
-                voiceConfig = VoiceSelectionConfig.premium(for: readerProfile)
-                if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
-                    let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile)
-                    voiceConfig = .custom(profile: readerProfile, voice: fallback)
+            switch provider {
+            case .chatgptVoice:
+                if let selectedVoiceID,
+                   let selectedVoice = ChatGPTVoiceRegistry.voice(byID: selectedVoiceID) {
+                    voiceID = selectedVoice.voiceID
+                    voiceName = selectedVoice.name
+                } else {
+                    voiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
+                    voiceName = ChatGPTVoiceRegistry.defaultVoice.name
                 }
-                audioLog("Using profile ElevenLabs voice: \(voiceConfig.voiceName)")
+
+            case .openai:
+                if let selectedVoiceID,
+                   let selectedVoice = OpenAIVoiceRegistry.voice(byID: selectedVoiceID) {
+                    voiceID = selectedVoice.voiceID
+                    voiceName = selectedVoice.name
+                } else {
+                    voiceID = OpenAIVoiceRegistry.defaultVoice.voiceID
+                    voiceName = OpenAIVoiceRegistry.defaultVoice.name
+                }
+
+            case .elevenlabs:
+                var voiceConfig: VoiceSelectionConfig
+                if let selectedVoiceID,
+                   let selectedVoice = ElevenLabsVoiceRegistry.voice(byVoiceID: selectedVoiceID) {
+                    voiceConfig = .custom(profile: readerProfile, voice: selectedVoice)
+                } else {
+                    voiceConfig = VoiceSelectionConfig.premium(for: readerProfile)
+                    if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
+                        let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile)
+                        voiceConfig = .custom(profile: readerProfile, voice: fallback)
+                    }
+                }
+                voiceID = voiceConfig.voiceID
+                voiceName = voiceConfig.voiceName
             }
-            voiceID = voiceConfig.voiceID
-            voiceName = voiceConfig.voiceName
-        } else {
-            // OpenAI voice selection
-            if let userSelectedVoiceID = selectedVoiceID,
-               OpenAIVoiceRegistry.isValidVoiceID(userSelectedVoiceID) {
-                voiceID = userSelectedVoiceID
-                voiceName = OpenAIVoiceRegistry.voice(byID: userSelectedVoiceID)?.name ?? userSelectedVoiceID
-                audioLog("Using user-selected OpenAI voice: \(voiceName)")
-            } else {
-                // Use default OpenAI voice (alloy is natural and versatile)
-                let defaultVoice = OpenAIVoiceRegistry.defaultVoice
-                voiceID = defaultVoice.voiceID
-                voiceName = defaultVoice.name
-                audioLog("Using default OpenAI voice: \(voiceName)")
+
+            audioLog("Trying \(provider.displayName) with voice \(voiceName)")
+
+            do {
+                let result = try await voiceManager.generateAudio(
+                    text: audioContent,
+                    voiceID: voiceID,
+                    provider: provider
+                )
+                guard !result.data.isEmpty else {
+                    throw ChatGPTVoiceServiceError.emptyAudio
+                }
+
+                let audioOwnerId = libraryItemId ?? generationId
+                let audioFileName = "audio_\(audioOwnerId.uuidString).\(provider.audioFileExtension)"
+                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
+                try? FileManager.default.removeItem(at: audioFileURL)
+                try result.data.write(to: audioFileURL, options: .atomic)
+
+                guard FileManager.default.fileExists(atPath: audioFileURL.path) else {
+                    throw CocoaError(.fileNoSuchFile)
+                }
+
+                let duration = result.duration > 0
+                    ? result.duration
+                    : try await calculateAudioDuration(from: audioFileURL)
+
+                audioLog("✅ Audio generated successfully with \(provider.displayName)")
+                audioLog("Duration: \(String(format: "%.1f", duration)) seconds")
+                audioLog("File: \(audioFileName)")
+
+                return AudioGenerationResult(
+                    fileURL: audioFileName,
+                    voiceID: voiceID,
+                    duration: duration
+                )
+            } catch {
+                audioLog("⚠️ \(provider.displayName) narration failed; trying the next configured provider (\(String(describing: type(of: error))))")
             }
         }
 
-        do {
-            // Generate audio using the appropriate service
-            let result: GeneratedAudio
-            if useProvider == .elevenlabs {
-                let audioService = ElevenLabsAudioService()
-                result = try await audioService.generateAudio(text: audioContent, voiceID: voiceID)
-            } else {
-                let audioService = OpenAIAudioService()
-                result = try await audioService.generateAudio(text: audioContent, voiceID: voiceID)
-            }
-
-            // Save audio to documents directory
-            guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                audioLog("❌ Unable to access documents directory for audio file storage")
-                return nil
-            }
-            let audioOwnerId = libraryItemId ?? generationId
-
-            // Use appropriate file extension based on provider (OpenAI uses M4A for concatenated audio)
-            let fileExtension = useProvider == .openai ? "m4a" : "mp3"
-            let audioFileName = "audio_\(audioOwnerId.uuidString).\(fileExtension)"
-            let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-
-            try result.data.write(to: audioFileURL)
-            audioLog("Audio file written to: \(audioFileURL.path)")
-
-            // Verify file exists
-            guard FileManager.default.fileExists(atPath: audioFileURL.path) else {
-                audioLog("❌ Audio file write verification failed - file does not exist")
-                return nil
-            }
-            audioLog("Audio file verified on disk")
-
-            // Calculate duration from audio data
-            let duration = try await calculateAudioDuration(from: audioFileURL)
-
-            audioLog("✅ Audio generated successfully with \(useProvider.displayName)")
-            audioLog("Duration: \(String(format: "%.1f", duration)) seconds")
-            audioLog("File: \(audioFileName)")
-
-            return AudioGenerationResult(
-                fileURL: audioFileName,
-                voiceID: voiceID,
-                duration: duration
-            )
-
-        } catch {
-            audioLog("❌ Audio generation failed: \(error.localizedDescription)")
-            return nil
-        }
+        audioLog("❌ All configured voice providers failed")
+        return nil
     }
 
     /// Calculate audio duration from file

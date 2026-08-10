@@ -600,7 +600,7 @@ struct GuideView: View {
 
         Task {
             do {
-                let audioService = environment.audioService
+                let voiceManager = VoiceServiceManager.shared
                 guard let content = item.summaryContent else {
                     isGeneratingAudio = false
                     return
@@ -609,10 +609,13 @@ struct GuideView: View {
                 // Strip markup tags for cleaner audio narration
                 let cleanedText = Self.prepareTextForAudio(content)
 
-                let result = try await audioService.generateAudio(
+                let routed = try await voiceManager.generateAudioWithFallback(
                     text: cleanedText,
-                    voiceID: environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
+                    preferredVoiceID: environment.userSettings.selectedVoiceID,
+                    preferredProvider: environment.userSettings.voiceProvider,
+                    readerProfile: environment.userSettings.preferredReaderProfile
                 )
+                let result = routed.audio
 
                 // Save audio file to documents directory
                 guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
@@ -621,8 +624,7 @@ struct GuideView: View {
                     return
                 }
 
-                // Use .m4a extension since we now export as AAC for proper concatenation
-                let audioFileName = "audio_\(item.id.uuidString).m4a"
+                let audioFileName = "audio_\(item.id.uuidString).\(routed.provider.audioFileExtension)"
                 let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
                 try result.data.write(to: audioFileURL)
 
@@ -630,7 +632,7 @@ struct GuideView: View {
                 var successItem = item
                 successItem.audioFileURL = audioFileName
                 successItem.audioDuration = result.duration
-                successItem.audioVoiceID = environment.userSettings.selectedVoiceID
+                successItem.audioVoiceID = routed.voiceID
                 successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
                 environment.updateLibraryItem(successItem)
 
@@ -650,7 +652,7 @@ struct GuideView: View {
     // MARK: - Audio Management
 
     private func regenerateAudioWithCurrentVoice() {
-        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? "21m00Tcm4TlvDq8ikWAM"
+        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? environment.userSettings.voiceProvider.defaultVoiceID
         regenerateAudioWithVoice(currentVoice)
     }
 
@@ -666,7 +668,7 @@ struct GuideView: View {
 
         Task {
             do {
-                let audioService = environment.audioService
+                let voiceManager = VoiceServiceManager.shared
                 guard let content = item.summaryContent else {
                     await MainActor.run { isGeneratingAudio = false }
                     return
@@ -675,10 +677,13 @@ struct GuideView: View {
                 // Strip markup tags for cleaner audio narration
                 let cleanedText = Self.prepareTextForAudio(content)
 
-                let result = try await audioService.generateAudio(
+                let routed = try await voiceManager.generateAudioWithFallback(
                     text: cleanedText,
-                    voiceID: voiceID
+                    preferredVoiceID: voiceID,
+                    preferredProvider: environment.userSettings.voiceProvider,
+                    readerProfile: environment.userSettings.preferredReaderProfile
                 )
+                let result = routed.audio
 
                 // Save audio file to documents directory
                 guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
@@ -693,8 +698,7 @@ struct GuideView: View {
                     try? FileManager.default.removeItem(at: oldURL)
                 }
 
-                // Use .m4a extension since we now export as AAC for proper concatenation
-                let audioFileName = "audio_\(item.id.uuidString).m4a"
+                let audioFileName = "audio_\(item.id.uuidString).\(routed.provider.audioFileExtension)"
                 let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
                 try result.data.write(to: audioFileURL)
 
@@ -703,13 +707,13 @@ struct GuideView: View {
                     var successItem = item
                     successItem.audioFileURL = audioFileName
                     successItem.audioDuration = result.duration
-                    successItem.audioVoiceID = voiceID
+                    successItem.audioVoiceID = routed.voiceID
                     successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
                     environment.updateLibraryItem(successItem)
                     isGeneratingAudio = false
                 }
 
-                Self.logger.info("Audio regenerated with voice \(voiceID)")
+                Self.logger.info("Audio regenerated with \(routed.provider.displayName) voice \(routed.voiceID)")
             } catch {
                 Self.logger.error("Audio regeneration failed: \(error.localizedDescription)")
                 await MainActor.run { isGeneratingAudio = false }
