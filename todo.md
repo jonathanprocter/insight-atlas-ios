@@ -6,16 +6,17 @@
 - [x] Create isolated feature worktree and establish repository baseline.
 - [x] Write and approve the feature design.
 - [x] Write the detailed test-first implementation plan.
-- [ ] Add failing tests for provider defaults and fallback ordering.
-- [ ] Implement ChatGPT Voice provider modeling and backward-compatible settings.
-- [ ] Add failing tests for GPT-Live request/event protocol behavior.
-- [ ] Implement the pure GPT-Live protocol core.
-- [ ] Add failing tests for streaming orchestration and audio encoding.
-- [ ] Implement the OAuth WebSocket transport and PCM-to-M4A encoder.
-- [ ] Integrate ChatGPT Voice as primary narration with ordered fallbacks.
-- [ ] Update Settings, Generation, voice picker, and automated UI routing for three providers.
-- [ ] Add setup, risk, and smoke-testing documentation.
-- [ ] Run static verification in Linux.
-- [ ] Run or obtain evidence from an Apple-toolchain build and test run.
-- [ ] Complete security, reliability, and compatibility review.
-- [ ] Push the feature branch for installation and device testing.
+- [x] Add failing tests for provider defaults and fallback ordering.
+- [x] Implement ChatGPT Voice provider modeling and backward-compatible settings.
+- [x] Add failing tests for GPT-Live request/event protocol behavior.
+- [x] Implement the pure GPT-Live protocol core.
+- [x] Add failing tests for streaming orchestration and audio encoding.
+- [x] Implement the OAuth WebSocket transport and PCM-to-M4A encoder.
+- [x] Integrate ChatGPT Voice as primary narration with ordered fallbacks.
+- [x] Update Settings, Generation, voice picker, and automated UI routing for three providers.
+- [x] Add setup, risk, and smoke-testing documentation.
+- [x] Run static verification in Linux.
+- [x] Run or obtain evidence from an Apple-toolchain build and test run.
+- [x] Complete security, reliability, and compatibility review.
+- [x] Push the feature branch for installation and device testing.
+- [ ] Complete the signed-in GPT-Live and stable-fallback smoke test on a physical iPhone.
