@@ -442,12 +442,12 @@ private enum KokoroModelInstaller {
             contentsOf: archiveURL,
             options: [.mappedIfSafe]
         )
-        guard let compressedData else {
+        guard let sourceData = compressedData else {
             throw KokoroModelError.extractionFailed
         }
 
-        let tarData = try BZip2.decompress(data: compressedData)
-        self.consume(&compressedData)
+        let tarData = try BZip2.decompress(data: sourceData)
+        compressedData = nil
         let entries = try TarContainer.open(container: tarData)
 
         try fileManager.createDirectory(
@@ -511,9 +511,6 @@ private enum KokoroModelInstaller {
         }
     }
 
-    private static func consume(_ data: inout Data?) {
-        data = nil
-    }
 }
 
 private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {

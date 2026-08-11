@@ -198,10 +198,10 @@ actor KokoroSynthesisEngine {
                 .appendingPathComponent("lexicon-us-en.txt").path
         )
         let modelConfig = sherpaOnnxOfflineTtsModelConfig(
+            kokoro: kokoro,
             numThreads: 2,
             debug: 0,
-            provider: "cpu",
-            kokoro: kokoro
+            provider: "cpu"
         )
         var config = sherpaOnnxOfflineTtsConfig(model: modelConfig)
         let wrapper = KokoroNativeTTS(config: &config)
