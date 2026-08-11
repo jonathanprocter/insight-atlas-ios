@@ -71,7 +71,7 @@ struct VoicePickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Select a \(provider.displayName) voice for manual provider previews. Full-guide narration uses Mega Transcript first, OpenAI second, and Liam last.")
+                    Text("Select a \(provider.displayName) voice for manual previews. Full-guide narration uses offline Kokoro first, then Mega Transcript, OpenAI, and Liam when configured.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)

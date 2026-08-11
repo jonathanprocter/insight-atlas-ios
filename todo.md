@@ -20,3 +20,21 @@
 - [x] Complete security, reliability, and compatibility review.
 - [x] Push the feature branch for installation and device testing.
 - [ ] Complete the signed-in GPT-Live and stable-fallback smoke test on a physical iPhone.
+
+## Kokoro Offline Narration
+
+- [x] Audit the current provider, generation, settings, and Xcode dependency architecture.
+- [x] Verify the approved Kokoro voice, official model package, checksum, size, and native Swift runtime.
+- [x] Create the isolated feature worktree and implementation plan.
+- [x] Add failing tests for Kokoro provider defaults, registry, fallbacks, and legacy settings.
+- [x] Add failing tests for model manifest, installation validation, and archive path safety.
+- [x] Add failing tests for narration chunking and voice-to-speaker resolution.
+- [x] Add and pin sherpa-onnx and SWCompression Swift packages.
+- [x] Implement the Kokoro voice registry and provider routing.
+- [x] Implement the secure model download, verification, extraction, deletion, and progress manager.
+- [x] Implement actor-isolated Kokoro synthesis and WAV output.
+- [x] Add the model-install and Kokoro voice-selection user interface.
+- [x] Wire Kokoro into background narration, caching, and stable fallbacks.
+- [x] Add third-party notices, setup documentation, and troubleshooting guidance.
+- [x] Run static checks, independent review, and the full macOS CI build/test suite (201 tests, 0 failures).
+- [ ] Validate install, generation, playback, deletion, and airplane-mode use on a physical iPhone.

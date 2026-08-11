@@ -150,20 +150,22 @@ final class KokoroNarrationTests: XCTestCase {
 
     // MARK: - Stable provider fallback policy
 
-    func testNarrationFallbackPolicyUsesMegaThenOpenAIThenLiam() {
+    func testNarrationFallbackPolicyUsesKokoroThenMegaThenOpenAIThenLiam() {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
+                kokoroConfigured: true,
                 megaTranscriptConfigured: true,
                 openAIConfigured: true,
                 liamConfigured: true
             ),
-            [.megaTranscript, .openAI, .liam]
+            [.kokoro, .megaTranscript, .openAI, .liam]
         )
     }
 
     func testNarrationFallbackPolicySkipsOnlyUnconfiguredProvidersWithoutReordering() {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
+                kokoroConfigured: false,
                 megaTranscriptConfigured: false,
                 openAIConfigured: true,
                 liamConfigured: true
@@ -172,19 +174,36 @@ final class KokoroNarrationTests: XCTestCase {
         )
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
+                kokoroConfigured: true,
                 megaTranscriptConfigured: true,
                 openAIConfigured: false,
                 liamConfigured: true
             ),
-            [.megaTranscript, .liam]
+            [.kokoro, .megaTranscript, .liam]
         )
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
+                kokoroConfigured: true,
                 megaTranscriptConfigured: false,
                 openAIConfigured: false,
-                liamConfigured: true
+                liamConfigured: false
             ),
-            [.liam]
+            [.kokoro]
+        )
+    }
+
+    func testNarrationContainerDetectionRecognizesWAVM4AAndMP3() {
+        XCTAssertEqual(
+            NarrationService.fileExtension(for: Data("RIFFtest".utf8)),
+            "wav"
+        )
+        XCTAssertEqual(
+            NarrationService.fileExtension(for: Data([0, 0, 0, 0]) + Data("ftyp".utf8)),
+            "m4a"
+        )
+        XCTAssertEqual(
+            NarrationService.fileExtension(for: Data([0x49, 0x44, 0x33, 0x04])),
+            "mp3"
         )
     }
 

@@ -2,10 +2,11 @@
 //  NarrationService.swift
 //  InsightAtlas
 //
-//  Narration orchestration with a stable primary/fallback provider policy:
-//    1. Mega Transcript — Arthur preferred from the live English catalog.
-//    2. OpenAI Audio API — authenticated with the device's OpenAI API key.
-//    3. Kokoro / Liam — the last and final fallback.
+//  Narration orchestration with an offline-first provider policy:
+//    1. Kokoro — premium on-device narration with no per-use fee.
+//    2. Mega Transcript — Arthur preferred from the live English catalog.
+//    3. OpenAI Audio API — authenticated with the device's OpenAI API key.
+//    4. Liam — the last and final fallback.
 //
 //  All providers converge on the app's standard `NarrationAsset` contract: a file
 //  written into Documents as `audio_<itemId>.<ext>` plus a duration and voice
@@ -23,6 +24,7 @@ import os.log
 private let narrationLog = Logger(subsystem: "com.insightatlas", category: "NarrationService")
 
 enum NarrationProviderRoute: String, Equatable, Sendable {
+    case kokoro
     case megaTranscript
     case openAI
     case liam
@@ -30,11 +32,13 @@ enum NarrationProviderRoute: String, Equatable, Sendable {
 
 enum NarrationFallbackPolicy {
     static func orderedRoutes(
+        kokoroConfigured: Bool,
         megaTranscriptConfigured: Bool,
         openAIConfigured: Bool,
         liamConfigured: Bool
     ) -> [NarrationProviderRoute] {
         var routes: [NarrationProviderRoute] = []
+        if kokoroConfigured { routes.append(.kokoro) }
         if megaTranscriptConfigured { routes.append(.megaTranscript) }
         if openAIConfigured { routes.append(.openAI) }
         if liamConfigured { routes.append(.liam) }
@@ -51,7 +55,7 @@ actor NarrationService {
     static let openAIVoice = "onyx"
 
     /// Synthesize narration for `itemId` using the fixed provider order:
-    /// Mega Transcript -> OpenAI Audio API -> Liam. ChatGPT consumer OAuth is
+    /// Kokoro -> Mega Transcript -> OpenAI Audio API -> Liam. ChatGPT consumer OAuth is
     /// intentionally excluded because it is not supported API authentication.
     /// Cancellation never triggers another provider request.
     func synthesize(
@@ -63,6 +67,7 @@ actor NarrationService {
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
         let routes = NarrationFallbackPolicy.orderedRoutes(
+            kokoroConfigured: KokoroModelStore.isInstalled,
             megaTranscriptConfigured: MegaTranscriptNarrationCoordinator.shared.isConfigured,
             openAIConfigured: KeychainService.shared.hasOpenAIApiKey,
             liamConfigured: KokoroTTSClient.currentAPIKey() != nil
@@ -75,6 +80,29 @@ actor NarrationService {
             try Task.checkCancellation()
 
             switch route {
+            case .kokoro:
+                let voice = Self.selectedKokoroVoice()
+                progress(.generating(narrator: "Kokoro · \(voice.name)"))
+                do {
+                    let audio = try await KokoroAudioService.shared.generateAudio(
+                        text: spokenText,
+                        voiceID: voice.voiceID
+                    )
+                    let asset = try persist(audio: audio, itemId: itemId)
+                    progress(.ready(narrator: "Kokoro · \(voice.name)"))
+                    narrationLog.info(
+                        "Narration via on-device Kokoro (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
+                    )
+                    return asset
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
+                    narrationLog.error(
+                        "On-device Kokoro failed [\(error.localizedDescription, privacy: .public)] — moving to the next configured narration provider"
+                    )
+                }
+
             case .megaTranscript:
                 do {
                     let result = try await MegaTranscriptNarrationCoordinator.shared.synthesize(
@@ -179,9 +207,12 @@ actor NarrationService {
             try fm.moveItem(at: staging, to: finalURL)
         }
 
-        // Remove a stale sibling written by a previous run with the other format.
-        let otherExt = (ext == "mp3") ? "m4a" : "mp3"
-        try? fm.removeItem(at: documents.appendingPathComponent("audio_\(itemId.uuidString).\(otherExt)"))
+        // Remove stale siblings written by previous providers in other containers.
+        for otherExt in ["wav", "mp3", "m4a"] where otherExt != ext {
+            try? fm.removeItem(
+                at: documents.appendingPathComponent("audio_\(itemId.uuidString).\(otherExt)")
+            )
+        }
 
         return NarrationAsset(
             relativeFileName: relativeName,
@@ -190,12 +221,24 @@ actor NarrationService {
         )
     }
 
-    /// Detect the audio container: MP4/M4A files carry an "ftyp" box at bytes
-    /// 4–7; otherwise treat it as MP3.
-    private static func fileExtension(for data: Data) -> String {
+    /// Detect WAV, MP4/M4A, and MP3 containers produced by the configured routes.
+    static func fileExtension(for data: Data) -> String {
+        if data.count >= 4, data.prefix(4) == Data("RIFF".utf8) {
+            return "wav"
+        }
         if data.count >= 8, data.subdata(in: 4..<8) == Data("ftyp".utf8) {
             return "m4a"
         }
         return "mp3"
+    }
+
+    private static func selectedKokoroVoice() -> KokoroVoice {
+        guard let voiceID = UserDefaults.standard.string(
+            forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
+        ) else {
+            return KokoroVoiceRegistry.defaultVoice
+        }
+        return KokoroVoiceRegistry.voice(byVoiceID: voiceID)
+            ?? KokoroVoiceRegistry.defaultVoice
     }
 }
