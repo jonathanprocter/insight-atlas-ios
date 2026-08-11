@@ -387,4 +387,37 @@ final class ConceptMapGeometryTests: XCTestCase {
         XCTAssertEqual(cm.listItems?.count, 3, "the three spokes carried as branches")
         XCTAssertEqual(blocks.filter { $0.type == .flowchart }.count, 1, "genuine sequence must remain a flowchart")
     }
+
+    // MARK: - Borderless pipe table (capability-audit follow-up)
+
+    func testBorderlessPipeRowsBecomeTable() {
+        let content = """
+        ## Section
+
+        Dimension | Cognitive defusion | Cognitive restructuring | Thought suppression
+        Primary target | The thought's function | The thought's accuracy | The thought's presence
+        """
+        let blocks = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+            .sections.flatMap { $0.blocks }
+        guard let table = blocks.first(where: { $0.type == .table }) else {
+            return XCTFail("borderless pipe rows must parse into a .table")
+        }
+        XCTAssertEqual(table.tableData?.count, 2, "two rows")
+        XCTAssertEqual(table.tableData?.first?.count, 4, "four columns")
+        XCTAssertFalse(blocks.contains { $0.type == .paragraph && $0.content.contains("|") },
+                       "pipe rows must not remain prose")
+    }
+
+    func testLonePipeLineStaysProse() {
+        let content = """
+        ## Section
+
+        Weigh the pros | cons before deciding.
+
+        A normal paragraph with no pipes.
+        """
+        let blocks = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+            .sections.flatMap { $0.blocks }
+        XCTAssertFalse(blocks.contains { $0.type == .table }, "a lone 2-column pipe line must NOT become a table")
+    }
 }

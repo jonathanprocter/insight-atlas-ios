@@ -1283,6 +1283,32 @@ extension PDFAnalysisDocument {
                 continue
             }
 
+            // Borderless pipe table: rows like "A | B | C" (no leading/trailing
+            // "|") that the model sometimes emits for a comparison table instead
+            // of a bordered markdown table. Conservative: require ≥3 columns and
+            // ≥2 consecutive rows of matching width (peek before consuming) so a
+            // lone prose line containing a pipe is never mis-captured as a table.
+            let pipeColumns: (String) -> Int = { $0.components(separatedBy: "|").count }
+            if !line.hasPrefix("|"), line.contains("|"), pipeColumns(line) >= 3, i + 1 < lines.count {
+                let next = lines[i + 1].trimmingCharacters(in: .whitespaces)
+                if !next.hasPrefix("|"), next.contains("|"), pipeColumns(next) == pipeColumns(line) {
+                    let cols = pipeColumns(line)
+                    var rows: [[String]] = []
+                    while i < lines.count {
+                        let t = lines[i].trimmingCharacters(in: .whitespaces)
+                        guard !t.isEmpty, !t.hasPrefix("|"), t.contains("|"),
+                              pipeColumns(t) == cols, !t.contains("---") else { break }
+                        rows.append(t.components(separatedBy: "|")
+                            .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) })
+                        i += 1
+                    }
+                    if rows.count >= 2 {
+                        currentBlocks.append(PDFContentBlock(type: .table, content: "", tableData: rows))
+                        continue
+                    }
+                }
+            }
+
             if let implicit = parseImplicitVisualBlocks(from: lines, startIndex: i) {
                 currentBlocks.append(contentsOf: implicit.blocks)
                 i += implicit.consumed
