@@ -34,6 +34,10 @@ struct VoicePickerSheet: View {
 
     private var recommendedVoices: [VoicePickerOption] {
         switch provider {
+        case .kokoro:
+            return KokoroVoiceRegistry.voicesSorted(for: profile).map {
+                VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
+            }
         case .chatgptVoice:
             return ChatGPTVoiceRegistry.allVoices.map {
                 VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
@@ -58,6 +62,8 @@ struct VoicePickerSheet: View {
 
     private var primarySectionTitle: String {
         switch provider {
+        case .kokoro:
+            return "KOKORO VOICES · ON-DEVICE"
         case .chatgptVoice:
             return "CHATGPT VOICES · EXPERIMENTAL"
         case .openai:
