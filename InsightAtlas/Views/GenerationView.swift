@@ -269,7 +269,7 @@ struct GenerationView: View {
                         Text("Provider order")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
-                        Text("Mega Transcript → OpenAI → Liam")
+                        Text("Kokoro → Mega Transcript → OpenAI → Liam")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
                     }
@@ -280,10 +280,11 @@ struct GenerationView: View {
                 .cornerRadius(AnalysisTheme.Radius.md)
                 .accessibilityIdentifier("generation_voice_liam_label")
 
-                if !KeychainMegaTranscriptCredentialStore.shared.hasAPIKey,
+                if !KokoroModelStore.isInstalled,
+                   !KeychainMegaTranscriptCredentialStore.shared.hasAPIKey,
                    !KeychainService.shared.hasOpenAIApiKey,
                    KokoroTTSClient.currentAPIKey() == nil {
-                    Text("⚠️ Add a narration credential in Settings → Audio & Narration")
+                    Text("⚠️ Download Kokoro or configure a cloud narrator in Settings → Audio & Narration")
                         .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.accentHighlight)
                 }

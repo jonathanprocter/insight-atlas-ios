@@ -4,6 +4,7 @@ import UIKit
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
+    @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
     @AppStorage(PremiumUI.themeStorageKey) private var themePreference = PremiumTheme.system.rawValue
     @AppStorage(PremiumUI.accentStorageKey) private var accentPreference = PremiumAccent.gold.rawValue
@@ -21,7 +22,15 @@ struct SettingsView: View {
     private var selectedVoiceName = "Arthur"
 
     private var audioStatus: String {
-        chatgpt.isSignedIn ? "ChatGPT Voice" : selectedVoiceName
+        if KokoroModelStore.isInstalled {
+            let voiceID = UserDefaults.standard.string(
+                forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
+            ) ?? KokoroVoiceRegistry.defaultVoice.voiceID
+            let voice = KokoroVoiceRegistry.voice(byVoiceID: voiceID)
+                ?? KokoroVoiceRegistry.defaultVoice
+            return "Kokoro · \(voice.name)"
+        }
+        return chatgpt.isSignedIn ? "ChatGPT Voice" : selectedVoiceName
     }
 
     private var accentColor: Color {
@@ -135,7 +144,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "chatgpt", "gpt-live", "mega transcript", "arthur", "liam"],
+                        keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "free", "chatgpt", "gpt-live", "mega transcript", "arthur", "liam"],
                         dynamicValues: [audioStatus]
                     ) {
                         PremiumSettingsCard(
@@ -928,6 +937,10 @@ struct APIConfigurationView: View {
 struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
+    @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
+
+    @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
+    private var kokoroVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
 
     @AppStorage(ChatGPTVoiceRegistry.selectedVoiceStorageKey)
     private var chatgptVoiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
@@ -962,6 +975,11 @@ struct AudioSettingsView: View {
         }
     }
 
+    private var selectedKokoroVoice: KokoroVoice {
+        KokoroVoiceRegistry.voice(byVoiceID: kokoroVoiceID)
+            ?? KokoroVoiceRegistry.defaultVoice
+    }
+
     private var chatgptVoiceName: String {
         ChatGPTVoiceRegistry.voice(byID: chatgptVoiceID)?.name
             ?? ChatGPTVoiceRegistry.defaultVoice.name
@@ -969,6 +987,28 @@ struct AudioSettingsView: View {
 
     var body: some View {
         List {
+            Section {
+                kokoroModelStatus
+
+                if KokoroModelStore.isInstalled {
+                    NavigationLink {
+                        KokoroVoiceSelectionView()
+                            .environmentObject(environment)
+                    } label: {
+                        HStack {
+                            Text("Offline Voice")
+                            Spacer()
+                            Text(selectedKokoroVoice.name)
+                                .foregroundStyle(PremiumUI.secondaryText)
+                        }
+                    }
+                }
+            } header: {
+                Text("Kokoro On-Device Voice (Primary)")
+            } footer: {
+                Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The installed model uses about 182 MB.")
+            }
+
             Section {
                 if chatgpt.isSignedIn {
                     HStack {
@@ -1019,9 +1059,9 @@ struct AudioSettingsView: View {
                     }
                 }
             } header: {
-                Text("Primary Narrator")
+                Text("First Cloud Fallback")
             } footer: {
-                Text("Mega Transcript is tried first. Configure its key, choose another narrator, generate a paid preview, or clear the local narration cache here.")
+                Text("If offline Kokoro is unavailable, Mega Transcript is tried next. Configure its key, choose another narrator, generate a paid preview, or clear its narration cache here.")
             }
 
             Section {
@@ -1041,9 +1081,9 @@ struct AudioSettingsView: View {
                     }
                 }
             } header: {
-                Text("First Fallback")
+                Text("Second Cloud Fallback")
             } footer: {
-                Text("If Mega Transcript fails or is unavailable, InsightAtlas uses OpenAI gpt-4o-mini-tts with the Onyx voice. OpenAI API usage is billed separately, and the generated voice is AI-generated.")
+                Text("If offline Kokoro and Mega Transcript are unavailable, InsightAtlas uses OpenAI gpt-4o-mini-tts with the Onyx voice. OpenAI API usage is billed separately.")
             }
 
             Section {
@@ -1065,7 +1105,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Playback & Final Fallback")
             } footer: {
-                Text("The fixed route is Mega Transcript with \(megaVoiceName), then OpenAI Audio API with Onyx, then Liam as the last and final fallback.")
+                Text("The fixed route is offline Kokoro with \(selectedKokoroVoice.name), Mega Transcript with \(megaVoiceName), OpenAI Audio API with Onyx, then Liam as the final fallback.")
             }
 
             Section {
@@ -1104,7 +1144,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration is generated after a guide finishes using Mega Transcript first, OpenAI second, and Liam last. At least one credential must be configured.")
+                Text("When on, narration is generated after a guide finishes using offline Kokoro first, then Mega Transcript, OpenAI, and Liam. Kokoro needs no credential after its one-time model download.")
             }
 
             Section {
@@ -1144,7 +1184,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Diagnostics")
             } footer: {
-                Text("Tests the OpenAI API fallback and Liam final fallback. Mega Transcript credential and voice-catalog status are shown in Primary Narrator above.")
+                Text("Tests the OpenAI API and Liam cloud fallbacks. Kokoro readiness and voice selection are shown at the top; Mega Transcript status appears in First Cloud Fallback.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
@@ -1156,6 +1196,217 @@ struct AudioSettingsView: View {
             environment.updateVoiceProvider(.chatgptVoice)
             environment.userSettings.selectedVoiceID = chatgptVoiceID
             environment.saveSettings()
+        }
+    }
+
+    @ViewBuilder
+    private var kokoroModelStatus: some View {
+        switch kokoroModelManager.state {
+        case .notInstalled:
+            Label("Not downloaded", systemImage: "arrow.down.circle")
+            Button("Download Kokoro Model") {
+                kokoroModelManager.install()
+            }
+
+        case .preparing:
+            Label("Preparing download…", systemImage: "hourglass")
+            ProgressView()
+
+        case .downloading(let progress):
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Downloading… \(Int(progress * 100))%")
+                ProgressView(value: progress)
+            }
+            Button("Cancel", role: .cancel) {
+                kokoroModelManager.cancelInstall()
+            }
+
+        case .verifying:
+            Label("Verifying model integrity…", systemImage: "checkmark.shield")
+            ProgressView()
+
+        case .extracting:
+            Label("Installing model…", systemImage: "archivebox")
+            ProgressView()
+
+        case .installed:
+            Label("Ready for offline narration", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(PremiumUI.forest)
+            Button("Remove Downloaded Model", role: .destructive) {
+                try? kokoroModelManager.deleteModel()
+            }
+
+        case .failed(let message):
+            Label("Download failed", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Try Download Again") {
+                kokoroModelManager.install()
+            }
+        }
+    }
+}
+
+// MARK: - Kokoro Voice Selection
+
+struct KokoroVoiceSelectionView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+
+    @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
+    private var selectedVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
+
+    @State private var previewingVoiceID: String?
+    @State private var isLoadingPreview = false
+    @State private var previewError: String?
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(KokoroVoiceRegistry.allVoices) { voice in
+                    KokoroVoiceSettingsRow(
+                        voice: voice,
+                        isSelected: selectedVoiceID == voice.voiceID,
+                        isPreviewing: previewingVoiceID == voice.voiceID,
+                        isLoading: isLoadingPreview && previewingVoiceID == voice.voiceID,
+                        isPreviewEnabled: KokoroModelStore.isInstalled,
+                        onSelect: { select(voice) },
+                        onPreview: { preview(voice) }
+                    )
+                }
+            } header: {
+                Text("Kokoro On-Device Voices")
+            } footer: {
+                Text(KokoroModelStore.isInstalled
+                     ? "Tap a voice to select it, then play a completely offline preview."
+                     : "Download the Kokoro model in Audio Settings to enable previews.")
+            }
+        }
+        .premiumSettingsList(title: "Offline Voice")
+        .onDisappear {
+            AudioPlaybackManager.shared.stop()
+        }
+        .alert(
+            "Preview failed",
+            isPresented: Binding(
+                get: { previewError != nil },
+                set: { if !$0 { previewError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { previewError = nil }
+        } message: {
+            Text(previewError ?? "")
+        }
+    }
+
+    private func select(_ voice: KokoroVoice) {
+        selectedVoiceID = voice.voiceID
+        environment.userSettings.selectedVoiceID = voice.voiceID
+        environment.saveSettings()
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    private func preview(_ voice: KokoroVoice) {
+        guard KokoroModelStore.isInstalled, !isLoadingPreview else { return }
+        AudioPlaybackManager.shared.stop()
+
+        if previewingVoiceID == voice.voiceID {
+            previewingVoiceID = nil
+            return
+        }
+
+        previewingVoiceID = voice.voiceID
+        isLoadingPreview = true
+
+        Task {
+            do {
+                let text = "Hello, I'm \(voice.name). I'll narrate your Insight Atlas guides privately and completely offline."
+                let audio = try await KokoroAudioService.shared.generateAudio(
+                    text: text,
+                    voiceID: voice.voiceID
+                )
+
+                await MainActor.run {
+                    isLoadingPreview = false
+                    do {
+                        try AudioPlaybackManager.shared.play(audio) {
+                            previewingVoiceID = nil
+                        }
+                    } catch {
+                        previewingVoiceID = nil
+                        previewError = error.localizedDescription
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPreview = false
+                    previewingVoiceID = nil
+                    previewError = error.localizedDescription
+                }
+            }
+        }
+    }
+}
+
+struct KokoroVoiceSettingsRow: View {
+    let voice: KokoroVoice
+    let isSelected: Bool
+    let isPreviewing: Bool
+    let isLoading: Bool
+    let isPreviewEnabled: Bool
+    let onSelect: () -> Void
+    let onPreview: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onSelect) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(voice.name)
+                            .font(.body.weight(.medium))
+
+                        if voice.voiceID == KokoroVoiceRegistry.defaultVoice.voiceID {
+                            Text("DEFAULT")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(PremiumUI.gold.opacity(0.2))
+                                .foregroundStyle(PremiumUI.goldDark)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                    }
+
+                    Text(voice.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: onPreview) {
+                if isLoading {
+                    ProgressView().scaleEffect(0.8)
+                } else {
+                    Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(isPreviewing ? Color.red : PremiumUI.gold)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(!isPreviewEnabled)
+            .opacity(isPreviewEnabled ? 1 : 0.5)
+            .accessibilityLabel(isPreviewEnabled
+                                ? (isPreviewing ? "Stop preview" : "Play preview")
+                                : "Preview unavailable")
+
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(PremiumUI.gold)
+            }
         }
     }
 }

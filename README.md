@@ -12,6 +12,7 @@ Insight Atlas is an iOS application that generates comprehensive, beautifully fo
 - **Premium UI Design**: Elegant, book-inspired interface with custom typography
 - **Secure API Key Storage**: API keys stored securely in iOS Keychain
 - **Offline Library**: All guides stored locally for offline access
+- **Premium Offline Narration**: Kokoro generates natural-sounding speech on-device with no voice API key or per-use fee
 - **Accessibility Support**: VoiceOver and Dynamic Type compatible
 
 ## Requirements
@@ -48,6 +49,10 @@ Configure your API keys in the app's Settings > Manage API Keys section.
 
 > **Security Note**: API keys are stored securely in the iOS Keychain and are never transmitted to any server except the respective AI providers.
 
+### Offline Narration
+
+Kokoro is the default narration provider. In the app, open **Settings → Audio & Narration**, then download the verified on-device model once. The download is approximately 126 MiB and uses approximately 182 MiB after installation; subsequent narration works without a network connection or speech API credentials. See [Kokoro Offline Narration](docs/KOKORO_OFFLINE_NARRATION.md) for model integrity, privacy, fallbacks, and troubleshooting.
+
 ## Architecture
 
 The app follows a clean architecture pattern with SwiftUI:
@@ -67,6 +72,8 @@ InsightAtlas/
 │   ├── BookProcessor.swift     # PDF/EPUB processing
 │   ├── DataManager.swift       # Main data management
 │   ├── KeychainService.swift   # Secure key storage
+│   ├── KokoroModelManager.swift # Verified model download and lifecycle
+│   ├── KokoroAudioService.swift # On-device neural speech synthesis
 │   ├── LibraryService.swift    # Library management
 │   ├── SettingsService.swift   # Settings management
 │   ├── ExportService.swift     # Export functionality
@@ -87,6 +94,8 @@ InsightAtlas/
 | `BookProcessor` | Extracts text from PDF and EPUB files |
 | `DataManager` | Main coordinator for data persistence |
 | `KeychainService` | Secure storage for API keys |
+| `KokoroModelManager` | Downloads, verifies, installs, and removes the offline voice model |
+| `KokoroAudioService` | Generates 24 kHz narration locally through sherpa-onnx |
 | `LibraryService` | CRUD operations for library items |
 | `ExportService` | Export guides to various formats |
 | `PDFTextFixer` | Fixes ligatures and encoding issues from PDFs |
@@ -104,6 +113,9 @@ Test files:
 - `AIServiceTests.swift` - AI service tests
 - `BookProcessorTests.swift` - Book processing tests
 - `KeychainServiceTests.swift` - Keychain storage tests
+- `KokoroModelManagerTests.swift` - Manifest, installation, and archive-path safety tests
+- `KokoroTextChunkerTests.swift` - Long-narration chunking tests
+- `KokoroVoiceRegistryTests.swift` - Official voice mapping and default tests
 - `LibraryServiceTests.swift` - Library management tests
 
 ## Localization
@@ -133,7 +145,13 @@ The app includes comprehensive accessibility support:
 
 ## Dependencies
 
-- [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) - EPUB extraction
+| Dependency | Purpose |
+|---|---|
+| [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) | EPUB extraction |
+| [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) | Native on-device Kokoro inference |
+| [SWCompression](https://github.com/tsolomko/SWCompression) | Verified model archive extraction |
+
+See [Third-Party Notices](docs/THIRD_PARTY_NOTICES.md) for attribution and licenses.
 
 ## Contributing
 

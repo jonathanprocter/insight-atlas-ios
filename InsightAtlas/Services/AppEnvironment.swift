@@ -18,6 +18,8 @@ class AppEnvironment: ObservableObject {
     let aiService: AIService
     let audioService: ElevenLabsAudioService
     let openAIAudioService: OpenAIAudioService
+    let kokoroAudioService: KokoroAudioService
+    let kokoroModelManager: KokoroModelManager
     let voiceServiceManager: VoiceServiceManager
     let generationCoordinator: BackgroundGenerationCoordinator
     let dataManager: DataManager
@@ -33,12 +35,14 @@ class AppEnvironment: ObservableObject {
         self.aiService = AIService()
         self.audioService = ElevenLabsAudioService()
         self.openAIAudioService = OpenAIAudioService()
+        self.kokoroAudioService = KokoroAudioService.shared
+        self.kokoroModelManager = KokoroModelManager.shared
         self.voiceServiceManager = VoiceServiceManager.shared
         self.generationCoordinator = BackgroundGenerationCoordinator.shared
         self.dataManager = DataManager.shared
 
-        // Load user settings
-        self.userSettings = Self.loadSettings()
+        // Load user settings and migrate the former experimental voice default once.
+        self.userSettings = Self.migratedSettings(Self.loadSettings())
 
         // Migrate API keys from UserDefaults to Keychain (one-time)
         KeychainService.shared.migrateFromUserDefaults()
@@ -60,6 +64,7 @@ class AppEnvironment: ObservableObject {
     // MARK: - Settings Management
 
     private static let settingsKey = "insight_atlas_settings"
+    private static let kokoroDefaultMigrationKey = "insight_atlas_kokoro_default_migration_v1"
 
     private static func loadSettings() -> UserSettings {
         guard let data = UserDefaults.standard.data(forKey: settingsKey) else {
@@ -75,10 +80,39 @@ class AppEnvironment: ObservableObject {
         }
     }
 
+    private static func migratedSettings(_ saved: UserSettings) -> UserSettings {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: kokoroDefaultMigrationKey) else {
+            return saved
+        }
+
+        var migrated = saved
+        if migrated.voiceProvider == .chatgptVoice {
+            migrated.voiceProvider = .kokoro
+            migrated.selectedVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
+            defaults.set(
+                KokoroVoiceRegistry.defaultVoice.voiceID,
+                forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
+            )
+            if let encoded = try? JSONEncoder().encode(migrated) {
+                defaults.set(encoded, forKey: settingsKey)
+            }
+        }
+        defaults.set(true, forKey: kokoroDefaultMigrationKey)
+        return migrated
+    }
+
     func saveSettings() {
         do {
             let data = try JSONEncoder().encode(userSettings)
             UserDefaults.standard.set(data, forKey: Self.settingsKey)
+            if let voiceID = userSettings.selectedVoiceID,
+               KokoroVoiceRegistry.isValidVoiceID(voiceID) {
+                UserDefaults.standard.set(
+                    voiceID,
+                    forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
+                )
+            }
             logger.debug("Settings saved successfully")
         } catch {
             logger.error("Failed to encode settings: \(error.localizedDescription)")

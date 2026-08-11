@@ -1274,11 +1274,12 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // Fixed order: Mega Transcript, OpenAI API, then Liam final fallback.
-        guard KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+        // Fixed order: offline Kokoro, Mega Transcript, OpenAI API, then Liam.
+        guard KokoroModelStore.isInstalled
+                || KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
                 || KeychainService.shared.hasOpenAIApiKey
                 || KokoroTTSClient.currentAPIKey() != nil else {
-            audioLog("⚠️ No Mega Transcript, OpenAI, or Liam narration credential found - skipping audio generation")
+            audioLog("⚠️ No installed Kokoro model or configured cloud narrator found - skipping audio generation")
             return nil
         }
 

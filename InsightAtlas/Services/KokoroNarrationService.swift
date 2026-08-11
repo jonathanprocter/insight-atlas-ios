@@ -55,7 +55,7 @@ enum NarrationServiceError: LocalizedError {
         case .alreadyInProgress:
             return "Narration is already being generated for this guide."
         case .noConfiguredProvider:
-            return "Configure Mega Transcript, an OpenAI API key, or the Liam token in Settings → Audio & Narration."
+            return "Download the Kokoro model or configure Mega Transcript, OpenAI, or Liam in Settings → Audio & Narration."
         case .missingToken:
             return "Add your Liam narration token in Settings → Audio & Narration."
         case .emptyText:
