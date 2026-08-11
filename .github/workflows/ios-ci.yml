@@ -1,0 +1,55 @@
+name: iOS Build and Tests
+
+on:
+  push:
+    branches:
+      - main
+      - feature/chatgpt-voice-experimental
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Report Apple toolchain
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun simctl list devices available
+
+      - name: Select an available iPhone simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          SIMULATOR_ID="$(xcrun simctl list devices available | awk -F'[()]' '/iPhone/ {print $2; exit}')"
+          if [[ -z "$SIMULATOR_ID" ]]; then
+            echo "No available iPhone simulator was found." >&2
+            exit 1
+          fi
+          echo "id=$SIMULATOR_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Swift packages
+        run: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies \
+            -project InsightAtlas.xcodeproj \
+            -scheme InsightAtlas
+
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project InsightAtlas.xcodeproj \
+            -scheme InsightAtlas \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
+            -configuration Debug

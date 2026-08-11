@@ -138,22 +138,24 @@ final class PDFRedesignPhase123Tests: XCTestCase {
 
     // MARK: - Phase 1: Referential integrity
 
-    func testGhostReferenceDetected() {
+    func testOrdinaryDeicticPhraseIsNotTreatedAsGhostReference() {
         let doc = makeDoc([PDFContentBlock(type: .paragraph,
                                            content: "The matrix prevents overusing defusion.")])
-        let (_, report) = ReferentialIntegrityValidator().process(doc, repairViolations: false)
-        XCTAssertFalse(report.isValid)
-        XCTAssertEqual(report.violations.first?.category, .ghostReference)
+        let (processed, report) = ReferentialIntegrityValidator().process(doc, repairViolations: false)
+        XCTAssertTrue(report.isValid, report.summary)
+        XCTAssertEqual(processed.sections[0].blocks[0].content,
+                       "The matrix prevents overusing defusion.")
     }
 
-    func testResolvableReferenceRewrittenToExplicitFigure() {
+    func testDeicticReferenceIsNotRewrittenToFabricatedFigureNumber() {
         let doc = makeDoc([
             PDFContentBlock(type: .paragraph, content: "As the figure shows, defusion works."),
             PDFContentBlock(type: .processTimeline, content: "", listItems: ["A", "B", "C"])
         ])
         let (processed, report) = ReferentialIntegrityValidator().process(doc, repairViolations: false)
         XCTAssertTrue(report.isValid, report.summary)
-        XCTAssertTrue(processed.sections[0].blocks[0].content.contains("Figure 1"))
+        XCTAssertEqual(processed.sections[0].blocks[0].content,
+                       "As the figure shows, defusion works.")
         // The figure block carries its assigned number in metadata.
         XCTAssertEqual(processed.sections[0].blocks[1].metadata?["figureNumber"], "1")
     }
@@ -174,13 +176,39 @@ final class PDFRedesignPhase123Tests: XCTestCase {
         XCTAssertTrue(repairedReport.violations.allSatisfy { $0.repaired })
     }
 
-    func testGhostReferenceRepairSuppressesSentenceAtomically() {
+    func testRepairPreservesOrdinaryDeicticSentence() {
         let doc = makeDoc([PDFContentBlock(
             type: .paragraph,
             content: "The pyramid supports calibrated confidence. Defusion still helps in practice.")])
         let (repaired, _) = ReferentialIntegrityValidator().process(doc, repairViolations: true)
         let content = repaired.sections[0].blocks.first?.content ?? ""
-        XCTAssertFalse(content.lowercased().contains("pyramid"))
+        XCTAssertTrue(content.contains("The pyramid supports calibrated confidence."))
         XCTAssertTrue(content.contains("Defusion still helps"))
+    }
+
+    func testLoadBearingDanglingReferenceRemainsFlaggedForAuthoring() {
+        let doc = makeDoc([PDFContentBlock(
+            type: .paragraph,
+            content: "Figure 5 distinguishes avoidance from willingness.")])
+        let (processed, report) = ReferentialIntegrityValidator().process(doc, repairViolations: true)
+
+        XCTAssertFalse(report.isValid)
+        XCTAssertFalse(report.invariantHolds)
+        XCTAssertEqual(report.violations.first?.category, .danglingFigureNumber)
+        XCTAssertTrue(report.unresolvedReferences.contains { $0.contains("Figure 5") })
+        XCTAssertEqual(processed.sections[0].blocks[0].content,
+                       "Figure 5 distinguishes avoidance from willingness.")
+    }
+
+    func testDecorativeDanglingReferenceIsStrippedWithoutChangingMeaning() {
+        let doc = makeDoc([PDFContentBlock(
+            type: .paragraph,
+            content: "Defusion creates useful distance (see Figure 5).")])
+        let (processed, report) = ReferentialIntegrityValidator().process(doc, repairViolations: false)
+
+        XCTAssertTrue(report.isValid, report.summary)
+        XCTAssertTrue(report.invariantHolds)
+        XCTAssertEqual(processed.sections[0].blocks[0].content,
+                       "Defusion creates useful distance.")
     }
 }

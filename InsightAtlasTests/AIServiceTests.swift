@@ -157,14 +157,16 @@ final class AIServiceTests: XCTestCase {
     func testProviderDisplayNames() {
         XCTAssertEqual(AIProvider.claude.displayName, "Claude")
         XCTAssertEqual(AIProvider.openai.displayName, "OpenAI")
+        XCTAssertEqual(AIProvider.openRouter.displayName, "OpenRouter")
         XCTAssertEqual(AIProvider.both.displayName, "Both")
     }
 
     func testAllProvidersEnumerated() {
         let allProviders = AIProvider.allCases
-        XCTAssertEqual(allProviders.count, 3, "Should have 3 providers")
+        XCTAssertEqual(allProviders.count, 4, "Should have 4 providers")
         XCTAssertTrue(allProviders.contains(.claude))
         XCTAssertTrue(allProviders.contains(.openai))
+        XCTAssertTrue(allProviders.contains(.openRouter))
         XCTAssertTrue(allProviders.contains(.both))
     }
 
