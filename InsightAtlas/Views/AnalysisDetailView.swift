@@ -147,7 +147,7 @@ struct AnalysisDetailView: View {
                             Label(isPlayingAudio ? "Pause Audio" : "Listen to Guide", systemImage: isPlayingAudio ? "pause.fill" : "headphones")
                         }
 
-                        // Audio management submenu (narration is Liam-only)
+                        // Audio management submenu (narration provider order is fixed)
                         Menu {
                             Button(action: { regenerateAudioWithCurrentVoice() }) {
                                 Label("Regenerate Narration", systemImage: "arrow.clockwise")
@@ -487,7 +487,7 @@ struct AnalysisDetailView: View {
 
         Task {
             do {
-                // Mega Transcript is preferred; Liam remains the fallback.
+                // Mega Transcript is preferred; OpenAI follows, then Liam last.
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
                     itemId: itemId

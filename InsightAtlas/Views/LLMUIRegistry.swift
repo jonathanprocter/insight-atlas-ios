@@ -62,7 +62,7 @@ public enum LLMUIRegistry {
             LLMControl(id: "chatgpt_sign_in_button", title: "Sign in with ChatGPT", kind: "button"),
             LLMControl(id: "chatgpt_sign_out_button", title: "Sign out of ChatGPT", kind: "button"),
 
-            // Audio (narration is Liam-only)
+            // Audio (narration provider order is fixed)
             LLMControl(id: "navrow_audio_settings", title: "Audio Settings", kind: "navigation"),
             LLMControl(id: "playback_speed_picker", title: "Playback Speed", kind: "picker"),
             LLMControl(id: "toggle_auto_generate_audio", title: "Auto-generate Audio", kind: "toggle"),

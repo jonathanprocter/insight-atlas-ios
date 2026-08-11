@@ -383,7 +383,7 @@ struct SettingsView: View {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults — narration is Liam-only, so only playback speed and
+        // Audio defaults — provider order is fixed, so only playback speed and
         // the auto-generate toggle are user-configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
@@ -905,7 +905,7 @@ struct APIConfigurationView: View {
             } header: {
                 Text("ChatGPT Subscription (Beta)")
             } footer: {
-                Text("Unofficial: uses your ChatGPT subscription for Codex guide generation and experimental GPT-Live narration. This is not supported by OpenAI and availability depends on your account. If ChatGPT Voice fails, InsightAtlas falls back to Mega Transcript and then Liam when configured.")
+                Text("Unofficial: uses your ChatGPT subscription for Codex guide generation and optional experimental voice previews. ChatGPT OAuth is not used for automatic narration; the supported narration route uses Mega Transcript, the OpenAI Audio API, and Liam.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
@@ -999,7 +999,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("ChatGPT Voice (Experimental)")
             } footer: {
-                Text("Uses your ChatGPT OAuth sign-in for GPT-Live narration. When connected, this is tried first; Mega Transcript and Liam remain available as fallbacks.")
+                Text("Optional preview only. ChatGPT OAuth is not supported OpenAI API authentication and is not part of automatic narration.")
             }
 
             Section {
@@ -1019,9 +1019,31 @@ struct AudioSettingsView: View {
                     }
                 }
             } header: {
-                Text("Fallback Narrator")
+                Text("Primary Narrator")
             } footer: {
-                Text("Mega Transcript is used when ChatGPT Voice is unavailable or fails. Configure its key, choose another narrator, generate a paid preview, or clear the local narration cache here.")
+                Text("Mega Transcript is tried first. Configure its key, choose another narrator, generate a paid preview, or clear the local narration cache here.")
+            }
+
+            Section {
+                NavigationLink {
+                    APIConfigurationView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("OpenAI Audio API")
+                            Text(KeychainService.shared.hasOpenAIApiKey ? "API key configured" : "API key not configured")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text("Onyx")
+                            .foregroundStyle(PremiumUI.secondaryText)
+                    }
+                }
+            } header: {
+                Text("First Fallback")
+            } footer: {
+                Text("If Mega Transcript fails or is unavailable, InsightAtlas uses OpenAI gpt-4o-mini-tts with the Onyx voice. OpenAI API usage is billed separately, and the generated voice is AI-generated.")
             }
 
             Section {
@@ -1041,9 +1063,9 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } header: {
-                Text("Playback & Fallback")
+                Text("Playback & Final Fallback")
             } footer: {
-                Text("The route is ChatGPT Voice first, then Mega Transcript with \(megaVoiceName), then the fixed Liam fallback.")
+                Text("The fixed route is Mega Transcript with \(megaVoiceName), then OpenAI Audio API with Onyx, then Liam as the last and final fallback.")
             }
 
             Section {
@@ -1069,7 +1091,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Liam Narration")
             } footer: {
-                Text("Required to generate narration. Stored securely in the iOS Keychain on this device only.")
+                Text("Required only when Liam is used as the final fallback. Stored securely in the iOS Keychain on this device only.")
             }
 
             Section {
@@ -1082,7 +1104,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration is generated after a guide finishes using ChatGPT Voice first, then Mega Transcript and Liam as fallbacks. At least one credential must be configured.")
+                Text("When on, narration is generated after a guide finishes using Mega Transcript first, OpenAI second, and Liam last. At least one credential must be configured.")
             }
 
             Section {
@@ -1095,7 +1117,7 @@ struct AudioSettingsView: View {
                     }
                 } label: {
                     HStack {
-                        Text(isTestingNarration ? "Testing…" : "Test Liam Fallback")
+                        Text(isTestingNarration ? "Testing…" : "Test OpenAI & Liam Fallbacks")
                         Spacer()
                         if isTestingNarration { ProgressView() }
                     }
@@ -1104,18 +1126,12 @@ struct AudioSettingsView: View {
                 .listRowBackground(PremiumUI.card)
 
                 if let diag = narrationDiagnostics {
-                    // Legacy OpenAI diagnostics remain available for existing
-                    // installations, but production narration now prefers Mega.
+                    // Active OpenAI API fallback.
                     diagnosticRow("OpenAI Key", diag.openAIKeyPresent, diag.openAIKeyPresent ? "Present" : "Missing")
                         .listRowBackground(PremiumUI.card)
                     diagnosticRow("OpenAI TTS (key)", diag.openAISynthOK, diag.openAISynthDetail)
                         .listRowBackground(PremiumUI.card)
-                    // Legacy OpenAI TTS via ChatGPT login (OAuth token).
-                    diagnosticRow("ChatGPT Login", diag.openAIOAuthPresent, diag.openAIOAuthPresent ? "Signed in" : "Not signed in")
-                        .listRowBackground(PremiumUI.card)
-                    diagnosticRow("ChatGPT TTS", diag.openAIOAuthSynthOK, diag.openAIOAuthDetail)
-                        .listRowBackground(PremiumUI.card)
-                    // Active fallback provider: Kokoro / Liam.
+                    // Last and final fallback: Kokoro / Liam.
                     diagnosticRow("Liam Token", diag.tokenPresent, diag.tokenPresent ? "Present" : "Missing")
                         .listRowBackground(PremiumUI.card)
                     diagnosticRow("Liam Gateway", diag.healthOK, diag.healthDetail)
@@ -1128,7 +1144,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Diagnostics")
             } footer: {
-                Text("Runs the existing local diagnostics for Liam plus legacy OpenAI configurations. Mega Transcript credential and voice-catalog status are shown in Primary Narrator above.")
+                Text("Tests the OpenAI API fallback and Liam final fallback. Mega Transcript credential and voice-catalog status are shown in Primary Narrator above.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")

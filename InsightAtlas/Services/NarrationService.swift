@@ -2,12 +2,12 @@
 //  NarrationService.swift
 //  InsightAtlas
 //
-//  Narration orchestration with a primary/fallback provider policy:
-//    1. ChatGPT Voice (experimental) when OAuth credentials are present.
-//    2. Mega Transcript — Arthur preferred from the live English catalog.
-//    3. Kokoro / Liam — fallback when the earlier routes are unavailable.
+//  Narration orchestration with a stable primary/fallback provider policy:
+//    1. Mega Transcript — Arthur preferred from the live English catalog.
+//    2. OpenAI Audio API — authenticated with the device's OpenAI API key.
+//    3. Kokoro / Liam — the last and final fallback.
 //
-//  Both paths converge on the app's standard `NarrationAsset` contract: a file
+//  All providers converge on the app's standard `NarrationAsset` contract: a file
 //  written into Documents as `audio_<itemId>.<ext>` plus a duration and voice
 //  id. Because the output shape is identical to `KokoroNarrationService`, every
 //  existing caller (GuideView, GenerationView) and the playback/persistence
@@ -22,16 +22,37 @@ import os.log
 
 private let narrationLog = Logger(subsystem: "com.insightatlas", category: "NarrationService")
 
+enum NarrationProviderRoute: String, Equatable, Sendable {
+    case megaTranscript
+    case openAI
+    case liam
+}
+
+enum NarrationFallbackPolicy {
+    static func orderedRoutes(
+        megaTranscriptConfigured: Bool,
+        openAIConfigured: Bool,
+        liamConfigured: Bool
+    ) -> [NarrationProviderRoute] {
+        var routes: [NarrationProviderRoute] = []
+        if megaTranscriptConfigured { routes.append(.megaTranscript) }
+        if openAIConfigured { routes.append(.openAI) }
+        if liamConfigured { routes.append(.liam) }
+        return routes
+    }
+}
+
 actor NarrationService {
 
     static let shared = NarrationService()
 
-    /// Retained for the pre-existing OpenAI diagnostics in
-    /// `KokoroNarrationService`; it is no longer the primary narration path.
+    /// Stable OpenAI fallback voice. Onyx is supported by gpt-4o-mini-tts and
+    /// preserves the app's established authoritative narration character.
     static let openAIVoice = "onyx"
 
-    /// Synthesize narration for `itemId`, preferring the signed-in experimental
-    /// ChatGPT Voice route before the existing Mega Transcript and Liam paths.
+    /// Synthesize narration for `itemId` using the fixed provider order:
+    /// Mega Transcript -> OpenAI Audio API -> Liam. ChatGPT consumer OAuth is
+    /// intentionally excluded because it is not supported API authentication.
     /// Cancellation never triggers another provider request.
     func synthesize(
         text: String,
@@ -41,93 +62,91 @@ actor NarrationService {
         let spokenText = NarrationTextSanitizer.prepare(text)
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
-        if ChatGPTOAuthService.hasStoredCredentials {
-            do {
-                let asset = try await synthesizeWithChatGPTVoice(
-                    text: spokenText,
-                    itemId: itemId
-                )
-                let voiceName = ChatGPTVoiceRegistry.voice(byID: asset.voiceID)?.name
-                    ?? ChatGPTVoiceRegistry.defaultVoice.name
-                progress(.ready(narrator: "ChatGPT Voice · \(voiceName)"))
-                narrationLog.info(
-                    "Narration via ChatGPT Voice (\(voiceName, privacy: .public)) for \(itemId.uuidString)"
-                )
-                return asset
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                narrationLog.error(
-                    "ChatGPT Voice failed [\(error.localizedDescription, privacy: .public)] — trying configured fallbacks"
-                )
-            }
-        }
+        let routes = NarrationFallbackPolicy.orderedRoutes(
+            megaTranscriptConfigured: MegaTranscriptNarrationCoordinator.shared.isConfigured,
+            openAIConfigured: KeychainService.shared.hasOpenAIApiKey,
+            liamConfigured: KokoroTTSClient.currentAPIKey() != nil
+        )
+        guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
 
-        if MegaTranscriptNarrationCoordinator.shared.isConfigured {
-            do {
-                let result = try await MegaTranscriptNarrationCoordinator.shared.synthesize(
-                    text: text,
-                    itemID: itemId,
-                    progress: progress
-                )
-                narrationLog.info(
-                    "Narration via Mega Transcript (\(result.voice.name, privacy: .public), cache: \(result.cacheHit)) for \(itemId.uuidString)"
-                )
-                return result.asset
-            } catch MegaTranscriptError.cancelled {
-                throw MegaTranscriptError.cancelled
-            } catch is CancellationError {
-                throw MegaTranscriptError.cancelled
-            } catch {
-                let reason = error.localizedDescription
+        var lastFailure: Error?
+
+        for route in routes {
+            try Task.checkCancellation()
+
+            switch route {
+            case .megaTranscript:
+                do {
+                    let result = try await MegaTranscriptNarrationCoordinator.shared.synthesize(
+                        text: text,
+                        itemID: itemId,
+                        progress: progress
+                    )
+                    narrationLog.info(
+                        "Narration via Mega Transcript (\(result.voice.name, privacy: .public), cache: \(result.cacheHit)) for \(itemId.uuidString)"
+                    )
+                    return result.asset
+                } catch MegaTranscriptError.cancelled {
+                    throw MegaTranscriptError.cancelled
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
+                    let detail = (error as? MegaTranscriptError).map { String(describing: $0) }
+                        ?? error.localizedDescription
+                    narrationLog.error(
+                        "Mega Transcript failed [\(detail, privacy: .public)] — moving to the next configured narration provider"
+                    )
+                }
+
+            case .openAI:
+                if let lastFailure {
+                    progress(.fallingBackToOpenAI(reason: lastFailure.localizedDescription))
+                } else {
+                    progress(.generating(narrator: "OpenAI API · Onyx"))
+                }
+
+                do {
+                    let asset = try await synthesizeWithOpenAI(text: spokenText, itemId: itemId)
+                    progress(.ready(narrator: "OpenAI API · Onyx"))
+                    narrationLog.info("Narration via OpenAI API (Onyx) for \(itemId.uuidString)")
+                    return asset
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
+                    narrationLog.error(
+                        "OpenAI Audio API failed [\(error.localizedDescription, privacy: .public)] — moving to the next configured narration provider"
+                    )
+                }
+
+            case .liam:
+                let reason = lastFailure?.localizedDescription
+                    ?? "Using Liam as the final configured narration provider."
                 progress(.fallingBackToLiam(reason: reason))
-                // Log the REAL failure so a silent Liam fallback is diagnosable.
-                // The concrete case identifies the root cause at a glance:
-                //   .unauthorized  → bad key / wrong auth header
-                //   .notFound      → wrong endpoint path
-                //   .decodingFailed→ response schema mismatch
-                //   .serverError   → vendor-side / status code
-                //   .network       → connectivity / TLS / timeout
-                // (This is the user's own device console; the detail is
-                // diagnostic, not a secret — the API key itself is never logged.)
-                let detail = (error as? MegaTranscriptError).map { String(describing: $0) } ?? reason
-                narrationLog.error("Mega Transcript failed [\(detail, privacy: .public)] — falling back to Liam")
+                do {
+                    let asset = try await KokoroNarrationService.shared.synthesizeAsset(
+                        text: spokenText,
+                        itemId: itemId
+                    )
+                    progress(.ready(narrator: "Liam"))
+                    narrationLog.info("Narration via Liam final fallback for \(itemId.uuidString)")
+                    return asset
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
+                }
             }
-        } else {
-            let reason = "Arthur is not configured; using Liam fallback."
-            progress(.fallingBackToLiam(reason: reason))
-            narrationLog.info("No Mega Transcript credential; using Liam narration for \(itemId.uuidString)")
         }
 
-        let asset = try await KokoroNarrationService.shared.synthesizeAsset(text: spokenText, itemId: itemId)
-        progress(.ready(narrator: "Liam"))
-        return asset
+        throw lastFailure ?? NarrationServiceError.noConfiguredProvider
     }
 
-    // MARK: - OAuth and OpenAI paths
+    // MARK: - OpenAI API path
 
-    private func synthesizeWithChatGPTVoice(text: String, itemId: UUID) async throws -> NarrationAsset {
-        let storedVoiceID = UserDefaults.standard.string(
-            forKey: ChatGPTVoiceRegistry.selectedVoiceStorageKey
-        )
-        let voiceID = storedVoiceID.flatMap(ChatGPTVoiceRegistry.voice(byID:))?.voiceID
-            ?? ChatGPTVoiceRegistry.defaultVoice.voiceID
-        let audio = try await ChatGPTVoiceService().generateAudio(
-            text: text,
-            voiceID: voiceID
-        )
-        guard !audio.data.isEmpty else { throw ChatGPTVoiceServiceError.emptyAudio }
-        return try persist(audio: audio, itemId: itemId)
-    }
-
-    private func synthesizeWithOpenAI(text: String, itemId: UUID, useOAuth: Bool) async throws -> NarrationAsset {
+    private func synthesizeWithOpenAI(text: String, itemId: UUID) async throws -> NarrationAsset {
         let service = OpenAIAudioService()
-        if useOAuth {
-            // Authenticate with the ChatGPT login token (mirrors Codex CLI auth).
-            service.bearerOverride = try await ChatGPTOAuthService.shared.validAccessToken()
-            service.accountIDHeader = ChatGPTOAuthService.storedAccountID
-        }
-
         // OpenAIAudioService chunks long text and returns fully-assembled audio.
         let audio = try await service.generateAudio(text: text, voiceID: Self.openAIVoice, speed: 1.0)
         guard !audio.data.isEmpty else { throw OpenAIAudioError.audioDecodingFailed }

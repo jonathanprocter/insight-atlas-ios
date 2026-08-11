@@ -2,7 +2,7 @@
 //  KokoroNarrationTests.swift
 //  InsightAtlasTests
 //
-//  Focused tests for the Liam-only Kokoro narration integration:
+//  Focused tests for the narration fallback pipeline and Liam integration:
 //  - Deterministic long-text splitting (never truncates, respects the ceiling).
 //  - NarrationState persistence and backward compatibility on LibraryItem.
 //  - Missing-token behavior (no crash, precise error).
@@ -146,6 +146,60 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertEqual(KokoroTTSClient.currentAPIKey(), "test-token-value")
         try KokoroTTSClient.removeAPIKey()
         XCTAssertNil(KokoroTTSClient.currentAPIKey())
+    }
+
+    // MARK: - Stable provider fallback policy
+
+    func testNarrationFallbackPolicyUsesMegaThenOpenAIThenLiam() {
+        XCTAssertEqual(
+            NarrationFallbackPolicy.orderedRoutes(
+                megaTranscriptConfigured: true,
+                openAIConfigured: true,
+                liamConfigured: true
+            ),
+            [.megaTranscript, .openAI, .liam]
+        )
+    }
+
+    func testNarrationFallbackPolicySkipsOnlyUnconfiguredProvidersWithoutReordering() {
+        XCTAssertEqual(
+            NarrationFallbackPolicy.orderedRoutes(
+                megaTranscriptConfigured: false,
+                openAIConfigured: true,
+                liamConfigured: true
+            ),
+            [.openAI, .liam]
+        )
+        XCTAssertEqual(
+            NarrationFallbackPolicy.orderedRoutes(
+                megaTranscriptConfigured: true,
+                openAIConfigured: false,
+                liamConfigured: true
+            ),
+            [.megaTranscript, .liam]
+        )
+        XCTAssertEqual(
+            NarrationFallbackPolicy.orderedRoutes(
+                megaTranscriptConfigured: false,
+                openAIConfigured: false,
+                liamConfigured: true
+            ),
+            [.liam]
+        )
+    }
+
+    func testOpenAITTSRequestUsesSupportedSpeechSchema() throws {
+        let request = OpenAITTSRequest(text: "Read this exactly.", voiceID: "onyx")
+        let data = try JSONEncoder().encode(request)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["model"] as? String, "gpt-4o-mini-tts")
+        XCTAssertEqual(json["input"] as? String, "Read this exactly.")
+        XCTAssertEqual(json["voice"] as? String, "onyx")
+        XCTAssertEqual(json["response_format"] as? String, "mp3")
+        XCTAssertEqual(json["speed"] as? Double, 1.0)
+        XCTAssertFalse((json["instructions"] as? String)?.isEmpty ?? true)
+        XCTAssertNil(json["chatgpt-account-id"])
     }
 
     // MARK: - Duplicate-job prevention

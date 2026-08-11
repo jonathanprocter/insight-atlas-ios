@@ -1274,10 +1274,11 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // Mega Transcript is preferred; Liam remains the fallback.
+        // Fixed order: Mega Transcript, OpenAI API, then Liam final fallback.
         guard KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+                || KeychainService.shared.hasOpenAIApiKey
                 || KokoroTTSClient.currentAPIKey() != nil else {
-            audioLog("⚠️ No Mega Transcript or Liam narration credential found - skipping audio generation")
+            audioLog("⚠️ No Mega Transcript, OpenAI, or Liam narration credential found - skipping audio generation")
             return nil
         }
 

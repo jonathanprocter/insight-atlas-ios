@@ -253,7 +253,7 @@ struct GenerationView: View {
             Divider()
                 .padding(.vertical, 8)
 
-            // Audio Narration (Liam-only)
+            // Audio narration with fixed stable fallback order.
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "waveform")
@@ -263,13 +263,13 @@ struct GenerationView: View {
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
 
-                // Fixed narration voice — not selectable.
+                // Fixed provider order — not selectable during generation.
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Voice")
+                        Text("Provider order")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
-                        Text("Liam")
+                        Text("Mega Transcript → OpenAI → Liam")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
                     }
@@ -280,8 +280,10 @@ struct GenerationView: View {
                 .cornerRadius(AnalysisTheme.Radius.md)
                 .accessibilityIdentifier("generation_voice_liam_label")
 
-                if KokoroTTSClient.currentAPIKey() == nil {
-                    Text("⚠️ Add your Liam narration token in Settings → Audio & Narration")
+                if !KeychainMegaTranscriptCredentialStore.shared.hasAPIKey,
+                   !KeychainService.shared.hasOpenAIApiKey,
+                   KokoroTTSClient.currentAPIKey() == nil {
+                    Text("⚠️ Add a narration credential in Settings → Audio & Narration")
                         .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.accentHighlight)
                 }
@@ -623,9 +625,11 @@ struct GenerationView: View {
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
                     // has auto-narration on AND at least one provider is configured —
-                    // Mega Transcript (primary) or the Liam token (fallback). Otherwise leave
+                    // Mega Transcript (primary), OpenAI API (first fallback), or
+                    // the Liam token (final fallback). Otherwise leave
                     // narration unset (it can be generated on demand later).
                     let hasNarrationProvider = KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+                        || KeychainService.shared.hasOpenAIApiKey
                         || KokoroTTSClient.currentAPIKey() != nil
                     let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
                     if willNarrate {
@@ -789,4 +793,4 @@ struct GuidePreviewCard: View {
     }
 }
 
-// Voice selection was removed: narration is Liam-only (see AudioSettingsView).
+// Voice selection was removed: narration uses the fixed provider order in AudioSettingsView.

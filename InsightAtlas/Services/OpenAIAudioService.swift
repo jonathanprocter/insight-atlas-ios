@@ -27,6 +27,9 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "InsightA
 /// Errors that can occur during OpenAI audio generation
 enum OpenAIAudioError: LocalizedError {
     case apiKeyMissing
+    case authenticationFailed
+    case permissionDenied
+    case badRequest(String)
     case invalidVoiceID
     case invalidURL
     case networkError(Error)
@@ -42,6 +45,12 @@ enum OpenAIAudioError: LocalizedError {
         switch self {
         case .apiKeyMissing:
             return "OpenAI API key not configured. Please add your API key in Settings."
+        case .authenticationFailed:
+            return "OpenAI rejected the API key. Replace it in Settings → ChatGPT & API Access."
+        case .permissionDenied:
+            return "This OpenAI API project does not have access to text-to-speech."
+        case .badRequest(let detail):
+            return "OpenAI could not generate narration: \(detail)"
         case .invalidVoiceID:
             return "Invalid voice ID specified for audio generation."
         case .invalidURL:
@@ -86,20 +95,37 @@ enum OpenAIAudioError: LocalizedError {
 // MARK: - OpenAI TTS Request
 
 /// Request body for OpenAI TTS API
-private struct OpenAITTSRequest: Codable {
+struct OpenAITTSRequest: Codable, Equatable {
     let model: String
     let input: String
     let voice: String
-    let response_format: String
+    let instructions: String
+    let responseFormat: String
     let speed: Double
 
+    enum CodingKeys: String, CodingKey {
+        case model, input, voice, instructions, speed
+        case responseFormat = "response_format"
+    }
+
     init(text: String, voiceID: String, speed: Double = 1.0) {
-        self.model = "tts-1-hd" // High-quality model
+        self.model = OpenAIAudioService.model
         self.input = text
         self.voice = voiceID
-        self.response_format = "mp3"
+        self.instructions = "Read the supplied text exactly as written in a calm, polished audiobook cadence. Do not add, omit, summarize, or comment on any content."
+        self.responseFormat = "mp3"
         self.speed = speed
     }
+}
+
+private struct OpenAIAPIErrorEnvelope: Decodable {
+    struct ErrorBody: Decodable {
+        let message: String?
+        let type: String?
+        let code: String?
+    }
+
+    let error: ErrorBody
 }
 
 // MARK: - OpenAI Audio Service
@@ -128,6 +154,8 @@ final class OpenAIAudioService: AudioServiceProtocol {
 
     // MARK: - Constants
 
+    static let model = "gpt-4o-mini-tts"
+
     private enum Constants {
         static let baseURL = "https://api.openai.com/v1"
         static let ttsEndpoint = "/audio/speech"
@@ -139,20 +167,24 @@ final class OpenAIAudioService: AudioServiceProtocol {
 
     let provider: VoiceProvider = .openai
     private let urlSession: URLSession
-
-    /// Optional bearer token used INSTEAD of the stored OpenAI API key — e.g. a
-    /// ChatGPT OAuth access token. When set, `accountIDHeader` is sent too, so
-    /// the request mirrors how the Codex CLI authenticates with a ChatGPT login.
-    var bearerOverride: String?
-    var accountIDHeader: String?
+    private let apiKeyProvider: () -> String?
 
     // MARK: - Initialization
 
-    init() {
+    init(
+        urlSession: URLSession? = nil,
+        apiKeyProvider: @escaping () -> String? = { KeychainService.shared.openaiApiKey }
+    ) {
+        if let urlSession {
+            self.urlSession = urlSession
+            self.apiKeyProvider = apiKeyProvider
+            return
+        }
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = Constants.requestTimeout
         config.timeoutIntervalForResource = Constants.requestTimeout * 2
         self.urlSession = URLSession(configuration: config)
+        self.apiKeyProvider = apiKeyProvider
     }
 
     // MARK: - Retry Configuration
@@ -422,6 +454,8 @@ final class OpenAIAudioService: AudioServiceProtocol {
                     voiceID: voiceID,
                     speed: speed
                 )
+            } catch is CancellationError {
+                throw CancellationError()
             } catch let error as OpenAIAudioError {
                 lastError = error
 
@@ -459,7 +493,8 @@ final class OpenAIAudioService: AudioServiceProtocol {
             return code >= 500
         case .networkError:
             return true
-        case .apiKeyMissing, .invalidVoiceID, .invalidURL, .quotaExceeded,
+        case .apiKeyMissing, .authenticationFailed, .permissionDenied, .badRequest,
+             .invalidVoiceID, .invalidURL, .quotaExceeded,
              .invalidResponse, .audioDecodingFailed, .audioConcatenationFailed, .textTooLong:
             return false
         }
@@ -471,14 +506,8 @@ final class OpenAIAudioService: AudioServiceProtocol {
         voiceID: String,
         speed: Double
     ) async throws -> GeneratedAudio {
-        // Credential: prefer an explicit bearer override (ChatGPT OAuth token),
-        // otherwise the standalone OpenAI API key from the Keychain.
-        let bearer: String
-        if let override = bearerOverride {
-            bearer = override
-        } else if let apiKey = KeychainService.shared.openaiApiKey {
-            bearer = apiKey
-        } else {
+        guard let apiKey = apiKeyProvider()?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !apiKey.isEmpty else {
             throw OpenAIAudioError.apiKeyMissing
         }
 
@@ -490,10 +519,8 @@ final class OpenAIAudioService: AudioServiceProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
-        if let accountID = accountIDHeader {
-            request.setValue(accountID, forHTTPHeaderField: "chatgpt-account-id")
-        }
+        request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         // Build request body
         let requestBody = OpenAITTSRequest(text: text, voiceID: voiceID, speed: speed)
@@ -503,6 +530,10 @@ final class OpenAIAudioService: AudioServiceProtocol {
         let (data, response): (Data, URLResponse)
         do {
             (data, response) = try await urlSession.data(for: request)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
         } catch {
             throw OpenAIAudioError.networkError(error)
         }
@@ -528,13 +559,27 @@ final class OpenAIAudioService: AudioServiceProtocol {
             )
 
         case 401:
-            throw OpenAIAudioError.apiKeyMissing
+            throw OpenAIAudioError.authenticationFailed
+
+        case 403:
+            throw OpenAIAudioError.permissionDenied
 
         case 429:
+            let envelope = try? JSONDecoder().decode(OpenAIAPIErrorEnvelope.self, from: data)
+            let code = envelope?.error.code?.lowercased()
+            let type = envelope?.error.type?.lowercased()
+            if code == "insufficient_quota" || type == "insufficient_quota" {
+                throw OpenAIAudioError.quotaExceeded
+            }
             throw OpenAIAudioError.rateLimitExceeded
 
         case 402:
             throw OpenAIAudioError.quotaExceeded
+
+        case 400:
+            let detail = (try? JSONDecoder().decode(OpenAIAPIErrorEnvelope.self, from: data))?
+                .error.message ?? "The request was rejected."
+            throw OpenAIAudioError.badRequest(detail)
 
         default:
             throw OpenAIAudioError.serverError(httpResponse.statusCode)
@@ -569,12 +614,16 @@ final class OpenAIAudioService: AudioServiceProtocol {
 
     /// Check if the service is properly configured
     var isConfigured: Bool {
-        KeychainService.shared.hasOpenAIApiKey
+        guard let apiKey = apiKeyProvider()?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return false
+        }
+        return !apiKey.isEmpty
     }
 
     /// Validate API key by making a test request
     func validateApiKey() async throws -> Bool {
-        guard let apiKey = KeychainService.shared.openaiApiKey else {
+        guard let apiKey = apiKeyProvider()?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !apiKey.isEmpty else {
             throw OpenAIAudioError.apiKeyMissing
         }
 
@@ -588,12 +637,29 @@ final class OpenAIAudioService: AudioServiceProtocol {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         do {
-            let (_, response) = try await urlSession.data(for: request)
+            let (data, response) = try await urlSession.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw OpenAIAudioError.invalidResponse
             }
 
-            return httpResponse.statusCode == 200
+            switch httpResponse.statusCode {
+            case 200:
+                return true
+            case 401:
+                throw OpenAIAudioError.authenticationFailed
+            case 403:
+                throw OpenAIAudioError.permissionDenied
+            case 429:
+                let envelope = try? JSONDecoder().decode(OpenAIAPIErrorEnvelope.self, from: data)
+                let code = envelope?.error.code?.lowercased()
+                let type = envelope?.error.type?.lowercased()
+                if code == "insufficient_quota" || type == "insufficient_quota" {
+                    throw OpenAIAudioError.quotaExceeded
+                }
+                throw OpenAIAudioError.rateLimitExceeded
+            default:
+                throw OpenAIAudioError.serverError(httpResponse.statusCode)
+            }
         } catch let error as OpenAIAudioError {
             throw error
         } catch {

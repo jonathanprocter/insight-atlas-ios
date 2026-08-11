@@ -71,7 +71,7 @@ struct VoicePickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Select a \(provider.displayName) voice. Audio regeneration tries ChatGPT Voice first, then configured stable fallbacks if needed.")
+                    Text("Select a \(provider.displayName) voice for manual provider previews. Full-guide narration uses Mega Transcript first, OpenAI second, and Liam last.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)

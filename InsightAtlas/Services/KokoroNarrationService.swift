@@ -42,6 +42,7 @@ struct NarrationAsset {
 
 enum NarrationServiceError: LocalizedError {
     case alreadyInProgress
+    case noConfiguredProvider
     case missingToken
     case emptyText
     case documentsDirectoryUnavailable
@@ -53,6 +54,8 @@ enum NarrationServiceError: LocalizedError {
         switch self {
         case .alreadyInProgress:
             return "Narration is already being generated for this guide."
+        case .noConfiguredProvider:
+            return "Configure Mega Transcript, an OpenAI API key, or the Liam token in Settings → Audio & Narration."
         case .missingToken:
             return "Add your Liam narration token in Settings → Audio & Narration."
         case .emptyText:
@@ -82,15 +85,10 @@ struct NarrationDiagnostics: Sendable {
     var assemblyOK: Bool = false
     var assemblyDetail: String = "Not run"
 
-    // OpenAI TTS (primary provider) — via standalone API key.
+    // OpenAI TTS fallback — via standalone API key.
     var openAIKeyPresent: Bool = false
     var openAISynthOK: Bool = false
     var openAISynthDetail: String = "Not run"
-
-    // OpenAI TTS — via ChatGPT login (OAuth access token).
-    var openAIOAuthPresent: Bool = false
-    var openAIOAuthSynthOK: Bool = false
-    var openAIOAuthDetail: String = "Not run"
 
     var allPassed: Bool { tokenPresent && healthOK && singleChunkOK && assemblyOK }
 }
@@ -188,9 +186,8 @@ actor KokoroNarrationService {
     func runDiagnostics() async -> NarrationDiagnostics {
         var result = NarrationDiagnostics()
 
-        // Primary provider: OpenAI TTS (onyx). Direct probes report the raw HTTP
-        // outcome for each credential, independent of Liam.
-        // (a) standalone OpenAI API key
+        // OpenAI API fallback (Onyx). The direct probe reports the raw HTTP
+        // outcome for the standalone API credential, independent of Liam.
         result.openAIKeyPresent = KeychainService.shared.hasOpenAIApiKey
         if let key = KeychainService.shared.openaiApiKey {
             if key.hasPrefix("sk-or-") {
@@ -200,28 +197,13 @@ actor KokoroNarrationService {
                 result.openAISynthOK = false
                 result.openAISynthDetail = "Looks like an OpenRouter key (sk-or-…); OpenRouter has no TTS. Use an OpenAI key."
             } else {
-                let probe = await Self.probeOpenAITTS(bearer: key, accountID: nil)
+                let probe = await Self.probeOpenAITTS(bearer: key)
                 result.openAISynthOK = probe.ok
                 result.openAISynthDetail = probe.detail
             }
         } else {
             result.openAISynthDetail = "No OpenAI API key"
         }
-        // (b) ChatGPT login (OAuth access token, Codex-CLI style)
-        result.openAIOAuthPresent = ChatGPTOAuthService.hasStoredCredentials
-        if result.openAIOAuthPresent {
-            do {
-                let token = try await ChatGPTOAuthService.shared.validAccessToken()
-                let probe = await Self.probeOpenAITTS(bearer: token, accountID: ChatGPTOAuthService.storedAccountID)
-                result.openAIOAuthSynthOK = probe.ok
-                result.openAIOAuthDetail = probe.detail
-            } catch {
-                result.openAIOAuthDetail = Self.readable(error)
-            }
-        } else {
-            result.openAIOAuthDetail = "Not signed in with ChatGPT"
-        }
-
         result.tokenPresent = KokoroTTSClient.currentAPIKey() != nil
         guard result.tokenPresent else {
             result.healthDetail = "Skipped — no token"
@@ -290,7 +272,7 @@ actor KokoroNarrationService {
     /// Direct minimal POST to OpenAI TTS reporting the raw HTTP outcome for the
     /// given bearer credential. Diagnostics-only; deliberately does not go
     /// through OpenAIAudioService so status codes aren't remapped.
-    private static func probeOpenAITTS(bearer: String, accountID: String?) async -> (ok: Bool, detail: String) {
+    private static func probeOpenAITTS(bearer: String) async -> (ok: Bool, detail: String) {
         guard let url = URL(string: "https://api.openai.com/v1/audio/speech") else {
             return (false, "Bad URL")
         }
@@ -299,11 +281,11 @@ actor KokoroNarrationService {
         req.timeoutInterval = 30
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
-        if let accountID { req.setValue(accountID, forHTTPHeaderField: "chatgpt-account-id") }
         req.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "model": "tts-1-hd",
+            "model": OpenAIAudioService.model,
             "input": "Insight Atlas narration check. This is the onyx voice.",
             "voice": NarrationService.openAIVoice,
+            "instructions": "Read the supplied text exactly as written in a calm audiobook cadence.",
             "response_format": "mp3"
         ])
         do {

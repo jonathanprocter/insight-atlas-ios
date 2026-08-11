@@ -168,7 +168,7 @@ struct MegaTranscriptDeveloperSettingsView: View {
                     ContentUnavailableView(
                         "Configure Mega Transcript",
                         systemImage: "waveform.badge.key",
-                        description: Text("Save the regenerated key above to load the live English narrator catalog. Liam remains the fallback narrator.")
+                        description: Text("Save the regenerated key above to load the live English narrator catalog. OpenAI is the first fallback and Liam is the final fallback.")
                     )
                 } else if model.isLoadingVoices {
                     HStack {
@@ -226,10 +226,26 @@ struct MegaTranscriptDeveloperSettingsView: View {
             }
 
             Section("Fallback") {
+                NavigationLink {
+                    APIConfigurationView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("OpenAI Audio API")
+                            Text("Onyx · gpt-4o-mini-tts")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: KeychainService.shared.hasOpenAIApiKey ? "checkmark.circle.fill" : "exclamationmark.circle")
+                            .foregroundStyle(KeychainService.shared.hasOpenAIApiKey ? Color.green : Color.orange)
+                    }
+                }
+
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Liam")
-                        Text("Kokoro narration fallback")
+                        Text("Kokoro final fallback")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -330,6 +346,7 @@ final class NarrationControlViewModel: ObservableObject {
         case .generating(let narrator): return "Preparing narration with \(narrator)…"
         case .downloading: return "Downloading narration…"
         case .usingCache: return "Opening cached narration…"
+        case .fallingBackToOpenAI: return "Preparing OpenAI fallback…"
         case .fallingBackToLiam: return "Preparing Liam fallback…"
         case .ready(let narrator): return "Ready with \(narrator)"
         case nil: return "Preparing narration…"
@@ -353,8 +370,11 @@ final class NarrationControlViewModel: ObservableObject {
                 ) { [weak self] update in
                     Task { @MainActor in
                         self?.progress = update
-                        if case .fallingBackToLiam(let reason) = update {
+                        switch update {
+                        case .fallingBackToOpenAI(let reason), .fallingBackToLiam(let reason):
                             self?.fallbackMessage = reason
+                        default:
+                            break
                         }
                     }
                 }
@@ -387,7 +407,9 @@ final class NarrationControlViewModel: ObservableObject {
                 generationTask = nil
                 DataManager.shared.markNarrationFailed(for: item.id)
                 errorMessage = error.localizedDescription
-                canRetry = !(error is NarrationServiceError && KokoroTTSClient.currentAPIKey() == nil)
+                canRetry = KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+                    || KeychainService.shared.hasOpenAIApiKey
+                    || KokoroTTSClient.currentAPIKey() != nil
             }
         }
     }
@@ -449,6 +471,9 @@ final class NarrationControlViewModel: ObservableObject {
                 ?? "Mega Transcript"
         }
         if voiceID == KokoroTTSClient.voice { return "Liam" }
+        if let voice = OpenAIVoiceRegistry.voice(byVoiceID: voiceID) {
+            return "OpenAI · \(voice.name)"
+        }
         return voiceID
     }
 
@@ -484,6 +509,10 @@ struct NarrationControlsView: View {
 
     private var liamConfigured: Bool {
         KokoroTTSClient.currentAPIKey() != nil
+    }
+
+    private var openAIConfigured: Bool {
+        KeychainService.shared.hasOpenAIApiKey
     }
 
     private var selectedMegaVoiceDiffersFromAudio: Bool {
@@ -542,9 +571,9 @@ struct NarrationControlsView: View {
                 .accessibilityLabel(model.progressLabel)
             } else if hasAudio {
                 playbackControls
-            } else if !megaConfigured && !liamConfigured {
+            } else if !megaConfigured && !openAIConfigured && !liamConfigured {
                 HStack {
-                    Text("Configure Arthur or Liam before listening.")
+                    Text("Configure Mega Transcript, OpenAI, or Liam before listening.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -602,15 +631,17 @@ struct NarrationControlsView: View {
 
     private var readySubtitle: String {
         if megaConfigured {
-            return "\(MegaTranscriptNarratorPreferences.shared.selectedVoiceName ?? "Arthur") preferred · Liam fallback"
+            return "\(MegaTranscriptNarratorPreferences.shared.selectedVoiceName ?? "Arthur") · OpenAI fallback · Liam final"
         }
-        return "Liam fallback"
+        if openAIConfigured { return "OpenAI API · Liam final fallback" }
+        return "Liam final fallback"
     }
 
     private var listenButtonTitle: String {
-        megaConfigured
-            ? "Listen with \(MegaTranscriptNarratorPreferences.shared.selectedVoiceName ?? "Arthur")"
-            : "Listen with Liam"
+        if megaConfigured {
+            return "Listen with \(MegaTranscriptNarratorPreferences.shared.selectedVoiceName ?? "Arthur")"
+        }
+        return openAIConfigured ? "Listen with OpenAI" : "Listen with Liam"
     }
 
     private var playbackControls: some View {

@@ -291,7 +291,7 @@ public enum LLMActionRouter {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults — narration is Liam-only; only playback speed and the
+        // Audio defaults — narration order is fixed; only playback speed and the
         // auto-generate toggle are configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false

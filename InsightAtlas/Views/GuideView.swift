@@ -83,7 +83,7 @@ struct GuideView: View {
             }
             .background(PremiumUI.background)
             
-            // Shared narration control: Mega Transcript / Arthur first, Liam fallback.
+            // Shared narration control: Mega Transcript, OpenAI, then Liam.
             if item.summaryContent != nil {
                 NarrationControlsView(item: item)
                 .padding(.horizontal)
@@ -633,7 +633,7 @@ struct GuideView: View {
 
         Task {
             do {
-                // Mega Transcript is preferred; Liam is the fallback. The
+                // Mega Transcript is preferred, OpenAI is next, and Liam is last. The
                 // service sanitizes the spoken copy while caching by exact text.
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
