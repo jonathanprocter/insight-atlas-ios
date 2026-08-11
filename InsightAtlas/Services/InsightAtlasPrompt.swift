@@ -554,6 +554,14 @@ struct InsightAtlasPromptGenerator {
         Axes with labeled quadrants
         [/VISUAL_QUADRANT]
 
+        [VISUAL_BAR_CHART: Title]
+        Label: value   (one "label: number" per line)
+        [/VISUAL_BAR_CHART]
+
+        [VISUAL_PIE_CHART: Title]
+        Segment: value   (one "segment: number" per line; values are shares)
+        [/VISUAL_PIE_CHART]
+
         [VISUAL_GENERIC: Title]
         Use only if a new visual type is required
         [/VISUAL_GENERIC]

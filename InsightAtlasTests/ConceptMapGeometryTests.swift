@@ -334,4 +334,32 @@ final class ConceptMapGeometryTests: XCTestCase {
         XCTAssertEqual(pie.listItems?.count, 3, "all three segments carried")
         XCTAssertFalse(blocks.contains { $0.type == .table }, "pie chart must not degrade to a table")
     }
+
+    // MARK: - Pinning invariant (capability-audit Batch 1)
+
+    // THE STRUCTURAL GUARD: every visual type the prompt offers as a NATIVE
+    // diagram must route to its native block and NEVER degrade to a bullet list
+    // or bare paragraph (the diagram-to-bullets premium killer). If a future edit
+    // reverts a routing or offers a type the PDF can't draw, this fails loudly —
+    // the offer↔renderer contract can no longer drift silently.
+    func testOfferedNativeVisualsNeverDegradeInPDF() {
+        let cases: [(tag: String, body: String, expected: PDFContentBlock.BlockType)] = [
+            ("VISUAL_CONCEPT_MAP", "Central: Core\nA\nB\nC", .conceptMap),
+            ("VISUAL_FLOWCHART", "First\nSecond\nThird", .flowchart),
+            ("VISUAL_PYRAMID", "Top\nMiddle\nBase", .pyramid),
+            ("VISUAL_CYCLE", "Plan\nDo\nReview", .cycle),
+            ("VISUAL_FUNNEL", "Visitors: 100\nLeads: 40\nSales: 10", .funnel),
+            ("VISUAL_BAR_CHART", "Alpha: 12\nBeta: 30", .barChart),
+            ("VISUAL_PIE_CHART", "Work: 60\nRest: 40", .pieChart)
+        ]
+        for c in cases {
+            let content = "## Section\n\n[\(c.tag): T]\n\(c.body)\n[/\(c.tag)]"
+            let blocks = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+                .sections.flatMap { $0.blocks }
+            XCTAssertTrue(blocks.contains { $0.type == c.expected },
+                          "\(c.tag): expected native \(c.expected) block")
+            XCTAssertFalse(blocks.contains { $0.type == .bulletList },
+                           "\(c.tag): degraded to a bullet list")
+        }
+    }
 }
