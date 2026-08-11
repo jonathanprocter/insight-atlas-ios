@@ -2007,7 +2007,7 @@ final class PDFContentBlockRenderer {
     /// `pageBudget`. Returns nil — push the whole table — when there are fewer
     /// than 4 data rows or any fragment would carry fewer than 2 data rows.
     func planTableFragments(tableData: [[String]], maxWidth: CGFloat, firstBudget: CGFloat, pageBudget: CGFloat) -> [TableFragment]? {
-        guard tableData.count >= 5 else { return nil }   // header + ≥4 data rows to make two ≥2-row groups
+        guard tableData.count >= 3 else { return nil }   // header + ≥2 data rows to form two groups
         let padding: CGFloat = 8
         let rowHeights = tableRowHeights(tableData, maxWidth: maxWidth)
         let headerH = rowHeights[0]
@@ -2030,7 +2030,16 @@ final class PDFContentBlockRenderer {
         }
 
         guard groups.count >= 2 else { return nil }
-        for g in groups where g.count < 2 { return nil }   // floor: no orphan single-row runt
+        // Floor: a fragment is acceptable if it holds ≥2 data rows OR its single
+        // row is tall enough to justify its own card. Without the height escape, a
+        // table whose rows are each too tall to pair (greedy yields one row per
+        // group) would be rejected and pushed WHOLE — overflowing the page by
+        // multiples (the 2402pt-table bug). A tall single row is a legitimate
+        // fragment, not an orphan runt; only a SHORT single-row group is rejected.
+        let minSingleRowFragment = max(120, pageBudget * 0.30)
+        for g in groups where g.count < 2 {
+            if rowHeights[g[0]] < minSingleRowFragment { return nil }
+        }
 
         return groups.map { g in
             var rows: [[String]] = [tableData[0]]

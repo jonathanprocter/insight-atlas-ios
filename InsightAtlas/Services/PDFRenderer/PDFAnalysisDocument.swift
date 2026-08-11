@@ -1188,7 +1188,7 @@ extension PDFAnalysisDocument {
                 while i < lines.count {
                     let listLine = lines[i].trimmingCharacters(in: .whitespaces)
                     if listLine.hasPrefix("- ") || listLine.hasPrefix("* ") {
-                        listItems.append(stripMarkdownFromLine(String(listLine.dropFirst(2))))
+                        listItems.append(stripLeadingListArrow(stripMarkdownFromLine(String(listLine.dropFirst(2)))))
                         i += 1
                     } else if listLine.isEmpty {
                         i += 1
@@ -1214,7 +1214,7 @@ extension PDFAnalysisDocument {
                     let listLine = lines[i].trimmingCharacters(in: .whitespaces)
                     if listLine.range(of: "^\\d+\\.\\s+", options: .regularExpression) != nil {
                         let text = listLine.replacingOccurrences(of: "^\\d+\\.\\s+", with: "", options: .regularExpression)
-                        listItems.append(stripMarkdownFromLine(text))
+                        listItems.append(stripLeadingListArrow(stripMarkdownFromLine(text)))
                         i += 1
                     } else if listLine.isEmpty {
                         i += 1
@@ -1894,6 +1894,22 @@ extension PDFAnalysisDocument {
         )
 
         return result.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Remove a leading flow-arrow decoration ("→", "⇒", "->") — and any list
+    /// ordinal it drags along ("→ 3.") — from the START of a list item only.
+    /// This is deliberately distinct from the ruled retention of MID-sentence
+    /// arrows in stripMarkdownFromLine: an arrow between clauses ("dispute →
+    /// offer") is meaning and stays; a lone arrow at the head of a discrete list
+    /// item is leaked decoration. The `^` anchor guarantees interior arrows —
+    /// e.g. a whole item "Input → Output" — are never touched.
+    private static func stripLeadingListArrow(_ text: String) -> String {
+        let cleaned = text.replacingOccurrences(
+            of: #"^\s*(?:→|⇒|->)\s*(?:\d+[.)]\s*)?"#,
+            with: "",
+            options: .regularExpression
+        )
+        return cleaned.trimmingCharacters(in: .whitespaces)
     }
 
     /// A line consisting solely of repeated rule characters, e.g. "═══" or "━━━".

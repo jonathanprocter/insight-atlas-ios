@@ -420,4 +420,27 @@ final class ConceptMapGeometryTests: XCTestCase {
             .sections.flatMap { $0.blocks }
         XCTAssertFalse(blocks.contains { $0.type == .table }, "a lone 2-column pipe line must NOT become a table")
     }
+
+    /// A leading flow-arrow decoration on a list item ("- → 3. Foo") is leaked
+    /// ordinal/arrow scaffolding and must be stripped — while a MID-item arrow
+    /// ("Input → Output") is a semantic connector and must survive (the :1878
+    /// ruling). Drives the real parse path, not the private helper.
+    func testLeadingListArrowStrippedButMidItemArrowKept() {
+        let content = """
+        ## Section
+
+        - → 3. Reframe the thought
+        - ⇒ Notice the urge
+        - Input → Output stays intact
+        """
+        let blocks = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+            .sections.flatMap { $0.blocks }
+        guard let list = blocks.first(where: { $0.type == .bulletList }),
+              let items = list.listItems else {
+            return XCTFail("expected a bullet list")
+        }
+        XCTAssertEqual(items[0], "Reframe the thought", "leading arrow + ordinal stripped")
+        XCTAssertEqual(items[1], "Notice the urge", "leading ⇒ stripped")
+        XCTAssertEqual(items[2], "Input → Output stays intact", "interior arrow preserved")
+    }
 }
