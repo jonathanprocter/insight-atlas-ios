@@ -837,8 +837,7 @@ struct InsightAtlasPromptGenerator {
             - All flow charts
             - All concept maps
             - All comparison tables
-            - All process diagrams
-            - All hierarchy diagrams
+            - All process diagrams — express vertical hierarchies (support pyramids, competence ladders, level stacks) as top-to-bottom process flows so they render as real diagrams instead of loose "LEVEL N —"/"Supported by" text
 
             Each visual should be self-explanatory.
             Include brief captions only.

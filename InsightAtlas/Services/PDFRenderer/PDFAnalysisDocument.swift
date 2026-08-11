@@ -126,6 +126,11 @@ extension PDFContentBlock: Codable {
         case "processTimeline": type = .processTimeline
         case "loopDiagram": type = .loopDiagram
         case "spectrum": type = .spectrum
+        case "pyramid": type = .pyramid
+        case "cycle": type = .cycle
+        case "funnel": type = .funnel
+        case "barChart": type = .barChart
+        case "pieChart": type = .pieChart
         case "libraryEntry": type = .libraryEntry
         case "readingChip": type = .readingChip
         case "example": type = .example
@@ -169,6 +174,11 @@ extension PDFContentBlock: Codable {
         case .processTimeline: typeString = "processTimeline"
         case .loopDiagram: typeString = "loopDiagram"
         case .spectrum: typeString = "spectrum"
+        case .pyramid: typeString = "pyramid"
+        case .cycle: typeString = "cycle"
+        case .funnel: typeString = "funnel"
+        case .barChart: typeString = "barChart"
+        case .pieChart: typeString = "pieChart"
         case .libraryEntry: typeString = "libraryEntry"
         case .readingChip: typeString = "readingChip"
         case .example: typeString = "example"
@@ -2075,9 +2085,10 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["From", "To", "Type"]] + connectionRows))
 
         case .barChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Label", "Value"]] + rows))
+            // Native bar chart (capability-audit Batch 2): horizontal bars instead
+            // of a Label/Value table. Values ride in metadata for the renderer.
+            blocks.append(PDFContentBlock(type: .barChart, content: "", listItems: data.labels,
+                metadata: ["title": title ?? "Bar Chart", "values": data.values.map { String($0) }.joined(separator: "|")]))
 
         case .quadrant(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2087,13 +2098,10 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Quadrant", "Items"]] + rows))
 
         case .pieChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let total = data.segments.map { $0.value }.reduce(0, +)
-            let rows = data.segments.map { segment in
-                let percent = total > 0 ? (segment.value / total) * 100 : 0
-                return [segment.label, "\(formatNumber(percent))%"]
-            }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Segment", "Share"]] + rows))
+            // Native pie chart (capability-audit Batch 2): wedges + legend instead
+            // of a Segment/Share table. Values ride in metadata for the renderer.
+            blocks.append(PDFContentBlock(type: .pieChart, content: "", listItems: data.segments.map { $0.label },
+                metadata: ["title": title ?? "Pie Chart", "values": data.segments.map { String($0.value) }.joined(separator: "|")]))
 
         case .lineChart(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2130,25 +2138,29 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Task", "Start", "Duration", "Status"]] + rows))
 
         case .funnelDiagram(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = data.stages.map { stage in
-                [stage.label, formatNumber(stage.value)]
+            // Native funnel renderer (capability-audit Batch 2): narrowing bands
+            // rather than a Stage/Value table. Value rides in each band's label.
+            let items = data.stages.map { stage -> String in
+                "\(stage.label) — \(formatNumber(stage.value))"
             }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Stage", "Value"]] + rows))
+            blocks.append(PDFContentBlock(type: .funnel, content: "", listItems: items, metadata: ["title": title ?? "Funnel"]))
 
         case .pyramidDiagram(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let items = data.levels.map { level in
+            // Native pyramid renderer (capability-audit Batch 2): draw stacked bands
+            // rather than degrade to a bullet list. Title rides in metadata so figure
+            // numbering + scale-to-fit apply as for the other native diagrams.
+            let items = data.levels.map { level -> String in
                 if let description = level.description, !description.isEmpty {
-                    return "\(level.label): \(description)"
+                    return "\(level.label) — \(description)"
                 }
                 return level.label
             }
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: items))
+            blocks.append(PDFContentBlock(type: .pyramid, content: "", listItems: items, metadata: ["title": title ?? "Pyramid"]))
 
         case .cycleDiagram(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: data.stages))
+            // Native cycle renderer (capability-audit Batch 2): draw a ring of
+            // stages with closing arrows instead of degrading to a bullet list.
+            blocks.append(PDFContentBlock(type: .cycle, content: "", listItems: data.stages, metadata: ["title": title ?? "Cycle"]))
 
         case .fishboneDiagram(let data):
             addHeadingIfNeeded(useInlineTitle: false)

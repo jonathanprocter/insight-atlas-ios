@@ -201,4 +201,137 @@ final class ConceptMapGeometryTests: XCTestCase {
         // Non-concepts return nil so callers `continue`.
         XCTAssertNil(PDFAnalysisDocument.sanitizeConceptBranch(""))
     }
+
+    // MARK: - Native Pyramid Renderer (capability-audit Batch 2)
+
+    // measure==draw parity on the public height API: reserved height must equal
+    // the geometry the renderer draws (fixed 46pt bands + 6pt gaps, 28 header,
+    // 16 padding both sides, + blockSpacing).
+    func testPyramidMeasureEqualsGeometry() {
+        for n in [1, 3, 5, 8] {
+            let levels = Array(repeating: "level", count: n)
+            let bands = CGFloat(n) * 46 + CGFloat(max(0, n - 1)) * 6
+            let expected = 28 + bands + 16 * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+            XCTAssertEqual(diag.calculatePyramidHeight(levels: levels, maxWidth: width),
+                           expected, accuracy: 0.001, "n=\(n): pyramid measure diverges from geometry")
+        }
+    }
+
+    // End-to-end: a [VISUAL_PYRAMID] block must route to a NATIVE .pyramid block
+    // (drawn as stacked bands) — NOT degrade to a .bulletList. This is the whole
+    // point of the batch, and it's the exact fate the Cognitive Defusion pyramid
+    // (rendered as loose "LEVEL N —"/"Supported by" prose) needed.
+    func testPyramidVisualRoutesToNativeBlockNotBullets() {
+        let content = """
+        ## Section
+
+        [VISUAL_PYRAMID: Support Pyramid]
+        Technique
+        Functional target
+        Values and workability
+        Shared rationale
+        Therapeutic alliance
+        [/VISUAL_PYRAMID]
+        """
+        let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+        let blocks = doc.sections.flatMap { $0.blocks }
+        guard let pyramid = blocks.first(where: { $0.type == .pyramid }) else {
+            return XCTFail("VISUAL_PYRAMID must render as a native .pyramid block, not degrade")
+        }
+        XCTAssertEqual(pyramid.listItems?.count, 5, "all five levels carried into the native block")
+        XCTAssertFalse(blocks.contains { $0.type == .bulletList }, "pyramid must not degrade to a bullet list")
+    }
+
+    // MARK: - Native Cycle Renderer (capability-audit Batch 2)
+
+    func testCycleRoutesToNativeBlockNotBullets() {
+        let content = """
+        ## Section
+
+        [VISUAL_CYCLE: Change Cycle]
+        Awareness
+        Acceptance
+        Action
+        Integration
+        [/VISUAL_CYCLE]
+        """
+        let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+        let blocks = doc.sections.flatMap { $0.blocks }
+        guard let cycle = blocks.first(where: { $0.type == .cycle }) else {
+            return XCTFail("VISUAL_CYCLE must render as a native .cycle block, not degrade")
+        }
+        XCTAssertEqual(cycle.listItems?.count, 4, "all four stages carried into the native block")
+        XCTAssertFalse(blocks.contains { $0.type == .bulletList }, "cycle must not degrade to a bullet list")
+    }
+
+    // Ring geometry is width-bound (like the concept map), so a real-count cycle
+    // must fit a page — never silently overflow. Deterministic + bounded.
+    func testCycleHeightFitsPageForRealCounts() {
+        for n in 2...12 {
+            let stages = Array(repeating: "stage", count: n)
+            let h = diag.calculateCycleHeight(stages: stages, maxWidth: width)
+            XCTAssertGreaterThan(h, 0, "n=\(n): non-positive cycle height")
+            XCTAssertLessThan(h, contentCeiling, "n=\(n): cycle should fit a page at real counts")
+        }
+    }
+
+    // MARK: - Native Funnel / Bar / Pie Renderers (capability-audit Batch 2)
+    // These three previously degraded to a .table; assert they now route to their
+    // native block and no table is emitted.
+
+    func testFunnelRoutesToNativeBlockNotTable() {
+        let content = """
+        ## Section
+
+        [VISUAL_FUNNEL: Conversion]
+        Visitors: 1000
+        Signups: 400
+        Active: 150
+        Paying: 40
+        [/VISUAL_FUNNEL]
+        """
+        let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+        let blocks = doc.sections.flatMap { $0.blocks }
+        XCTAssertTrue(blocks.contains { $0.type == .funnel }, "funnel must render as a native .funnel block")
+        XCTAssertFalse(blocks.contains { $0.type == .table }, "funnel must not degrade to a table")
+    }
+
+    func testBarChartRoutesToNativeBlockWithValues() {
+        let content = """
+        ## Section
+
+        [VISUAL_BAR_CHART: Scores]
+        Alpha: 12
+        Beta: 30
+        Gamma: 18
+        [/VISUAL_BAR_CHART]
+        """
+        let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+        let blocks = doc.sections.flatMap { $0.blocks }
+        guard let bar = blocks.first(where: { $0.type == .barChart }) else {
+            return XCTFail("bar chart must render as a native .barChart block")
+        }
+        XCTAssertEqual(bar.listItems?.count, 3, "all three labels carried")
+        XCTAssertEqual(bar.metadata?["values"], "12.0|30.0|18.0", "values carried in metadata for the renderer")
+        XCTAssertFalse(blocks.contains { $0.type == .table }, "bar chart must not degrade to a table")
+    }
+
+    func testPieChartRoutesToNativeBlockWithValues() {
+        let content = """
+        ## Section
+
+        [VISUAL_PIE_CHART: Split]
+        Work: 50
+        Sleep: 30
+        Play: 20
+        [/VISUAL_PIE_CHART]
+        """
+        let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+        let blocks = doc.sections.flatMap { $0.blocks }
+        guard let pie = blocks.first(where: { $0.type == .pieChart }) else {
+            return XCTFail("pie chart must render as a native .pieChart block")
+        }
+        XCTAssertEqual(pie.listItems?.count, 3, "all three segments carried")
+        XCTAssertFalse(blocks.contains { $0.type == .table }, "pie chart must not degrade to a table")
+    }
 }

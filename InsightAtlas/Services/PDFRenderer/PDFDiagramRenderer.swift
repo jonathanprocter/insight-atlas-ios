@@ -545,6 +545,483 @@ final class PDFDiagramRenderer {
         attributedText.draw(in: textRect)
     }
 
+    // MARK: - Pyramid Diagram
+
+    /// Shared band geometry — SINGLE SOURCE for renderPyramid (draw) and
+    /// calculatePyramidHeight (measure), so reserved == drawn. Fixed-height bands
+    /// stacked widest-at-base; height is linear in level count, so it never
+    /// surprises the paginator.
+    private struct PyramidGeometry {
+        let bandHeight: CGFloat
+        let bandGap: CGFloat
+        let mapHeight: CGFloat
+    }
+
+    private func pyramidGeometry(count: Int) -> PyramidGeometry {
+        let bandHeight: CGFloat = 46
+        let bandGap: CGFloat = 6
+        let n = max(1, count)
+        let mapHeight = CGFloat(n) * bandHeight + CGFloat(max(0, n - 1)) * bandGap
+        return PyramidGeometry(bandHeight: bandHeight, bandGap: bandGap, mapHeight: mapHeight)
+    }
+
+    func calculatePyramidHeight(levels: [String], maxWidth: CGFloat) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let geo = pyramidGeometry(count: levels.count)
+        return headerHeight + geo.mapHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Render a stacked pyramid: level 0 = apex (narrowest, top), last = base
+    /// (widest). Each level a centered rounded band, tint deepening toward the
+    /// base, label autoshrunk to fit inside its band (never clips).
+    @discardableResult
+    func renderPyramid(
+        title: String,
+        levels: [String],
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let geo = pyramidGeometry(count: levels.count)
+        let totalHeight = headerHeight + geo.mapHeight + padding * 2
+
+        // Container
+        let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
+        let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: PDFStyleConfiguration.Radius.md)
+        context.addPath(bgPath.cgPath)
+        context.setFillColor(PDFStyleConfiguration.Colors.bgSecondary.cgColor)
+        context.fillPath()
+        context.addPath(bgPath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+
+        // Header
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+        ]
+        NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
+            .draw(in: CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8))
+
+        // Bands
+        let n = max(1, levels.count)
+        let maxBandWidth = maxWidth - padding * 2
+        let minBandWidth = n == 1 ? maxBandWidth : maxBandWidth * 0.42
+        let centerX = point.x + maxWidth / 2
+        let bandsTop = point.y + headerHeight + padding
+
+        for (index, label) in levels.enumerated() {
+            let frac = n == 1 ? 1.0 : CGFloat(index) / CGFloat(n - 1)   // 0 = apex, 1 = base
+            let bandWidth = minBandWidth + (maxBandWidth - minBandWidth) * frac
+            let bandY = bandsTop + CGFloat(index) * (geo.bandHeight + geo.bandGap)
+            let bandRect = CGRect(x: centerX - bandWidth / 2, y: bandY, width: bandWidth, height: geo.bandHeight)
+            let bandPath = UIBezierPath(roundedRect: bandRect, cornerRadius: 4)
+            let tint = PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.12 + 0.12 * frac)
+            context.addPath(bandPath.cgPath)
+            context.setFillColor(tint.cgColor)
+            context.fillPath()
+            context.addPath(bandPath.cgPath)
+            context.setStrokeColor(PDFStyleConfiguration.Colors.primaryGold.cgColor)
+            context.setLineWidth(1.0)
+            context.strokePath()
+            drawPyramidLabel(context: context, text: label, in: bandRect)
+        }
+
+        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    private func drawPyramidLabel(context: CGContext, text: String, in rect: CGRect) {
+        let inset = rect.insetBy(dx: 10, dy: 4)
+        let baseSize: CGFloat = 11, floorSize: CGFloat = 8
+        func labelFont(_ s: CGFloat) -> UIFont {
+            UIFont(name: "Inter-Medium", size: s) ?? UIFont.systemFont(ofSize: s, weight: .medium)
+        }
+        func labelPara(_ mode: NSLineBreakMode) -> NSParagraphStyle {
+            let p = NSMutableParagraphStyle(); p.alignment = .center; p.lineBreakMode = mode; return p
+        }
+        var chosen = floorSize, truncate = true, s = baseSize
+        while s >= floorSize {
+            let a = NSAttributedString(string: text, attributes: [.font: labelFont(s), .paragraphStyle: labelPara(.byWordWrapping)])
+            let b = a.boundingRect(with: CGSize(width: inset.width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin], context: nil)
+            if b.height <= inset.height { chosen = s; truncate = false; break }
+            s -= 1
+        }
+        let attr = NSAttributedString(string: text, attributes: [
+            .font: labelFont(chosen),
+            .foregroundColor: PDFStyleConfiguration.Colors.textHeading,
+            .paragraphStyle: labelPara(truncate ? .byTruncatingTail : .byWordWrapping)
+        ])
+        let measured = attr.boundingRect(with: inset.size, options: [.usesLineFragmentOrigin], context: nil)
+        let drawn = min(measured.height, inset.height)
+        attr.draw(in: CGRect(x: inset.minX, y: rect.midY - drawn / 2, width: inset.width, height: drawn))
+    }
+
+    // MARK: - Bar Chart
+
+    func calculateBarChartHeight(count: Int, maxWidth: CGFloat) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let rowHeight: CGFloat = 30
+        let n = max(1, count)
+        return headerHeight + CGFloat(n) * rowHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Render a horizontal bar chart: label on the left, proportional bar, value
+    /// at the bar's end. Horizontal reads better than vertical in a narrow column.
+    @discardableResult
+    func renderBarChart(
+        title: String,
+        labels: [String],
+        values: [Double],
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let rowHeight: CGFloat = 30
+        let n = max(1, labels.count)
+        let totalHeight = headerHeight + CGFloat(n) * rowHeight + padding * 2
+
+        drawDiagramContainer(context: context, at: point, width: maxWidth, height: totalHeight, title: title)
+
+        let inner = maxWidth - padding * 2
+        let labelW = inner * 0.34
+        let trackX = point.x + padding + labelW + 6
+        let trackW = max(1, inner - labelW - 6)
+        let plotTop = point.y + headerHeight + padding
+        let maxValue = max(values.max() ?? 1, 1)
+
+        for i in 0..<n {
+            let y = plotTop + CGFloat(i) * rowHeight
+            let value = i < values.count ? values[i] : 0
+            drawChartText(labels[i], in: CGRect(x: point.x + padding, y: y, width: labelW, height: rowHeight),
+                          align: .left, size: 10, color: PDFStyleConfiguration.Colors.textBody, bold: false)
+            let barH: CGFloat = 16
+            let barY = y + (rowHeight - barH) / 2
+            let w = maxValue > 0 ? CGFloat(value / maxValue) * trackW : 0
+            let drawnW = max(2, w)
+            let barRect = CGRect(x: trackX, y: barY, width: drawnW, height: barH)
+            let barPath = UIBezierPath(roundedRect: barRect, cornerRadius: 3)
+            context.addPath(barPath.cgPath)
+            context.setFillColor(PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.75).cgColor)
+            context.fillPath()
+            drawChartText(formatNumber(value), in: CGRect(x: trackX + drawnW + 4, y: y, width: max(10, trackW - drawnW - 4), height: rowHeight),
+                          align: .left, size: 9, color: PDFStyleConfiguration.Colors.textHeading, bold: true)
+        }
+
+        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    // MARK: - Pie Chart
+
+    func calculatePieChartHeight(count: Int, maxWidth: CGFloat) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let pieSize: CGFloat = 140
+        let legendRow: CGFloat = 22
+        let body = max(pieSize, CGFloat(max(1, count)) * legendRow)
+        return headerHeight + body + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Render a pie chart with a legend column (label — share%).
+    @discardableResult
+    func renderPieChart(
+        title: String,
+        segments: [(label: String, value: Double)],
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let pieSize: CGFloat = 140
+        let legendRow: CGFloat = 22
+        let n = max(1, segments.count)
+        let legendH = CGFloat(n) * legendRow
+        let body = max(pieSize, legendH)
+        let totalHeight = headerHeight + body + padding * 2
+
+        drawDiagramContainer(context: context, at: point, width: maxWidth, height: totalHeight, title: title)
+
+        let total = max(segments.reduce(0) { $0 + $1.value }, 0.0001)
+        let cx = point.x + padding + pieSize / 2
+        let cy = point.y + headerHeight + padding + body / 2
+        let r = pieSize / 2 - 4
+        let palette = [
+            PDFStyleConfiguration.Colors.primaryGold,
+            PDFStyleConfiguration.Colors.accentTeal,
+            PDFStyleConfiguration.Colors.semanticEvidence,
+            PDFStyleConfiguration.Colors.primaryGoldDark,
+            PDFStyleConfiguration.Colors.borderDark
+        ]
+        var startA = -CGFloat.pi / 2
+        for (i, seg) in segments.enumerated() {
+            let sweep = CGFloat(seg.value / total) * 2 * .pi
+            context.setFillColor(palette[i % palette.count].withAlphaComponent(0.85).cgColor)
+            context.move(to: CGPoint(x: cx, y: cy))
+            context.addArc(center: CGPoint(x: cx, y: cy), radius: r, startAngle: startA, endAngle: startA + sweep, clockwise: false)
+            context.closePath()
+            context.fillPath()
+            startA += sweep
+        }
+
+        // Legend column
+        let legX = point.x + padding + pieSize + 12
+        let legW = max(20, maxWidth - padding - legX)
+        var ly = point.y + headerHeight + padding + (body - legendH) / 2
+        for (i, seg) in segments.enumerated() {
+            let swatch = CGRect(x: legX, y: ly + (legendRow - 10) / 2, width: 10, height: 10)
+            context.setFillColor(palette[i % palette.count].withAlphaComponent(0.85).cgColor)
+            context.fill(swatch)
+            let pct = seg.value / total * 100
+            drawChartText("\(seg.label) — \(formatNumber(pct))%",
+                          in: CGRect(x: legX + 16, y: ly, width: legW - 16, height: legendRow),
+                          align: .left, size: 10, color: PDFStyleConfiguration.Colors.textBody, bold: false)
+            ly += legendRow
+        }
+
+        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Shared container chrome (bg + border + header) for the chart renderers.
+    private func drawDiagramContainer(context: CGContext, at point: CGPoint, width: CGFloat, height: CGFloat, title: String) {
+        let padding: CGFloat = 16
+        let headerHeight: CGFloat = 28
+        let bgRect = CGRect(x: point.x, y: point.y, width: width, height: height)
+        let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: PDFStyleConfiguration.Radius.md)
+        context.addPath(bgPath.cgPath)
+        context.setFillColor(PDFStyleConfiguration.Colors.bgSecondary.cgColor)
+        context.fillPath()
+        context.addPath(bgPath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+        ]
+        NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
+            .draw(in: CGRect(x: point.x + padding, y: point.y + 6, width: width - padding * 2, height: headerHeight - 8))
+    }
+
+    private func drawChartText(_ text: String, in rect: CGRect, align: NSTextAlignment, size: CGFloat, color: UIColor, bold: Bool) {
+        let p = NSMutableParagraphStyle()
+        p.alignment = align
+        p.lineBreakMode = .byTruncatingTail
+        let font = UIFont(name: bold ? "Inter-Semibold" : "Inter-Regular", size: size)
+            ?? UIFont.systemFont(ofSize: size, weight: bold ? .semibold : .regular)
+        let a = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: p])
+        let measured = a.boundingRect(with: CGSize(width: rect.width, height: .greatestFiniteMagnitude),
+                                      options: [.usesLineFragmentOrigin], context: nil).height
+        let h = min(measured, rect.height)
+        a.draw(in: CGRect(x: rect.minX, y: rect.midY - h / 2, width: rect.width, height: h))
+    }
+
+    /// Compact numeric formatting for chart labels: whole numbers drop decimals,
+    /// otherwise one decimal place.
+    private func formatNumber(_ value: Double) -> String {
+        if value == value.rounded() { return String(Int(value)) }
+        return String(format: "%.1f", value)
+    }
+
+    // MARK: - Funnel Diagram
+
+    func calculateFunnelHeight(stages: [String], maxWidth: CGFloat) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let geo = pyramidGeometry(count: stages.count)   // same fixed-band geometry
+        return headerHeight + geo.mapHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Render a funnel: widest band at TOP, narrowing downward (inverse of the
+    /// pyramid). Reuses the pyramid band geometry + label fitter; value rides in
+    /// each stage's label string.
+    @discardableResult
+    func renderFunnel(
+        title: String,
+        stages: [String],
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let geo = pyramidGeometry(count: stages.count)
+        let totalHeight = headerHeight + geo.mapHeight + padding * 2
+
+        // Container
+        let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
+        let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: PDFStyleConfiguration.Radius.md)
+        context.addPath(bgPath.cgPath)
+        context.setFillColor(PDFStyleConfiguration.Colors.bgSecondary.cgColor)
+        context.fillPath()
+        context.addPath(bgPath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+
+        // Header
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+        ]
+        NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
+            .draw(in: CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8))
+
+        // Bands — widest at TOP, narrowing down
+        let n = max(1, stages.count)
+        let maxBandWidth = maxWidth - padding * 2
+        let minBandWidth = n == 1 ? maxBandWidth : maxBandWidth * 0.42
+        let centerX = point.x + maxWidth / 2
+        let bandsTop = point.y + headerHeight + padding
+
+        for (index, label) in stages.enumerated() {
+            let frac = n == 1 ? 1.0 : 1 - CGFloat(index) / CGFloat(n - 1)   // 1 = top (widest)
+            let bandWidth = minBandWidth + (maxBandWidth - minBandWidth) * frac
+            let bandY = bandsTop + CGFloat(index) * (geo.bandHeight + geo.bandGap)
+            let bandRect = CGRect(x: centerX - bandWidth / 2, y: bandY, width: bandWidth, height: geo.bandHeight)
+            let bandPath = UIBezierPath(roundedRect: bandRect, cornerRadius: 4)
+            let tint = PDFStyleConfiguration.Colors.accentTeal.withAlphaComponent(0.12 + 0.12 * frac)
+            context.addPath(bandPath.cgPath)
+            context.setFillColor(tint.cgColor)
+            context.fillPath()
+            context.addPath(bandPath.cgPath)
+            context.setStrokeColor(PDFStyleConfiguration.Colors.accentTeal.cgColor)
+            context.setLineWidth(1.0)
+            context.strokePath()
+            drawPyramidLabel(context: context, text: label, in: bandRect)
+        }
+
+        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    // MARK: - Cycle Diagram
+
+    /// Shared ring geometry — SINGLE SOURCE for renderCycle (draw) and
+    /// calculateCycleHeight (measure). Nodes sit on a ring (no center); adaptive
+    /// like the concept map so they never overlap or clip — width binds first.
+    private struct CycleGeometry {
+        let nodeRadius: CGFloat
+        let orbit: CGFloat
+        let mapHeight: CGFloat
+    }
+
+    private func cycleGeometry(count: Int, maxWidth: CGFloat) -> CycleGeometry {
+        let base: CGFloat = 36
+        let floor: CGFloat = 16
+        let margin: CGFloat = 12
+        let n = max(1, count)
+        if n == 1 {
+            return CycleGeometry(nodeRadius: base, orbit: 0, mapHeight: 2 * base + 2 * margin)
+        }
+        let half = sin(.pi / CGFloat(n))                 // neighbor half-angle sine
+        let orbitMax = maxWidth / 2 - floor - margin
+        let orbitIdeal = max(base + 8, base / half)      // non-overlap orbit at base node
+        var orbit = min(orbitIdeal, orbitMax)
+        let node = max(floor, min(base, orbit * half, maxWidth / 2 - orbit - margin))
+        orbit = min(orbit, maxWidth / 2 - node - margin)
+        let mapHeight = 2 * (orbit + node) + 2 * margin
+        return CycleGeometry(nodeRadius: node, orbit: orbit, mapHeight: mapHeight)
+    }
+
+    func calculateCycleHeight(stages: [String], maxWidth: CGFloat) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let geo = cycleGeometry(count: stages.count, maxWidth: maxWidth)
+        return headerHeight + geo.mapHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Render a cyclical process: stages on a ring, arrows following clockwise and
+    /// closing back to the first (last → first), so it reads as a loop.
+    @discardableResult
+    func renderCycle(
+        title: String,
+        stages: [String],
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
+        let headerHeight: CGFloat = 28
+        let padding: CGFloat = 16
+        let geo = cycleGeometry(count: stages.count, maxWidth: maxWidth)
+        let totalHeight = headerHeight + geo.mapHeight + padding * 2
+
+        // Container
+        let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
+        let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: PDFStyleConfiguration.Radius.md)
+        context.addPath(bgPath.cgPath)
+        context.setFillColor(PDFStyleConfiguration.Colors.bgSecondary.cgColor)
+        context.fillPath()
+        context.addPath(bgPath.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+
+        // Header
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
+        ]
+        NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
+            .draw(in: CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8))
+
+        // Node centers on the ring (start at top, clockwise)
+        let n = max(1, stages.count)
+        let mapY = point.y + headerHeight + padding
+        let centerX = point.x + maxWidth / 2
+        let centerY = mapY + geo.mapHeight / 2
+        var centers: [CGPoint] = []
+        for i in 0..<n {
+            let angle = -CGFloat.pi / 2 + CGFloat(i) * (2 * CGFloat.pi / CGFloat(n))
+            centers.append(CGPoint(x: centerX + geo.orbit * cos(angle), y: centerY + geo.orbit * sin(angle)))
+        }
+
+        // Ring arrows (draw under nodes) — close the loop
+        if n >= 2 {
+            for i in 0..<n {
+                drawCycleArrow(context: context, from: centers[i], to: centers[(i + 1) % n],
+                               nodeRadius: geo.nodeRadius, color: PDFStyleConfiguration.Colors.accentTeal)
+            }
+        }
+
+        // Nodes on top
+        for (i, stage) in stages.enumerated() {
+            drawConceptNode(context: context, text: stage, center: centers[i],
+                            radius: geo.nodeRadius, color: PDFStyleConfiguration.Colors.accentTeal, isCenter: false)
+        }
+
+        return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    private func drawCycleArrow(context: CGContext, from c0: CGPoint, to c1: CGPoint, nodeRadius r: CGFloat, color: UIColor) {
+        let dx = c1.x - c0.x, dy = c1.y - c0.y
+        let dist = max(1, hypot(dx, dy))
+        let ux = dx / dist, uy = dy / dist
+        let start = CGPoint(x: c0.x + ux * (r + 2), y: c0.y + uy * (r + 2))
+        let end = CGPoint(x: c1.x - ux * (r + 5), y: c1.y - uy * (r + 5))
+        context.setStrokeColor(color.withAlphaComponent(0.5).cgColor)
+        context.setLineWidth(1.5)
+        context.move(to: start)
+        context.addLine(to: end)
+        context.strokePath()
+        // Arrowhead
+        let ah: CGFloat = 6
+        let angle = atan2(uy, ux)
+        let left = CGPoint(x: end.x - ah * cos(angle - .pi / 6), y: end.y - ah * sin(angle - .pi / 6))
+        let right = CGPoint(x: end.x - ah * cos(angle + .pi / 6), y: end.y - ah * sin(angle + .pi / 6))
+        context.setFillColor(color.cgColor)
+        context.move(to: end)
+        context.addLine(to: left)
+        context.addLine(to: right)
+        context.closePath()
+        context.fillPath()
+    }
+
     // MARK: - Process/Timeline Diagram
 
     /// Calculate height for a horizontal process diagram

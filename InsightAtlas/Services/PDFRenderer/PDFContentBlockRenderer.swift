@@ -193,6 +193,21 @@ final class PDFContentBlockRenderer {
         case .spectrum:
             return diagramRenderer.calculateSpectrumHeight(maxWidth: maxWidth)
 
+        case .pyramid:
+            return diagramRenderer.calculatePyramidHeight(levels: block.listItems ?? [], maxWidth: maxWidth)
+
+        case .cycle:
+            return diagramRenderer.calculateCycleHeight(stages: block.listItems ?? [], maxWidth: maxWidth)
+
+        case .funnel:
+            return diagramRenderer.calculateFunnelHeight(stages: block.listItems ?? [], maxWidth: maxWidth)
+
+        case .barChart:
+            return diagramRenderer.calculateBarChartHeight(count: block.listItems?.count ?? 0, maxWidth: maxWidth)
+
+        case .pieChart:
+            return diagramRenderer.calculatePieChartHeight(count: block.listItems?.count ?? 0, maxWidth: maxWidth)
+
         case .libraryEntry:
             return calculateLibraryEntryHeight(block: block, maxWidth: maxWidth)
 
@@ -400,6 +415,56 @@ final class PDFContentBlockRenderer {
                 title: titleWithFigureLabel(block.metadata?["title"] ?? "Feedback Loop", for: block),
                 nodes: block.listItems ?? [],
                 caption: block.metadata?["caption"],
+                to: context,
+                at: point,
+                maxWidth: maxWidth
+            )
+
+        case .pyramid:
+            return diagramRenderer.renderPyramid(
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Pyramid", for: block),
+                levels: block.listItems ?? [],
+                to: context,
+                at: point,
+                maxWidth: maxWidth
+            )
+
+        case .cycle:
+            return diagramRenderer.renderCycle(
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Cycle", for: block),
+                stages: block.listItems ?? [],
+                to: context,
+                at: point,
+                maxWidth: maxWidth
+            )
+
+        case .funnel:
+            return diagramRenderer.renderFunnel(
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Funnel", for: block),
+                stages: block.listItems ?? [],
+                to: context,
+                at: point,
+                maxWidth: maxWidth
+            )
+
+        case .barChart:
+            let values = (block.metadata?["values"] ?? "").split(separator: "|").compactMap { Double($0) }
+            return diagramRenderer.renderBarChart(
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Bar Chart", for: block),
+                labels: block.listItems ?? [],
+                values: values,
+                to: context,
+                at: point,
+                maxWidth: maxWidth
+            )
+
+        case .pieChart:
+            let values = (block.metadata?["values"] ?? "").split(separator: "|").compactMap { Double($0) }
+            let labels = block.listItems ?? []
+            let segments = zip(labels, values).map { (label: $0, value: $1) }
+            return diagramRenderer.renderPieChart(
+                title: titleWithFigureLabel(block.metadata?["title"] ?? "Pie Chart", for: block),
+                segments: segments,
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -1986,7 +2051,7 @@ final class PDFContentBlockRenderer {
     /// Diagram block types that are pure vector drawings — safe to scale
     /// uniformly (text scales with the figure, legibility ratio preserved).
     /// Text-heavy blocks (notes/tables/paragraphs) are NEVER scaled.
-    static let scalableDiagramTypes: Set<PDFContentBlock.BlockType> = [.flowchart, .conceptMap, .processTimeline, .loopDiagram, .spectrum]
+    static let scalableDiagramTypes: Set<PDFContentBlock.BlockType> = [.flowchart, .conceptMap, .processTimeline, .loopDiagram, .spectrum, .pyramid, .cycle, .funnel, .barChart, .pieChart]
 
     /// Below this uniform scale, a diagram is judged illegible — push whole
     /// instead (legibility outranks whitespace). Observed real gaps (458–510pt
@@ -2914,6 +2979,12 @@ struct PDFContentBlock {
         // Promoted diagram types (Directives §A4)
         case loopDiagram
         case spectrum
+        // Native visual renderers (capability-audit Batch 2)
+        case pyramid
+        case cycle
+        case funnel
+        case barChart
+        case pieChart
         // The Library end-page entry (Citation Spec §4)
         case libraryEntry
         // Section-opener reading-time + progress chip (Directives §C1)
