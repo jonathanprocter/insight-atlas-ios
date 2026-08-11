@@ -457,8 +457,9 @@ final class PDFContentBlockRenderer {
             currentY += PDFStyleConfiguration.Spacing.sm
         }
 
-        // Prepare text with optional icon
-        let displayText = icon.map { "\($0) \(text)" } ?? text
+        // Prepare text with optional icon and typographic quotes
+        let cleanText = PDFStyleConfiguration.smartTypography(text)
+        let displayText = icon.map { "\($0) \(cleanText)" } ?? cleanText
 
         // Consistent color scheme per heading level
         let color: UIColor
@@ -1749,8 +1750,15 @@ final class PDFContentBlockRenderer {
         var height: CGFloat = 0
 
         for item in items {
-            let itemHeight = calculateTextHeight(item, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: maxWidth - bulletWidth)
-            height += itemHeight + 6
+            // Measure the same attributed string renderList draws, so
+            // pagination decisions match the rendered output
+            let parsed = parseInlineMarkdown(item, baseAttributes: PDFStyleConfiguration.bodyAttributes())
+            let bounding = parsed.boundingRect(
+                with: CGSize(width: maxWidth - bulletWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                context: nil
+            )
+            height += ceil(bounding.height) + 2 + 6
         }
 
         return height + PDFStyleConfiguration.Spacing.paragraphSpacing
@@ -1804,8 +1812,9 @@ final class PDFContentBlockRenderer {
     /// Parse inline markdown (bold, italic) and strip markdown syntax, returning attributed string
     /// Uses a safer parsing approach that handles overlapping matches correctly
     private func parseInlineMarkdown(_ text: String, baseAttributes: [NSAttributedString.Key: Any]) -> NSAttributedString {
-        // First, strip markdown syntax that shouldn't appear in the output (except bold/italic)
-        let cleanedText = stripMarkdownSyntax(text)
+        // First, strip markdown syntax that shouldn't appear in the output (except bold/italic),
+        // then upgrade straight quotes to typographic ones
+        let cleanedText = PDFStyleConfiguration.smartTypography(stripMarkdownSyntax(text))
 
         // Guard against empty strings after cleaning
         guard !cleanedText.isEmpty else {

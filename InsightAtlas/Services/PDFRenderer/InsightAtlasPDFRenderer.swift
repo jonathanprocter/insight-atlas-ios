@@ -1,5 +1,4 @@
 import UIKit
-import UIKit
 import CoreGraphics
 import PDFKit
 
@@ -58,25 +57,45 @@ final class InsightAtlasPDFRenderer {
     /// - Returns: RenderResult containing PDF data and metadata
     func render(document: PDFAnalysisDocument, options: RenderOptions = .default) throws -> RenderResult {
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize))
+
+        // Measurement pass: render the content into a throwaway context and
+        // record the real page each TOC entry lands on. Page numbers are
+        // content-relative here (first content page = 1) and offset below
+        // once the cover and TOC page counts are known. Using an actual
+        // render guarantees the TOC matches final pagination exactly.
         currentPage = 0
         tableOfContents = []
+        if options.includeTableOfContents {
+            _ = pdfRenderer.pdfData { context in
+                renderContentPages(context: context, document: document, options: options, recordTableOfContents: true)
+            }
+        }
 
-        // First pass: build TOC (calculate page numbers)
-        buildTableOfContents(document: document, options: options)
+        let coverPageCount = options.includeCoverPage ? 1 : 0
+        var tocPageCount = 0
+        if options.includeTableOfContents && !tableOfContents.isEmpty {
+            tocPageCount = coverRenderer.tableOfContentsPageCount(sections: tableOfContents)
+        }
+        let pageOffset = coverPageCount + tocPageCount
+        tableOfContents = tableOfContents.map {
+            (title: $0.title, page: $0.page + pageOffset, isSubsection: $0.isSubsection)
+        }
 
+        // Final pass: cover, TOC, then content with real page numbers.
+        currentPage = 0
         let pdfData = pdfRenderer.pdfData { context in
             // Cover page
             if options.includeCoverPage {
                 renderCoverPage(context: context, document: document, options: options)
             }
 
-            // Table of contents page
+            // Table of contents (may span multiple pages)
             if options.includeTableOfContents && !tableOfContents.isEmpty {
-                renderTableOfContentsPage(context: context, options: options)
+                renderTableOfContentsPages(context: context, options: options)
             }
 
             // Content pages
-            renderContentPages(context: context, document: document, options: options)
+            renderContentPages(context: context, document: document, options: options, recordTableOfContents: false)
         }
 
         return RenderResult(
@@ -127,20 +146,40 @@ final class InsightAtlasPDFRenderer {
         )
     }
 
-    private func renderTableOfContentsPage(context: UIGraphicsPDFRendererContext, options: RenderOptions) {
+    private func renderTableOfContentsPages(context: UIGraphicsPDFRendererContext, options: RenderOptions) {
         context.beginPage()
-        currentPage += 1
 
-        _ = coverRenderer.renderTableOfContents(
+        // Pass the renderer context so overflowing entries continue on new
+        // pages instead of being painted over the first TOC page.
+        let pagesRendered = coverRenderer.renderTableOfContents(
             to: context.cgContext,
-            sections: tableOfContents
+            sections: tableOfContents,
+            pdfRenderer: context
         )
+        currentPage += pagesRendered
     }
 
-    private func renderContentPages(context: UIGraphicsPDFRendererContext, document: PDFAnalysisDocument, options: RenderOptions) {
+    private func renderContentPages(
+        context: UIGraphicsPDFRendererContext,
+        document: PDFAnalysisDocument,
+        options: RenderOptions,
+        recordTableOfContents: Bool
+    ) {
         var currentY = contentRect.minY
         var needsNewPage = true
         let minContentAfterHeading: CGFloat = 100 // Minimum content to keep with heading to avoid orphans
+
+        // During the measurement pass, record each TOC entry on the page it
+        // is actually rendered on.
+        func recordTOCEntry(_ title: String, isSubsection: Bool, deduplicate: Bool = false) {
+            guard recordTableOfContents else { return }
+            let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            if deduplicate && tableOfContents.contains(where: { $0.title == trimmed }) {
+                return
+            }
+            tableOfContents.append((title: trimmed, page: currentPage, isSubsection: isSubsection))
+        }
 
         // Render Quick Glance if present
         if let quickGlance = document.quickGlance {
@@ -162,6 +201,7 @@ final class InsightAtlasPDFRenderer {
 
             if currentY + height <= contentRect.maxY {
                 // Fits in the remaining space on the current page.
+                recordTOCEntry("Quick Glance", isSubsection: false)
                 blockRenderer.renderBlock(
                     quickGlanceBlock,
                     to: context.cgContext,
@@ -173,6 +213,7 @@ final class InsightAtlasPDFRenderer {
                 // Fits on a fresh page as a single card.
                 startNewContentPage(context: context, options: options)
                 currentY = contentRect.minY
+                recordTOCEntry("Quick Glance", isSubsection: false)
                 blockRenderer.renderBlock(
                     quickGlanceBlock,
                     to: context.cgContext,
@@ -193,6 +234,9 @@ final class InsightAtlasPDFRenderer {
                     if index > 0 || currentY > contentRect.minY {
                         startNewContentPage(context: context, options: options)
                         currentY = contentRect.minY
+                    }
+                    if index == 0 {
+                        recordTOCEntry("Quick Glance", isSubsection: false)
                     }
                     let drawn = blockRenderer.renderQuickGlance(
                         coreMessage: fragment.coreMessage,
@@ -232,6 +276,11 @@ final class InsightAtlasPDFRenderer {
                     currentY = contentRect.minY
                     needsNewPage = false
                 }
+
+                // PART headers and main titled sections are not subsections
+                let isPARTHeader = heading.uppercased().hasPrefix("PART ")
+                let isMainSection = section.headingLevel == 1 || isPARTHeader
+                recordTOCEntry(heading, isSubsection: !isMainSection)
 
                 // Render with the correct heading level
                 let renderedHeight = blockRenderer.renderSectionHeading(
@@ -278,6 +327,24 @@ final class InsightAtlasPDFRenderer {
                     currentY = contentRect.minY
                 }
 
+                // Track TOC-worthy blocks on the page they are drawn on
+                switch block.type {
+                case .heading3:
+                    recordTOCEntry(block.content, isSubsection: true)
+                case .foundationalNarrative:
+                    recordTOCEntry(block.metadata?["title"] ?? "The Story Behind the Ideas", isSubsection: false, deduplicate: true)
+                case .keyTakeaways:
+                    recordTOCEntry("Key Takeaways", isSubsection: false, deduplicate: true)
+                case .heading2:
+                    recordTOCEntry(block.content, isSubsection: true, deduplicate: true)
+                case .premiumH1:
+                    recordTOCEntry(block.content, isSubsection: false, deduplicate: true)
+                case .premiumH2:
+                    recordTOCEntry(block.content, isSubsection: true, deduplicate: true)
+                default:
+                    break
+                }
+
                 let renderedHeight = blockRenderer.renderBlock(
                     block,
                     to: context.cgContext,
@@ -289,8 +356,11 @@ final class InsightAtlasPDFRenderer {
             }
         }
 
-        // Render closing page with branding
-        renderClosingPage(context: context, options: options)
+        // Render closing page with branding (skipped during measurement -
+        // it is always the last page and carries no TOC entries)
+        if !recordTableOfContents {
+            renderClosingPage(context: context, options: options)
+        }
     }
 
     private func startNewContentPage(context: UIGraphicsPDFRendererContext, options: RenderOptions) {
@@ -456,112 +526,6 @@ final class InsightAtlasPDFRenderer {
         }
     }
 
-    // MARK: - Table of Contents Builder
-
-    private func buildTableOfContents(document: PDFAnalysisDocument, options: RenderOptions) {
-        tableOfContents = []
-        var estimatedPage = options.includeCoverPage ? 2 : 1
-        if options.includeTableOfContents { estimatedPage += 1 }
-
-        var currentY = contentRect.minY
-        let minContentAfterHeading: CGFloat = 100 // Minimum content to keep with heading
-
-        // Quick Glance - use safe optional binding to avoid force unwrap
-        if let quickGlance = document.quickGlance {
-            tableOfContents.append((title: "Quick Glance", page: estimatedPage, isSubsection: false))
-
-            let block = PDFContentBlock(
-                type: .quickGlance,
-                content: quickGlance.coreMessage,
-                listItems: quickGlance.keyPoints
-            )
-            currentY += blockRenderer.calculateBlockHeight(block: block, maxWidth: contentRect.width)
-
-            if currentY > contentRect.maxY {
-                estimatedPage += 1
-                currentY = contentRect.minY
-            }
-        }
-
-        // Sections
-        for section in document.sections {
-            if let heading = section.heading {
-                // Use the section heading height calculator which handles PART headers
-                let headingHeight = blockRenderer.calculateSectionHeadingHeight(heading, level: section.headingLevel, maxWidth: contentRect.width)
-
-                // Calculate first block height to ensure we don't orphan headings
-                let firstBlockHeight = section.blocks.first.map { blockRenderer.calculateBlockHeight(block: $0, maxWidth: contentRect.width) } ?? 0
-                let combinedHeight = headingHeight + min(firstBlockHeight, minContentAfterHeading)
-
-                if currentY + combinedHeight > contentRect.maxY - 50 {
-                    estimatedPage += 1
-                    currentY = contentRect.minY
-                }
-
-                // Determine if this is a main section or subsection
-                // PART headers and main titled sections are not subsections
-                let isPARTHeader = heading.uppercased().hasPrefix("PART ")
-                let isMainSection = section.headingLevel == 1 || isPARTHeader
-
-                tableOfContents.append((title: heading, page: estimatedPage, isSubsection: !isMainSection))
-                currentY += headingHeight
-            }
-
-            // Estimate block heights for pagination and add special blocks to TOC
-            for block in section.blocks {
-                let blockHeight = blockRenderer.calculateBlockHeight(block: block, maxWidth: contentRect.width)
-
-                if currentY + blockHeight > contentRect.maxY {
-                    estimatedPage += 1
-                    currentY = contentRect.minY
-                }
-
-                // Track special block types for TOC
-                switch block.type {
-                case .heading3:
-                    // Add H3 subheadings to TOC
-                    tableOfContents.append((title: block.content, page: estimatedPage, isSubsection: true))
-
-                case .foundationalNarrative:
-                    // Add "The Story Behind the Ideas" to TOC
-                    let title = block.metadata?["title"] ?? "The Story Behind the Ideas"
-                    if !tableOfContents.contains(where: { $0.title == title }) {
-                        tableOfContents.append((title: title, page: estimatedPage, isSubsection: false))
-                    }
-
-                case .keyTakeaways:
-                    // Add Key Takeaways to TOC (but avoid duplicates)
-                    if !tableOfContents.contains(where: { $0.title == "Key Takeaways" }) {
-                        tableOfContents.append((title: "Key Takeaways", page: estimatedPage, isSubsection: false))
-                    }
-
-                case .heading2:
-                    // Ensure H2 headings are captured (Comparative Analysis, Synthesis Arc, etc.)
-                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
-                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: true))
-                    }
-
-                case .premiumH1:
-                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
-                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: false))
-                    }
-
-                case .premiumH2:
-                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
-                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: true))
-                    }
-
-                default:
-                    break
-                }
-
-                currentY += blockHeight
-            }
-        }
-    }
 }
 
 // MARK: - Convenience Extensions
