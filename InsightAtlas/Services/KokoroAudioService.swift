@@ -219,18 +219,19 @@ actor KokoroSynthesisEngine {
         at url: URL,
         sampleRate: Double
     ) throws -> AVAudioFile {
-        guard let format = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: sampleRate,
-            channels: 1,
-            interleaved: false
-        ) else {
-            throw KokoroAudioError.audioWritingFailed
-        }
+        let outputSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: 1,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false
+        ]
 
         return try AVAudioFile(
             forWriting: url,
-            settings: format.settings,
+            settings: outputSettings,
             commonFormat: .pcmFormatFloat32,
             interleaved: false
         )

@@ -251,6 +251,7 @@ final class KokoroModelManager: ObservableObject {
                     }
                 )
                 guard !Task.isCancelled else { throw CancellationError() }
+                await KokoroAudioService.shared.reset()
                 self?.state = .installed
             } catch is CancellationError {
                 self?.refreshState()
@@ -272,6 +273,7 @@ final class KokoroModelManager: ObservableObject {
         if fileManager.fileExists(atPath: modelDirectory.path) {
             try fileManager.removeItem(at: modelDirectory)
         }
+        Task { await KokoroAudioService.shared.reset() }
         state = .notInstalled
     }
 }

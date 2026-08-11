@@ -90,6 +90,9 @@ class AppEnvironment: ObservableObject {
         if migrated.voiceProvider == .chatgptVoice {
             migrated.voiceProvider = .kokoro
             migrated.selectedVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
+            if let encoded = try? JSONEncoder().encode(migrated) {
+                defaults.set(encoded, forKey: settingsKey)
+            }
         }
         defaults.set(true, forKey: kokoroDefaultMigrationKey)
         return migrated
