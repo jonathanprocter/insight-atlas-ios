@@ -362,4 +362,29 @@ final class ConceptMapGeometryTests: XCTestCase {
                            "\(c.tag): degraded to a bullet list")
         }
     }
+
+    // MARK: - Flowchart Reclassifier (capability-audit Batch B — structural)
+
+    // A "Branch — X" hub flowchart is mislabeled hub-and-spoke content → must be
+    // reclassified to a native concept map. A genuine causal sequence must NOT be
+    // touched (conservative: the rule fires only on hub markers).
+    func testHubFlowchartReclassifiesButSequenceSurvives() {
+        let hub = PDFContentBlock(type: .flowchart, content: "", listItems: [
+            "Branch — Metaphorical reframing", "Passengers on the Bus", "Leaves on a Stream", "Thoughts as Hands"
+        ], metadata: ["title": "Process Flow"])
+        let seq = PDFContentBlock(type: .flowchart, content: "", listItems: [
+            "Trigger event", "Automatic thought", "Rigid rule-following", "Narrowed behavior"
+        ], metadata: ["title": "Process Flow"])
+        let doc = PDFAnalysisDocument(
+            book: PDFAnalysisDocument.BookMetadata(title: "T", author: "A"),
+            sections: [PDFAnalysisDocument.PDFSection(blocks: [hub, seq])]
+        )
+        let blocks = FlowchartReclassifier().reclassify(doc).sections.flatMap { $0.blocks }
+        guard let cm = blocks.first(where: { $0.type == .conceptMap }) else {
+            return XCTFail("hub flowchart must reclassify to a concept map")
+        }
+        XCTAssertEqual(cm.metadata?["central"], "Metaphorical reframing", "central = hub label")
+        XCTAssertEqual(cm.listItems?.count, 3, "the three spokes carried as branches")
+        XCTAssertEqual(blocks.filter { $0.type == .flowchart }.count, 1, "genuine sequence must remain a flowchart")
+    }
 }
