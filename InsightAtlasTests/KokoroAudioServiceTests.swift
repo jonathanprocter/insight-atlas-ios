@@ -12,11 +12,14 @@ final class KokoroAudioServiceTests: XCTestCase {
             isModelInstalled: { true }
         )
 
+        let unavailableValidation = try await unavailable.validateApiKey()
+        let availableValidation = try await available.validateApiKey()
+
         XCTAssertEqual(unavailable.provider, .kokoro)
         XCTAssertFalse(unavailable.isConfigured)
-        XCTAssertFalse(try await unavailable.validateApiKey())
+        XCTAssertFalse(unavailableValidation)
         XCTAssertTrue(available.isConfigured)
-        XCTAssertTrue(try await available.validateApiKey())
+        XCTAssertTrue(availableValidation)
     }
 
     func testBlankTextFailsBeforeModelOrEngineWork() async {
