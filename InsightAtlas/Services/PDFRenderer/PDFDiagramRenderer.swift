@@ -24,8 +24,10 @@ final class PDFDiagramRenderer {
     // MARK: - Flowchart Rendering
 
     /// Calculate height required for a flowchart
-    func calculateFlowchartHeight(steps: [String], maxWidth: CGFloat) -> CGFloat {
-        guard !steps.isEmpty else { return 0 }
+    func calculateFlowchartHeight(steps rawSteps: [String], maxWidth: CGFloat) -> CGFloat {
+        guard !rawSteps.isEmpty else { return 0 }
+        // Clean node labels in BOTH measure and draw so measure==draw holds.
+        let steps = rawSteps.map { cleanDiagramNodeLabel($0) }
 
         let headerHeight: CGFloat = 28
         let padding: CGFloat = 16
@@ -52,12 +54,13 @@ final class PDFDiagramRenderer {
     @discardableResult
     func renderFlowchart(
         title: String,
-        steps: [String],
+        steps rawSteps: [String],
         to context: CGContext,
         at point: CGPoint,
         maxWidth: CGFloat
     ) -> CGFloat {
-        guard !steps.isEmpty else { return 0 }
+        guard !rawSteps.isEmpty else { return 0 }
+        let steps = rawSteps.map { cleanDiagramNodeLabel($0) }
 
         let headerHeight: CGFloat = 28
         let padding: CGFloat = 16
@@ -143,6 +146,20 @@ final class PDFDiagramRenderer {
         }
 
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Strip a stray leading arrow/bullet token the model sometimes bakes into a
+    /// node label ("→ Foundation Required", "- Step"). Node labels are not list
+    /// items; the marker is noise.
+    private func cleanDiagramNodeLabel(_ raw: String) -> String {
+        var s = raw.trimmingCharacters(in: .whitespaces)
+        for token in ["→ ", "-> ", "• ", "- ", "* ", "→", "->", "•"] {
+            if s.hasPrefix(token) {
+                s = String(s.dropFirst(token.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+        return s
     }
 
     private func drawFlowchartStep(context: CGContext, text: String, rect: CGRect, isFirst: Bool, isLast: Bool) {
@@ -1037,12 +1054,13 @@ final class PDFDiagramRenderer {
     @discardableResult
     func renderProcessDiagram(
         title: String,
-        phases: [(name: String, description: String)],
+        phases rawPhases: [(name: String, description: String)],
         to context: CGContext,
         at point: CGPoint,
         maxWidth: CGFloat
     ) -> CGFloat {
-        guard !phases.isEmpty else { return 0 }
+        guard !rawPhases.isEmpty else { return 0 }
+        let phases = rawPhases.map { (name: cleanDiagramNodeLabel($0.name), description: $0.description) }
 
         let headerHeight: CGFloat = 28
         let diagramHeight: CGFloat = 80

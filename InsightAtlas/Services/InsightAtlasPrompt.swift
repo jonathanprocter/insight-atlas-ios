@@ -459,6 +459,25 @@ struct InsightAtlasPromptGenerator {
 
         NEVER force non-sequential content into a flowchart or process diagram. Book metadata (title, author, publisher, copyright), citation/reading lists, intellectual lineages, and plain bullet lists are NOT processes — render them as ordinary prose or the matching structured type, never as a [VISUAL_FLOWCHART]/[VISUAL_PROCESS]. A flowchart/process is ONLY for a genuine ordered sequence where each step leads to the next.
 
+        Before emitting ANY flowchart or process diagram, ask: "Do these items happen in ORDER, each one causing or leading to the next?" If they are parallel items, categories, a list, or metadata, the answer is NO — use prose or a different visual type.
+
+        EXAMPLE — the most common mistake to avoid:
+        ✗ WRONG — a parallel list forced into a flowchart:
+          [VISUAL_FLOWCHART: Change Mechanisms]
+          Identify thoughts as thoughts
+          Shift attention from content to process
+          Create psychological distance
+          [/VISUAL_FLOWCHART]
+          (These are parallel mechanisms, not ordered steps — render as prose or a concept map.)
+        ✓ RIGHT — a genuine causal sequence:
+          [VISUAL_FLOWCHART: How a Fused Thought Drives Behavior]
+          Trigger event
+          Automatic thought
+          Thought taken as literal truth
+          Rigid rule-following
+          Narrowed behavior
+          [/VISUAL_FLOWCHART]
+
         Available visual types:
 
         [VISUAL_SPECTRUM: Title]
