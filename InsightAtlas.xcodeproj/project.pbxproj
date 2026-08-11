@@ -62,6 +62,12 @@
 		C284A0062F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */; };
 		C284A0082F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */; };
 		C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C2E9A9242F0A4D1200480055 /* ZIPFoundation */; };
+		A11C0C0A0000000000002001 /* KokoroVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */; };
+		A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001002 /* KokoroModelManager.swift */; };
+		A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001003 /* KokoroTextChunker.swift */; };
+		A11C0C0A0000000000002004 /* KokoroAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001004 /* KokoroAudioService.swift */; };
+		A11C0C0A0000000000005001 /* sherpa-onnx in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004001 /* sherpa-onnx */; };
+		A11C0C0A0000000000005002 /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004002 /* SWCompression */; };
 		E29C402FB823CF0FC43901BE /* PDFAudioBundler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */; };
 		E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00002D000001007AAAAA /* InsightAtlasApp.swift */; };
 		E81A00032D000001007AAAAA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00022D000001007AAAAA /* ContentView.swift */; };
@@ -263,6 +269,10 @@
 		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		IAVOICEPROV02AAA002 /* VoiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProvider.swift; sourceTree = "<group>"; };
 		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroVoiceRegistry.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001002 /* KokoroModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroModelManager.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001003 /* KokoroTextChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTextChunker.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001004 /* KokoroAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroAudioService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -279,6 +289,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */,
+				A11C0C0A0000000000005001 /* sherpa-onnx in Frameworks */,
+				A11C0C0A0000000000005002 /* SWCompression in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -440,6 +452,9 @@
 				IACGVPROTOFILE0000000001 /* ChatGPTVoiceProtocol.swift */,
 				IACGVSVCFILE000000000001 /* ChatGPTVoiceService.swift */,
 				IACGVAUDIOFILE0000000001 /* ChatGPTVoiceAudioEncoder.swift */,
+				A11C0C0A0000000000001002 /* KokoroModelManager.swift */,
+				A11C0C0A0000000000001003 /* KokoroTextChunker.swift */,
+				A11C0C0A0000000000001004 /* KokoroAudioService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -546,6 +561,7 @@
 				IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */,
 				IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */,
 				IACGVREGFILE000000000001 /* ChatGPTVoiceRegistry.swift */,
+				A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */,
 				IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */,
 				IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */,
 			);
@@ -596,6 +612,8 @@
 			name = InsightAtlas;
 			packageProductDependencies = (
 				C2E9A9242F0A4D1200480055 /* ZIPFoundation */,
+				A11C0C0A0000000000004001 /* sherpa-onnx */,
+				A11C0C0A0000000000004002 /* SWCompression */,
 			);
 			productName = InsightAtlas;
 			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
@@ -630,6 +648,8 @@
 			mainGroup = E81AFFF72D000001007AAAAA;
 			packageReferences = (
 				C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */,
+				A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */,
 			);
 			productRefGroup = E81AFFFE2D000001007AAAAA /* Products */;
 			projectDirPath = "";
@@ -784,6 +804,10 @@
 				IAGOVSYN01AAAAAAAA001 /* SummaryGovernorSynthesis.swift in Sources */,
 				IAAPPENV001AAAAAAAAA001 /* AppEnvironment.swift in Sources */,
 				IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */,
+				A11C0C0A0000000000002001 /* KokoroVoiceRegistry.swift in Sources */,
+				A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */,
+				A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */,
+				A11C0C0A0000000000002004 /* KokoroAudioService.swift in Sources */,
 				IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */,
 				IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */,
 			);
@@ -1064,6 +1088,22 @@
 				minimumVersion = 0.9.20;
 			};
 		};
+		A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/k2-fsa/sherpa-onnx";
+			requirement = {
+				kind = revision;
+				revision = 952b37032f2500b625832606b6763fba0471ffde;
+			};
+		};
+		A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tsolomko/SWCompression.git";
+			requirement = {
+				kind = exactVersion;
+				version = 4.9.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1071,6 +1111,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
 			productName = ZIPFoundation;
+		};
+		A11C0C0A0000000000004001 /* sherpa-onnx */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */;
+			productName = "sherpa-onnx";
+		};
+		A11C0C0A0000000000004002 /* SWCompression */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */;
+			productName = SWCompression;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

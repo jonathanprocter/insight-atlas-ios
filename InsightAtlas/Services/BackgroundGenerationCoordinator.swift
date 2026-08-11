@@ -1299,6 +1299,17 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             let voiceName: String
 
             switch provider {
+            case .kokoro:
+                if let selectedVoiceID,
+                   let selectedVoice = KokoroVoiceRegistry.voice(byVoiceID: selectedVoiceID) {
+                    voiceID = selectedVoice.voiceID
+                    voiceName = selectedVoice.name
+                } else {
+                    let recommendedVoice = KokoroVoiceRegistry.recommendedVoice(for: readerProfile)
+                    voiceID = recommendedVoice.voiceID
+                    voiceName = recommendedVoice.name
+                }
+
             case .chatgptVoice:
                 if let selectedVoiceID,
                    let selectedVoice = ChatGPTVoiceRegistry.voice(byID: selectedVoiceID) {

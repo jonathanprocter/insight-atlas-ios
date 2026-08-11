@@ -22,6 +22,8 @@ struct SettingsView: View {
         }
 
         switch environment.userSettings.voiceProvider {
+        case .kokoro:
+            return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? KokoroVoiceRegistry.defaultVoice.name
         case .chatgptVoice:
             return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
         case .openai:
@@ -142,7 +144,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
+                        keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "elevenlabs", "openai"],
                         dynamicValues: [selectedVoiceName]
                     ) {
                         PremiumSettingsCard(
@@ -943,6 +945,7 @@ struct APIConfigurationView: View {
 
 struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
     private var selectedVoiceName: String {
         guard let voiceID = environment.userSettings.selectedVoiceID else {
@@ -950,6 +953,8 @@ struct AudioSettingsView: View {
         }
 
         switch environment.userSettings.voiceProvider {
+        case .kokoro:
+            return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? KokoroVoiceRegistry.defaultVoice.name
         case .chatgptVoice:
             return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
         case .openai:
@@ -961,6 +966,14 @@ struct AudioSettingsView: View {
 
     var body: some View {
         List {
+            Section {
+                kokoroModelStatus
+            } header: {
+                Text("On-Device Voice Model")
+            } footer: {
+                Text("The verified Kokoro model is downloaded once, stored only on this device, and uses about 182 MB after installation.")
+            }
+
             Section {
                 Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
                     ForEach(VoiceProvider.allCases, id: \.self) { provider in
@@ -1007,10 +1020,59 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("ChatGPT Voice uses your ChatGPT sign-in and is the primary experimental narration path. If it is unavailable or fails, InsightAtlas automatically tries configured OpenAI and ElevenLabs providers. OpenAI and ElevenLabs keys are entered under API Configuration.")
+                Text("Kokoro is the default offline narrator and has no per-use fee. OpenAI and ElevenLabs remain optional cloud providers; ChatGPT Voice is experimental and tried last when stable providers are unavailable.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
+    }
+
+    @ViewBuilder
+    private var kokoroModelStatus: some View {
+        switch kokoroModelManager.state {
+        case .notInstalled:
+            Label("Not downloaded", systemImage: "arrow.down.circle")
+            Button("Download Kokoro Model") {
+                kokoroModelManager.install()
+            }
+
+        case .preparing:
+            Label("Preparing download…", systemImage: "hourglass")
+            ProgressView()
+
+        case .downloading(let progress):
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Downloading… \(Int(progress * 100))%")
+                ProgressView(value: progress)
+            }
+            Button("Cancel", role: .cancel) {
+                kokoroModelManager.cancelInstall()
+            }
+
+        case .verifying:
+            Label("Verifying model integrity…", systemImage: "checkmark.shield")
+            ProgressView()
+
+        case .extracting:
+            Label("Installing model…", systemImage: "archivebox")
+            ProgressView()
+
+        case .installed:
+            Label("Ready for offline narration", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(PremiumUI.forest)
+            Button("Remove Downloaded Model", role: .destructive) {
+                try? kokoroModelManager.deleteModel()
+            }
+
+        case .failed(let message):
+            Label("Download failed", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Try Download Again") {
+                kokoroModelManager.install()
+            }
+        }
     }
 }
 
@@ -1225,6 +1287,7 @@ struct VoiceSelectionSettingsView: View {
 
     private var hasVoiceKey: Bool {
         switch environment.userSettings.voiceProvider {
+        case .kokoro: return KokoroModelStore.isInstalled
         case .chatgptVoice: return ChatGPTOAuthService.hasStoredCredentials
         case .openai: return KeychainService.shared.hasOpenAIApiKey
         case .elevenlabs: return KeychainService.shared.hasElevenLabsApiKey
@@ -1234,6 +1297,25 @@ struct VoiceSelectionSettingsView: View {
     var body: some View {
         List {
             switch environment.userSettings.voiceProvider {
+            case .kokoro:
+                Section {
+                    ForEach(KokoroVoiceRegistry.allVoices) { voice in
+                        KokoroVoiceSettingsRow(
+                            voice: voice,
+                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
+                            isPreviewing: previewingVoiceID == voice.voiceID,
+                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
+                            isPreviewEnabled: hasVoiceKey,
+                            onSelect: { selectKokoroVoice(voice) },
+                            onPreview: { previewKokoroVoice(voice) }
+                        )
+                    }
+                } header: {
+                    Text("Kokoro On-Device Voices")
+                } footer: {
+                    Text(hasVoiceKey ? "Tap to select, then play to preview completely offline." : "Download the Kokoro model in Audio Settings to enable previews.")
+                }
+
             case .chatgptVoice:
                 Section {
                     ForEach(ChatGPTVoiceRegistry.allVoices) { voice in
@@ -1301,6 +1383,55 @@ struct VoiceSelectionSettingsView: View {
             Button("OK", role: .cancel) { previewError = nil }
         } message: {
             Text(previewError ?? "")
+        }
+    }
+
+    // MARK: - Kokoro Voice Selection
+
+    private func selectKokoroVoice(_ voice: KokoroVoice) {
+        environment.userSettings.selectedVoiceID = voice.voiceID
+        environment.saveSettings()
+    }
+
+    private func previewKokoroVoice(_ voice: KokoroVoice) {
+        guard !isLoadingPreview, hasVoiceKey else { return }
+        AudioPlaybackManager.shared.stop()
+
+        if previewingVoiceID == voice.voiceID {
+            previewingVoiceID = nil
+            return
+        }
+
+        previewingVoiceID = voice.voiceID
+        isLoadingPreview = true
+
+        Task {
+            do {
+                let sampleText = "Hello, I'm \(voice.name). I'll narrate your Insight Atlas guides privately and completely offline."
+                let audio = try await environment.voiceServiceManager.generateAudio(
+                    text: sampleText,
+                    voiceID: voice.voiceID,
+                    provider: .kokoro
+                )
+
+                await MainActor.run {
+                    isLoadingPreview = false
+                    do {
+                        try AudioPlaybackManager.shared.play(audio) {
+                            previewingVoiceID = nil
+                        }
+                    } catch {
+                        previewingVoiceID = nil
+                        previewError = error.localizedDescription
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPreview = false
+                    previewingVoiceID = nil
+                    previewError = error.localizedDescription
+                }
+            }
         }
     }
 
@@ -1448,6 +1579,70 @@ struct VoiceSelectionSettingsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Kokoro Voice Row
+
+struct KokoroVoiceSettingsRow: View {
+    let voice: KokoroVoice
+    let isSelected: Bool
+    let isPreviewing: Bool
+    let isLoading: Bool
+    let isPreviewEnabled: Bool
+    let onSelect: () -> Void
+    let onPreview: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(voice.name)
+                            .font(.body)
+                            .fontWeight(.medium)
+
+                        if voice.voiceID == KokoroVoiceRegistry.defaultVoice.voiceID {
+                            Text("DEFAULT")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(PremiumUI.gold.opacity(0.2))
+                                .foregroundColor(PremiumUI.goldDark)
+                                .cornerRadius(4)
+                        }
+                    }
+
+                    Text(voice.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button(action: onPreview) {
+                    if isLoading {
+                        ProgressView().scaleEffect(0.8)
+                    } else {
+                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(!isPreviewEnabled)
+                .opacity(isPreviewEnabled ? 1 : 0.5)
+                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(PremiumUI.gold)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

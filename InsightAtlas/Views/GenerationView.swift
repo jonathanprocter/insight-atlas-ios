@@ -71,6 +71,10 @@ struct GenerationView: View {
             )
         }
         .onAppear {
+            if selectedVoiceID == nil {
+                selectedVoiceID = environment.userSettings.selectedVoiceID
+                    ?? environment.userSettings.voiceProvider.defaultVoiceID
+            }
             syncGenerationState()
         }
         .onReceive(generationCoordinator.$progress) { updated in
@@ -291,9 +295,7 @@ struct GenerationView: View {
                     .accessibilityIdentifier("generation_voice_provider_picker")
 
                     if !environment.userSettings.voiceProvider.isConfigured() {
-                        Text(environment.userSettings.voiceProvider == .chatgptVoice
-                             ? "Sign in with ChatGPT under API Configuration to use experimental narration."
-                             : "\(environment.userSettings.voiceProvider.displayName) API key not configured.")
+                        Text(voiceProviderConfigurationMessage)
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.accentHighlight)
                     }
@@ -346,11 +348,24 @@ struct GenerationView: View {
         .padding(.horizontal, 24)
     }
 
+    private var voiceProviderConfigurationMessage: String {
+        switch environment.userSettings.voiceProvider {
+        case .kokoro:
+            return "Download the Kokoro on-device model in Settings → Audio & Narration."
+        case .openai, .elevenlabs:
+            return "\(environment.userSettings.voiceProvider.displayName) API key not configured."
+        case .chatgptVoice:
+            return "Sign in with ChatGPT under API Configuration to use experimental narration."
+        }
+    }
+
     /// Get the display name for the currently selected voice
     private var selectedVoiceName: String {
         let provider = environment.userSettings.voiceProvider
         guard let voiceID = selectedVoiceID else {
             switch provider {
+            case .kokoro:
+                return KokoroVoiceRegistry.defaultVoice.name + " (Default)"
             case .chatgptVoice:
                 return ChatGPTVoiceRegistry.defaultVoice.name + " (Default)"
             case .openai:
@@ -361,6 +376,8 @@ struct GenerationView: View {
         }
 
         switch provider {
+        case .kokoro:
+            return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
         case .chatgptVoice:
             return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
         case .openai:
@@ -813,6 +830,8 @@ struct VoiceSelectionSheet: View {
                         .padding(.horizontal)
 
                     switch voiceProvider {
+                    case .kokoro:
+                        kokoroVoiceList
                     case .chatgptVoice:
                         chatGPTVoiceList
                     case .openai:
@@ -841,6 +860,26 @@ struct VoiceSelectionSheet: View {
                 }
             }
             .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
+        }
+    }
+
+    private var kokoroVoiceList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("KOKORO VOICES · ON-DEVICE")
+                .font(.caption)
+                .fontWeight(.bold)
+                .tracking(1)
+                .foregroundColor(AnalysisTheme.accentTeal)
+                .padding(.horizontal)
+
+            ForEach(KokoroVoiceRegistry.allVoices, id: \.id) { voice in
+                voiceRow(
+                    id: voice.voiceID,
+                    name: voice.name,
+                    description: voice.description,
+                    isSelected: selectedVoiceID == voice.voiceID
+                )
+            }
         }
     }
 
