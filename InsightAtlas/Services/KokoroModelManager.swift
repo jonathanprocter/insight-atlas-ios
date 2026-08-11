@@ -421,12 +421,14 @@ private enum KokoroModelInstaller {
         defer { try? handle.close() }
 
         var hasher = SHA256()
-        while autoreleasepool(invoking: {
-            let data = try? handle.read(upToCount: 1_048_576)
-            guard let data, !data.isEmpty else { return false }
+        while true {
+            try Task.checkCancellation()
+            guard let data = try handle.read(upToCount: 1_048_576),
+                  !data.isEmpty else {
+                break
+            }
             hasher.update(data: data)
-            return true
-        }) {}
+        }
 
         let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
         guard digest == manifest.sha256 else {

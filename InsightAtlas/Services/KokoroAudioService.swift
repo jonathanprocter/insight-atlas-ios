@@ -37,38 +37,58 @@ enum KokoroAudioError: LocalizedError {
     }
 }
 
+protocol KokoroSynthesizing: Sendable {
+    func generate(
+        text: String,
+        speakerID: Int,
+        modelDirectory: URL
+    ) async throws -> KokoroSynthesisResult
+
+    func reset() async
+}
+
 final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
     static let shared = KokoroAudioService()
 
     let provider: VoiceProvider = .kokoro
 
     var isConfigured: Bool {
-        KokoroModelStore.isInstalled
+        isModelInstalled()
     }
 
-    private let engine: KokoroSynthesisEngine
+    private let engine: any KokoroSynthesizing
+    private let isModelInstalled: @Sendable () -> Bool
+    private let modelDirectoryProvider: @Sendable () -> URL
 
-    init(engine: KokoroSynthesisEngine = KokoroSynthesisEngine()) {
+    init(
+        engine: any KokoroSynthesizing = KokoroSynthesisEngine(),
+        isModelInstalled: @escaping @Sendable () -> Bool = { KokoroModelStore.isInstalled },
+        modelDirectoryProvider: @escaping @Sendable () -> URL = { KokoroModelStore.modelDirectory() }
+    ) {
         self.engine = engine
+        self.isModelInstalled = isModelInstalled
+        self.modelDirectoryProvider = modelDirectoryProvider
     }
 
     func generateAudio(
         text: String,
         voiceID: String
     ) async throws -> GeneratedAudio {
+        try Task.checkCancellation()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw KokoroAudioError.emptyText }
-        guard KokoroModelStore.isInstalled else {
+        guard isModelInstalled() else {
             throw KokoroAudioError.modelNotInstalled
         }
         guard let voice = KokoroVoiceRegistry.voice(byVoiceID: voiceID) else {
             throw KokoroAudioError.invalidVoiceID
         }
 
+        try Task.checkCancellation()
         let result = try await engine.generate(
             text: trimmed,
             speakerID: voice.speakerID,
-            modelDirectory: KokoroModelStore.modelDirectory()
+            modelDirectory: modelDirectoryProvider()
         )
         return GeneratedAudio(
             data: result.data,
@@ -92,7 +112,7 @@ struct KokoroSynthesisResult: Sendable {
     let duration: TimeInterval
 }
 
-actor KokoroSynthesisEngine {
+actor KokoroSynthesisEngine: KokoroSynthesizing {
     private var tts: KokoroNativeTTS?
     private var loadedDirectory: URL?
     private let chunker: KokoroTextChunker
@@ -101,7 +121,7 @@ actor KokoroSynthesisEngine {
         self.chunker = chunker
     }
 
-    func reset() {
+    func reset() async {
         tts = nil
         loadedDirectory = nil
     }
@@ -110,7 +130,7 @@ actor KokoroSynthesisEngine {
         text: String,
         speakerID: Int,
         modelDirectory: URL
-    ) throws -> KokoroSynthesisResult {
+    ) async throws -> KokoroSynthesisResult {
         let chunks = chunker.chunks(for: text)
         guard !chunks.isEmpty else { throw KokoroAudioError.emptyText }
 
