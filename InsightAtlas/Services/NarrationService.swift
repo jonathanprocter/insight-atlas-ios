@@ -3,8 +3,9 @@
 //  InsightAtlas
 //
 //  Narration orchestration with a primary/fallback provider policy:
-//    1. Mega Transcript — Arthur preferred from the live English catalog.
-//    2. Kokoro / Liam — fallback when Mega is unavailable or fails.
+//    1. ChatGPT Voice (experimental) when OAuth credentials are present.
+//    2. Mega Transcript — Arthur preferred from the live English catalog.
+//    3. Kokoro / Liam — fallback when the earlier routes are unavailable.
 //
 //  Both paths converge on the app's standard `NarrationAsset` contract: a file
 //  written into Documents as `audio_<itemId>.<ext>` plus a duration and voice
@@ -29,9 +30,9 @@ actor NarrationService {
     /// `KokoroNarrationService`; it is no longer the primary narration path.
     static let openAIVoice = "onyx"
 
-    /// Synthesize narration for `itemId`, preferring Mega Transcript and falling
-    /// back to the existing Kokoro/Liam pipeline. Cancellation never triggers a
-    /// paid fallback request.
+    /// Synthesize narration for `itemId`, preferring the signed-in experimental
+    /// ChatGPT Voice route before the existing Mega Transcript and Liam paths.
+    /// Cancellation never triggers another provider request.
     func synthesize(
         text: String,
         itemId: UUID,
@@ -39,6 +40,28 @@ actor NarrationService {
     ) async throws -> NarrationAsset {
         let spokenText = NarrationTextSanitizer.prepare(text)
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
+
+        if ChatGPTOAuthService.hasStoredCredentials {
+            do {
+                let asset = try await synthesizeWithChatGPTVoice(
+                    text: spokenText,
+                    itemId: itemId
+                )
+                let voiceName = ChatGPTVoiceRegistry.voice(byID: asset.voiceID)?.name
+                    ?? ChatGPTVoiceRegistry.defaultVoice.name
+                progress(.ready(narrator: "ChatGPT Voice · \(voiceName)"))
+                narrationLog.info(
+                    "Narration via ChatGPT Voice (\(voiceName, privacy: .public)) for \(itemId.uuidString)"
+                )
+                return asset
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                narrationLog.error(
+                    "ChatGPT Voice failed [\(error.localizedDescription, privacy: .public)] — trying configured fallbacks"
+                )
+            }
+        }
 
         if MegaTranscriptNarrationCoordinator.shared.isConfigured {
             do {
@@ -81,7 +104,21 @@ actor NarrationService {
         return asset
     }
 
-    // MARK: - OpenAI path
+    // MARK: - OAuth and OpenAI paths
+
+    private func synthesizeWithChatGPTVoice(text: String, itemId: UUID) async throws -> NarrationAsset {
+        let storedVoiceID = UserDefaults.standard.string(
+            forKey: ChatGPTVoiceRegistry.selectedVoiceStorageKey
+        )
+        let voiceID = storedVoiceID.flatMap(ChatGPTVoiceRegistry.voice(byID:))?.voiceID
+            ?? ChatGPTVoiceRegistry.defaultVoice.voiceID
+        let audio = try await ChatGPTVoiceService().generateAudio(
+            text: text,
+            voiceID: voiceID
+        )
+        guard !audio.data.isEmpty else { throw ChatGPTVoiceServiceError.emptyAudio }
+        return try persist(audio: audio, itemId: itemId)
+    }
 
     private func synthesizeWithOpenAI(text: String, itemId: UUID, useOAuth: Bool) async throws -> NarrationAsset {
         let service = OpenAIAudioService()
@@ -94,7 +131,10 @@ actor NarrationService {
         // OpenAIAudioService chunks long text and returns fully-assembled audio.
         let audio = try await service.generateAudio(text: text, voiceID: Self.openAIVoice, speed: 1.0)
         guard !audio.data.isEmpty else { throw OpenAIAudioError.audioDecodingFailed }
+        return try persist(audio: audio, itemId: itemId)
+    }
 
+    private func persist(audio: GeneratedAudio, itemId: UUID) throws -> NarrationAsset {
         guard let documents = FileManager.default.urls(
             for: .documentDirectory, in: .userDomainMask
         ).first else {

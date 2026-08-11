@@ -3,6 +3,7 @@ import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
 
     @AppStorage(PremiumUI.themeStorageKey) private var themePreference = PremiumTheme.system.rawValue
     @AppStorage(PremiumUI.accentStorageKey) private var accentPreference = PremiumAccent.gold.rawValue
@@ -18,6 +19,10 @@ struct SettingsView: View {
 
     @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
     private var selectedVoiceName = "Arthur"
+
+    private var audioStatus: String {
+        chatgpt.isSignedIn ? "ChatGPT Voice" : selectedVoiceName
+    }
 
     private var accentColor: Color {
         PremiumUI.accent(from: accentPreference)
@@ -111,7 +116,7 @@ struct SettingsView: View {
                     if matchesSection(
                         title: "API Configuration",
                         keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
-                        dynamicValues: [apiConfigurationStatus]
+                        dynamicValues: [apiConfigurationStatus, chatgpt.isSignedIn ? "ChatGPT signed in" : "ChatGPT sign in"]
                     ) {
                         PremiumSettingsCard(
                             title: "API CONFIGURATION",
@@ -120,8 +125,8 @@ struct SettingsView: View {
                             isExpanded: $expandAPI
                         ) {
                             PremiumSettingsNavigationRow(
-                                title: "Manage API Keys",
-                                value: apiConfigurationStatus
+                                title: "ChatGPT & API Access",
+                                value: chatgpt.isSignedIn ? "Signed In" : "Sign In"
                             ) {
                                 APIConfigurationView()
                             }
@@ -130,8 +135,8 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "mega transcript", "arthur", "liam"],
-                        dynamicValues: [selectedVoiceName]
+                        keywords: ["audio", "voice", "narration", "playback", "chatgpt", "gpt-live", "mega transcript", "arthur", "liam"],
+                        dynamicValues: [audioStatus]
                     ) {
                         PremiumSettingsCard(
                             title: "AUDIO & NARRATION",
@@ -141,7 +146,7 @@ struct SettingsView: View {
                         ) {
                             PremiumSettingsNavigationRow(
                                 title: "Audio Settings",
-                                value: selectedVoiceName
+                                value: audioStatus
                             ) {
                                 AudioSettingsView()
                             }
@@ -900,12 +905,20 @@ struct APIConfigurationView: View {
             } header: {
                 Text("ChatGPT Subscription (Beta)")
             } footer: {
-                Text("Unofficial: routes guide generation through your ChatGPT subscription via the Codex backend. While enabled, it overrides the AI Provider selection above. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or ban your account. Use at your own risk. Note: this covers guide text only — audio narration is generated separately with the Liam voice and requires the narration token in Audio & Narration. If generation fails with a \"model is not supported\" error, try a different Codex Model above (tap the ▾ for suggestions); which models work depends on your ChatGPT plan.")
+                Text("Unofficial: uses your ChatGPT subscription for Codex guide generation and experimental GPT-Live narration. This is not supported by OpenAI and availability depends on your account. If ChatGPT Voice fails, InsightAtlas falls back to Mega Transcript and then Liam when configured.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
         .sheet(isPresented: $showChatGPTSignIn) {
             ChatGPTSignInSheet()
+        }
+        .onChange(of: chatgpt.isSignedIn) { _, isSignedIn in
+            guard isSignedIn else { return }
+            environment.updateVoiceProvider(.chatgptVoice)
+            if environment.userSettings.selectedVoiceID == nil {
+                environment.userSettings.selectedVoiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
+            }
+            environment.saveSettings()
         }
     }
 }
@@ -914,6 +927,12 @@ struct APIConfigurationView: View {
 
 struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
+
+    @AppStorage(ChatGPTVoiceRegistry.selectedVoiceStorageKey)
+    private var chatgptVoiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
+
+    @State private var showChatGPTSignIn = false
 
     @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
     private var megaVoiceName = "Arthur"
@@ -943,8 +962,46 @@ struct AudioSettingsView: View {
         }
     }
 
+    private var chatgptVoiceName: String {
+        ChatGPTVoiceRegistry.voice(byID: chatgptVoiceID)?.name
+            ?? ChatGPTVoiceRegistry.defaultVoice.name
+    }
+
     var body: some View {
         List {
+            Section {
+                if chatgpt.isSignedIn {
+                    HStack {
+                        Label("ChatGPT connected", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(PremiumUI.forest)
+                        Spacer()
+                        Text("Ready")
+                            .foregroundStyle(PremiumUI.secondaryText)
+                    }
+
+                    NavigationLink {
+                        ChatGPTVoiceSelectionView()
+                    } label: {
+                        HStack {
+                            Text("Voice")
+                            Spacer()
+                            Text(chatgptVoiceName)
+                                .foregroundStyle(PremiumUI.secondaryText)
+                        }
+                    }
+                } else {
+                    Button {
+                        showChatGPTSignIn = true
+                    } label: {
+                        Label("Sign in with ChatGPT", systemImage: "person.crop.circle")
+                    }
+                }
+            } header: {
+                Text("ChatGPT Voice (Experimental)")
+            } footer: {
+                Text("Uses your ChatGPT OAuth sign-in for GPT-Live narration. When connected, this is tried first; Mega Transcript and Liam remain available as fallbacks.")
+            }
+
             Section {
                 NavigationLink {
                     MegaTranscriptDeveloperSettingsView()
@@ -962,9 +1019,9 @@ struct AudioSettingsView: View {
                     }
                 }
             } header: {
-                Text("Primary Narrator")
+                Text("Fallback Narrator")
             } footer: {
-                Text("Arthur is preferred from the live English catalog. Configure the regenerated key, choose another narrator, generate a paid preview, or clear the local narration cache here.")
+                Text("Mega Transcript is used when ChatGPT Voice is unavailable or fails. Configure its key, choose another narrator, generate a paid preview, or clear the local narration cache here.")
             }
 
             Section {
@@ -986,7 +1043,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Playback & Fallback")
             } footer: {
-                Text("Mega Transcript uses \(megaVoiceName) when configured. Liam is the fixed fallback when Mega is unavailable or cannot complete.")
+                Text("The route is ChatGPT Voice first, then Mega Transcript with \(megaVoiceName), then the fixed Liam fallback.")
             }
 
             Section {
@@ -1025,7 +1082,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration is generated after a guide finishes using Mega Transcript first and Liam as fallback. At least one credential must be configured.")
+                Text("When on, narration is generated after a guide finishes using ChatGPT Voice first, then Mega Transcript and Liam as fallbacks. At least one credential must be configured.")
             }
 
             Section {
@@ -1075,6 +1132,154 @@ struct AudioSettingsView: View {
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
+        .sheet(isPresented: $showChatGPTSignIn) {
+            ChatGPTSignInSheet()
+        }
+        .onChange(of: chatgpt.isSignedIn) { _, isSignedIn in
+            guard isSignedIn else { return }
+            environment.updateVoiceProvider(.chatgptVoice)
+            environment.userSettings.selectedVoiceID = chatgptVoiceID
+            environment.saveSettings()
+        }
+    }
+}
+
+// MARK: - ChatGPT Voice Selection
+
+struct ChatGPTVoiceSelectionView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
+
+    @AppStorage(ChatGPTVoiceRegistry.selectedVoiceStorageKey)
+    private var selectedVoiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
+
+    @State private var previewingVoiceID: String?
+    @State private var isLoadingPreview = false
+    @State private var previewError: String?
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(ChatGPTVoiceRegistry.allVoices) { voice in
+                    HStack(spacing: 12) {
+                        Button {
+                            selectedVoiceID = voice.voiceID
+                            environment.updateVoiceProvider(.chatgptVoice)
+                            environment.userSettings.selectedVoiceID = voice.voiceID
+                            environment.saveSettings()
+                            UISelectionFeedbackGenerator().selectionChanged()
+                        } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 7) {
+                                        Text(voice.name)
+                                            .font(PremiumUI.ui(16, .medium))
+                                            .foregroundStyle(PremiumUI.ink)
+
+                                        if voice.voiceID == ChatGPTVoiceRegistry.defaultVoice.voiceID {
+                                            Text("DEFAULT")
+                                                .font(PremiumUI.ui(10, .bold))
+                                                .foregroundStyle(PremiumUI.goldDark)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(PremiumUI.gold.opacity(0.18))
+                                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        }
+                                    }
+
+                                    Text(voice.description)
+                                        .font(PremiumUI.ui(13))
+                                        .foregroundStyle(PremiumUI.secondaryText)
+                                }
+
+                                Spacer()
+
+                                if selectedVoiceID == voice.voiceID {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(PremiumUI.gold)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            preview(voice)
+                        } label: {
+                            if isLoadingPreview && previewingVoiceID == voice.voiceID {
+                                ProgressView()
+                                    .frame(width: 28, height: 28)
+                            } else {
+                                Image(systemName: previewingVoiceID == voice.voiceID ? "stop.circle.fill" : "play.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(previewingVoiceID == voice.voiceID ? Color.red : PremiumUI.gold)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!chatgpt.isSignedIn || (isLoadingPreview && previewingVoiceID != voice.voiceID))
+                        .opacity(chatgpt.isSignedIn ? 1 : 0.45)
+                        .accessibilityLabel(chatgpt.isSignedIn ? "Preview \(voice.name)" : "Sign in with ChatGPT to preview")
+                    }
+                    .listRowBackground(PremiumUI.card)
+                }
+            } header: {
+                Text("GPT-Live Voices")
+            } footer: {
+                Text("Voice previews use the same experimental ChatGPT OAuth narration route as full guides.")
+            }
+        }
+        .premiumSettingsList(title: "ChatGPT Voice")
+        .alert(
+            "Voice preview failed",
+            isPresented: Binding(
+                get: { previewError != nil },
+                set: { if !$0 { previewError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(previewError ?? "")
+        }
+    }
+
+    private func preview(_ voice: ChatGPTVoice) {
+        guard chatgpt.isSignedIn, !isLoadingPreview else { return }
+
+        AudioPlaybackManager.shared.stop()
+        if previewingVoiceID == voice.voiceID {
+            previewingVoiceID = nil
+            return
+        }
+
+        previewingVoiceID = voice.voiceID
+        isLoadingPreview = true
+
+        Task {
+            do {
+                let audio = try await ChatGPTVoiceService().generateAudio(
+                    text: "Hello, I'm \(voice.name). This is an experimental ChatGPT Voice preview for InsightAtlas.",
+                    voiceID: voice.voiceID
+                )
+
+                await MainActor.run {
+                    isLoadingPreview = false
+                    do {
+                        try AudioPlaybackManager.shared.play(audio) {
+                            previewingVoiceID = nil
+                        }
+                    } catch {
+                        previewingVoiceID = nil
+                        previewError = error.localizedDescription
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPreview = false
+                    previewingVoiceID = nil
+                    previewError = error.localizedDescription
+                }
+            }
+        }
     }
 }
 

@@ -661,7 +661,7 @@ struct UserSettings: Codable {
         autoGenerateAudio: Bool = true,
         selectedVoiceID: String? = nil,
         playbackSpeed: PlaybackSpeed = .normal,
-        voiceProvider: VoiceProvider = .openai
+        voiceProvider: VoiceProvider = .chatgptVoice
     ) {
         self.preferredProvider = preferredProvider
         self.preferredMode = preferredMode
@@ -702,7 +702,7 @@ struct UserSettings: Codable {
         autoGenerateAudio = try container.decode(Bool.self, forKey: .autoGenerateAudio)
         selectedVoiceID = try container.decodeIfPresent(String.self, forKey: .selectedVoiceID)
         playbackSpeed = try container.decodeIfPresent(PlaybackSpeed.self, forKey: .playbackSpeed) ?? .normal
-        voiceProvider = try container.decodeIfPresent(VoiceProvider.self, forKey: .voiceProvider) ?? .openai
+        voiceProvider = try container.decodeIfPresent(VoiceProvider.self, forKey: .voiceProvider) ?? .chatgptVoice
     }
 }
 
