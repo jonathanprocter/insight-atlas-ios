@@ -444,7 +444,22 @@ struct InsightAtlasPromptGenerator {
         VISUAL FRAMEWORKS (WHEN THEY ADD CLARITY)
         ───
 
-        Use visuals to clarify relationships, processes, and comparisons that prose alone cannot efficiently convey. Available visual types:
+        Use visuals to clarify relationships, processes, and comparisons that prose alone cannot efficiently convey.
+
+        CHOOSE THE VISUAL TYPE THAT MATCHES THE CONTENT'S SHAPE — do NOT default to flowcharts:
+        - Ordered sequence / steps over time → [VISUAL_PROCESS] or [VISUAL_TIMELINE]
+        - Cyclical or self-reinforcing loop → [VISUAL_CYCLE]
+        - Hierarchy, foundation-to-peak, or layered levels → [VISUAL_PYRAMID]
+        - Narrowing stages (many → few) → [VISUAL_FUNNEL]
+        - Quantities / magnitudes to compare → [VISUAL_BAR_CHART]
+        - Parts of a whole / proportions → [VISUAL_PIE_CHART]
+        - Two opposing poles with a middle ground → [VISUAL_SPECTRUM]
+        - A central idea with radiating branches → [VISUAL_MINDMAP]
+        - Rows × columns / side-by-side comparison → [VISUAL_MATRIX] or [VISUAL_COMPARISON]
+
+        NEVER force non-sequential content into a flowchart or process diagram. Book metadata (title, author, publisher, copyright), citation/reading lists, intellectual lineages, and plain bullet lists are NOT processes — render them as ordinary prose or the matching structured type, never as a [VISUAL_FLOWCHART]/[VISUAL_PROCESS]. A flowchart/process is ONLY for a genuine ordered sequence where each step leads to the next.
+
+        Available visual types:
 
         [VISUAL_SPECTRUM: Title]
         Left pole → Right pole with items positioned along the range
@@ -570,6 +585,7 @@ struct InsightAtlasPromptGenerator {
         - Use the full visual library (30+ supported visual types) across guides to avoid repetition.
         - Target 12–18 visuals in a full guide, spread across 8–12 distinct visual types.
         - Avoid repeating any single visual type more than 2–3 times.
+        - Flowcharts/process diagrams must not exceed ~1/3 of all visuals; once two have been used, the next visual MUST be a different type. Reach for variety, never a wall of flowcharts.
         - Do not turn the guide into a photobook: every visual must be justified and followed by interpretation.
 
         ───
