@@ -22,6 +22,9 @@
 		IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */; };
 		IACGVTESTBLD000000000002 /* ChatGPTVoiceProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */; };
 		IACGVTESTBLD000000000003 /* ChatGPTVoiceServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */; };
+		A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */; };
+		A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */; };
+		A11C0C0A0000000000000203 /* KokoroTextChunkerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */; };
 		82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */; };
 		9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A77D72C5EAC28A38E529C7 /* InsightAtlas/Views/EditorialContentRenderer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
@@ -150,6 +153,9 @@
 		IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProviderTests.swift; sourceTree = "<group>"; };
 		IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProtocolTests.swift; sourceTree = "<group>"; };
 		IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceServiceTests.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroVoiceRegistryTests.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroModelManagerTests.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTextChunkerTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234596 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDiagramRenderer.swift; sourceTree = "<group>"; };
 		9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFStyleConfiguration.swift; sourceTree = "<group>"; };
@@ -291,6 +297,9 @@
 				IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */,
 				IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */,
 				IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */,
+				A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */,
+				A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */,
+				A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */,
 				7A1B2C3D4E5F678901234596 /* Info.plist */,
 			);
 			path = InsightAtlasTests;
@@ -685,6 +694,9 @@
 				IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */,
 				IACGVTESTBLD000000000002 /* ChatGPTVoiceProtocolTests.swift in Sources */,
 				IACGVTESTBLD000000000003 /* ChatGPTVoiceServiceTests.swift in Sources */,
+				A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */,
+				A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */,
+				A11C0C0A0000000000000203 /* KokoroTextChunkerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
