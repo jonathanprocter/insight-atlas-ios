@@ -235,30 +235,32 @@ final class KokoroModelManager: ObservableObject {
         let fileManager = self.fileManager
 
         installTask = Task { [weak self] in
+            guard let self else { return }
+
             do {
                 try await KokoroModelInstaller.install(
                     manifest: manifest,
                     fileManager: fileManager,
                     progress: { progress in
-                        Task { @MainActor [weak self] in
-                            self?.state = .downloading(progress: progress)
+                        Task { @MainActor in
+                            self.state = .downloading(progress: progress)
                         }
                     },
                     phase: { phase in
-                        Task { @MainActor [weak self] in
-                            self?.state = phase
+                        Task { @MainActor in
+                            self.state = phase
                         }
                     }
                 )
                 guard !Task.isCancelled else { throw CancellationError() }
                 await KokoroAudioService.shared.reset()
-                self?.state = .installed
+                state = .installed
             } catch is CancellationError {
-                self?.refreshState()
+                refreshState()
             } catch {
-                self?.state = .failed(message: error.localizedDescription)
+                state = .failed(message: error.localizedDescription)
             }
-            self?.installTask = nil
+            installTask = nil
         }
     }
 
