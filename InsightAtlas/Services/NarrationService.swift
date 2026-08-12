@@ -55,8 +55,7 @@ actor NarrationService {
     static let openAIVoice = "onyx"
 
     /// Synthesize narration for `itemId` using the fixed provider order:
-    /// Kokoro -> Mega Transcript -> OpenAI Audio API -> Liam. ChatGPT consumer OAuth is
-    /// intentionally excluded because it is not supported API authentication.
+    /// Kokoro -> Mega Transcript -> OpenAI Audio API -> Liam.
     /// Cancellation never triggers another provider request.
     func synthesize(
         text: String,

@@ -60,10 +60,9 @@ final class KeychainService {
         static let openaiApiKey = "com.insightatlas.openai-api-key"
         static let openRouterApiKey = "com.insightatlas.openrouter-api-key"
         static let elevenLabsApiKey = "com.insightatlas.elevenlabs-api-key"
-        static let chatgptAccessToken = "com.insightatlas.chatgpt-access-token"
-        static let chatgptRefreshToken = "com.insightatlas.chatgpt-refresh-token"
-        static let chatgptAccountID = "com.insightatlas.chatgpt-account-id"
-        static let chatgptTokenExpiry = "com.insightatlas.chatgpt-token-expiry"
+        static let minimaxAccessToken = "com.insightatlas.minimax-access-token"
+        static let minimaxRefreshToken = "com.insightatlas.minimax-refresh-token"
+        static let minimaxTokenExpiry = "com.insightatlas.minimax-token-expiry"
     }
 
     // MARK: - Public Interface
@@ -138,32 +137,26 @@ final class KeychainService {
         elevenLabsApiKey?.isEmpty == false
     }
 
-    // MARK: - ChatGPT OAuth tokens (UNOFFICIAL Codex path; ToS-risky)
+    // MARK: - MiniMax M3 OAuth tokens
 
-    var chatgptAccessToken: String? {
-        get { retrieve(key: Keys.chatgptAccessToken) }
-        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptAccessToken, value: v) } else { delete(key: Keys.chatgptAccessToken) } }
+    var minimaxAccessToken: String? {
+        get { retrieve(key: Keys.minimaxAccessToken) }
+        set { if let v = newValue, !v.isEmpty { save(key: Keys.minimaxAccessToken, value: v) } else { delete(key: Keys.minimaxAccessToken) } }
     }
-    var chatgptRefreshToken: String? {
-        get { retrieve(key: Keys.chatgptRefreshToken) }
-        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptRefreshToken, value: v) } else { delete(key: Keys.chatgptRefreshToken) } }
-    }
-    var chatgptAccountID: String? {
-        get { retrieve(key: Keys.chatgptAccountID) }
-        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptAccountID, value: v) } else { delete(key: Keys.chatgptAccountID) } }
+    var minimaxRefreshToken: String? {
+        get { retrieve(key: Keys.minimaxRefreshToken) }
+        set { if let v = newValue, !v.isEmpty { save(key: Keys.minimaxRefreshToken, value: v) } else { delete(key: Keys.minimaxRefreshToken) } }
     }
     /// Access-token expiry stored as an epoch-seconds string.
-    var chatgptTokenExpiry: String? {
-        get { retrieve(key: Keys.chatgptTokenExpiry) }
-        set { if let v = newValue, !v.isEmpty { _ = save(key: Keys.chatgptTokenExpiry, value: v) } else { delete(key: Keys.chatgptTokenExpiry) } }
+    var minimaxTokenExpiry: String? {
+        get { retrieve(key: Keys.minimaxTokenExpiry) }
+        set { if let v = newValue, !v.isEmpty { save(key: Keys.minimaxTokenExpiry, value: v) } else { delete(key: Keys.minimaxTokenExpiry) } }
     }
-    var hasChatGPTAuth: Bool { chatgptAccessToken?.isEmpty == false }
 
-    func clearChatGPTAuth() {
-        delete(key: Keys.chatgptAccessToken)
-        delete(key: Keys.chatgptRefreshToken)
-        delete(key: Keys.chatgptAccountID)
-        delete(key: Keys.chatgptTokenExpiry)
+    func clearMiniMaxAuth() {
+        delete(key: Keys.minimaxAccessToken)
+        delete(key: Keys.minimaxRefreshToken)
+        delete(key: Keys.minimaxTokenExpiry)
     }
 
     /// Clear all stored API keys

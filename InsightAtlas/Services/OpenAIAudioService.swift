@@ -46,7 +46,7 @@ enum OpenAIAudioError: LocalizedError {
         case .apiKeyMissing:
             return "OpenAI API key not configured. Please add your API key in Settings."
         case .authenticationFailed:
-            return "OpenAI rejected the API key. Replace it in Settings → ChatGPT & API Access."
+            return "OpenAI rejected the API key. Replace it in Settings → API Access."
         case .permissionDenied:
             return "This OpenAI API project does not have access to text-to-speech."
         case .badRequest(let detail):

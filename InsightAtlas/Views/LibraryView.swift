@@ -319,6 +319,41 @@ struct LibraryView: View {
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
 
+    private func toggleFavorite(_ item: LibraryItem) {
+        var updated = item
+        updated.isFavorite = !(item.isFavorite ?? false)
+        environment.updateLibraryItem(updated)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func exportItem(_ item: LibraryItem) {
+        Task {
+            do {
+                let url = try environment.dataManager.exportGuide(item, format: .pdf)
+                await MainActor.run { sharePayload = LibrarySharePayload(url: url) }
+            } catch {
+                await MainActor.run { exportError = error.localizedDescription }
+            }
+        }
+    }
+
+    /// Trailing swipe actions shared by the list rows: Favorite · Export · Delete.
+    private func swipeActions(for item: LibraryItem) -> [SwipeRowAction] {
+        [
+            SwipeRowAction(
+                title: (item.isFavorite ?? false) ? "Unfavorite" : "Favorite",
+                icon: (item.isFavorite ?? false) ? "heart.slash" : "heart",
+                tint: PremiumUI.coral
+            ) { toggleFavorite(item) },
+            SwipeRowAction(title: "Export", icon: "square.and.arrow.up", tint: PremiumUI.teal) {
+                exportItem(item)
+            },
+            SwipeRowAction(title: "Delete", icon: "trash", tint: Color(hex: "#C0392B")) {
+                pendingDelete = item
+            }
+        ]
+    }
+
     private var gridContent: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
             ForEach(filteredItems) { item in
@@ -341,14 +376,16 @@ struct LibraryView: View {
         VStack(spacing: 24) {
             LazyVStack(spacing: 14) {
                 ForEach(filteredItems) { item in
-                    NavigationLink(destination: GuideView(item: item)) {
-                        PremiumGuideListRow(
-                            item: item,
-                            status: status(for: item),
-                            accentColor: accentColor(for: item)
-                        )
+                    SwipeActionsRow(actions: swipeActions(for: item)) {
+                        NavigationLink(destination: GuideView(item: item)) {
+                            PremiumGuideListRow(
+                                item: item,
+                                status: status(for: item),
+                                accentColor: accentColor(for: item)
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             

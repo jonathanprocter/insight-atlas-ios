@@ -301,6 +301,7 @@ enum AIProvider: String, Codable, CaseIterable {
     case claude = "claude"
     case openai = "openai"
     case openRouter = "openrouter"
+    case minimax = "minimax"
     case both = "both"
 
     var displayName: String {
@@ -308,6 +309,7 @@ enum AIProvider: String, Codable, CaseIterable {
         case .claude: return "Claude"
         case .openai: return "OpenAI"
         case .openRouter: return "OpenRouter"
+        case .minimax: return "MiniMax M3"
         case .both: return "Both"
         }
     }

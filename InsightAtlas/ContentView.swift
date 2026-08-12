@@ -7,6 +7,7 @@ struct ContentView: View {
     @AppStorage(PremiumUI.accentStorageKey) private var accentPreference = PremiumAccent.gold.rawValue
 
     @State private var selectedTab: AppTab = .library
+    @State private var showOverflowMenu = false
 
     private var isIPad: Bool {
         horizontalSizeClass == .regular
@@ -60,9 +61,14 @@ struct ContentView: View {
                                 .foregroundColor(AnalysisTheme.textHeading)
                         }
                         Spacer()
-                        Image(systemName: "line.horizontal.3")
-                            .font(.system(size: 18))
-                            .foregroundColor(AnalysisTheme.textHeading)
+                        Button {
+                            showOverflowMenu = true
+                        } label: {
+                            Image(systemName: "line.horizontal.3")
+                                .font(.system(size: 18))
+                                .foregroundColor(AnalysisTheme.textHeading)
+                        }
+                        .accessibilityLabel("Menu")
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 10)
@@ -77,6 +83,13 @@ struct ContentView: View {
                         .background(AnalysisTheme.bgPrimary)
                     
                     PremiumTabBar(selection: $selectedTab)
+                }
+                .sheet(isPresented: $showOverflowMenu) {
+                    OverflowMenuView(
+                        themePreference: $themePreference,
+                        accentPreference: $accentPreference,
+                        onSelectTab: { selectedTab = $0 }
+                    )
                 }
             }
         }

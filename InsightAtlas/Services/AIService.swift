@@ -143,7 +143,7 @@ actor AIService {
         // For tandem mode (.both), use OpenAI's limit since GPT-4.1 analyzes the full book first
         let contextLimit: Int
         switch settings.preferredProvider {
-        case .openai, .both, .openRouter:
+        case .openai, .both, .openRouter, .minimax:
             contextLimit = openaiContextLimit
         case .claude:
             contextLimit = claudeContextLimit
@@ -185,6 +185,8 @@ actor AIService {
                 providerName = "GPT-4.1"  // GPT handles the full book in tandem mode
             case .openRouter:
                 providerName = "OpenRouter"
+            case .minimax:
+                providerName = "MiniMax M3"
             }
             throw AIServiceError.inputTooLarge(
                 estimatedTokens: estimate.totalInputTokens,
@@ -216,22 +218,6 @@ actor AIService {
     ) async throws -> String {
         let hasClaudeKey = !(settings.claudeApiKey ?? "").isEmpty
         let hasOpenAIKey = !(settings.openaiApiKey ?? "").isEmpty
-
-        // UNOFFICIAL: route generation through the user's ChatGPT subscription
-        // (Codex backend) when opted in AND signed in. Overrides provider
-        // selection and API-key checks. See ChatGPTOAuthService.
-        if UserDefaults.standard.bool(forKey: "insight_atlas_use_chatgpt_oauth"),
-           ChatGPTOAuthService.hasStoredCredentials {
-            return try await generateWithChatGPTOAuth(
-                bookText: bookText,
-                title: title,
-                author: author,
-                settings: settings,
-                onChunk: onChunk,
-                onStatus: onStatus,
-                shouldTerminate: shouldTerminate
-            )
-        }
 
         // Pre-flight validation: check input size before making API call
         // Skip for continuation/improvement requests which use smaller input
@@ -298,6 +284,31 @@ actor AIService {
                 model: OpenRouterConfig.resolvedModel,
                 maxTokens: 16000,  // safe across OpenRouter models (e.g. gpt-4o caps at 16384)
                 providerLabel: "OpenRouter",
+                previousContent: previousContent,
+                improvementHints: improvementHints,
+                onChunk: onChunk,
+                onStatus: onStatus,
+                shouldTerminate: shouldTerminate
+            )
+
+        case .minimax:
+            // MiniMax authenticates via OAuth (user-code flow) and serves an
+            // Anthropic-compatible Messages endpoint, so it reuses the Claude
+            // transport with a bearer token instead of the OpenAI path.
+            let token = try await MiniMaxOAuthService.shared.validAccessToken()
+            return try await streamWithClaude(
+                text: bookText,
+                title: title,
+                author: author,
+                mode: settings.preferredMode,
+                tone: settings.preferredTone,
+                format: settings.preferredFormat,
+                apiKey: token,
+                endpoint: MiniMaxOAuthConfig.inferenceURL,
+                model: MiniMaxOAuthConfig.defaultModel,
+                maxTokens: 16000,
+                useBearerAuth: true,
+                providerLabel: "MiniMax",
                 previousContent: previousContent,
                 improvementHints: improvementHints,
                 onChunk: onChunk,
@@ -429,71 +440,6 @@ actor AIService {
 
     // MARK: - Claude Integration
 
-    /// UNOFFICIAL ChatGPT-subscription generation via the Codex backend.
-    /// Streams the guide progressively via onChunk (incremental deltas),
-    /// mirroring the Claude/OpenAI streaming paths.
-    private func generateWithChatGPTOAuth(
-        bookText: String,
-        title: String,
-        author: String,
-        settings: UserSettings,
-        onChunk: @escaping (String) -> Void,
-        onStatus: @escaping (GenerationStatus) -> Void,
-        shouldTerminate: (() -> Bool)? = nil
-    ) async throws -> String {
-        let token = try await ChatGPTOAuthService.shared.validAccessToken()
-        let accountID = ChatGPTOAuthService.storedAccountID
-        let system = InsightAtlasPromptGenerator.generatePrompt(
-            title: title,
-            author: author,
-            mode: settings.preferredMode,
-            tone: settings.preferredTone,
-            format: settings.preferredFormat
-        )
-        let user = InsightAtlasPromptGenerator.generateUserMessage(
-            title: title,
-            author: author,
-            bookText: bookText,
-            format: settings.preferredFormat
-        )
-        let stream = ChatGPTCodexClient().stream(
-            systemPrompt: system,
-            userMessage: user,
-            model: ChatGPTOAuthConfig.resolvedModel,
-            accessToken: token,
-            accountID: accountID
-        )
-
-        var fullText = ""
-        var wordCount = 0
-        var lastCharWasWhitespace = true
-        var lastPhaseUpdate = 0
-        var terminated = false
-
-        for try await delta in stream {
-            if shouldTerminate?() == true { terminated = true; break }
-            fullText += delta
-            onChunk(delta)
-            updateWordCount(for: delta, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
-            if wordCount > lastPhaseUpdate + 1000 {
-                lastPhaseUpdate = wordCount
-                onStatus(GenerationStatus(
-                    phase: determinePhase(wordCount: wordCount),
-                    progress: min(Double(wordCount) / 15000.0, 0.95),
-                    wordCount: wordCount,
-                    model: "ChatGPT"
-                ))
-            }
-        }
-
-        if !terminated {
-            guard !fullText.isEmpty else {
-                throw ChatGPTOAuthError.inferenceFailed("empty response from Codex stream")
-            }
-        }
-        return fullText
-    }
-
     private func streamWithClaude(
         text: String,
         title: String,
@@ -502,6 +448,11 @@ actor AIService {
         tone: ToneMode,
         format: OutputFormat,
         apiKey: String,
+        endpoint: String? = nil,
+        model: String? = nil,
+        maxTokens: Int? = nil,
+        useBearerAuth: Bool = false,
+        providerLabel: String = "Claude",
         previousContent: String? = nil,
         improvementHints: String? = nil,
         onChunk: @escaping (String) -> Void,
@@ -510,7 +461,7 @@ actor AIService {
     ) async throws -> String {
 
         guard !apiKey.isEmpty else {
-            throw AIServiceError.missingApiKey(provider: "Claude")
+            throw AIServiceError.missingApiKey(provider: providerLabel)
         }
 
         let isIteration = previousContent != nil && improvementHints != nil
@@ -519,7 +470,7 @@ actor AIService {
             phase: isIteration ? .addingInsights : .analyzing,
             progress: 0.0,
             wordCount: 0,
-            model: isIteration ? "Claude (Improving)" : "Claude"
+            model: isIteration ? "\(providerLabel) (Improving)" : providerLabel
         ))
 
         let systemPrompt = InsightAtlasPromptGenerator.generatePrompt(
@@ -589,18 +540,24 @@ actor AIService {
             )
         }
 
-        guard let claudeURL = URL(string: claudeEndpoint) else {
-            throw AIServiceError.invalidURL(provider: "Claude")
+        guard let claudeURL = URL(string: endpoint ?? claudeEndpoint) else {
+            throw AIServiceError.invalidURL(provider: providerLabel)
         }
         var request = URLRequest(url: claudeURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        if useBearerAuth {
+            // MiniMax's Anthropic-compatible endpoint authenticates with a bearer
+            // token and does not require the `anthropic-version` header.
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        } else {
+            request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
+            request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        }
 
         let requestBody = ClaudeRequest(
-            model: claudeModel,
-            max_tokens: maxTokensClaude,
+            model: model ?? claudeModel,
+            max_tokens: maxTokens ?? maxTokensClaude,
             stream: true,
             system: systemPrompt,
             messages: [
@@ -646,7 +603,7 @@ actor AIService {
                         phase: .analyzing,
                         progress: 0.0,
                         wordCount: 0,
-                        model: "Claude (retrying in \(delaySeconds)s - attempt \(attempt)/\(maxRetryAttempts))"
+                        model: "\(providerLabel) (retrying in \(delaySeconds)s - attempt \(attempt)/\(maxRetryAttempts))"
                     ))
 
                     // Check for cancellation before sleeping

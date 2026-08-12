@@ -100,27 +100,6 @@ public enum LLMActionRouter {
                 return .failure("Provide a model slug for OpenRouter.")
             }
 
-        case "chatgpt_use_toggle":
-            let key = "insight_atlas_use_chatgpt_oauth"
-            let newValue: Bool
-            if let v = value?.lowercased() {
-                newValue = (v == "true" || v == "1" || v == "yes")
-            } else {
-                newValue = !(UserDefaults.standard.bool(forKey: key))
-            }
-            UserDefaults.standard.set(newValue, forKey: key)
-            UISelectionFeedbackGenerator().selectionChanged()
-            return .success("Use ChatGPT set to \(newValue)")
-
-        case "chatgpt_model_field":
-            if let v = value, !v.isEmpty {
-                UserDefaults.standard.set(v, forKey: ChatGPTOAuthConfig.modelStorageKey)
-                UISelectionFeedbackGenerator().selectionChanged()
-                return .success("ChatGPT model set to \(v)")
-            } else {
-                return .failure("Provide a model slug for ChatGPT.")
-            }
-
         case "contact_support_button":
             if let url = URL(string: "mailto:support@example.com") {
                 UIApplication.shared.open(url)

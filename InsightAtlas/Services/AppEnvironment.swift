@@ -86,20 +86,8 @@ class AppEnvironment: ObservableObject {
             return saved
         }
 
-        var migrated = saved
-        if migrated.voiceProvider == .chatgptVoice {
-            migrated.voiceProvider = .kokoro
-            migrated.selectedVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
-            defaults.set(
-                KokoroVoiceRegistry.defaultVoice.voiceID,
-                forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
-            )
-            if let encoded = try? JSONEncoder().encode(migrated) {
-                defaults.set(encoded, forKey: settingsKey)
-            }
-        }
         defaults.set(true, forKey: kokoroDefaultMigrationKey)
-        return migrated
+        return saved
     }
 
     func saveSettings() {
@@ -152,6 +140,8 @@ class AppEnvironment: ObservableObject {
             return KeychainService.shared.hasOpenAIApiKey
         case .openRouter:
             return KeychainService.shared.hasOpenRouterApiKey
+        case .minimax:
+            return MiniMaxOAuthService.hasStoredCredentials
         case .both:
             return KeychainService.shared.hasClaudeApiKey ||
                    KeychainService.shared.hasOpenAIApiKey

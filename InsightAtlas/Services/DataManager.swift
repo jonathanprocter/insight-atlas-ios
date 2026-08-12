@@ -259,6 +259,8 @@ class DataManager: ObservableObject {
             return KeychainService.shared.hasOpenAIApiKey
         case .openRouter:
             return KeychainService.shared.hasOpenRouterApiKey
+        case .minimax:
+            return MiniMaxOAuthService.hasStoredCredentials
         case .both:
             return KeychainService.shared.hasClaudeApiKey ||
                    KeychainService.shared.hasOpenAIApiKey

@@ -56,11 +56,6 @@ public enum LLMUIRegistry {
             LLMControl(id: "securefield_liam_token", title: "Liam Narration Token", kind: "field"),
             LLMControl(id: "openrouter_model_field", title: "OpenRouter model slug", kind: "field"),
             LLMControl(id: "openrouter_model_menu", title: "OpenRouter model suggestions", kind: "menu"),
-            LLMControl(id: "chatgpt_use_toggle", title: "Use ChatGPT for guide generation", kind: "toggle"),
-            LLMControl(id: "chatgpt_model_field", title: "ChatGPT Codex model slug", kind: "field"),
-            LLMControl(id: "chatgpt_model_menu", title: "ChatGPT model suggestions", kind: "menu"),
-            LLMControl(id: "chatgpt_sign_in_button", title: "Sign in with ChatGPT", kind: "button"),
-            LLMControl(id: "chatgpt_sign_out_button", title: "Sign out of ChatGPT", kind: "button"),
 
             // Audio (narration provider order is fixed)
             LLMControl(id: "navrow_audio_settings", title: "Audio Settings", kind: "navigation"),

@@ -3,7 +3,6 @@ import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
-    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
     @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
     @AppStorage(PremiumUI.themeStorageKey) private var themePreference = PremiumTheme.system.rawValue
@@ -30,7 +29,7 @@ struct SettingsView: View {
                 ?? KokoroVoiceRegistry.defaultVoice
             return "Kokoro · \(voice.name)"
         }
-        return chatgpt.isSignedIn ? "ChatGPT Voice" : selectedVoiceName
+        return selectedVoiceName
     }
 
     private var accentColor: Color {
@@ -124,8 +123,8 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "API Configuration",
-                        keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
-                        dynamicValues: [apiConfigurationStatus, chatgpt.isSignedIn ? "ChatGPT signed in" : "ChatGPT sign in"]
+                        keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "minimax"],
+                        dynamicValues: [apiConfigurationStatus]
                     ) {
                         PremiumSettingsCard(
                             title: "API CONFIGURATION",
@@ -134,8 +133,8 @@ struct SettingsView: View {
                             isExpanded: $expandAPI
                         ) {
                             PremiumSettingsNavigationRow(
-                                title: "ChatGPT & API Access",
-                                value: chatgpt.isSignedIn ? "Signed In" : "Sign In"
+                                title: "API Access",
+                                value: apiConfigurationStatus
                             ) {
                                 APIConfigurationView()
                             }
@@ -144,7 +143,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "free", "chatgpt", "gpt-live", "mega transcript", "arthur", "liam"],
+                        keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "free", "mega transcript", "arthur", "liam"],
                         dynamicValues: [audioStatus]
                     ) {
                         PremiumSettingsCard(
@@ -350,7 +349,7 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "API Configuration",
-            keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
+            keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "minimax"],
             dynamicValues: [apiConfigurationStatus]
         ) &&
         !matchesSection(
@@ -748,11 +747,9 @@ struct PremiumChoiceRow: View {
 
 struct APIConfigurationView: View {
     @EnvironmentObject private var environment: AppEnvironment
-    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
-    @AppStorage("insight_atlas_use_chatgpt_oauth") private var useChatGPTOAuth = false
-    @AppStorage(ChatGPTOAuthConfig.modelStorageKey) private var chatgptModel = ChatGPTOAuthConfig.defaultModel
+    @ObservedObject private var minimax = MiniMaxOAuthService.shared
     @AppStorage(OpenRouterConfig.modelStorageKey) private var openRouterModel = OpenRouterConfig.defaultModel
-    @State private var showChatGPTSignIn = false
+    @State private var minimaxError: String?
 
     private func savedSuffix(for key: String?) -> String? {
         guard let key, key.count >= 4 else { return nil }
@@ -843,9 +840,9 @@ struct APIConfigurationView: View {
             }
 
             Section {
-                if chatgpt.isSignedIn {
+                if minimax.isSignedIn {
                     HStack {
-                        Text("ChatGPT")
+                        Text("MiniMax")
                         Spacer()
                         Text("Signed in")
                             .foregroundStyle(PremiumUI.forest)
@@ -854,80 +851,72 @@ struct APIConfigurationView: View {
                     }
                     .listRowBackground(PremiumUI.card)
 
-                    Toggle("Use for guide generation", isOn: $useChatGPTOAuth)
-                        .tint(PremiumUI.gold)
-                        .listRowBackground(PremiumUI.card)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Codex Model")
+                    Button(role: .destructive) {
+                        minimax.signOut()
+                        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                    } label: {
+                        Text("Sign out of MiniMax")
+                    }
+                    .listRowBackground(PremiumUI.card)
+                } else if let code = minimax.pendingCode {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Approve this code in your browser:")
                             .font(PremiumUI.ui(13, .semibold))
                             .foregroundStyle(PremiumUI.secondaryText)
 
-                        HStack(spacing: 8) {
-                            TextField(ChatGPTOAuthConfig.defaultModel, text: $chatgptModel)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled(true)
-                                .submitLabel(.done)
-                                .font(PremiumUI.ui(15, .regular))
-                                .foregroundStyle(PremiumUI.ink)
+                        Text(code.userCode)
+                            .font(.system(.title2, design: .monospaced).weight(.bold))
+                            .foregroundStyle(PremiumUI.ink)
+                            .textSelection(.enabled)
 
-                            Menu {
-                                ForEach(ChatGPTOAuthConfig.candidateModels, id: \.self) { model in
-                                    Button {
-                                        chatgptModel = model
-                                        UISelectionFeedbackGenerator().selectionChanged()
-                                    } label: {
-                                        if chatgptModel == model {
-                                            Label(model, systemImage: "checkmark")
-                                        } else {
-                                            Text(model)
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(PremiumUI.gold)
-                                    .frame(width: 32, height: 32)
+                        if let url = code.bestVerificationURL {
+                            Link(destination: url) {
+                                Label("Open verification page", systemImage: "safari")
                             }
-                            .accessibilityLabel("Choose a suggested Codex model")
+                        }
+
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Waiting for approval…")
+                                .font(PremiumUI.ui(13))
+                                .foregroundStyle(PremiumUI.secondaryText)
                         }
                     }
-                    .listRowBackground(PremiumUI.card)
-
-                    Button(role: .destructive) {
-                        chatgpt.signOut()
-                        useChatGPTOAuth = false
-                        UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                    } label: {
-                        Text("Sign out of ChatGPT")
-                    }
+                    .padding(.vertical, 4)
                     .listRowBackground(PremiumUI.card)
                 } else {
                     Button {
-                        showChatGPTSignIn = true
+                        Task {
+                            do {
+                                try await minimax.signIn()
+                            } catch let error as MiniMaxOAuthError {
+                                minimaxError = error.errorDescription
+                            } catch {
+                                minimaxError = error.localizedDescription
+                            }
+                        }
                     } label: {
-                        Label("Sign in with ChatGPT", systemImage: "person.crop.circle")
+                        Label("Sign in with MiniMax", systemImage: "person.crop.circle")
                     }
                     .listRowBackground(PremiumUI.card)
                 }
             } header: {
-                Text("ChatGPT Subscription (Beta)")
+                Text("MiniMax (OAuth)")
             } footer: {
-                Text("Unofficial: uses your ChatGPT subscription for Codex guide generation and optional experimental voice previews. ChatGPT OAuth is not used for automatic narration; the supported narration route uses Mega Transcript, the OpenAI Audio API, and Liam.")
+                Text("Sign in with MiniMax to generate guides with the \(MiniMaxOAuthConfig.defaultModel) model. Sign-in opens MiniMax in your browser to approve a code — no password is entered in the app. Then select MiniMax under Generation → AI Provider. Tokens are stored in the iOS Keychain.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
-        .sheet(isPresented: $showChatGPTSignIn) {
-            ChatGPTSignInSheet()
-        }
-        .onChange(of: chatgpt.isSignedIn) { _, isSignedIn in
-            guard isSignedIn else { return }
-            environment.updateVoiceProvider(.chatgptVoice)
-            if environment.userSettings.selectedVoiceID == nil {
-                environment.userSettings.selectedVoiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
-            }
-            environment.saveSettings()
+        .alert(
+            "MiniMax sign-in failed",
+            isPresented: Binding(
+                get: { minimaxError != nil },
+                set: { if !$0 { minimaxError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(minimaxError ?? "")
         }
     }
 }
@@ -936,16 +925,10 @@ struct APIConfigurationView: View {
 
 struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
-    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
     @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
     @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
     private var kokoroVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
-
-    @AppStorage(ChatGPTVoiceRegistry.selectedVoiceStorageKey)
-    private var chatgptVoiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
-
-    @State private var showChatGPTSignIn = false
 
     @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
     private var megaVoiceName = "Arthur"
@@ -980,11 +963,6 @@ struct AudioSettingsView: View {
             ?? KokoroVoiceRegistry.defaultVoice
     }
 
-    private var chatgptVoiceName: String {
-        ChatGPTVoiceRegistry.voice(byID: chatgptVoiceID)?.name
-            ?? ChatGPTVoiceRegistry.defaultVoice.name
-    }
-
     var body: some View {
         List {
             Section {
@@ -1007,39 +985,6 @@ struct AudioSettingsView: View {
                 Text("Kokoro On-Device Voice (Primary)")
             } footer: {
                 Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The installed model uses about 182 MB.")
-            }
-
-            Section {
-                if chatgpt.isSignedIn {
-                    HStack {
-                        Label("ChatGPT connected", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(PremiumUI.forest)
-                        Spacer()
-                        Text("Ready")
-                            .foregroundStyle(PremiumUI.secondaryText)
-                    }
-
-                    NavigationLink {
-                        ChatGPTVoiceSelectionView()
-                    } label: {
-                        HStack {
-                            Text("Voice")
-                            Spacer()
-                            Text(chatgptVoiceName)
-                                .foregroundStyle(PremiumUI.secondaryText)
-                        }
-                    }
-                } else {
-                    Button {
-                        showChatGPTSignIn = true
-                    } label: {
-                        Label("Sign in with ChatGPT", systemImage: "person.crop.circle")
-                    }
-                }
-            } header: {
-                Text("ChatGPT Voice (Experimental)")
-            } footer: {
-                Text("Optional preview only. ChatGPT OAuth is not supported OpenAI API authentication and is not part of automatic narration.")
             }
 
             Section {
@@ -1188,15 +1133,6 @@ struct AudioSettingsView: View {
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
-        .sheet(isPresented: $showChatGPTSignIn) {
-            ChatGPTSignInSheet()
-        }
-        .onChange(of: chatgpt.isSignedIn) { _, isSignedIn in
-            guard isSignedIn else { return }
-            environment.updateVoiceProvider(.chatgptVoice)
-            environment.userSettings.selectedVoiceID = chatgptVoiceID
-            environment.saveSettings()
-        }
     }
 
     @ViewBuilder
@@ -1406,145 +1342,6 @@ struct KokoroVoiceSettingsRow: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title3)
                     .foregroundStyle(PremiumUI.gold)
-            }
-        }
-    }
-}
-
-// MARK: - ChatGPT Voice Selection
-
-struct ChatGPTVoiceSelectionView: View {
-    @EnvironmentObject private var environment: AppEnvironment
-    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
-
-    @AppStorage(ChatGPTVoiceRegistry.selectedVoiceStorageKey)
-    private var selectedVoiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
-
-    @State private var previewingVoiceID: String?
-    @State private var isLoadingPreview = false
-    @State private var previewError: String?
-
-    var body: some View {
-        List {
-            Section {
-                ForEach(ChatGPTVoiceRegistry.allVoices) { voice in
-                    HStack(spacing: 12) {
-                        Button {
-                            selectedVoiceID = voice.voiceID
-                            environment.updateVoiceProvider(.chatgptVoice)
-                            environment.userSettings.selectedVoiceID = voice.voiceID
-                            environment.saveSettings()
-                            UISelectionFeedbackGenerator().selectionChanged()
-                        } label: {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 7) {
-                                        Text(voice.name)
-                                            .font(PremiumUI.ui(16, .medium))
-                                            .foregroundStyle(PremiumUI.ink)
-
-                                        if voice.voiceID == ChatGPTVoiceRegistry.defaultVoice.voiceID {
-                                            Text("DEFAULT")
-                                                .font(PremiumUI.ui(10, .bold))
-                                                .foregroundStyle(PremiumUI.goldDark)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(PremiumUI.gold.opacity(0.18))
-                                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                                        }
-                                    }
-
-                                    Text(voice.description)
-                                        .font(PremiumUI.ui(13))
-                                        .foregroundStyle(PremiumUI.secondaryText)
-                                }
-
-                                Spacer()
-
-                                if selectedVoiceID == voice.voiceID {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(PremiumUI.gold)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            preview(voice)
-                        } label: {
-                            if isLoadingPreview && previewingVoiceID == voice.voiceID {
-                                ProgressView()
-                                    .frame(width: 28, height: 28)
-                            } else {
-                                Image(systemName: previewingVoiceID == voice.voiceID ? "stop.circle.fill" : "play.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(previewingVoiceID == voice.voiceID ? Color.red : PremiumUI.gold)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!chatgpt.isSignedIn || (isLoadingPreview && previewingVoiceID != voice.voiceID))
-                        .opacity(chatgpt.isSignedIn ? 1 : 0.45)
-                        .accessibilityLabel(chatgpt.isSignedIn ? "Preview \(voice.name)" : "Sign in with ChatGPT to preview")
-                    }
-                    .listRowBackground(PremiumUI.card)
-                }
-            } header: {
-                Text("GPT-Live Voices")
-            } footer: {
-                Text("Voice previews use the same experimental ChatGPT OAuth narration route as full guides.")
-            }
-        }
-        .premiumSettingsList(title: "ChatGPT Voice")
-        .alert(
-            "Voice preview failed",
-            isPresented: Binding(
-                get: { previewError != nil },
-                set: { if !$0 { previewError = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(previewError ?? "")
-        }
-    }
-
-    private func preview(_ voice: ChatGPTVoice) {
-        guard chatgpt.isSignedIn, !isLoadingPreview else { return }
-
-        AudioPlaybackManager.shared.stop()
-        if previewingVoiceID == voice.voiceID {
-            previewingVoiceID = nil
-            return
-        }
-
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
-
-        Task {
-            do {
-                let audio = try await ChatGPTVoiceService().generateAudio(
-                    text: "Hello, I'm \(voice.name). This is an experimental ChatGPT Voice preview for InsightAtlas.",
-                    voiceID: voice.voiceID
-                )
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                    do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            previewingVoiceID = nil
-                        }
-                    } catch {
-                        previewingVoiceID = nil
-                        previewError = error.localizedDescription
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
-                    previewError = error.localizedDescription
-                }
             }
         }
     }
