@@ -230,7 +230,7 @@ final class ElevenLabsAudioService {
         var totalCharacters = 0
 
         for (index, chunk) in chunks.enumerated() {
-            print("[ElevenLabsAudioService] Generating audio chunk \(index + 1)/\(chunks.count) (\(chunk.count) chars)")
+            logger.debug("Generating audio chunk \(index + 1)/\(chunks.count) (\(chunk.count) chars)")
 
             let chunkAudio: GeneratedAudio
             if retryOnTransientFailure {
@@ -254,7 +254,7 @@ final class ElevenLabsAudioService {
             totalCharacters += chunkAudio.characterCount
         }
 
-        print("[ElevenLabsAudioService] Generated \(chunks.count) chunks, total duration: \(String(format: "%.1f", totalDuration))s")
+        logger.debug("Generated \(chunks.count) chunks, total duration: \(String(format: "%.1f", totalDuration))s")
 
         return GeneratedAudio(
             data: allAudioData,
@@ -676,7 +676,7 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             // Log error but don't crash - audio playback is a nice-to-have
-            print("[AudioPlaybackManager] Failed to configure audio session: \(error)")
+            logger.error("AudioPlaybackManager: Failed to configure audio session: \(error)")
         }
     }
 
@@ -690,7 +690,7 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
             )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            print("[AudioPlaybackManager] Failed to activate audio session: \(error)")
+            logger.error("AudioPlaybackManager: Failed to activate audio session: \(error)")
         }
     }
 

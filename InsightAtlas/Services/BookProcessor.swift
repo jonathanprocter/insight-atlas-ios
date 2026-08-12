@@ -484,7 +484,7 @@ actor BookProcessor {
         var earliestIndex: String.Index?
         for marker in markers {
             if let range = uppercased.range(of: marker) {
-                if earliestIndex == nil || range.lowerBound < earliestIndex! {
+                if earliestIndex.map({ range.lowerBound < $0 }) ?? true {
                     earliestIndex = range.lowerBound
                 }
             }

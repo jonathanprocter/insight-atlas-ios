@@ -464,7 +464,7 @@ actor AIService {
             accountID: accountID
         )
 
-        var fullText = ""
+        var chunks: [String] = []
         var wordCount = 0
         var lastCharWasWhitespace = true
         var lastPhaseUpdate = 0
@@ -472,7 +472,7 @@ actor AIService {
 
         for try await delta in stream {
             if shouldTerminate?() == true { terminated = true; break }
-            fullText += delta
+            chunks.append(delta)
             onChunk(delta)
             updateWordCount(for: delta, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
             if wordCount > lastPhaseUpdate + 1000 {
@@ -487,11 +487,11 @@ actor AIService {
         }
 
         if !terminated {
-            guard !fullText.isEmpty else {
+            guard !chunks.isEmpty else {
                 throw ChatGPTOAuthError.inferenceFailed("empty response from Codex stream")
             }
         }
-        return fullText
+        return chunks.joined()
     }
 
     private func streamWithClaude(
@@ -612,16 +612,16 @@ actor AIService {
 
         // Attempt streaming with retry logic for transient network errors
         var lastError: Error?
-        var fullText = ""
+        var accumulatedChunks: [String] = []
 
         for attempt in 1...maxRetryAttempts {
             if shouldTerminate?() == true {
-                return fullText
+                return accumulatedChunks.joined()
             }
             do {
-                fullText = ""
+                accumulatedChunks = []
                 let trackingOnChunk: (String) -> Void = { chunk in
-                    fullText += chunk
+                    accumulatedChunks.append(chunk)
                     onChunk(chunk)
                 }
                 let streamed = try await performClaudeStream(
@@ -633,10 +633,10 @@ actor AIService {
                 return streamed
             } catch let error as URLError where isRetryableError(error) {
                 if shouldTerminate?() == true {
-                    return fullText
+                    return accumulatedChunks.joined()
                 }
-                if !fullText.isEmpty {
-                    return fullText
+                if !accumulatedChunks.isEmpty {
+                    return accumulatedChunks.joined()
                 }
                 lastError = error
                 if attempt < maxRetryAttempts {
@@ -657,10 +657,10 @@ actor AIService {
                 }
             } catch is CancellationError {
                 Self.logger.info("Claude streaming cancelled during retry")
-                return fullText
+                return accumulatedChunks.joined()
             } catch {
                 if shouldTerminate?() == true {
-                    return fullText
+                    return accumulatedChunks.joined()
                 }
                 throw error
             }
@@ -693,7 +693,7 @@ actor AIService {
             throw AIServiceError.apiErrorWithBody(statusCode: httpResponse.statusCode, body: errorBody)
         }
 
-        var fullText = ""
+        var chunks: [String] = []
         var wordCount = 0
         var lastCharWasWhitespace = true
         var lastPhaseUpdate = 0
@@ -701,7 +701,7 @@ actor AIService {
         for try await line in asyncBytes.lines {
             if shouldTerminate?() == true {
                 asyncBytes.task.cancel()
-                return fullText
+                return chunks.joined()
             }
             if line.hasPrefix("data: ") {
                 let data = String(line.dropFirst(6))
@@ -725,10 +725,10 @@ actor AIService {
 
                     if shouldTerminate?() == true {
                         asyncBytes.task.cancel()
-                        return fullText
+                        return chunks.joined()
                     }
 
-                    fullText += text
+                    chunks.append(text)
                     onChunk(text)
 
                     updateWordCount(for: text, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
@@ -760,7 +760,7 @@ actor AIService {
             model: "Claude"
         ))
 
-        return fullText
+        return chunks.joined()
     }
 
     // MARK: - OpenAI Integration
@@ -892,16 +892,16 @@ actor AIService {
 
         // Attempt streaming with retry logic for transient network errors
         var lastError: Error?
-        var fullText = ""
+        var accumulatedChunks: [String] = []
 
         for attempt in 1...maxRetryAttempts {
             if shouldTerminate?() == true {
-                return fullText
+                return accumulatedChunks.joined()
             }
             do {
-                fullText = ""
+                accumulatedChunks = []
                 let trackingOnChunk: (String) -> Void = { chunk in
-                    fullText += chunk
+                    accumulatedChunks.append(chunk)
                     onChunk(chunk)
                 }
                 let streamed = try await performOpenAIStream(
@@ -913,10 +913,10 @@ actor AIService {
                 return streamed
             } catch let error as URLError where isRetryableError(error) {
                 if shouldTerminate?() == true {
-                    return fullText
+                    return accumulatedChunks.joined()
                 }
-                if !fullText.isEmpty {
-                    return fullText
+                if !accumulatedChunks.isEmpty {
+                    return accumulatedChunks.joined()
                 }
                 lastError = error
                 if attempt < maxRetryAttempts {
@@ -937,10 +937,10 @@ actor AIService {
                 }
             } catch is CancellationError {
                 Self.logger.info("OpenAI streaming cancelled during retry")
-                return fullText
+                return accumulatedChunks.joined()
             } catch {
                 if shouldTerminate?() == true {
-                    return fullText
+                    return accumulatedChunks.joined()
                 }
                 throw error
             }
@@ -975,7 +975,7 @@ actor AIService {
             throw AIServiceError.apiErrorWithBody(statusCode: httpResponse.statusCode, body: errorBody)
         }
 
-        var fullText = ""
+        var chunks: [String] = []
         var wordCount = 0
         var lastCharWasWhitespace = true
         var lastPhaseUpdate = 0
@@ -983,7 +983,7 @@ actor AIService {
         for try await line in asyncBytes.lines {
             if shouldTerminate?() == true {
                 asyncBytes.task.cancel()
-                return fullText
+                return chunks.joined()
             }
             if line.hasPrefix("data: ") {
                 let data = String(line.dropFirst(6))
@@ -1001,11 +1001,12 @@ actor AIService {
                         continue
                     }
 
-                    // Check for error responses
+                    // Check for error responses embedded in a 200 stream event
                     if let error = json["error"] as? [String: Any],
                        let message = error["message"] as? String {
                         Self.logger.error("OpenAI stream: API error - \(message)")
-                        continue
+                        asyncBytes.task.cancel()
+                        throw AIServiceError.streamError(message: message)
                     }
 
                     guard let choices = json["choices"] as? [[String: Any]],
@@ -1021,10 +1022,10 @@ actor AIService {
 
                     if shouldTerminate?() == true {
                         asyncBytes.task.cancel()
-                        return fullText
+                        return chunks.joined()
                     }
 
-                    fullText += content
+                    chunks.append(content)
                     onChunk(content)
 
                     updateWordCount(for: content, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
@@ -1055,7 +1056,7 @@ actor AIService {
             model: "OpenAI"
         ))
 
-        return fullText
+        return chunks.joined()
     }
 
     // MARK: - Tandem Mode: GPT Analysis Phase
