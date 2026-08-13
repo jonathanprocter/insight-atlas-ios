@@ -153,7 +153,7 @@ enum VoiceRoutingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noConfiguredProvider:
-            return "No narration provider is configured. On-device narration should be available, or configure an ElevenLabs key."
+            return "No narration provider is configured. On-device synthesis is coming soon; configure an ElevenLabs key to enable narration now."
         case .allProvidersFailed(let detail):
             return "All configured narration providers failed. \(detail)"
         }

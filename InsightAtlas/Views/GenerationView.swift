@@ -129,7 +129,7 @@ struct GenerationView: View {
                         Text(selectedFileName == nil ? "Choose File" : "Change File")
                             .font(PremiumUI.ui(16, .semibold))
                     }
-                    .frame(maxWidth: .infinity).padding(.vertical, 14).foregroundStyle(PremiumUI.gold).background(PremiumUI.gold.opacity(0.12)).clipShape(Capsule()).overlay(Capsule().stroke(PremiumUI.gold.opacity(0.30), lineWidth: 1))
+                    .premiumSecondaryCTA()
                 }
                 .padding(.horizontal, 24)
                 .accessibilityIdentifier("generation_choose_file_button")
@@ -145,7 +145,7 @@ struct GenerationView: View {
                             Text("Generate Guide")
                                 .font(PremiumUI.ui(16, .semibold))
                         }
-                        .frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(PremiumUI.gold).clipShape(Capsule()).shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
+                        .premiumPrimaryCTA()
                     }
                     .padding(.horizontal, 24)
                     .accessibilityIdentifier("generation_generate_button")
@@ -501,7 +501,7 @@ struct GenerationView: View {
                                 Text("View Guide")
                                     .font(PremiumUI.ui(16, .semibold))
                             }
-                            .frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(PremiumUI.gold).clipShape(Capsule()).shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
+                            .premiumPrimaryCTA()
                         }
                         .accessibilityIdentifier("generation_view_guide_button")
                     }
@@ -561,7 +561,7 @@ struct GenerationView: View {
                     Text("Try Again")
                         .font(PremiumUI.ui(16, .semibold))
                 }
-                .frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(PremiumUI.gold).clipShape(Capsule()).shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
+                .premiumPrimaryCTA()
             }
             .padding(.horizontal, 24)
             .accessibilityIdentifier("generation_try_again_button")

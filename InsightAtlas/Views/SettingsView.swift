@@ -1138,6 +1138,8 @@ private extension View {
 struct VoiceSelectionSettingsView: View {
     @EnvironmentObject var environment: AppEnvironment
     @State private var previewError: String?
+    @State private var previewingVoiceID: String?
+    @State private var isLoadingPreview = false
 
     private var hasVoiceKey: Bool {
         environment.userSettings.voiceProvider == .onDevice || KeychainService.shared.hasElevenLabsApiKey
@@ -1167,8 +1169,8 @@ struct VoiceSelectionSettingsView: View {
                         SettingsVoiceRow(
                             voice: voice,
                             isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: false,
-                            isLoading: false,
+                            isPreviewing: previewingVoiceID == voice.voiceID,
+                            isLoading: isLoadingPreview && previewingVoiceID == voice.voiceID,
                             isPreviewEnabled: hasVoiceKey,
                             onSelect: { selectElevenLabsVoice(voice) },
                             onPreview: { previewElevenLabsVoice(voice) }
@@ -1208,7 +1210,10 @@ struct VoiceSelectionSettingsView: View {
     }
 
     private func previewElevenLabsVoice(_ voice: ElevenLabsVoice) {
+        guard !isLoadingPreview else { return }
         AudioPlaybackManager.shared.stop()
+        previewingVoiceID = voice.voiceID
+        isLoadingPreview = true
 
         Task {
             do {
@@ -1219,14 +1224,18 @@ struct VoiceSelectionSettingsView: View {
                 )
 
                 await MainActor.run {
+                    isLoadingPreview = false
                     do {
                         try AudioPlaybackManager.shared.play(audio)
                     } catch {
+                        previewingVoiceID = nil
                         previewError = error.localizedDescription
                     }
                 }
             } catch {
                 await MainActor.run {
+                    isLoadingPreview = false
+                    previewingVoiceID = nil
                     previewError = error.localizedDescription
                 }
             }

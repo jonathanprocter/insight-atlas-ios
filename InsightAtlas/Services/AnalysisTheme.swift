@@ -581,3 +581,29 @@ extension Color {
     }
 }
 
+
+// MARK: - Premium CTA View Modifiers
+
+extension View {
+    /// Gold capsule primary CTA using PremiumUI tokens.
+    func premiumPrimaryCTA() -> some View {
+        self
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .foregroundStyle(.white)
+            .background(PremiumUI.gold)
+            .clipShape(Capsule())
+            .shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
+    }
+
+    /// Ghost capsule secondary CTA using PremiumUI tokens.
+    func premiumSecondaryCTA() -> some View {
+        self
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .foregroundStyle(PremiumUI.gold)
+            .background(PremiumUI.gold.opacity(0.12))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(PremiumUI.gold.opacity(0.30), lineWidth: 1))
+    }
+}
