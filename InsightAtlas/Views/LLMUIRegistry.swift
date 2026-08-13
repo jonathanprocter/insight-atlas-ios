@@ -51,7 +51,6 @@ public enum LLMUIRegistry {
             // API
             LLMControl(id: "navrow_manage_api_keys", title: "Manage API Keys", kind: "navigation"),
             LLMControl(id: "securefield_claude", title: "Claude API Key", kind: "field"),
-            LLMControl(id: "securefield_openai", title: "OpenAI API Key", kind: "field"),
             LLMControl(id: "securefield_openrouter", title: "OpenRouter API Key", kind: "field"),
             LLMControl(id: "securefield_liam_token", title: "Liam Narration Token", kind: "field"),
             LLMControl(id: "openrouter_model_field", title: "OpenRouter model slug", kind: "field"),

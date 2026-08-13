@@ -114,11 +114,6 @@ public enum LLMActionRouter {
             }
             return .failure("Unable to open App Store")
 
-        case "securefield_openai":
-            guard let v = value else { return .failure("Provide an API key value.") }
-            environment.updateOpenAIApiKey(v.isEmpty ? nil : v)
-            return .success("Updated OpenAI key")
-
         case "securefield_claude":
             guard let v = value else { return .failure("Provide an API key value.") }
             environment.updateClaudeApiKey(v.isEmpty ? nil : v)
