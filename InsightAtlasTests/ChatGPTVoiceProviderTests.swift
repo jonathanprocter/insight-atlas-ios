@@ -1,14 +1,19 @@
 import XCTest
 @testable import InsightAtlas
 
-final class VoiceProviderTests: XCTestCase {
+final class ProviderConfigurationTests: XCTestCase {
 
-    func testKokoroIsThePrimaryProvider() {
-        XCTAssertEqual(VoiceProvider.allCases.first, .kokoro)
+    func testKokoroIsTheOnlyNarrationProvider() {
+        XCTAssertEqual(VoiceProvider.allCases, [.kokoro])
         XCTAssertEqual(VoiceProvider.kokoro.displayName, "Kokoro (On-Device)")
         XCTAssertEqual(VoiceProvider.kokoro.defaultVoiceID, "af_heart")
         XCTAssertEqual(VoiceProvider.kokoro.audioFileExtension, "wav")
         XCTAssertFalse(VoiceProvider.kokoro.requiresSeparateApiKey)
+    }
+
+    func testSupportedGenerationProvidersExcludeRetiredOpenAIModesAndIncludeMiniMax() {
+        XCTAssertEqual(AIProvider.allCases, [.claude, .openRouter, .minimax])
+        XCTAssertEqual(UserSettings().preferredProvider, .claude)
     }
 
     func testNewUserSettingsDefaultToKokoro() {
@@ -16,7 +21,7 @@ final class VoiceProviderTests: XCTestCase {
     }
 
     func testLegacySettingsWithoutVoiceProviderDefaultToKokoro() throws {
-        let original = try JSONEncoder().encode(UserSettings(voiceProvider: .openai))
+        let original = try JSONEncoder().encode(UserSettings(playbackSpeed: .faster))
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: original) as? [String: Any])
         object.removeValue(forKey: "voiceProvider")
         let legacyData = try JSONSerialization.data(withJSONObject: object)
@@ -24,79 +29,47 @@ final class VoiceProviderTests: XCTestCase {
         let decoded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
 
         XCTAssertEqual(decoded.voiceProvider, .kokoro)
+        XCTAssertEqual(decoded.playbackSpeed, .faster)
     }
 
-    func testDecodingPreservesAnExplicitCloudProvider() throws {
-        let encoded = try JSONEncoder().encode(UserSettings(voiceProvider: .elevenlabs))
-        let decoded = try JSONDecoder().decode(UserSettings.self, from: encoded)
-
-        XCTAssertEqual(decoded.voiceProvider, .elevenlabs)
-    }
-
-    func testFallbackOrderRespectsAvailablePreferredProviderThenStableOptions() {
-        let availability = VoiceProviderAvailability(
-            kokoro: true,
-            chatgptVoice: true,
-            openAI: true,
-            elevenLabs: true
+    func testRetiredProviderValuesMigrateWithoutResettingOtherPreferences() throws {
+        let original = try JSONEncoder().encode(
+            UserSettings(
+                preferredProvider: .claude,
+                preferredReaderProfile: .academic,
+                autoGenerateAudio: false,
+                playbackSpeed: .fast,
+                voiceProvider: .kokoro
+            )
         )
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: original) as? [String: Any])
+        object["preferredProvider"] = "openai"
+        object["voiceProvider"] = "elevenlabs"
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
 
+        let decoded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
+
+        XCTAssertEqual(decoded.preferredProvider, .claude)
+        XCTAssertEqual(decoded.voiceProvider, .kokoro)
+        XCTAssertEqual(decoded.preferredReaderProfile, .academic)
+        XCTAssertFalse(decoded.autoGenerateAudio)
+        XCTAssertEqual(decoded.playbackSpeed, .fast)
+    }
+
+    func testFallbackPlannerUsesKokoroOnlyWhenInstalled() {
         XCTAssertEqual(
             VoiceProviderFallbackPlanner.orderedProviders(
-                preferred: .openai,
-                availability: availability
+                preferred: .kokoro,
+                availability: VoiceProviderAvailability(kokoro: true)
             ),
-            [.openai, .kokoro, .elevenlabs, .chatgptVoice]
+            [.kokoro]
         )
-    }
-
-    func testFallbackOrderUsesKokoroWhenPreferredProviderIsUnavailable() {
-        let availability = VoiceProviderAvailability(
-            kokoro: true,
-            chatgptVoice: false,
-            openAI: false,
-            elevenLabs: true
-        )
-
         XCTAssertEqual(
             VoiceProviderFallbackPlanner.orderedProviders(
-                preferred: .openai,
-                availability: availability
+                preferred: .kokoro,
+                availability: VoiceProviderAvailability(kokoro: false)
             ),
-            [.kokoro, .elevenlabs]
+            []
         )
-    }
-
-    func testFallbackOrderOmitsUnavailableProvidersAndDuplicates() {
-        let availability = VoiceProviderAvailability(
-            kokoro: false,
-            chatgptVoice: false,
-            openAI: true,
-            elevenLabs: false
-        )
-
-        XCTAssertEqual(
-            VoiceProviderFallbackPlanner.orderedProviders(
-                preferred: .openai,
-                availability: availability
-            ),
-            [.openai]
-        )
-    }
-
-    func testChatGPTVoiceIsLastWhenStableProvidersAreAvailable() {
-        let availability = VoiceProviderAvailability(
-            kokoro: true,
-            chatgptVoice: true,
-            openAI: true,
-            elevenLabs: true
-        )
-
-        let providers = VoiceProviderFallbackPlanner.orderedProviders(
-            preferred: .kokoro,
-            availability: availability
-        )
-
-        XCTAssertEqual(providers.last, .chatgptVoice)
     }
 }
