@@ -36,6 +36,6 @@ enum EditorialStance: String, Codable {
 }
 
 enum LLMProvider: String, Codable {
-    case claude
+    case anthropic
     case openRouter
 }
