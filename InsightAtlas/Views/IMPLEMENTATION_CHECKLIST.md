@@ -125,12 +125,12 @@ HStack {
 **Current State:** Unknown
 **Needed Updates:**
 - [ ] Premium header with book cover
-- [ ] Table of contents with brand colors
-- [ ] Reading progress indicator
+- [x] Table of contents with brand colors
+- [x] Reading progress indicator
 - [ ] Premium quote styling
-- [ ] iPad reading optimization (centered column, max width)
+- [x] iPad reading optimization (centered column, max width)
 - [ ] Font size controls with brand styling
-- [ ] Bookmark functionality with brand icons
+- [x] Bookmark functionality with brand icons
 
 **Reading Container Pattern:**
 ```swift
@@ -170,19 +170,19 @@ ScrollView {
 
 ### 7. RegenerateView.swift
 **Needed Updates:**
-- [ ] Premium modal presentation
-- [ ] Card-based option selection
-- [ ] Brand-colored buttons
-- [ ] Loading states with brand colors
+- [x] Premium modal presentation
+- [x] Card-based option selection
+- [x] Brand-colored buttons
+- [x] Loading states with brand colors
 
 ---
 
 ### 8. VoicePickerView.swift
 **Needed Updates:**
-- [ ] Premium voice preview cards
-- [ ] Waveform visualization with brand colors
-- [ ] Play button with gradient
-- [ ] Selected state with brand accent
+- [x] Premium voice preview cards
+- [x] Waveform visualization with brand colors
+- [x] Play button with gradient
+- [x] Selected state with brand accent
 
 ---
 

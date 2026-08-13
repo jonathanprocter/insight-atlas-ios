@@ -341,6 +341,46 @@ private struct OtherVoicesSection: View {
     }
 }
 
+// MARK: - Waveform Bars
+
+/// Animated waveform bars shown while a voice preview is playing.
+private struct WaveformBars: View {
+    @State private var animating = false
+
+    private let heights: [(min: CGFloat, max: CGFloat)] = [
+        (6, 16), (9, 20), (5, 13), (8, 18)
+    ]
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<4, id: \.self) { index in
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [InsightAtlasColors.gold, InsightAtlasColors.goldLight],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                    )
+                    .frame(width: 3)
+                    .frame(
+                        height: animating
+                            ? heights[index].max
+                            : heights[index].min
+                    )
+                    .animation(
+                        .easeInOut(duration: 0.35 + Double(index) * 0.08)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(index) * 0.07),
+                        value: animating
+                    )
+            }
+        }
+        .frame(width: 24, height: 20)
+        .onAppear { animating = true }
+    }
+}
+
 // MARK: - Voice Row
 
 /// Individual voice selection row
@@ -354,22 +394,46 @@ private struct VoiceRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Preview button
+            // Preview button with gradient circle
             Button {
                 onPreview()
             } label: {
                 ZStack {
                     Circle()
-                        .fill(isPreviewing ? InsightAtlasColors.gold.opacity(0.15) : InsightAtlasColors.backgroundAlt)
-                        .frame(width: 40, height: 40)
+                        .fill(
+                            isPreviewing
+                                ? LinearGradient(
+                                    colors: [InsightAtlasColors.gold, InsightAtlasColors.goldDark],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                : LinearGradient(
+                                    colors: [InsightAtlasColors.backgroundAlt, InsightAtlasColors.backgroundAlt],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                        )
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    isPreviewing
+                                        ? InsightAtlasColors.gold.opacity(0.3)
+                                        : InsightAtlasColors.rule,
+                                    lineWidth: 1
+                                )
+                        )
 
                     if isLoading {
                         ProgressView()
-                            .scaleEffect(0.8)
+                            .scaleEffect(0.75)
+                            .tint(isPreviewing ? .white : InsightAtlasColors.muted)
+                    } else if isPreviewing {
+                        WaveformBars()
                     } else {
-                        Image(systemName: isPreviewing ? "stop.fill" : "play.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(isPreviewing ? InsightAtlasColors.gold : InsightAtlasColors.muted)
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(InsightAtlasColors.muted)
                     }
                 }
             }
@@ -385,15 +449,20 @@ private struct VoiceRow: View {
                 onSelect()
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+                    HStack(spacing: 6) {
                         Text(voice.name)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(InsightAtlasColors.heading)
 
                         if isSelected {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(InsightAtlasColors.gold)
+                            ZStack {
+                                Circle()
+                                    .fill(InsightAtlasColors.gold)
+                                    .frame(width: 18, height: 18)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
                         }
                     }
 
@@ -410,6 +479,7 @@ private struct VoiceRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .background(isSelected ? InsightAtlasColors.gold.opacity(0.05) : Color.clear)
         .contentShape(Rectangle())
     }
 }

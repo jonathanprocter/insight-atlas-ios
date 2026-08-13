@@ -36,6 +36,7 @@ struct GuideView: View {
     @State private var showVoicePicker = false
     @State private var showRegenerateOptions = false
     @State private var isRegeneratingContent = false
+    @State private var readingProgress: Double = 0
     
     // MARK: - Computed Properties
     
@@ -79,6 +80,12 @@ struct GuideView: View {
                     .frame(maxWidth: 800, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
+                .onScrollGeometryChange(for: Double.self) { geo in
+                    let scrollable = geo.contentSize.height - geo.containerSize.height
+                    return scrollable > 0 ? geo.contentOffset.y / scrollable : 0
+                } action: { _, progress in
+                    readingProgress = max(0, min(1, progress))
+                }
             }
             .background(Color(.systemGroupedBackground))
             
@@ -98,6 +105,9 @@ struct GuideView: View {
                 .padding(.bottom, 8)
                 .background(.ultraThinMaterial)
             }
+        }
+        .overlay(alignment: .top) {
+            readingProgressBar
         }
         .navigationTitle(item.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -328,20 +338,34 @@ struct GuideView: View {
     private func tableOfContentsSection(proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // Header with collapsible toggle
-            HStack {
-                Image(systemName: "list.bullet.rectangle.portrait")
-                    .foregroundColor(AnalysisTheme.primaryGold)
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [AnalysisTheme.primaryGold.opacity(0.15), AnalysisTheme.primaryGold.opacity(0.07)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "list.bullet.rectangle.portrait")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AnalysisTheme.primaryGold)
+                }
                 Text("Table of Contents")
                     .font(.custom("CormorantGaramond-SemiBold", size: 18))
+                    .foregroundColor(AnalysisTheme.textHeading)
                 Spacer()
                 Text("\(tableOfContents.count) sections")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal)
-            .padding(.top, 8)
+            .padding(.top, 12)
 
             Divider()
+                .background(AnalysisTheme.primaryGold.opacity(0.3))
                 .padding(.horizontal)
 
             // TOC entries with proper indentation
@@ -388,11 +412,20 @@ struct GuideView: View {
                 .accessibilityIdentifier("guide_toc_\(entry.id)")
             }
         }
-        .padding(.vertical, 12)
+        .padding(.bottom, 12)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+            ZStack(alignment: .top) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                LinearGradient(
+                    colors: [AnalysisTheme.primaryGold, AnalysisTheme.accentOrange],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 3)
+                .clipShape(.rect(topLeadingRadius: 12, topTrailingRadius: 12))
+            }
         )
         .padding(.horizontal, 4)
     }
@@ -519,6 +552,27 @@ struct GuideView: View {
         tableOfContents = toc
     }
     
+    // MARK: - Reading Progress Bar
+
+    private var readingProgressBar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(InsightAtlasColors.rule.opacity(0.4))
+                    .frame(height: 3)
+                LinearGradient(
+                    colors: [InsightAtlasColors.gold, InsightAtlasColors.goldLight],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: geo.size.width * readingProgress, height: 3)
+                .animation(.linear(duration: 0.08), value: readingProgress)
+            }
+        }
+        .frame(height: 3)
+        .opacity(readingProgress > 0.01 ? 1 : 0)
+    }
+
     // MARK: - Empty State
     
     private var emptyContentView: some View {
