@@ -32,6 +32,11 @@ struct AnalysisDetailView: View {
 
     // MARK: - Environment
     @EnvironmentObject var environment: AppEnvironment
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var readingMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 740 : .infinity
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -104,6 +109,8 @@ struct AnalysisDetailView: View {
                 #endif
                 }
                 .padding(AnalysisTheme.Spacing.base)
+                .frame(maxWidth: readingMaxWidth)
+                .frame(maxWidth: .infinity)
             }
         }
         .background(AnalysisTheme.bgPrimary)

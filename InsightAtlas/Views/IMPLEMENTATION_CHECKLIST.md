@@ -17,13 +17,13 @@
 ## 🎯 High Priority Views to Update
 
 ### 1. LibraryView.swift
-**Current State:** Basic implementation with premium colors
+**Current State:** Premium implementation with PremiumUI tokens
 **Needed Updates:**
-- [ ] Update card styling to match ExerciseView premium cards
-- [ ] Add gradient accent stripes to guide cards
-- [ ] Implement iPad grid optimization (3-4 columns)
-- [ ] Add empty state with premium styling
-- [ ] Update search bar styling
+- [x] Update card styling to match ExerciseView premium cards
+- [x] Add gradient accent stripes to guide cards
+- [x] Implement iPad grid optimization (3-4 columns)
+- [x] Add empty state with premium styling
+- [x] Update search bar styling
 - [ ] Add loading skeleton screens
 
 **Quick Win Pattern:**
@@ -54,13 +54,11 @@
 ---
 
 ### 2. GenerationView.swift
-**Current State:** Unknown
+**Current State:** Converted to PremiumUI tokens (gold, teal, ink, secondaryText, card)
 **Needed Updates:**
-- [ ] Convert to premium card-based sections
-- [ ] Use PremiumSecureField pattern for file selection
-- [ ] Add provider picker with brand colors
-- [ ] Premium button styling with gradients
-- [ ] Progress indicators with brand colors
+- [x] Convert to premium card-based sections
+- [x] Premium button styling with gradients (PremiumUI.gold CTA capsules)
+- [x] Progress indicators with brand colors
 - [ ] iPad optimization (larger hit targets)
 
 **Button Pattern:**
@@ -91,14 +89,14 @@ Button {
 ---
 
 ### 3. AnalysisDetailView.swift
-**Current State:** Likely using legacy components
+**Current State:** Using Premium* components throughout
 **Needed Updates:**
-- [ ] Replace any legacy ExerciseView with premium version
-- [ ] Replace any legacy ActionBoxView with PremiumActionBoxView
-- [ ] Replace any legacy InsightNoteView with PremiumInsightNoteView
-- [ ] Add iPad optimization (wider reading columns)
+- [x] Replace any legacy ExerciseView with premium version
+- [x] Replace any legacy ActionBoxView with PremiumActionBoxView
+- [x] Replace any legacy InsightNoteView with PremiumInsightNoteView
+- [x] Add iPad optimization (wider reading columns, max 740pt, centered)
 - [ ] Implement premium scroll experience
-- [ ] Add floating "Table of Contents" button
+- [x] Add floating "Table of Contents" button
 - [ ] Premium section dividers
 
 **Section Divider Pattern:**

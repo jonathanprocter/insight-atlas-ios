@@ -16,6 +16,7 @@ struct LibraryView: View {
     @State private var sharePayload: LibrarySharePayload?
     @State private var exportError: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var layout: PremiumLibraryLayout {
         get { PremiumLibraryLayout(rawValue: layoutRawValue) ?? .grid }
@@ -223,13 +224,15 @@ struct LibraryView: View {
         .background(PremiumUI.background)
     }
 
+    private var gridColumns: [GridItem] {
+        let count = horizontalSizeClass == .regular ? 3 : 2
+        return Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
+    }
+
     private var gridContent: some View {
         ScrollView {
             LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16)
-                ],
+                columns: gridColumns,
                 spacing: 16
             ) {
                 ForEach(filteredItems) { item in

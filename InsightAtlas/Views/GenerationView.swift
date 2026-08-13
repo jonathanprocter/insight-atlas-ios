@@ -51,11 +51,11 @@ struct GenerationView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(AnalysisTheme.accentTeal)
+                    .foregroundColor(PremiumUI.teal)
                     .accessibilityIdentifier("generation_cancel_button")
                 }
             }
-            .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
+            .background(PremiumUI.background.ignoresSafeArea())
         }
         .fileImporter(
             isPresented: $showingFilePicker,
@@ -98,16 +98,16 @@ struct GenerationView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 60))
-                        .foregroundColor(AnalysisTheme.accentTeal)
+                        .foregroundColor(PremiumUI.teal)
                         .padding(.top, 40)
 
                     Text("Create Your Guide")
-                        .font(.analysisDisplayH2())
-                        .foregroundColor(AnalysisTheme.textHeading)
+                        .font(PremiumUI.display(26, .bold))
+                        .foregroundColor(PremiumUI.ink)
 
                     Text("Upload a PDF or EPUB book to generate a comprehensive reading guide")
-                        .font(.analysisBody())
-                        .foregroundColor(AnalysisTheme.textMuted)
+                        .font(PremiumUI.ui(16))
+                        .foregroundColor(PremiumUI.secondaryText)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -127,9 +127,9 @@ struct GenerationView: View {
                         Image(systemName: selectedFileName == nil ? "doc.badge.plus" : "arrow.triangle.2.circlepath")
                             .font(.title2)
                         Text(selectedFileName == nil ? "Choose File" : "Change File")
-                            .font(.analysisUIBold())
+                            .font(PremiumUI.ui(16, .semibold))
                     }
-                    .analysisSecondaryCTA()
+                    .frame(maxWidth: .infinity).padding(.vertical, 14).foregroundStyle(PremiumUI.gold).background(PremiumUI.gold.opacity(0.12)).clipShape(Capsule()).overlay(Capsule().stroke(PremiumUI.gold.opacity(0.30), lineWidth: 1))
                 }
                 .padding(.horizontal, 24)
                 .accessibilityIdentifier("generation_choose_file_button")
@@ -143,9 +143,9 @@ struct GenerationView: View {
                             Image(systemName: "sparkles")
                                 .font(.title2)
                             Text("Generate Guide")
-                                .font(.analysisUIBold())
+                                .font(PremiumUI.ui(16, .semibold))
                         }
-                        .analysisPrimaryCTA()
+                        .frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(PremiumUI.gold).clipShape(Capsule()).shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
                     }
                     .padding(.horizontal, 24)
                     .accessibilityIdentifier("generation_generate_button")
@@ -154,8 +154,8 @@ struct GenerationView: View {
                 // Supported formats info
                 VStack(spacing: 8) {
                     Text("Supported Formats")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
+                        .font(PremiumUI.ui(13))
+                        .foregroundColor(PremiumUI.secondaryText)
 
                     HStack(spacing: 16) {
                         formatBadge(icon: "doc.text", label: "PDF")
@@ -172,13 +172,13 @@ struct GenerationView: View {
     private var generationOptionsCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Output Options")
-                .font(.analysisUIBold())
-                .foregroundColor(AnalysisTheme.textHeading)
+                .font(PremiumUI.ui(16, .semibold))
+                .foregroundColor(PremiumUI.ink)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("AI Provider")
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(13))
+                    .foregroundColor(PremiumUI.secondaryText)
                 Picker("Provider", selection: $environment.userSettings.preferredProvider) {
                     ForEach(AIProvider.allCases, id: \.self) { provider in
                         Text(provider.displayName).tag(provider)
@@ -193,8 +193,8 @@ struct GenerationView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Analysis Depth")
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(13))
+                    .foregroundColor(PremiumUI.secondaryText)
                 Picker("Mode", selection: $environment.userSettings.preferredMode) {
                     ForEach(GenerationMode.allCases, id: \.self) { mode in
                         Text(mode.displayName).tag(mode)
@@ -209,8 +209,8 @@ struct GenerationView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Writing Style")
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(13))
+                    .foregroundColor(PremiumUI.secondaryText)
                 Picker("Tone", selection: $environment.userSettings.preferredTone) {
                     ForEach(ToneMode.allCases, id: \.self) { tone in
                         Text(tone.displayName).tag(tone)
@@ -225,8 +225,8 @@ struct GenerationView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Output Format")
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(13))
+                    .foregroundColor(PremiumUI.secondaryText)
                 Picker("Format", selection: $environment.userSettings.preferredFormat) {
                     ForEach(OutputFormat.allCases, id: \.self) { format in
                         Text(format.displayName).tag(format)
@@ -238,14 +238,14 @@ struct GenerationView: View {
                 }
                 .accessibilityIdentifier("generation_format_picker")
                 Text(environment.userSettings.preferredFormat.description)
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(13))
+                    .foregroundColor(PremiumUI.secondaryText)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Summary Length")
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(13))
+                    .foregroundColor(PremiumUI.secondaryText)
                 Picker("Summary Type", selection: $environment.userSettings.preferredSummaryType) {
                     ForEach(SummaryType.allCases, id: \.self) { summaryType in
                         Text(summaryType.displayName).tag(summaryType)
@@ -265,17 +265,17 @@ struct GenerationView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "waveform")
-                        .foregroundColor(AnalysisTheme.accentTeal)
+                        .foregroundColor(PremiumUI.teal)
                     Text("Audio Narration")
-                        .font(.analysisUIBold())
-                        .foregroundColor(AnalysisTheme.textHeading)
+                        .font(PremiumUI.ui(16, .semibold))
+                        .foregroundColor(PremiumUI.ink)
                 }
 
                 // Voice Provider
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Voice Provider")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
+                        .font(PremiumUI.ui(13))
+                        .foregroundColor(PremiumUI.secondaryText)
                     Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
                         ForEach(VoiceProvider.allCases, id: \.self) { provider in
                             Text(provider.displayName).tag(provider)
@@ -292,8 +292,8 @@ struct GenerationView: View {
 
                     if !environment.userSettings.voiceProvider.isConfigured() {
                         Text("\(environment.userSettings.voiceProvider.displayName) API key not configured.")
-                            .font(.analysisUISmall())
-                            .foregroundColor(AnalysisTheme.accentHighlight)
+                            .font(PremiumUI.ui(13))
+                            .foregroundColor(PremiumUI.warmOrange)
                     }
                 }
 
@@ -304,19 +304,19 @@ struct GenerationView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Selected Voice")
-                                .font(.analysisUISmall())
-                                .foregroundColor(AnalysisTheme.textMuted)
+                                .font(PremiumUI.ui(13))
+                                .foregroundColor(PremiumUI.secondaryText)
                             Text(selectedVoiceName)
-                                .font(.analysisUI())
-                                .foregroundColor(AnalysisTheme.textHeading)
+                                .font(PremiumUI.ui(16))
+                                .foregroundColor(PremiumUI.ink)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .foregroundColor(AnalysisTheme.textMuted)
+                            .foregroundColor(PremiumUI.secondaryText)
                     }
                     .padding(12)
-                    .background(AnalysisTheme.bgSecondary)
-                    .cornerRadius(AnalysisTheme.Radius.md)
+                    .background(PremiumUI.background)
+                    .cornerRadius(8)
                 }
                 .accessibilityIdentifier("generation_voice_select_button")
 
@@ -324,23 +324,23 @@ struct GenerationView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Playback Speed")
-                            .font(.analysisUISmall())
-                            .foregroundColor(AnalysisTheme.textMuted)
+                            .font(PremiumUI.ui(13))
+                            .foregroundColor(PremiumUI.secondaryText)
                         Spacer()
                         Text(String(format: "%.1fx", audioSpeed))
-                            .font(.analysisUISmall())
-                            .foregroundColor(AnalysisTheme.accentTeal)
+                            .font(PremiumUI.ui(13))
+                            .foregroundColor(PremiumUI.teal)
                     }
                     Slider(value: $audioSpeed, in: 0.5...2.0, step: 0.1)
-                        .tint(AnalysisTheme.accentTeal)
+                        .tint(PremiumUI.teal)
                         .accessibilityIdentifier("generation_audio_speed_slider")
                 }
             }
         }
         .padding(16)
-        .background(AnalysisTheme.bgCard)
-        .cornerRadius(AnalysisTheme.Radius.lg)
-        .shadow(color: AnalysisTheme.shadowCard, radius: 4, y: 2)
+        .background(PremiumUI.card)
+        .cornerRadius(12)
+        .shadow(color: PremiumUI.cardShadow, radius: 4, y: 2)
         .padding(.horizontal, 24)
     }
 
@@ -368,32 +368,32 @@ struct GenerationView: View {
         HStack(spacing: 16) {
             Image(systemName: selectedFileType == .pdf ? "doc.text.fill" : "book.fill")
                 .font(.title)
-                .foregroundColor(AnalysisTheme.accentTeal)
+                .foregroundColor(PremiumUI.teal)
                 .frame(width: 50, height: 50)
-                .background(AnalysisTheme.accentTealSubtle)
-                .cornerRadius(AnalysisTheme.Radius.md)
+                .background(PremiumUI.teal.opacity(0.08))
+                .cornerRadius(8)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(fileName)
-                    .font(.analysisUIBold())
-                    .foregroundColor(AnalysisTheme.textHeading)
+                    .font(PremiumUI.ui(16, .semibold))
+                    .foregroundColor(PremiumUI.ink)
                     .lineLimit(2)
 
                 Text(selectedFileType?.rawValue.uppercased() ?? "Document")
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(13))
+                    .foregroundColor(PremiumUI.secondaryText)
             }
 
             Spacer()
 
             Image(systemName: "checkmark.circle.fill")
                 .font(.title2)
-                .foregroundColor(AnalysisTheme.accentSuccess)
+                .foregroundColor(PremiumUI.forest)
         }
         .padding(16)
-        .background(AnalysisTheme.bgCard)
-        .cornerRadius(AnalysisTheme.Radius.lg)
-        .shadow(color: AnalysisTheme.shadowCard, radius: 4, y: 2)
+        .background(PremiumUI.card)
+        .cornerRadius(12)
+        .shadow(color: PremiumUI.cardShadow, radius: 4, y: 2)
         .padding(.horizontal, 24)
     }
 
@@ -402,13 +402,13 @@ struct GenerationView: View {
             Image(systemName: icon)
                 .font(.caption)
             Text(label)
-                .font(.analysisUISmall())
+                .font(PremiumUI.ui(13))
         }
-        .foregroundColor(AnalysisTheme.textMuted)
+        .foregroundColor(PremiumUI.secondaryText)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(AnalysisTheme.borderLight)
-        .cornerRadius(AnalysisTheme.Radius.full)
+        .background(PremiumUI.divider)
+        .cornerRadius(999)
     }
 
     // MARK: - Generating View
@@ -420,14 +420,14 @@ struct GenerationView: View {
             // Animated progress indicator
             ZStack {
                 Circle()
-                    .stroke(AnalysisTheme.borderLight, lineWidth: 8)
+                    .stroke(PremiumUI.divider, lineWidth: 8)
                     .frame(width: 120, height: 120)
 
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
                         LinearGradient(
-                            colors: [AnalysisTheme.accentTeal, AnalysisTheme.accentTealLight],
+                            colors: [PremiumUI.teal, PremiumUI.teal.opacity(0.6)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -439,23 +439,23 @@ struct GenerationView: View {
 
                 Image(systemName: "sparkles")
                     .font(.system(size: 40))
-                    .foregroundColor(AnalysisTheme.accentTeal)
+                    .foregroundColor(PremiumUI.teal)
             }
             .accessibilityIdentifier("generation_progress_ring")
 
             VStack(spacing: 12) {
                 Text(statusMessage.isEmpty ? "Analyzing your book..." : statusMessage)
-                    .font(.analysisDisplayH3())
-                    .foregroundColor(AnalysisTheme.textHeading)
+                    .font(PremiumUI.display(20, .semibold))
+                    .foregroundColor(PremiumUI.ink)
                     .multilineTextAlignment(.center)
 
                 Text("This may take a few minutes")
-                    .font(.analysisBody())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(16))
+                    .foregroundColor(PremiumUI.secondaryText)
 
                 Text("\(Int(progress * 100))%")
-                    .font(.analysisUIBold())
-                    .foregroundColor(AnalysisTheme.accentTeal)
+                    .font(PremiumUI.ui(16, .semibold))
+                    .foregroundColor(PremiumUI.teal)
                     .padding(.top, 8)
             }
 
@@ -472,19 +472,19 @@ struct GenerationView: View {
                 // Success Icon
                 ZStack {
                     Circle()
-                        .fill(AnalysisTheme.accentSuccess.opacity(0.15))
+                        .fill(PremiumUI.forest.opacity(0.15))
                         .frame(width: 120, height: 120)
 
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 70))
-                        .foregroundColor(AnalysisTheme.accentSuccess)
+                        .foregroundColor(PremiumUI.forest)
                 }
                 .padding(.top, 40)
 
                 // Title
                 Text("Guide Generated!")
-                    .font(.analysisDisplayH1())
-                    .foregroundColor(AnalysisTheme.textHeading)
+                    .font(PremiumUI.display(32, .bold))
+                    .foregroundColor(PremiumUI.ink)
 
                 // Preview Card
                 if let item = generatedItem {
@@ -499,9 +499,9 @@ struct GenerationView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "book.fill")
                                 Text("View Guide")
-                                    .font(.analysisUIBold())
+                                    .font(PremiumUI.ui(16, .semibold))
                             }
-                            .analysisPrimaryCTA()
+                            .frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(PremiumUI.gold).clipShape(Capsule()).shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
                         }
                         .accessibilityIdentifier("generation_view_guide_button")
                     }
@@ -512,16 +512,16 @@ struct GenerationView: View {
                         HStack(spacing: 12) {
                             Image(systemName: "square.and.arrow.down")
                             Text("Save to Library")
-                                .font(.analysisUIBold())
+                                .font(PremiumUI.ui(16, .semibold))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(AnalysisTheme.bgCard)
-                        .foregroundColor(AnalysisTheme.textHeading)
+                        .background(PremiumUI.card)
+                        .foregroundColor(PremiumUI.ink)
                         .clipShape(Capsule())
                         .overlay(
                             Capsule()
-                                .stroke(AnalysisTheme.borderLight, lineWidth: 1)
+                                .stroke(PremiumUI.divider, lineWidth: 1)
                         )
                     }
                     .accessibilityIdentifier("generation_save_to_library_button")
@@ -541,15 +541,15 @@ struct GenerationView: View {
 
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 70))
-                .foregroundColor(AnalysisTheme.accentHighlight)
+                .foregroundColor(PremiumUI.warmOrange)
 
             Text("Generation Failed")
-                .font(.analysisDisplayH2())
-                .foregroundColor(AnalysisTheme.textHeading)
+                .font(PremiumUI.display(26, .bold))
+                .foregroundColor(PremiumUI.ink)
 
             Text(message)
-                .font(.analysisBody())
-                .foregroundColor(AnalysisTheme.textMuted)
+                .font(PremiumUI.ui(16))
+                .foregroundColor(PremiumUI.secondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
@@ -559,9 +559,9 @@ struct GenerationView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "arrow.clockwise")
                     Text("Try Again")
-                        .font(.analysisUIBold())
+                        .font(PremiumUI.ui(16, .semibold))
                 }
-                .analysisPrimaryCTA()
+                .frame(maxWidth: .infinity).padding(.vertical, 16).foregroundStyle(.white).background(PremiumUI.gold).clipShape(Capsule()).shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
             }
             .padding(.horizontal, 24)
             .accessibilityIdentifier("generation_try_again_button")
@@ -742,19 +742,19 @@ struct GuidePreviewCard: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(height: 180)
                     .clipped()
-                    .cornerRadius(AnalysisTheme.Radius.lg)
+                    .cornerRadius(12)
             }
 
             // Title and Author
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title)
-                    .font(.analysisDisplayH4())
-                    .foregroundColor(AnalysisTheme.textHeading)
+                    .font(PremiumUI.display(18, .semibold))
+                    .foregroundColor(PremiumUI.ink)
                     .lineLimit(2)
 
                 Text(item.author)
-                    .font(.analysisBody())
-                    .foregroundColor(AnalysisTheme.textMuted)
+                    .font(PremiumUI.ui(16))
+                    .foregroundColor(PremiumUI.secondaryText)
             }
 
             // Metadata
@@ -762,21 +762,21 @@ struct GuidePreviewCard: View {
                 if let wordCount = item.governedWordCount {
                     let minutes = wordCount / 200
                     Label("\(minutes) min read", systemImage: "clock")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
+                        .font(PremiumUI.ui(13))
+                        .foregroundColor(PremiumUI.secondaryText)
                 }
 
                 if let wordCount = item.governedWordCount {
                     Label("\(wordCount) words", systemImage: "doc.text")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
+                        .font(PremiumUI.ui(13))
+                        .foregroundColor(PremiumUI.secondaryText)
                 }
             }
         }
         .padding(16)
-        .background(AnalysisTheme.bgCard)
-        .cornerRadius(AnalysisTheme.Radius.xl)
-        .shadow(color: AnalysisTheme.shadowCard, radius: 8, y: 4)
+        .background(PremiumUI.card)
+        .cornerRadius(16)
+        .shadow(color: PremiumUI.cardShadow, radius: 8, y: 4)
     }
 
     private func loadCoverImageData(from path: String) -> Data? {
@@ -832,7 +832,7 @@ struct VoiceSelectionSheet: View {
                     .accessibilityIdentifier("voice_selection_done_button")
                 }
             }
-            .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
+            .background(PremiumUI.background.ignoresSafeArea())
         }
     }
 
@@ -842,7 +842,7 @@ struct VoiceSelectionSheet: View {
                 .font(.caption)
                 .fontWeight(.bold)
                 .tracking(1)
-                .foregroundColor(AnalysisTheme.accentTeal)
+                .foregroundColor(PremiumUI.teal)
                 .padding(.horizontal)
 
             ForEach(OnDeviceVoiceRegistry.allVoices, id: \.id) { voice in
@@ -862,7 +862,7 @@ struct VoiceSelectionSheet: View {
                 .font(.caption)
                 .fontWeight(.bold)
                 .tracking(1)
-                .foregroundColor(AnalysisTheme.primaryGold)
+                .foregroundColor(PremiumUI.gold)
                 .padding(.horizontal)
 
             ForEach(ElevenLabsVoiceRegistry.allVoices, id: \.id) { voice in
@@ -883,25 +883,25 @@ struct VoiceSelectionSheet: View {
             HStack(spacing: 12) {
                 // Selection indicator
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? AnalysisTheme.accentTeal : AnalysisTheme.textMuted)
+                    .foregroundColor(isSelected ? PremiumUI.teal : PremiumUI.secondaryText)
                     .font(.title3)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name)
                         .font(.headline)
-                        .foregroundColor(AnalysisTheme.textHeading)
+                        .foregroundColor(PremiumUI.ink)
 
                     Text(description)
                         .font(.caption)
-                        .foregroundColor(AnalysisTheme.textMuted)
+                        .foregroundColor(PremiumUI.secondaryText)
                         .lineLimit(2)
                 }
 
                 Spacer()
             }
             .padding(12)
-            .background(isSelected ? AnalysisTheme.accentTealSubtle : AnalysisTheme.bgCard)
-            .cornerRadius(AnalysisTheme.Radius.md)
+            .background(isSelected ? PremiumUI.teal.opacity(0.08) : PremiumUI.card)
+            .cornerRadius(8)
         }
         .buttonStyle(.plain)
         .padding(.horizontal)
