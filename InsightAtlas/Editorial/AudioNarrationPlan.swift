@@ -19,6 +19,54 @@
 import Foundation
 import CryptoKit
 
+// MARK: - Voice Selection
+
+struct VoicePacingTuning: Codable, Equatable {
+    let baseRateMultiplier: Double
+    let pauseMultiplier: Double
+    let emphasisMultiplier: Double
+    let preferredPlaybackRates: [Double]
+
+    static let standard = VoicePacingTuning(
+        baseRateMultiplier: 1.0,
+        pauseMultiplier: 1.0,
+        emphasisMultiplier: 1.0,
+        preferredPlaybackRates: [1.0, 1.25, 1.5]
+    )
+}
+
+struct VoiceSelectionConfig: Codable, Equatable {
+    let profile: ReaderProfile
+    let voiceID: String
+    let voiceName: String
+    let pacingTuning: VoicePacingTuning
+    let isBackupVoice: Bool
+
+    static func primary(for profile: ReaderProfile) -> VoiceSelectionConfig {
+        VoiceSelectionConfig(
+            profile: profile,
+            voiceID: KokoroVoiceRegistry.defaultVoice.voiceID,
+            voiceName: KokoroVoiceRegistry.defaultVoice.name,
+            pacingTuning: .standard,
+            isBackupVoice: false
+        )
+    }
+
+    static func premium(for profile: ReaderProfile) -> VoiceSelectionConfig {
+        primary(for: profile)
+    }
+
+    static func backup(for profile: ReaderProfile) -> VoiceSelectionConfig {
+        VoiceSelectionConfig(
+            profile: profile,
+            voiceID: KokoroVoiceRegistry.defaultVoice.voiceID,
+            voiceName: KokoroVoiceRegistry.defaultVoice.name,
+            pacingTuning: .standard,
+            isBackupVoice: true
+        )
+    }
+}
+
 // MARK: - Audio Narration Behavior
 
 /// Defines how a block type should be narrated

@@ -9,6 +9,14 @@ import AVFoundation
 import Foundation
 import SherpaOnnx
 
+/// Generated narration bytes plus the metadata needed by persistence and playback.
+struct GeneratedAudio: Sendable {
+    let data: Data
+    let duration: TimeInterval
+    let characterCount: Int
+    let voiceID: String
+}
+
 private typealias KokoroNativeTTS = SherpaOnnxOfflineTtsWrapper
 
 enum KokoroAudioError: LocalizedError {
@@ -282,5 +290,157 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             channel.update(from: baseAddress, count: samples.count)
         }
         try file.write(from: buffer)
+    }
+}
+
+// MARK: - Audio Playback Manager
+
+/// Manages playback of generated narration and persisted audio files.
+final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
+    static let shared = AudioPlaybackManager()
+
+    private var audioPlayer: AVAudioPlayer?
+    private var completionHandler: (() -> Void)?
+    private var currentRate: Float = 1.0
+
+    private override init() {
+        super.init()
+        configureAudioSession()
+    }
+
+    private func configureAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .spokenAudio,
+                options: [.duckOthers, .allowBluetoothA2DP]
+            )
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("[AudioPlaybackManager] Failed to configure audio session: \(error)")
+        }
+    }
+
+    func ensureAudioSessionActive() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .spokenAudio,
+                options: [.duckOthers, .allowBluetoothA2DP]
+            )
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("[AudioPlaybackManager] Failed to activate audio session: \(error)")
+        }
+    }
+
+    func play(
+        _ audio: GeneratedAudio,
+        rate: Float = 1.0,
+        completion: (() -> Void)? = nil
+    ) throws {
+        guard !audio.data.isEmpty else {
+            completion?()
+            return
+        }
+
+        stop()
+        ensureAudioSessionActive()
+
+        audioPlayer = try AVAudioPlayer(data: audio.data)
+        audioPlayer?.delegate = self
+        audioPlayer?.enableRate = true
+        audioPlayer?.rate = max(0.5, min(2.0, rate))
+        currentRate = audioPlayer?.rate ?? 1.0
+        completionHandler = completion
+        audioPlayer?.play()
+    }
+
+    func setPlaybackRate(_ rate: Float) {
+        let clampedRate = max(0.5, min(2.0, rate))
+        currentRate = clampedRate
+        audioPlayer?.rate = clampedRate
+    }
+
+    var playbackRate: Float {
+        currentRate
+    }
+
+    func playFile(
+        at url: URL,
+        rate: Float = 1.0,
+        completion: (() -> Void)? = nil
+    ) throws {
+        stop()
+        ensureAudioSessionActive()
+
+        audioPlayer = try AVAudioPlayer(contentsOf: url)
+        audioPlayer?.delegate = self
+        audioPlayer?.enableRate = true
+        audioPlayer?.rate = max(0.5, min(2.0, rate))
+        currentRate = audioPlayer?.rate ?? 1.0
+        completionHandler = completion
+        audioPlayer?.play()
+    }
+
+    func stop() {
+        audioPlayer?.stop()
+        audioPlayer = nil
+        completionHandler = nil
+        deactivateAudioSession()
+    }
+
+    func pause() {
+        audioPlayer?.pause()
+    }
+
+    func resume() {
+        audioPlayer?.play()
+    }
+
+    var isPlaying: Bool {
+        audioPlayer?.isPlaying ?? false
+    }
+
+    var progress: Double {
+        guard let player = audioPlayer, player.duration > 0 else { return 0 }
+        return player.currentTime / player.duration
+    }
+
+    var duration: TimeInterval {
+        audioPlayer?.duration ?? 0
+    }
+
+    var currentTime: TimeInterval {
+        audioPlayer?.currentTime ?? 0
+    }
+
+    func seek(to time: TimeInterval) {
+        guard let player = audioPlayer else { return }
+        player.currentTime = max(0, min(time, player.duration))
+    }
+
+    func seek(toProgress fraction: Double) {
+        guard let player = audioPlayer else { return }
+        let clamped = max(0, min(fraction, 1))
+        player.currentTime = player.duration * clamped
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        completionHandler?()
+        completionHandler = nil
+        audioPlayer = nil
+        deactivateAudioSession()
+    }
+
+    private func deactivateAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setActive(
+                false,
+                options: .notifyOthersOnDeactivation
+            )
+        } catch {
+            print("[AudioPlaybackManager] Failed to deactivate audio session: \(error)")
+        }
     }
 }
