@@ -56,6 +56,10 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(decoded.playbackSpeed, .fast)
     }
 
+    func testRegenerationOffersEverySupportedGenerationProvider() {
+        XCTAssertEqual(RegenerateView.supportedProviders, AIProvider.allCases)
+    }
+
     func testFallbackPlannerUsesKokoroOnlyWhenInstalled() {
         XCTAssertEqual(
             VoiceProviderFallbackPlanner.orderedProviders(
