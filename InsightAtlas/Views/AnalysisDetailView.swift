@@ -325,10 +325,11 @@ struct AnalysisDetailView: View {
             // Player controls
             HStack(spacing: 16) {
                 // Book cover thumbnail
-                CoverImage(
+                LibraryCoverImageView(
                     title: item.title,
                     author: item.author,
-                    coverImagePath: item.coverImagePath
+                    coverImagePath: item.coverImagePath,
+                    fallbackColor: AnalysisTheme.primaryGold
                 )
                 .frame(width: 40, height: 54)
                 .clipShape(RoundedRectangle(cornerRadius: 5))
