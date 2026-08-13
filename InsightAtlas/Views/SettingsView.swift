@@ -1211,6 +1211,14 @@ struct VoiceSelectionSettingsView: View {
 
     private func previewElevenLabsVoice(_ voice: ElevenLabsVoice) {
         guard !isLoadingPreview else { return }
+
+        // Tapping the same voice again stops playback
+        if previewingVoiceID == voice.voiceID {
+            AudioPlaybackManager.shared.stop()
+            previewingVoiceID = nil
+            return
+        }
+
         AudioPlaybackManager.shared.stop()
         previewingVoiceID = voice.voiceID
         isLoadingPreview = true
@@ -1226,7 +1234,11 @@ struct VoiceSelectionSettingsView: View {
                 await MainActor.run {
                     isLoadingPreview = false
                     do {
-                        try AudioPlaybackManager.shared.play(audio)
+                        try AudioPlaybackManager.shared.play(audio) {
+                            Task { @MainActor in
+                                previewingVoiceID = nil
+                            }
+                        }
                     } catch {
                         previewingVoiceID = nil
                         previewError = error.localizedDescription
