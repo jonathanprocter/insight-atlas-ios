@@ -269,7 +269,7 @@ struct GenerationView: View {
                         Text("Provider order")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
-                        Text("Kokoro → Mega Transcript → OpenAI → Liam")
+                        Text("Kokoro → Mega Transcript → Liam")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
                     }
@@ -282,7 +282,6 @@ struct GenerationView: View {
 
                 if !KokoroModelStore.isInstalled,
                    !KeychainMegaTranscriptCredentialStore.shared.hasAPIKey,
-                   !KeychainService.shared.hasOpenAIApiKey,
                    KokoroTTSClient.currentAPIKey() == nil {
                     Text("⚠️ Download Kokoro or configure a cloud narrator in Settings → Audio & Narration")
                         .font(.analysisUISmall())
@@ -625,12 +624,9 @@ struct GenerationView: View {
 
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
-                    // has auto-narration on AND at least one provider is configured —
-                    // Mega Transcript (primary), OpenAI API (first fallback), or
-                    // the Liam token (final fallback). Otherwise leave
-                    // narration unset (it can be generated on demand later).
-                    let hasNarrationProvider = KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
-                        || KeychainService.shared.hasOpenAIApiKey
+                    // has auto-narration on and Kokoro, Mega Transcript, or Liam is ready.
+                    let hasNarrationProvider = KokoroModelStore.isInstalled
+                        || KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
                         || KokoroTTSClient.currentAPIKey() != nil
                     let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
                     if willNarrate {

@@ -132,13 +132,10 @@
 		IABULK0005AAAAAAAAAA005 /* BulkExportComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */; };
 		IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */; };
 		IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */; };
-		IACGVTESTBLD000000000002 /* ChatGPTVoiceProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */; };
-		IACGVTESTBLD000000000003 /* ChatGPTVoiceServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */; };
 		IACONTVAL01AAAAAA001 /* ContentValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACONTVAL02AAAAAA002 /* ContentValidation.swift */; };
 		IAEDIT001AAAAAAAAAA001 /* EditorialBlockTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */; };
 		IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */; };
 		IAEDITPACE01AAAAAA001 /* ReaderProfilePacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */; };
-		IAELAUDIOSVC01AAA001 /* ElevenLabsAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */; };
 		IAGOVDET01AAAAAAAA001 /* SummaryGovernorDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVDET02AAAAAAAA002 /* SummaryGovernorDetection.swift */; };
 		IAGOVENG01AAAAAAAA001 /* SummaryGovernorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVENG02AAAAAAAA002 /* SummaryGovernorEngine.swift */; };
 		IAGOVPRES01AAAAAAA001 /* SummaryGovernorPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVPRES02AAAAAAA002 /* SummaryGovernorPresets.swift */; };
@@ -146,8 +143,6 @@
 		IAGOVTYPE01AAAAAAA001 /* SummaryTypeGovernor.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAGOVTYPE02AAAAAAA002 /* SummaryTypeGovernor.swift */; };
 		IAKEYCHNSVC01AAA001 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAKEYCHNSVC02AAA002 /* KeychainService.swift */; };
 		IALAYOUT001AAAAAAAAA001 /* LayoutScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = IALAYOUT002AAAAAAAAA002 /* LayoutScore.swift */; };
-		IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */; };
-		IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */; };
 		IAOUTVAL01AAAAAAAAA01 /* OutputContractValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */; };
 		IASEMNORM01AAAAAAAAA01 /* SemanticNormalizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */; };
 		IATHEME001AAAAAAAAAA001 /* VisualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */; };
@@ -159,7 +154,6 @@
 		IAVISUALS02AAAAAAAAAA002 /* InsightVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */; };
 		IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */; };
 		IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPROV02AAA002 /* VoiceProvider.swift */; };
-		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -303,13 +297,10 @@
 		IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExportComponents.swift; sourceTree = "<group>"; };
 		IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualAssetCache.swift; sourceTree = "<group>"; };
 		IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProviderTests.swift; sourceTree = "<group>"; };
-		IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProtocolTests.swift; sourceTree = "<group>"; };
-		IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceServiceTests.swift; sourceTree = "<group>"; };
 		IACONTVAL02AAAAAA002 /* ContentValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentValidation.swift; sourceTree = "<group>"; };
 		IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialBlockTypes.swift; sourceTree = "<group>"; };
 		IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioNarrationPlan.swift; sourceTree = "<group>"; };
 		IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderProfilePacing.swift; sourceTree = "<group>"; };
-		IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsAudioService.swift; sourceTree = "<group>"; };
 		IAGOVDET02AAAAAAAA002 /* SummaryGovernorDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorDetection.swift; sourceTree = "<group>"; };
 		IAGOVENG02AAAAAAAA002 /* SummaryGovernorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorEngine.swift; sourceTree = "<group>"; };
 		IAGOVPRES02AAAAAAA002 /* SummaryGovernorPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorPresets.swift; sourceTree = "<group>"; };
@@ -317,8 +308,6 @@
 		IAGOVTYPE02AAAAAAA002 /* SummaryTypeGovernor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryTypeGovernor.swift; sourceTree = "<group>"; };
 		IAKEYCHNSVC02AAA002 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		IALAYOUT002AAAAAAAAA002 /* LayoutScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutScore.swift; sourceTree = "<group>"; };
-		IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIAudioService.swift; sourceTree = "<group>"; };
-		IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIVoiceRegistry.swift; sourceTree = "<group>"; };
 		IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputContractValidator.swift; sourceTree = "<group>"; };
 		IASEMNORM02AAAAAAAAA02 /* SemanticNormalizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticNormalizationService.swift; sourceTree = "<group>"; };
 		IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualTheme.swift; sourceTree = "<group>"; };
@@ -330,7 +319,6 @@
 		IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisuals.swift; sourceTree = "<group>"; };
 		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
 		IAVOICEPROV02AAA002 /* VoiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProvider.swift; sourceTree = "<group>"; };
-		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -366,8 +354,6 @@
 				7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */,
 				7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */,
 				IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */,
-				IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */,
-				IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */,
 				A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */,
 				A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */,
 				A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */,
@@ -535,11 +521,9 @@
 				IAVISSEL02AAAAAAAAA002 /* VisualSelectionService.swift */,
 				IAOUTVAL02AAAAAAAAA02 /* OutputContractValidator.swift */,
 				IACONTVAL02AAAAAA002 /* ContentValidation.swift */,
-				IAELAUDIOSVC02AAA002 /* ElevenLabsAudioService.swift */,
 				IAKEYCHNSVC02AAA002 /* KeychainService.swift */,
 				IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */,
 				IAVOICEPROV02AAA002 /* VoiceProvider.swift */,
-				IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */,
 				C207E5EA3026217B00843994 /* citation-taxonomy.json */,
 				C207E5F83026B37A00843994 /* KokoroTTSClient.swift */,
 				C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */,
@@ -653,8 +637,6 @@
 			children = (
 				IAEDITPACE02AAAAAA002 /* ReaderProfilePacing.swift */,
 				IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */,
-				IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */,
-				IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */,
 				A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */,
 				IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */,
 				IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */,
@@ -818,8 +800,6 @@
 				C2ED8F11302A1214003096F3 /* InsightNoteFragmentationTests.swift in Sources */,
 				C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */,
 				IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */,
-				IACGVTESTBLD000000000002 /* ChatGPTVoiceProtocolTests.swift in Sources */,
-				IACGVTESTBLD000000000003 /* ChatGPTVoiceServiceTests.swift in Sources */,
 				A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */,
 				A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */,
 				A11C0C0A0000000000000203 /* KokoroTextChunkerTests.swift in Sources */,
@@ -911,10 +891,8 @@
 				IACONTVAL01AAAAAA001 /* ContentValidation.swift in Sources */,
 				IAEDITPACE01AAAAAA001 /* ReaderProfilePacing.swift in Sources */,
 				IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */,
-				IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */,
 				C2C8335E30291D5800305D9E /* OnDeviceInsightService.swift in Sources */,
 				IAVISBRIDGE01AAAA001 /* AudioVisualBridge.swift in Sources */,
-				IAELAUDIOSVC01AAA001 /* ElevenLabsAudioService.swift in Sources */,
 				C2D8DF17302BF51200F782C0 /* OverflowMenuView.swift in Sources */,
 				IAKEYCHNSVC01AAA001 /* KeychainService.swift in Sources */,
 				C207E5F13026234F00843994 /* PDFAccessibility.swift in Sources */,
@@ -930,10 +908,8 @@
 				A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */,
 				A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */,
 				A11C0C0A0000000000002004 /* KokoroAudioService.swift in Sources */,
-				IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */,
 				C207E6043026CAC900843994 /* AtlasView.swift in Sources */,
 				C207E6063026D40500843994 /* ListenView.swift in Sources */,
-				IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

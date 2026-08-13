@@ -5,8 +5,7 @@
 //  Narration orchestration with an offline-first provider policy:
 //    1. Kokoro — premium on-device narration with no per-use fee.
 //    2. Mega Transcript — Arthur preferred from the live English catalog.
-//    3. OpenAI Audio API — authenticated with the device's OpenAI API key.
-//    4. Liam — the last and final fallback.
+//    3. Liam — the last and final fallback.
 //
 //  All providers converge on the app's standard `NarrationAsset` contract: a file
 //  written into Documents as `audio_<itemId>.<ext>` plus a duration and voice
@@ -26,7 +25,6 @@ private let narrationLog = Logger(subsystem: "com.insightatlas", category: "Narr
 enum NarrationProviderRoute: String, Equatable, Sendable {
     case kokoro
     case megaTranscript
-    case openAI
     case liam
 }
 
@@ -34,13 +32,11 @@ enum NarrationFallbackPolicy {
     static func orderedRoutes(
         kokoroConfigured: Bool,
         megaTranscriptConfigured: Bool,
-        openAIConfigured: Bool,
         liamConfigured: Bool
     ) -> [NarrationProviderRoute] {
         var routes: [NarrationProviderRoute] = []
         if kokoroConfigured { routes.append(.kokoro) }
         if megaTranscriptConfigured { routes.append(.megaTranscript) }
-        if openAIConfigured { routes.append(.openAI) }
         if liamConfigured { routes.append(.liam) }
         return routes
     }
@@ -50,12 +46,8 @@ actor NarrationService {
 
     static let shared = NarrationService()
 
-    /// Stable OpenAI fallback voice. Onyx is supported by gpt-4o-mini-tts and
-    /// preserves the app's established authoritative narration character.
-    static let openAIVoice = "onyx"
-
     /// Synthesize narration for `itemId` using the fixed provider order:
-    /// Kokoro -> Mega Transcript -> OpenAI Audio API -> Liam.
+    /// Kokoro -> Mega Transcript -> Liam.
     /// Cancellation never triggers another provider request.
     func synthesize(
         text: String,
@@ -68,7 +60,6 @@ actor NarrationService {
         let routes = NarrationFallbackPolicy.orderedRoutes(
             kokoroConfigured: KokoroModelStore.isInstalled,
             megaTranscriptConfigured: MegaTranscriptNarrationCoordinator.shared.isConfigured,
-            openAIConfigured: KeychainService.shared.hasOpenAIApiKey,
             liamConfigured: KokoroTTSClient.currentAPIKey() != nil
         )
         guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
@@ -126,27 +117,6 @@ actor NarrationService {
                     )
                 }
 
-            case .openAI:
-                if let lastFailure {
-                    progress(.fallingBackToOpenAI(reason: lastFailure.localizedDescription))
-                } else {
-                    progress(.generating(narrator: "OpenAI API · Onyx"))
-                }
-
-                do {
-                    let asset = try await synthesizeWithOpenAI(text: spokenText, itemId: itemId)
-                    progress(.ready(narrator: "OpenAI API · Onyx"))
-                    narrationLog.info("Narration via OpenAI API (Onyx) for \(itemId.uuidString)")
-                    return asset
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch {
-                    lastFailure = error
-                    narrationLog.error(
-                        "OpenAI Audio API failed [\(error.localizedDescription, privacy: .public)] — moving to the next configured narration provider"
-                    )
-                }
-
             case .liam:
                 let reason = lastFailure?.localizedDescription
                     ?? "Using Liam as the final configured narration provider."
@@ -168,16 +138,6 @@ actor NarrationService {
         }
 
         throw lastFailure ?? NarrationServiceError.noConfiguredProvider
-    }
-
-    // MARK: - OpenAI API path
-
-    private func synthesizeWithOpenAI(text: String, itemId: UUID) async throws -> NarrationAsset {
-        let service = OpenAIAudioService()
-        // OpenAIAudioService chunks long text and returns fully-assembled audio.
-        let audio = try await service.generateAudio(text: text, voiceID: Self.openAIVoice, speed: 1.0)
-        guard !audio.data.isEmpty else { throw OpenAIAudioError.audioDecodingFailed }
-        return try persist(audio: audio, itemId: itemId)
     }
 
     private func persist(audio: GeneratedAudio, itemId: UUID) throws -> NarrationAsset {

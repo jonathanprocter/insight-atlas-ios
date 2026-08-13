@@ -150,15 +150,14 @@ final class KokoroNarrationTests: XCTestCase {
 
     // MARK: - Stable provider fallback policy
 
-    func testNarrationFallbackPolicyUsesKokoroThenMegaThenOpenAIThenLiam() {
+    func testNarrationFallbackPolicyUsesKokoroThenMegaThenLiam() {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: true,
                 megaTranscriptConfigured: true,
-                openAIConfigured: true,
                 liamConfigured: true
             ),
-            [.kokoro, .megaTranscript, .openAI, .liam]
+            [.kokoro, .megaTranscript, .liam]
         )
     }
 
@@ -167,16 +166,14 @@ final class KokoroNarrationTests: XCTestCase {
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: false,
                 megaTranscriptConfigured: false,
-                openAIConfigured: true,
                 liamConfigured: true
             ),
-            [.openAI, .liam]
+            [.liam]
         )
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: true,
                 megaTranscriptConfigured: true,
-                openAIConfigured: false,
                 liamConfigured: true
             ),
             [.kokoro, .megaTranscript, .liam]
@@ -185,7 +182,6 @@ final class KokoroNarrationTests: XCTestCase {
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: true,
                 megaTranscriptConfigured: false,
-                openAIConfigured: false,
                 liamConfigured: false
             ),
             [.kokoro]
@@ -205,20 +201,6 @@ final class KokoroNarrationTests: XCTestCase {
             NarrationService.fileExtension(for: Data([0x49, 0x44, 0x33, 0x04])),
             "mp3"
         )
-    }
-
-    func testOpenAITTSRequestUsesSupportedSpeechSchema() throws {
-        let request = OpenAITTSRequest(text: "Read this exactly.", voiceID: "onyx")
-        let data = try JSONEncoder().encode(request)
-        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-
-        XCTAssertEqual(json["model"] as? String, "gpt-4o-mini-tts")
-        XCTAssertEqual(json["input"] as? String, "Read this exactly.")
-        XCTAssertEqual(json["voice"] as? String, "onyx")
-        XCTAssertEqual(json["response_format"] as? String, "mp3")
-        XCTAssertEqual(json["speed"] as? Double, 1.0)
-        XCTAssertFalse((json["instructions"] as? String)?.isEmpty ?? true)
-        XCTAssertNil(json["chatgpt-account-id"])
     }
 
     // MARK: - Duplicate-job prevention

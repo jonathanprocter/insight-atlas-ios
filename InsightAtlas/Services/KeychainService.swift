@@ -59,7 +59,6 @@ final class KeychainService {
         static let claudeApiKey = "com.insightatlas.claude-api-key"
         static let openaiApiKey = "com.insightatlas.openai-api-key"
         static let openRouterApiKey = "com.insightatlas.openrouter-api-key"
-        static let elevenLabsApiKey = "com.insightatlas.elevenlabs-api-key"
         static let minimaxAccessToken = "com.insightatlas.minimax-access-token"
         static let minimaxRefreshToken = "com.insightatlas.minimax-refresh-token"
         static let minimaxTokenExpiry = "com.insightatlas.minimax-token-expiry"
@@ -119,24 +118,6 @@ final class KeychainService {
         openRouterApiKey?.isEmpty == false
     }
 
-    /// ElevenLabs API key stored securely in Keychain
-    /// Used for text-to-speech audio narration
-    var elevenLabsApiKey: String? {
-        get { retrieve(key: Keys.elevenLabsApiKey) }
-        set {
-            if let value = newValue, !value.isEmpty {
-                save(key: Keys.elevenLabsApiKey, value: value)
-            } else {
-                delete(key: Keys.elevenLabsApiKey)
-            }
-        }
-    }
-
-    /// Check if ElevenLabs API key is configured
-    var hasElevenLabsApiKey: Bool {
-        elevenLabsApiKey?.isEmpty == false
-    }
-
     // MARK: - MiniMax M3 OAuth tokens
 
     var minimaxAccessToken: String? {
@@ -164,7 +145,6 @@ final class KeychainService {
         delete(key: Keys.claudeApiKey)
         delete(key: Keys.openaiApiKey)
         delete(key: Keys.openRouterApiKey)
-        delete(key: Keys.elevenLabsApiKey)
     }
 
     // MARK: - Private Keychain Operations

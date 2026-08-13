@@ -85,11 +85,6 @@ struct NarrationDiagnostics: Sendable {
     var assemblyOK: Bool = false
     var assemblyDetail: String = "Not run"
 
-    // OpenAI TTS fallback — via standalone API key.
-    var openAIKeyPresent: Bool = false
-    var openAISynthOK: Bool = false
-    var openAISynthDetail: String = "Not run"
-
     var allPassed: Bool { tokenPresent && healthOK && singleChunkOK && assemblyOK }
 }
 
@@ -186,24 +181,6 @@ actor KokoroNarrationService {
     func runDiagnostics() async -> NarrationDiagnostics {
         var result = NarrationDiagnostics()
 
-        // OpenAI API fallback (Onyx). The direct probe reports the raw HTTP
-        // outcome for the standalone API credential, independent of Liam.
-        result.openAIKeyPresent = KeychainService.shared.hasOpenAIApiKey
-        if let key = KeychainService.shared.openaiApiKey {
-            if key.hasPrefix("sk-or-") {
-                // OpenRouter key in the OpenAI field — a common mix-up. OpenRouter
-                // has no TTS endpoint and its keys only authenticate at
-                // openrouter.ai, so this would just 401 against OpenAI.
-                result.openAISynthOK = false
-                result.openAISynthDetail = "Looks like an OpenRouter key (sk-or-…); OpenRouter has no TTS. Use an OpenAI key."
-            } else {
-                let probe = await Self.probeOpenAITTS(bearer: key)
-                result.openAISynthOK = probe.ok
-                result.openAISynthDetail = probe.detail
-            }
-        } else {
-            result.openAISynthDetail = "No OpenAI API key"
-        }
         result.tokenPresent = KokoroTTSClient.currentAPIKey() != nil
         guard result.tokenPresent else {
             result.healthDetail = "Skipped — no token"
@@ -267,39 +244,6 @@ actor KokoroNarrationService {
         }
 
         return result
-    }
-
-    /// Direct minimal POST to OpenAI TTS reporting the raw HTTP outcome for the
-    /// given bearer credential. Diagnostics-only; deliberately does not go
-    /// through OpenAIAudioService so status codes aren't remapped.
-    private static func probeOpenAITTS(bearer: String) async -> (ok: Bool, detail: String) {
-        guard let url = URL(string: "https://api.openai.com/v1/audio/speech") else {
-            return (false, "Bad URL")
-        }
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.timeoutInterval = 30
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "model": OpenAIAudioService.model,
-            "input": "Insight Atlas narration check. This is the onyx voice.",
-            "voice": NarrationService.openAIVoice,
-            "instructions": "Read the supplied text exactly as written in a calm audiobook cadence.",
-            "response_format": "mp3"
-        ])
-        do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
-            if code == 200 {
-                return (true, "OK — \(data.count / 1024) KB (\(NarrationService.openAIVoice))")
-            }
-            let body = String(data: data.prefix(180), encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            return (false, "HTTP \(code): \(body)")
-        } catch {
-            return (false, readable(error))
-        }
     }
 
     private static func readable(_ error: Error) -> String {

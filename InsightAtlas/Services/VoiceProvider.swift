@@ -2,85 +2,27 @@
 //  VoiceProvider.swift
 //  InsightAtlas
 //
-//  Voice provider abstraction for local Kokoro, OpenAI, and ElevenLabs.
+//  Voice provider abstraction for on-device Kokoro narration.
 //
 
 import Foundation
 
 // MARK: - Voice Provider Enum
 
-/// Available voice-generation providers, ordered by the default primary route.
+/// Available voice-generation providers.
 enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
     case kokoro = "kokoro"
-    case openai = "openai"
-    case elevenlabs = "elevenlabs"
 
     var id: String { rawValue }
+    var displayName: String { "Kokoro (On-Device)" }
+    var description: String { "Premium offline narration with no API key or per-use fee" }
+    var requiresSeparateApiKey: Bool { false }
+    var defaultVoiceID: String { KokoroVoiceRegistry.defaultVoice.voiceID }
+    var audioFileExtension: String { "wav" }
 
-    var displayName: String {
-        switch self {
-        case .kokoro:
-            return "Kokoro (On-Device)"
-        case .openai:
-            return "OpenAI"
-        case .elevenlabs:
-            return "ElevenLabs"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .kokoro:
-            return "Premium offline narration with no API key or per-use fee"
-        case .openai:
-            return "High-quality narration using your OpenAI API key"
-        case .elevenlabs:
-            return "Premium cloud voices with advanced customization"
-        }
-    }
-
-    /// Whether this provider requires a provider-specific key beyond existing app credentials.
-    var requiresSeparateApiKey: Bool {
-        switch self {
-        case .kokoro, .openai:
-            return false
-        case .elevenlabs:
-            return true
-        }
-    }
-
-    var defaultVoiceID: String {
-        switch self {
-        case .kokoro:
-            return KokoroVoiceRegistry.defaultVoice.voiceID
-        case .openai:
-            return OpenAIVoiceRegistry.defaultVoice.voiceID
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.adam.voiceID
-        }
-    }
-
-    var audioFileExtension: String {
-        switch self {
-        case .kokoro:
-            return "wav"
-        case .openai:
-            return "m4a"
-        case .elevenlabs:
-            return "mp3"
-        }
-    }
-
-    /// Check whether this provider can generate audio on this device.
+    /// Check whether Kokoro can generate audio on this device.
     func isConfigured() -> Bool {
-        switch self {
-        case .kokoro:
-            return KokoroModelStore.isInstalled
-        case .openai:
-            return KeychainService.shared.hasOpenAIApiKey
-        case .elevenlabs:
-            return KeychainService.shared.hasElevenLabsApiKey
-        }
+        KokoroModelStore.isInstalled
     }
 }
 
@@ -88,25 +30,15 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 
 struct VoiceProviderAvailability: Equatable, Sendable {
     let kokoro: Bool
-    let openAI: Bool
-    let elevenLabs: Bool
 
     static var current: VoiceProviderAvailability {
-        VoiceProviderAvailability(
-            kokoro: KokoroModelStore.isInstalled,
-            openAI: KeychainService.shared.hasOpenAIApiKey,
-            elevenLabs: KeychainService.shared.hasElevenLabsApiKey
-        )
+        VoiceProviderAvailability(kokoro: KokoroModelStore.isInstalled)
     }
 
     func contains(_ provider: VoiceProvider) -> Bool {
         switch provider {
         case .kokoro:
             return kokoro
-        case .openai:
-            return openAI
-        case .elevenlabs:
-            return elevenLabs
         }
     }
 }
@@ -116,17 +48,7 @@ enum VoiceProviderFallbackPlanner {
         preferred: VoiceProvider,
         availability: VoiceProviderAvailability
     ) -> [VoiceProvider] {
-        let candidates: [VoiceProvider] = [
-            preferred,
-            .kokoro,
-            .openai,
-            .elevenlabs
-        ]
-
-        var seen = Set<VoiceProvider>()
-        return candidates.filter { provider in
-            availability.contains(provider) && seen.insert(provider).inserted
-        }
+        availability.contains(preferred) ? [preferred] : []
     }
 }
 
@@ -170,9 +92,9 @@ enum VoiceRoutingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noConfiguredProvider:
-            return "No narration provider is ready. Download the Kokoro voice model or configure a cloud provider in Settings."
+            return "On-device narration is not ready. Download the Kokoro voice model in Settings."
         case .allProvidersFailed(let detail):
-            return "All available narration providers failed. \(detail)"
+            return "On-device narration failed. \(detail)"
         }
     }
 }
@@ -184,21 +106,16 @@ final class VoiceServiceManager: ObservableObject {
     static let shared = VoiceServiceManager()
 
     private let kokoroService: KokoroAudioService
-    private let openAIService: OpenAIAudioService
-    private let elevenLabsService: ElevenLabsAudioService
 
     @Published var currentProvider: VoiceProvider
 
     private init() {
         self.kokoroService = KokoroAudioService.shared
-        self.openAIService = OpenAIAudioService()
-        self.elevenLabsService = ElevenLabsAudioService()
+        self.currentProvider = .kokoro
 
-        if let savedProvider = UserDefaults.standard.string(forKey: "voice_provider"),
-           let provider = VoiceProvider(rawValue: savedProvider) {
-            self.currentProvider = provider
-        } else {
-            self.currentProvider = .kokoro
+        // Replace any persisted retired provider with the supported local provider.
+        if UserDefaults.standard.string(forKey: "voice_provider") != VoiceProvider.kokoro.rawValue {
+            UserDefaults.standard.set(VoiceProvider.kokoro.rawValue, forKey: "voice_provider")
         }
     }
 
@@ -226,10 +143,6 @@ final class VoiceServiceManager: ObservableObject {
         switch provider {
         case .kokoro:
             return try await kokoroService.generateAudio(text: text, voiceID: voiceID)
-        case .openai:
-            return try await openAIService.generateAudio(text: text, voiceID: voiceID)
-        case .elevenlabs:
-            return try await elevenLabsService.generateAudio(text: text, voiceID: voiceID)
         }
     }
 
@@ -247,107 +160,42 @@ final class VoiceServiceManager: ObservableObject {
             throw VoiceRoutingError.noConfiguredProvider
         }
 
-        var lastError: Error?
-        for provider in providers {
-            let voiceID = resolvedVoiceID(
-                for: provider,
-                preferredVoiceID: preferredVoiceID,
-                readerProfile: readerProfile
-            )
-            do {
-                let audio = try await generateAudio(
-                    text: text,
-                    voiceID: voiceID,
-                    provider: provider
-                )
-                return RoutedGeneratedAudio(audio: audio, provider: provider, voiceID: voiceID)
-            } catch {
-                lastError = error
-            }
-        }
-
-        throw VoiceRoutingError.allProvidersFailed(
-            lastError?.localizedDescription ?? "No provider returned playable audio."
+        let voiceID = resolvedVoiceID(
+            preferredVoiceID: preferredVoiceID,
+            readerProfile: readerProfile
         )
+        do {
+            let audio = try await generateAudio(
+                text: text,
+                voiceID: voiceID,
+                provider: .kokoro
+            )
+            return RoutedGeneratedAudio(audio: audio, provider: .kokoro, voiceID: voiceID)
+        } catch {
+            throw VoiceRoutingError.allProvidersFailed(error.localizedDescription)
+        }
     }
 
     private func resolvedVoiceID(
-        for provider: VoiceProvider,
         preferredVoiceID: String?,
         readerProfile: ReaderProfile
     ) -> String {
-        switch provider {
-        case .kokoro:
-            if let preferredVoiceID,
-               KokoroVoiceRegistry.isValidVoiceID(preferredVoiceID) {
-                return preferredVoiceID
-            }
-            return KokoroVoiceRegistry.recommendedVoice(for: readerProfile).voiceID
-
-        case .openai:
-            if let preferredVoiceID,
-               OpenAIVoiceRegistry.isValidVoiceID(preferredVoiceID) {
-                return preferredVoiceID
-            }
-            return OpenAIVoiceRegistry.defaultVoice.voiceID
-
-        case .elevenlabs:
-            if let preferredVoiceID,
-               ElevenLabsVoiceRegistry.voice(byVoiceID: preferredVoiceID) != nil {
-                return preferredVoiceID
-            }
-            return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile).voiceID
+        if let preferredVoiceID,
+           KokoroVoiceRegistry.isValidVoiceID(preferredVoiceID) {
+            return preferredVoiceID
         }
+        return KokoroVoiceRegistry.recommendedVoice(for: readerProfile).voiceID
     }
 
     func availableVoices() -> [any UnifiedVoice] {
-        switch currentProvider {
-        case .kokoro:
-            return KokoroVoiceRegistry.allVoices
-        case .openai:
-            return OpenAIVoiceRegistry.allVoices
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.allVoices.map { ElevenLabsUnifiedVoice(voice: $0) }
-        }
+        KokoroVoiceRegistry.allVoices
     }
 
     func defaultVoice() -> any UnifiedVoice {
-        switch currentProvider {
-        case .kokoro:
-            return KokoroVoiceRegistry.defaultVoice
-        case .openai:
-            return OpenAIVoiceRegistry.defaultVoice
-        case .elevenlabs:
-            return ElevenLabsUnifiedVoice(voice: ElevenLabsVoiceRegistry.adam)
-        }
+        KokoroVoiceRegistry.defaultVoice
     }
 
     func voice(byID id: String) -> (any UnifiedVoice)? {
-        switch currentProvider {
-        case .kokoro:
-            return KokoroVoiceRegistry.voice(byID: id)
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: id)
-        case .elevenlabs:
-            guard let voice = ElevenLabsVoiceRegistry.voice(byID: id) else { return nil }
-            return ElevenLabsUnifiedVoice(voice: voice)
-        }
-    }
-}
-
-// MARK: - ElevenLabs Unified Voice Wrapper
-
-struct ElevenLabsUnifiedVoice: UnifiedVoice {
-    let voice: ElevenLabsVoice
-
-    var id: String { voice.id }
-    var voiceID: String { voice.voiceID }
-    var name: String { voice.name }
-    var description: String { voice.description }
-    var provider: VoiceProvider { .elevenlabs }
-    var previewText: String { VoicePreviewScript.primary }
-
-    static func == (lhs: ElevenLabsUnifiedVoice, rhs: ElevenLabsUnifiedVoice) -> Bool {
-        lhs.voice == rhs.voice
+        KokoroVoiceRegistry.voice(byID: id)
     }
 }

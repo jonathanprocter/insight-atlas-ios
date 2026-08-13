@@ -225,23 +225,7 @@ struct MegaTranscriptDeveloperSettingsView: View {
                 Text("Preview generates a short sample and uses Mega Transcript API credits. It never runs automatically.")
             }
 
-            Section("Fallback") {
-                NavigationLink {
-                    APIConfigurationView()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("OpenAI Audio API")
-                            Text("Onyx · gpt-4o-mini-tts")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: KeychainService.shared.hasOpenAIApiKey ? "checkmark.circle.fill" : "exclamationmark.circle")
-                            .foregroundStyle(KeychainService.shared.hasOpenAIApiKey ? Color.green : Color.orange)
-                    }
-                }
-
+            Section("Final Fallback") {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Liam")
@@ -407,8 +391,8 @@ final class NarrationControlViewModel: ObservableObject {
                 generationTask = nil
                 DataManager.shared.markNarrationFailed(for: item.id)
                 errorMessage = error.localizedDescription
-                canRetry = KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
-                    || KeychainService.shared.hasOpenAIApiKey
+                canRetry = KokoroModelStore.isInstalled
+                    || KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
                     || KokoroTTSClient.currentAPIKey() != nil
             }
         }
@@ -471,9 +455,6 @@ final class NarrationControlViewModel: ObservableObject {
                 ?? "Mega Transcript"
         }
         if voiceID == KokoroTTSClient.voice { return "Liam" }
-        if let voice = OpenAIVoiceRegistry.voice(byVoiceID: voiceID) {
-            return "OpenAI · \(voice.name)"
-        }
         return voiceID
     }
 
@@ -503,16 +484,16 @@ struct NarrationControlsView: View {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    private var kokoroConfigured: Bool {
+        KokoroModelStore.isInstalled
+    }
+
     private var megaConfigured: Bool {
         KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
     }
 
     private var liamConfigured: Bool {
         KokoroTTSClient.currentAPIKey() != nil
-    }
-
-    private var openAIConfigured: Bool {
-        KeychainService.shared.hasOpenAIApiKey
     }
 
     private var selectedMegaVoiceDiffersFromAudio: Bool {
@@ -571,9 +552,9 @@ struct NarrationControlsView: View {
                 .accessibilityLabel(model.progressLabel)
             } else if hasAudio {
                 playbackControls
-            } else if !megaConfigured && !openAIConfigured && !liamConfigured {
+            } else if !kokoroConfigured && !megaConfigured && !liamConfigured {
                 HStack {
-                    Text("Configure Mega Transcript, OpenAI, or Liam before listening.")
+                    Text("Download Kokoro or configure Mega Transcript or Liam before listening.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -630,18 +611,21 @@ struct NarrationControlsView: View {
     }
 
     private var readySubtitle: String {
-        if megaConfigured {
-            return "\(MegaTranscriptNarratorPreferences.shared.selectedVoiceName ?? "Arthur") · OpenAI fallback · Liam final"
+        if kokoroConfigured {
+            return "Kokoro offline · Mega Transcript fallback · Liam final"
         }
-        if openAIConfigured { return "OpenAI API · Liam final fallback" }
+        if megaConfigured {
+            return "\(MegaTranscriptNarratorPreferences.shared.selectedVoiceName ?? "Arthur") · Liam final fallback"
+        }
         return "Liam final fallback"
     }
 
     private var listenButtonTitle: String {
+        if kokoroConfigured { return "Listen with Kokoro" }
         if megaConfigured {
             return "Listen with \(MegaTranscriptNarratorPreferences.shared.selectedVoiceName ?? "Arthur")"
         }
-        return openAIConfigured ? "Listen with OpenAI" : "Listen with Liam"
+        return "Listen with Liam"
     }
 
     private var playbackControls: some View {

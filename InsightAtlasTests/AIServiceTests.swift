@@ -56,13 +56,13 @@ final class AIServiceTests: XCTestCase {
         }
     }
 
-    func testMissingOpenAIApiKey() async {
+    func testMissingOpenRouterApiKey() async {
         // Create test settings
         var settings = UserSettings()
-        settings.preferredProvider = .openai
-        
+        settings.preferredProvider = .openRouter
+
         // Clear any existing key
-        KeychainService.shared.openaiApiKey = nil
+        KeychainService.shared.openRouterApiKey = nil
 
         var receivedChunks: [String] = []
         var receivedStatuses: [GenerationStatus] = []
@@ -79,7 +79,7 @@ final class AIServiceTests: XCTestCase {
             XCTFail("Should throw an error for missing API key")
         } catch let error as AIServiceError {
             if case .missingApiKey(let provider) = error {
-                XCTAssertEqual(provider, "OpenAI", "Error should indicate OpenAI provider")
+                XCTAssertEqual(provider, "OpenRouter", "Error should indicate OpenRouter provider")
             } else {
                 XCTFail("Wrong error type: \(error)")
             }
@@ -156,18 +156,12 @@ final class AIServiceTests: XCTestCase {
 
     func testProviderDisplayNames() {
         XCTAssertEqual(AIProvider.claude.displayName, "Claude")
-        XCTAssertEqual(AIProvider.openai.displayName, "OpenAI")
         XCTAssertEqual(AIProvider.openRouter.displayName, "OpenRouter")
-        XCTAssertEqual(AIProvider.both.displayName, "Both")
+        XCTAssertEqual(AIProvider.minimax.displayName, "MiniMax M3")
     }
 
     func testAllProvidersEnumerated() {
-        let allProviders = AIProvider.allCases
-        XCTAssertEqual(allProviders.count, 4, "Should have 4 providers")
-        XCTAssertTrue(allProviders.contains(.claude))
-        XCTAssertTrue(allProviders.contains(.openai))
-        XCTAssertTrue(allProviders.contains(.openRouter))
-        XCTAssertTrue(allProviders.contains(.both))
+        XCTAssertEqual(AIProvider.allCases, [.claude, .openRouter, .minimax])
     }
 
     // MARK: - Request Model Tests

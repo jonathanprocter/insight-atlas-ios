@@ -33,45 +33,22 @@ struct VoicePickerSheet: View {
     }
 
     private var recommendedVoices: [VoicePickerOption] {
-        switch provider {
-        case .kokoro:
-            return KokoroVoiceRegistry.voicesSorted(for: profile).map {
-                VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
-            }
-        case .openai:
-            return OpenAIVoiceRegistry.allVoices.map {
-                VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
-            }
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.allVoices
-                .filter { $0.recommendedProfiles.contains(profile) }
-                .map { VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description) }
+        KokoroVoiceRegistry.voicesSorted(for: profile).map {
+            VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
         }
     }
 
-    private var otherVoices: [VoicePickerOption] {
-        guard provider == .elevenlabs else { return [] }
-        return ElevenLabsVoiceRegistry.allVoices
-            .filter { !$0.recommendedProfiles.contains(profile) }
-            .map { VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description) }
-    }
+    private var otherVoices: [VoicePickerOption] { [] }
 
     private var primarySectionTitle: String {
-        switch provider {
-        case .kokoro:
-            return "KOKORO VOICES · ON-DEVICE"
-        case .openai:
-            return "OPENAI VOICES"
-        case .elevenlabs:
-            return "RECOMMENDED FOR YOU"
-        }
+        "KOKORO VOICES · ON-DEVICE"
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Select a \(provider.displayName) voice for manual previews. Full-guide narration uses offline Kokoro first, then Mega Transcript, OpenAI, and Liam when configured.")
+                    Text("Select a \(provider.displayName) voice for manual previews. Full-guide narration uses offline Kokoro first, then Mega Transcript and Liam when configured.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
@@ -143,9 +120,11 @@ struct VoicePickerSheet: View {
         }
         .onAppear {
             let preferred = currentVoiceID ?? environment.userSettings.selectedVoiceID
-            selectedVoiceID = isValidVoiceID(preferred)
-                ? preferred!
-                : provider.defaultVoiceID
+            if let preferred, isValidVoiceID(preferred) {
+                selectedVoiceID = preferred
+            } else {
+                selectedVoiceID = provider.defaultVoiceID
+            }
         }
     }
 

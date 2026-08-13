@@ -123,7 +123,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "API Configuration",
-                        keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "minimax"],
+                        keywords: ["api", "configuration", "keys", "claude", "openrouter", "minimax"],
                         dynamicValues: [apiConfigurationStatus]
                     ) {
                         PremiumSettingsCard(
@@ -305,7 +305,7 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 10)
-                .padding(.bottom, 32)
+                .padding(.bottom, 96)
             }
             .scrollIndicators(.hidden)
             .background(PremiumUI.background.ignoresSafeArea())
@@ -325,7 +325,8 @@ struct SettingsView: View {
     private var apiConfigurationStatus: String {
         let configuredCount = [
             KeychainService.shared.hasClaudeApiKey,
-            KeychainService.shared.hasOpenAIApiKey
+            KeychainService.shared.hasOpenRouterApiKey,
+            MiniMaxOAuthService.hasStoredCredentials
         ].filter { $0 }.count
 
         switch configuredCount {
@@ -354,7 +355,7 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "Audio & Narration",
-            keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
+            keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "mega transcript", "liam"],
             dynamicValues: [selectedVoiceName]
         ) &&
         !matchesSection(
@@ -772,18 +773,6 @@ struct APIConfigurationView: View {
                 .listRowBackground(PremiumUI.card)
 
                 SecureFieldRow(
-                    label: "OpenAI",
-                    placeholder: "OpenAI API Key",
-                    text: Binding(
-                        get: { KeychainService.shared.openaiApiKey ?? "" },
-                        set: { environment.updateOpenAIApiKey($0.isEmpty ? nil : $0) }
-                    ),
-                    hasValue: KeychainService.shared.hasOpenAIApiKey,
-                    savedSuffix: savedSuffix(for: KeychainService.shared.openaiApiKey)
-                )
-                .listRowBackground(PremiumUI.card)
-
-                SecureFieldRow(
                     label: "OpenRouter",
                     placeholder: "OpenRouter API Key (sk-or-...)",
                     text: Binding(
@@ -1010,28 +999,6 @@ struct AudioSettingsView: View {
             }
 
             Section {
-                NavigationLink {
-                    APIConfigurationView()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("OpenAI Audio API")
-                            Text(KeychainService.shared.hasOpenAIApiKey ? "API key configured" : "API key not configured")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text("Onyx")
-                            .foregroundStyle(PremiumUI.secondaryText)
-                    }
-                }
-            } header: {
-                Text("Second Cloud Fallback")
-            } footer: {
-                Text("If offline Kokoro and Mega Transcript are unavailable, InsightAtlas uses OpenAI gpt-4o-mini-tts with the Onyx voice. OpenAI API usage is billed separately.")
-            }
-
-            Section {
                 HStack {
                     Text("Fallback Voice")
                     Spacer()
@@ -1050,7 +1017,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Playback & Final Fallback")
             } footer: {
-                Text("The fixed route is offline Kokoro with \(selectedKokoroVoice.name), Mega Transcript with \(megaVoiceName), OpenAI Audio API with Onyx, then Liam as the final fallback.")
+                Text("The fixed route is offline Kokoro with \(selectedKokoroVoice.name), Mega Transcript with \(megaVoiceName), then Liam as the final fallback.")
             }
 
             Section {
@@ -1089,7 +1056,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration is generated after a guide finishes using offline Kokoro first, then Mega Transcript, OpenAI, and Liam. Kokoro needs no credential after its one-time model download.")
+                Text("When on, narration is generated after a guide finishes using offline Kokoro first, then Mega Transcript and Liam. Kokoro needs no credential after its one-time model download.")
             }
 
             Section {
@@ -1102,7 +1069,7 @@ struct AudioSettingsView: View {
                     }
                 } label: {
                     HStack {
-                        Text(isTestingNarration ? "Testing…" : "Test OpenAI & Liam Fallbacks")
+                        Text(isTestingNarration ? "Testing…" : "Test Liam Fallback")
                         Spacer()
                         if isTestingNarration { ProgressView() }
                     }
@@ -1111,12 +1078,6 @@ struct AudioSettingsView: View {
                 .listRowBackground(PremiumUI.card)
 
                 if let diag = narrationDiagnostics {
-                    // Active OpenAI API fallback.
-                    diagnosticRow("OpenAI Key", diag.openAIKeyPresent, diag.openAIKeyPresent ? "Present" : "Missing")
-                        .listRowBackground(PremiumUI.card)
-                    diagnosticRow("OpenAI TTS (key)", diag.openAISynthOK, diag.openAISynthDetail)
-                        .listRowBackground(PremiumUI.card)
-                    // Last and final fallback: Kokoro / Liam.
                     diagnosticRow("Liam Token", diag.tokenPresent, diag.tokenPresent ? "Present" : "Missing")
                         .listRowBackground(PremiumUI.card)
                     diagnosticRow("Liam Gateway", diag.healthOK, diag.healthDetail)
@@ -1129,7 +1090,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Diagnostics")
             } footer: {
-                Text("Tests the OpenAI API and Liam cloud fallbacks. Kokoro readiness and voice selection are shown at the top; Mega Transcript status appears in First Cloud Fallback.")
+                Text("Tests the Liam cloud fallback. Kokoro readiness and voice selection are shown at the top; Mega Transcript status appears in First Cloud Fallback.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
