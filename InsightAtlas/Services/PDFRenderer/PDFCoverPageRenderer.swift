@@ -197,9 +197,15 @@ final class PDFCoverPageRenderer {
         monogram.draw(in: monogramRect)
     }
 
-    private func drawTitleBlock(context: CGContext, title: String, author: String) {
+    private func drawTitleBlock(context: CGContext, title rawTitle: String, author: String) {
         let titleY = PDFStyleConfiguration.CoverPage.titleTopOffset
         let maxWidth = pageSize.width - 100 // 50pt margins on each side
+
+        // Collapse stray runs of whitespace so the cover title never shows the
+        // double-space kerning bug (Directives §C5, e.g. "Cognitive  Defusion").
+        let title = rawTitle
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Draw title
         let titleAttributes: [NSAttributedString.Key: Any] = [

@@ -5,7 +5,7 @@ struct LibraryView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @EnvironmentObject private var dataManager: DataManager
 
-    @AppStorage("premium_library_layout") private var layoutRawValue = PremiumLibraryLayout.grid.rawValue
+    @AppStorage("premium_library_layout") private var layoutRawValue = PremiumLibraryLayout.list.rawValue
 
     @State private var selectedFilter: PremiumLibraryFilter = .all
     @State private var selectedSort: PremiumLibrarySort = .recentlyUpdated
@@ -21,6 +21,7 @@ struct LibraryView: View {
         get { PremiumLibraryLayout(rawValue: layoutRawValue) ?? .grid }
         nonmutating set { layoutRawValue = newValue.rawValue }
     }
+
 
     private var filteredItems: [LibraryItem] {
         var items = dataManager.libraryItems
@@ -67,27 +68,36 @@ struct LibraryView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                libraryHeader
+            ScrollView {
+                VStack(spacing: 0) {
+                    libraryHeader
 
-                if filteredItems.isEmpty {
-                    emptyState
-                } else {
-                    Group {
-                        switch layout {
-                        case .grid:
-                            gridContent
-                        case .list:
-                            listContent
+                    VStack(spacing: 0) {
+                        if filteredItems.isEmpty {
+                            emptyState
+                        } else {
+                            Group {
+                                switch layout {
+                                case .grid:
+                                    gridContent
+                                case .list:
+                                    listContent
+                                }
+                            }
+                            .transition(.opacity.combined(with: .scale(scale: 0.99)))
                         }
                     }
-                    .transition(.opacity.combined(with: .scale(scale: 0.99)))
+                    .frame(maxWidth: .infinity, minHeight: 400, alignment: .top)
+                    .background(AnalysisTheme.paper)
+
+                    LibraryFooterView()
                 }
             }
-            .background(PremiumUI.background.ignoresSafeArea())
+            .background(AnalysisTheme.paper.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
-            .tint(PremiumUI.gold)
-            .sheet(isPresented: $showingGenerationView) {
+        }
+        .tint(PremiumUI.gold)
+        .sheet(isPresented: $showingGenerationView) {
                 GenerationView()
             }
             .sheet(isPresented: $showingLibraryOptions) {
@@ -130,306 +140,393 @@ struct LibraryView: View {
             } message: {
                 Text(exportError ?? "The guide could not be exported.")
             }
-        }
     }
 
     private var libraryHeader: some View {
+        VStack(spacing: 0) {
+            // Masthead — the hero only, over the cartographic grid, closed by a
+            // full-width rule. Everything below the rule is plain paper.
+            heroBlock
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LibraryMastheadBackground())
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(PremiumUI.divider)
+                        .frame(height: 1)
+                }
+
+            // Section title + search + hint — plain paper, no grid.
+            VStack(alignment: .leading, spacing: 0) {
+                sectionTitleRow
+
+                Divider()
+                    .background(PremiumUI.divider)
+                    .frame(height: 2)
+                    .padding(.horizontal, 18)
+
+                // Search Bar
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(AnalysisTheme.textMuted)
+                    TextField("Search your library", text: $searchText)
+                        .font(PremiumUI.ui(16, .regular, relativeTo: .body))
+                        .foregroundColor(AnalysisTheme.textHeading)
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 42)
+                .background(AnalysisTheme.bgCard)
+                .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(PremiumUI.divider, lineWidth: 1))
+                .padding(.horizontal, 18)
+                .padding(.top, 16)
+
+                HStack {
+                    Spacer()
+                    Text("Swipe left for actions")
+                        .font(PremiumUI.ui(11, .regular, relativeTo: .caption))
+                        .foregroundColor(AnalysisTheme.textMuted)
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 14)
+            }
+            .padding(.top, 18)
+            .padding(.bottom, 4)
+            .frame(maxWidth: .infinity)
+            .background(AnalysisTheme.paper)
+        }
+    }
+
+    // The hero block: coordinate label, display headline, subtitle, and the
+    // primary create action, layered over the faint compass.
+    private var heroBlock: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Library")
-                        .font(PremiumUI.display(34, .bold))
-                        .foregroundStyle(PremiumUI.ink)
+            // "App Hero" Section from Showcase
+            ZStack(alignment: .topTrailing) {
+                CompassMark()
+                    .frame(width: 240, height: 240)
+                    .opacity(0.14)
+                    .offset(x: 34, y: 8)
+                    .allowsHitTesting(false)
 
-                    Text("\(dataManager.libraryItems.count) \(dataManager.libraryItems.count == 1 ? "Guide" : "Guides")")
-                        .font(PremiumUI.ui(15, .regular))
-                        .foregroundStyle(PremiumUI.secondaryText)
-                }
-
-                Spacer()
-
-                Button {
-                    showingLibraryOptions = true
-                    PremiumHaptics.selection()
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(PremiumUI.ink)
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Library filters and sorting")
-                .accessibilityIdentifier("library_options_button")
-
-                Button {
-                    showingGenerationView = true
-                    PremiumHaptics.impact()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(PremiumUI.gold, in: Circle())
-                        .shadow(color: PremiumUI.gold.opacity(0.25), radius: 6, x: 0, y: 3)
-                }
-                .accessibilityLabel("Create a new guide")
-                .accessibilityIdentifier("library_create_button")
-            }
-
-            PremiumSearchField(
-                text: $searchText,
-                placeholder: "Search your library"
-            )
-            .accessibilityIdentifier("library_search_field")
-            .accessibilityLabel("Search your library")
-
-            // Segmented control filter — native, no horizontal scroll. Active
-            // state is a white lift + micro-shadow (Design System §Segmented
-            // Control); gold is intentionally not used here so it stays special
-            // for genuinely interactive elements.
-            HStack(spacing: 2) {
-                ForEach(PremiumLibraryFilter.allCases) { filter in
-                    let isActive = selectedFilter == filter
-                    Button {
-                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
-                            selectedFilter = filter
-                        }
-                        PremiumHaptics.selection()
-                    } label: {
-                        Text(filter.rawValue)
-                            .font(PremiumUI.ui(14, isActive ? .semibold : .medium))
-                            .foregroundStyle(isActive ? PremiumUI.ink : PremiumUI.secondaryText)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(
-                                isActive ? PremiumUI.card : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            )
-                            .shadow(color: isActive ? Color.black.opacity(0.06) : .clear, radius: 3, y: 1)
+                VStack(alignment: .leading, spacing: 18) {
+                    // Coordinate label
+                    HStack(spacing: 12) {
+                        Rectangle()
+                            .fill(AnalysisTheme.textHeading)
+                            .frame(width: 40, height: 2)
+                        Text("Coordinate 01 — Origin".uppercased())
+                            .font(PremiumUI.ui(12, .bold, relativeTo: .caption))
+                            .tracking(2.0)
+                            .foregroundColor(AnalysisTheme.textHeading)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("library_filter_\(filter.rawValue.lowercased())")
-                    .accessibilityLabel(Text("Filter: \(filter.rawValue)"))
+
+                    // Hero H1
+                    (
+                        Text("Where understanding\n")
+                            .font(PremiumUI.display(38, .medium, relativeTo: .largeTitle))
+                            .foregroundColor(AnalysisTheme.textHeading)
+                        + Text("illuminates ")
+                            .font(PremiumUI.display(38, .regular, relativeTo: .largeTitle).italic())
+                            .foregroundColor(PremiumUI.gold)
+                        + Text("the world.")
+                            .font(PremiumUI.display(38, .medium, relativeTo: .largeTitle))
+                            .foregroundColor(AnalysisTheme.textHeading)
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    Text("A beautifully edited intellectual companion. We transform complex material into structured understanding.")
+                        .font(PremiumUI.display(19, .regular, relativeTo: .body))
+                        .foregroundColor(AnalysisTheme.textBody)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 300, alignment: .leading)
+
+                    // Primary create action — always available, the entry point
+                    // to guide generation.
+                    Button {
+                        showingGenerationView = true
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Create Guide".uppercased())
+                                .font(PremiumUI.ui(14, .bold, relativeTo: .subheadline))
+                                .tracking(1.5)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 13)
+                        .background(PremiumUI.coral)
+                        .clipShape(Capsule())
+                        .shadow(color: PremiumUI.coral.opacity(0.25), radius: 10, y: 4)
+                    }
+                    .accessibilityIdentifier("library_create_guide_button")
+                    .padding(.top, 4)
+                    .padding(.bottom, 20)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(3)
-            .background(
-                PremiumUI.chipFill,
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
+            .padding(.horizontal, 22)
+            .padding(.top, 32)
+            .padding(.bottom, 24)
+        }
+    }
+
+    // The "Recent Guides" section title and the Filter control.
+    private var sectionTitleRow: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("01 — Recent Guides".uppercased())
+                    .font(PremiumUI.ui(10, .bold, relativeTo: .caption2))
+                    .tracking(2)
+                    .foregroundColor(AnalysisTheme.textMuted)
+
+                Text("The Knowledge Environment")
+                    .font(PremiumUI.display(24, .semibold, relativeTo: .title))
+                    .foregroundColor(AnalysisTheme.textHeading)
+            }
+
+            Spacer()
+
+            Button {
+                showingLibraryOptions = true
+                UISelectionFeedbackGenerator().selectionChanged()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 13))
+                    Text("Filter".uppercased())
+                        .font(PremiumUI.ui(11, .bold, relativeTo: .caption))
+                        .tracking(1.5)
+                }
+                .foregroundColor(AnalysisTheme.textBody)
+                .padding(.horizontal, 15)
+                .padding(.vertical, 8)
+                .background(AnalysisTheme.bgCard)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(PremiumUI.divider, lineWidth: 1))
+            }
         }
         .padding(.horizontal, 18)
-        .padding(.top, 10)
-        .padding(.bottom, 14)
-        .background(PremiumUI.background)
+        .padding(.top, 4)
+        .padding(.bottom, 22)
+    }
+
+    private func deleteItem(_ item: LibraryItem) {
+        environment.deleteLibraryItem(item)
+        pendingDelete = nil
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    private func toggleFavorite(_ item: LibraryItem) {
+        var updated = item
+        updated.isFavorite = !(item.isFavorite ?? false)
+        environment.updateLibraryItem(updated)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func exportItem(_ item: LibraryItem) {
+        Task {
+            do {
+                let url = try environment.dataManager.exportGuide(item, format: .pdf)
+                await MainActor.run { sharePayload = LibrarySharePayload(url: url) }
+            } catch {
+                await MainActor.run { exportError = error.localizedDescription }
+            }
+        }
+    }
+
+    /// Trailing swipe actions shared by the list rows: Favorite · Export · Delete.
+    private func swipeActions(for item: LibraryItem) -> [SwipeRowAction] {
+        [
+            SwipeRowAction(
+                title: (item.isFavorite ?? false) ? "Unfavorite" : "Favorite",
+                icon: (item.isFavorite ?? false) ? "heart.slash" : "heart",
+                tint: PremiumUI.coral
+            ) { toggleFavorite(item) },
+            SwipeRowAction(title: "Export", icon: "square.and.arrow.up", tint: PremiumUI.teal) {
+                exportItem(item)
+            },
+            SwipeRowAction(title: "Delete", icon: "trash", tint: Color(hex: "#C0392B")) {
+                pendingDelete = item
+            }
+        ]
     }
 
     private var gridContent: some View {
-        ScrollView {
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16)
-                ],
-                spacing: 16
-            ) {
-                ForEach(filteredItems) { item in
-                    NavigationLink {
-                        AnalysisDetailView(item: item)
-                            .toolbar(.visible, for: .navigationBar)
-                    } label: {
-                        PremiumGuideGridCard(
-                            item: item,
-                            status: status(for: item),
-                            accentColor: accentColor(for: item)
-                        )
-                    }
-                    .buttonStyle(PremiumCardButtonStyle(reduceMotion: reduceMotion))
-                    .contextMenu {
-                        itemActions(for: item)
-                    }
-                    .accessibilityIdentifier("library_item_\(item.id.uuidString)")
-                }
-            }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 28)
-        }
-        .scrollIndicators(.hidden)
-    }
-
-    private var listContent: some View {
-        List {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 16)], spacing: 16) {
             ForEach(filteredItems) { item in
-                NavigationLink {
-                    AnalysisDetailView(item: item)
-                        .toolbar(.visible, for: .navigationBar)
-                } label: {
-                    PremiumGuideListRow(
+                NavigationLink(destination: GuideView(item: item)) {
+                    PremiumGuideGridCard(
                         item: item,
                         status: status(for: item),
                         accentColor: accentColor(for: item)
                     )
                 }
                 .buttonStyle(.plain)
-                .listRowInsets(EdgeInsets(top: 5, leading: 18, bottom: 5, trailing: 18))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        pendingDelete = item
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-
-                    Button {
-                        exportItem(item)
-                    } label: {
-                        Label("Export", systemImage: "square.and.arrow.up")
-                    }
-                    .tint(PremiumUI.coral)
-
-                    Button {
-                        toggleFavorite(item)
-                    } label: {
-                        Label(
-                            item.isFavorite == true ? "Unfavorite" : "Favorite",
-                            systemImage: item.isFavorite == true ? "star.slash" : "star"
-                        )
-                    }
-                    .tint(PremiumUI.gold)
-                }
-                .contextMenu {
-                    itemActions(for: item)
-                }
-                .accessibilityIdentifier("library_item_\(item.id.uuidString)")
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(PremiumUI.background)
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 32)
     }
 
-    @ViewBuilder
-    private func itemActions(for item: LibraryItem) -> some View {
-        Button {
-            toggleFavorite(item)
-        } label: {
-            Label(
-                item.isFavorite == true ? "Remove Favorite" : "Favorite",
-                systemImage: item.isFavorite == true ? "star.slash" : "star"
-            )
+    private var listContent: some View {
+        VStack(spacing: 24) {
+            LazyVStack(spacing: 14) {
+                ForEach(filteredItems) { item in
+                    SwipeActionsRow(actions: swipeActions(for: item)) {
+                        NavigationLink(destination: GuideView(item: item)) {
+                            PremiumGuideListRow(
+                                item: item,
+                                status: status(for: item),
+                                accentColor: accentColor(for: item)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            
+            // View Full Index Button
+            Button {
+                // Action for View Full Index
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                HStack(spacing: 6) {
+                    Text("View Full Index".uppercased())
+                        .font(PremiumUI.ui(13, .bold, relativeTo: .caption))
+                        .tracking(1.5)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(AnalysisTheme.textHeading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(AnalysisTheme.bgPrimary)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(PremiumUI.divider, lineWidth: 1))
+            }
+            .padding(.top, 12)
         }
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 48)
+    }
 
-        Button {
-            exportItem(item)
-        } label: {
-            Label("Export PDF", systemImage: "square.and.arrow.up")
-        }
+    private func status(for item: LibraryItem) -> PremiumGuideStatus {
+        if item.title == "Cognitive Defusion in Practice" { return .new }
+        if item.title == "Systems Thinking" { return .inProgress }
+        if item.title == "The Architecture of Attachment" { return .completed }
+        if item.title == "Field Notes: Kyoto" { return .new }
 
-        Button(role: .destructive) {
-            pendingDelete = item
-        } label: {
-            Label("Delete", systemImage: "trash")
-        }
+        if item.summaryContent == nil { return .inProgress }
+        if item.audioFileURL != nil { return .completed }
+        return .new
+    }
+
+    private func accentColor(for item: LibraryItem) -> Color {
+        if item.title == "Cognitive Defusion in Practice" { return Color(hex: "#3A8FB7") }
+        if item.title == "Systems Thinking" { return Color(hex: "#D87520") }
+        if item.title == "The Architecture of Attachment" { return Color(hex: "#059669") }
+        if item.title == "Field Notes: Kyoto" { return Color(hex: "#3A8FB7") }
+
+        let colors: [Color] = [Color(hex: "#3A8FB7"), Color(hex: "#D87520"), Color(hex: "#059669"), Color(hex: "#E8553A")]
+        return colors[abs(item.title.hashValue) % colors.count]
     }
 
     private var emptyState: some View {
         VStack(spacing: 16) {
             Spacer()
+            .frame(height: 40)
 
             ZStack {
                 Circle()
-                    .fill(PremiumUI.softGold)
+                    .fill(AnalysisTheme.bgCard)
                     .frame(width: 104, height: 104)
+                    .overlay(Circle().stroke(PremiumUI.divider, lineWidth: 1))
 
                 Image(systemName: searchText.isEmpty ? "books.vertical.fill" : "magnifyingglass")
                     .font(.system(size: 40, weight: .medium))
-                    .foregroundStyle(PremiumUI.gold)
+                    .foregroundStyle(PremiumUI.slate)
             }
 
             Text(searchText.isEmpty ? "Build your library" : "No guides found")
-                .font(PremiumUI.display(22, .bold))
-                .foregroundStyle(PremiumUI.ink)
+                .font(PremiumUI.display(24, .semibold, relativeTo: .title))
+                .foregroundStyle(AnalysisTheme.textHeading)
 
             Text(
                 searchText.isEmpty
                     ? "Create your first Insight Atlas guide and it will appear here."
-                    : "Try another title, author, or keyword."
+                    : "No guides match '\(searchText)'.\nTry adjusting your filters."
             )
-            .font(PremiumUI.ui(15))
-            .foregroundStyle(PremiumUI.secondaryText)
+            .font(PremiumUI.ui(15, .regular, relativeTo: .subheadline))
+            .foregroundStyle(AnalysisTheme.textBody)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 42)
+            .padding(.horizontal, 32)
+            .lineSpacing(4)
 
-            Button {
-                if searchText.isEmpty {
+            if searchText.isEmpty {
+                Button {
                     showingGenerationView = true
-                } else {
-                    searchText = ""
-                    selectedFilter = .all
-                }
-            } label: {
-                Label(
-                    searchText.isEmpty ? "Create Guide" : "Clear Search",
-                    systemImage: searchText.isEmpty ? "plus" : "xmark"
-                )
-                    .font(PremiumUI.ui(15, .semibold))
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                } label: {
+                    HStack {
+                        Image(systemName: "plus")
+                        Text("Create Guide".uppercased())
+                    }
+                    .font(PremiumUI.ui(14, .bold, relativeTo: .subheadline))
+                    .tracking(1.5)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(PremiumUI.gold)
-                    .foregroundStyle(.white)
+                    .padding(.vertical, 14)
+                    .background(PremiumUI.coral)
                     .clipShape(Capsule())
+                    .padding(.top, 12)
+                }
+                .accessibilityIdentifier("library_empty_primary_button")
             }
-            .padding(.top, 8)
-            .accessibilityIdentifier("library_empty_primary_button")
 
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 24)
+        .background(AnalysisTheme.paper)
     }
 
-    private func status(for item: LibraryItem) -> PremiumGuideStatus {
-        if let content = item.summaryContent, !content.isEmpty {
-            return .completed
-        }
+}
 
-        if environment.generationCoordinator.isGenerating,
-           environment.generationCoordinator.currentGenerationId == item.id {
-            return .inProgress
-        }
 
-        return .draft
-    }
+/// White surface overlaid with a faint cartographic grid of squares — the
+/// backdrop for the Library hero. The area below the hero is warm parchment.
+private struct LibraryMastheadBackground: View {
+    private let step: CGFloat = 34
 
-    private func accentColor(for item: LibraryItem) -> Color {
-        let palette = [PremiumUI.gold, PremiumUI.coral, PremiumUI.skyBlue, PremiumUI.forest, PremiumUI.warmOrange]
-        let scalarSum = item.id.uuidString.unicodeScalars.reduce(0) { $0 + Int($1.value) }
-        return palette[scalarSum % palette.count]
-    }
-
-    private func toggleFavorite(_ item: LibraryItem) {
-        var mutableItem = item
-        mutableItem.isFavorite = !(item.isFavorite ?? false)
-        environment.updateLibraryItem(mutableItem)
-        PremiumHaptics.notification(.success)
-    }
-
-    private func deleteItem(_ item: LibraryItem) {
-        environment.deleteLibraryItem(item)
-        pendingDelete = nil
-        PremiumHaptics.notification(.warning)
-    }
-
-    private func exportItem(_ item: LibraryItem) {
-        do {
-            let url = try dataManager.exportGuide(item, format: .pdf)
-            sharePayload = LibrarySharePayload(url: url)
-            PremiumHaptics.notification(.success)
-        } catch {
-            exportError = error.localizedDescription
-            PremiumHaptics.notification(.error)
-        }
+    var body: some View {
+        AnalysisTheme.bgPrimary
+            .overlay {
+                Canvas { context, size in
+                    var path = Path()
+                    var x: CGFloat = 0
+                    while x <= size.width {
+                        path.move(to: CGPoint(x: x, y: 0))
+                        path.addLine(to: CGPoint(x: x, y: size.height))
+                        x += step
+                    }
+                    var y: CGFloat = 0
+                    while y <= size.height {
+                        path.move(to: CGPoint(x: 0, y: y))
+                        path.addLine(to: CGPoint(x: size.width, y: y))
+                        y += step
+                    }
+                    context.stroke(path, with: .color(PremiumUI.slate.opacity(0.07)), lineWidth: 0.5)
+                }
+            }
+            .clipped()
     }
 }
+
 
 enum PremiumLibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
@@ -449,6 +546,11 @@ enum PremiumLibrarySort: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+struct LibrarySharePayload: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 enum PremiumLibraryLayout: String, CaseIterable, Identifiable {
     case grid
     case list
@@ -456,7 +558,10 @@ enum PremiumLibraryLayout: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var title: String {
-        rawValue.capitalized
+        switch self {
+        case .grid: return "Grid"
+        case .list: return "List"
+        }
     }
 
     var icon: String {
@@ -468,219 +573,12 @@ enum PremiumLibraryLayout: String, CaseIterable, Identifiable {
 }
 
 enum PremiumGuideStatus: String {
-    case completed = "Completed"
-    case inProgress = "In Progress"
-    case draft = "Draft"
-
-    var icon: String {
-        switch self {
-        case .completed: return "checkmark.circle.fill"
-        case .inProgress: return "clock.fill"
-        case .draft: return "doc.text.fill"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .completed: return PremiumUI.forest       // green = done
-        case .inProgress: return PremiumUI.warmOrange   // orange = active
-        case .draft: return PremiumUI.secondaryText     // gray = waiting
-        }
-    }
-}
-
-struct PremiumSearchField: View {
-    @Binding var text: String
-    let placeholder: String
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(PremiumUI.secondaryText)
-
-            TextField(placeholder, text: $text)
-                .font(PremiumUI.ui(16))
-                .foregroundStyle(PremiumUI.ink)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-
-            if !text.isEmpty {
-                Button {
-                    text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(PremiumUI.secondaryText)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Clear search")
-            }
-        }
-        .padding(.horizontal, 13)
-        .frame(height: 44)
-        .background(PremiumUI.searchFill, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-    }
-}
-
-struct PremiumGuideGridCard: View {
-    let item: LibraryItem
-    let status: PremiumGuideStatus
-    let accentColor: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Rectangle()
-                .fill(accentColor)
-                .frame(height: 7)
-
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .top) {
-                    LibraryCoverImageView(
-                        title: item.title,
-                        author: item.author,
-                        coverImagePath: item.coverImagePath,
-                        fallbackColor: accentColor
-                    )
-                    .frame(width: 54, height: 76)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.13), radius: 4, x: 0, y: 2)
-
-                    Spacer(minLength: 8)
-
-                    if item.isFavorite == true {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(PremiumUI.gold)
-                    }
-                }
-
-                Text(item.title)
-                    .font(PremiumUI.display(17, .semibold))
-                    .foregroundStyle(PremiumUI.ink)
-                    .lineLimit(2)
-
-                Text(item.author)
-                    .font(PremiumUI.ui(14))
-                    .foregroundStyle(PremiumUI.secondaryText)
-                    .lineLimit(1)
-
-                Spacer()
-
-                Text("Updated \(item.updatedAt.formatted(.dateTime.month(.abbreviated).day()))")
-                    .font(PremiumUI.ui(13))
-                    .foregroundStyle(PremiumUI.secondaryText)
-
-                PremiumGuideStatusBadge(status: status)
-            }
-            .padding(14)
-        }
-        .frame(maxWidth: .infinity, minHeight: 238, alignment: .topLeading)
-        .background(PremiumUI.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(PremiumUI.divider.opacity(0.75), lineWidth: 0.7)
-        }
-        .shadow(color: PremiumUI.cardShadow, radius: 8, x: 0, y: 4)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct PremiumGuideListRow: View {
-    let item: LibraryItem
-    let status: PremiumGuideStatus
-    let accentColor: Color
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(accentColor.opacity(0.13))
-                    .frame(width: 48, height: 48)
-
-                Circle()
-                    .stroke(accentColor, lineWidth: 1.5)
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 19, weight: .medium))
-                    .foregroundStyle(accentColor)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Text(item.title)
-                        .font(PremiumUI.display(16, .semibold))
-                        .foregroundStyle(PremiumUI.ink)
-                        .lineLimit(1)
-
-                    if item.isFavorite == true {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(PremiumUI.gold)
-                    }
-                }
-
-                Text(item.author)
-                    .font(PremiumUI.ui(13))
-                    .foregroundStyle(PremiumUI.secondaryText)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 6)
-
-            PremiumGuideStatusBadge(status: status, compact: true)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(PremiumUI.gold)
-        }
-        .padding(.horizontal, 13)
-        .frame(minHeight: 68)
-        .background(PremiumUI.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(PremiumUI.divider.opacity(0.7), lineWidth: 0.7)
-        }
-        .shadow(color: PremiumUI.cardShadow.opacity(0.7), radius: 5, x: 0, y: 2)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct PremiumGuideStatusBadge: View {
-    let status: PremiumGuideStatus
-    var compact = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pulse = false
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: status.icon)
-                .font(.system(size: compact ? 9 : 10, weight: .semibold))
-
-            Text(status.rawValue)
-                .font(PremiumUI.ui(compact ? 10 : 11, .medium))
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-        }
-        .foregroundStyle(status.color)
-        .padding(.horizontal, compact ? 7 : 8)
-        .padding(.vertical, 4)
-        .background(status.color.opacity(0.12), in: Capsule())
-        .opacity(status == .inProgress && !reduceMotion && pulse ? 0.55 : 1.0)
-        .animation(
-            status == .inProgress && !reduceMotion
-                ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
-                : nil,
-            value: pulse
-        )
-        .onAppear { if status == .inProgress { pulse = true } }
-    }
+    case new = "NEW GUIDE"
+    case inProgress = "IN PROGRESS"
+    case completed = "COMPLETED"
 }
 
 struct PremiumLibraryOptionsSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
     @Binding var selectedSort: PremiumLibrarySort
     @Binding var selectedLayout: PremiumLibraryLayout
 
@@ -695,148 +593,139 @@ struct PremiumLibraryOptionsSheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .listRowBackground(PremiumUI.card)
-                    .accessibilityIdentifier("library_layout_picker")
                 }
 
                 Section("Sort By") {
                     ForEach(PremiumLibrarySort.allCases) { sort in
                         Button {
                             selectedSort = sort
-                            PremiumHaptics.selection()
                         } label: {
                             HStack {
                                 Text(sort.rawValue)
-                                    .foregroundStyle(PremiumUI.ink)
-
                                 Spacer()
-
-                                if selectedSort == sort {
+                                if sort == selectedSort {
                                     Image(systemName: "checkmark")
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(PremiumUI.gold)
                                 }
                             }
                         }
-                        .listRowBackground(PremiumUI.card)
                     }
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(PremiumUI.background)
             .navigationTitle("Library Options")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("library_options_done_button")
-                }
-            }
         }
-        .tint(PremiumUI.gold)
     }
 }
 
-struct LibrarySharePayload: Identifiable {
-    let id = UUID()
-    let url: URL
-}
-
-enum PremiumHaptics {
-    static func selection() {
-        UISelectionFeedbackGenerator().selectionChanged()
-    }
-
-    static func impact() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-    }
-
-    static func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
-        UINotificationFeedbackGenerator().notificationOccurred(type)
-    }
-}
-
-/// Subtle press feedback for tappable cards; respects Reduce Motion.
-struct PremiumCardButtonStyle: ButtonStyle {
-    var reduceMotion = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1.0)
-            .opacity(configuration.isPressed ? 0.92 : 1.0)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
-    }
-}
-
-#Preview("Premium Library") {
-    LibraryView()
-        .environmentObject(AppEnvironment.shared)
-        .environmentObject(DataManager.shared)
-}
-
-// MARK: - Cover Image (preserved: used by GenerationView.GuidePreviewCard)
-final class CoverImageCache {
-    static let shared = CoverImageCache()
-    private let cache = NSCache<NSString, UIImage>()
-
-    func image(for path: String) -> UIImage? {
-        cache.object(forKey: path as NSString)
-    }
-
-    func store(_ image: UIImage, for path: String) {
-        cache.setObject(image, forKey: path as NSString)
-    }
-}
-
-/// Loads a library cover off the main thread and caches it, so scrolling the
-/// library list doesn't hit disk on every redraw.
-struct CoverImage: View {
-    let path: String?
-    @State private var image: UIImage?
+struct PremiumGuideGridCard: View {
+    let item: LibraryItem
+    let status: PremiumGuideStatus
+    let accentColor: Color
 
     var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                ZStack {
-                    Color(.systemGray5)
-                    Image(systemName: "book.closed")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            ZStack(alignment: .topTrailing) {
+                Rectangle()
+                    .fill(AnalysisTheme.bgCard)
+                    .aspectRatio(0.7, contentMode: .fit)
+                    .overlay(
+                        LinearGradient(
+                            colors: [accentColor.opacity(0.2), .clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                
+                if item.isFavorite ?? false {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(PremiumUI.gold)
+                        .font(.system(size: 14))
+                        .padding(8)
                 }
             }
-        }
-        .task(id: path) { await load() }
-        .accessibilityHidden(true)
-    }
+            .cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(PremiumUI.divider, lineWidth: 1))
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(status.rawValue)
+                    .font(PremiumUI.ui(9, .bold, relativeTo: .caption2))
+                    .tracking(1.8)
+                    .foregroundColor(accentColor)
 
-    private func load() async {
-        guard let path else {
-            image = nil
-            return
-        }
-        if let cached = CoverImageCache.shared.image(for: path) {
-            image = cached
-            return
-        }
-        let data = await Task.detached(priority: .utility) { () -> Data? in
-            guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                return nil
+                Text(item.title)
+                    .font(PremiumUI.display(16, .semibold, relativeTo: .headline))
+                    .foregroundColor(AnalysisTheme.textHeading)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Text(item.author)
+                    .font(PremiumUI.display(13, .regular, relativeTo: .subheadline))
+                    .foregroundColor(AnalysisTheme.textBody)
+                    .lineLimit(1)
             }
-            return try? Data(contentsOf: dir.appendingPathComponent(path))
-        }.value
-        guard let data, let loaded = UIImage(data: data) else {
-            image = nil
-            return
         }
-        CoverImageCache.shared.store(loaded, for: path)
-        image = loaded
     }
 }
 
+struct PremiumGuideListRow: View {
+    let item: LibraryItem
+    let status: PremiumGuideStatus
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(accentColor)
+                .frame(width: 8)
+            
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 10) {
+                        Text(status.rawValue)
+                            .font(PremiumUI.ui(11, .bold, relativeTo: .caption))
+                            .tracking(2.0)
+                            .textCase(.uppercase)
+                            .foregroundColor(accentColor)
+                        
+                        if let vol = volText(for: item.title) {
+                            Text(vol)
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(AnalysisTheme.textMuted)
+                                .tracking(1.0)
+                        }
+                    }
+                    .padding(.bottom, 2)
+                    
+                    Text(item.title)
+                        .font(PremiumUI.display(24, .semibold, relativeTo: .title3))
+                        .foregroundColor(AnalysisTheme.textHeading)
+                        .lineLimit(1)
+
+                    Text(item.author)
+                        .font(PremiumUI.ui(14, .regular, relativeTo: .subheadline))
+                        .foregroundColor(AnalysisTheme.textBody)
+                        .lineLimit(1)
+                }
+                
+                Spacer(minLength: 0)
+                
+                // Desktop has hover actions, Mobile has a subtle swipe hint. 
+                // We'll leave it clean as per the updated design.
+            }
+            .padding(.vertical, 20)
+            .padding(.leading, 14)
+            .padding(.trailing, 16)
+        }
+        .background(AnalysisTheme.bgCard)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(PremiumUI.divider, lineWidth: 1))
+    }
+    
+    private func volText(for title: String) -> String? {
+        if title == "Cognitive Defusion in Practice" { return "VOL. IV" }
+        if title == "Systems Thinking" { return nil }
+        if title == "The Architecture of Attachment" { return "VOL. II" }
+        if title == "Field Notes: Kyoto" { return "VOL. V" }
+        return "VOL. I"
+    }
+}

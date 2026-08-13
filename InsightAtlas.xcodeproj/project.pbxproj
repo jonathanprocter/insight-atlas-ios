@@ -19,20 +19,44 @@
 		7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */; };
 		7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */; };
 		7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */; };
-		IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */; };
-		IACGVTESTBLD000000000002 /* ChatGPTVoiceProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */; };
-		IACGVTESTBLD000000000003 /* ChatGPTVoiceServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */; };
 		82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */; };
 		9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A77D72C5EAC28A38E529C7 /* InsightAtlas/Views/EditorialContentRenderer.swift */; };
+		A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */; };
+		A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */; };
+		A11C0C0A0000000000000203 /* KokoroTextChunkerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */; };
+		A11C0C0A0000000000000204 /* KokoroAudioServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000000104 /* KokoroAudioServiceTests.swift */; };
+		A11C0C0A0000000000002001 /* KokoroVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */; };
+		A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001002 /* KokoroModelManager.swift */; };
+		A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001003 /* KokoroTextChunker.swift */; };
+		A11C0C0A0000000000002004 /* KokoroAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001004 /* KokoroAudioService.swift */; };
+		A11C0C0A0000000000005001 /* sherpa-onnx in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004001 /* sherpa-onnx */; };
+		A11C0C0A0000000000005002 /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004002 /* SWCompression */; };
 		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
+		A70D1002302A000100000002 /* MegaTranscriptNarration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D1001302A000100000001 /* MegaTranscriptNarration.swift */; };
+		A70D1004302A000100000004 /* MegaTranscriptNarrationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D1003302A000100000003 /* MegaTranscriptNarrationViews.swift */; };
+		A70D1006302A000100000006 /* MegaTranscriptNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D1005302A000100000005 /* MegaTranscriptNarrationTests.swift */; };
 		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
-		C207E5CC3024380C00843994 /* ChatGPTOAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */; };
-		IACGVPROTOBLD00000000001 /* ChatGPTVoiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVPROTOFILE0000000001 /* ChatGPTVoiceProtocol.swift */; };
-		IACGVSVCBLD0000000000001 /* ChatGPTVoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVSVCFILE000000000001 /* ChatGPTVoiceService.swift */; };
-		IACGVAUDIOBLD00000000001 /* ChatGPTVoiceAudioEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVAUDIOFILE0000000001 /* ChatGPTVoiceAudioEncoder.swift */; };
-		IACGVREGBLD0000000000001 /* ChatGPTVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVREGFILE000000000001 /* ChatGPTVoiceRegistry.swift */; };
-		C207E5CE3024382000843994 /* ChatGPTSignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5CD3024382000843994 /* ChatGPTSignInView.swift */; };
+		C207E5DF30261B3000843994 /* CitationBudgetEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5DE30261B3000843994 /* CitationBudgetEngine.swift */; };
+		C207E5E130261B6A00843994 /* PDFDiagramGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5E030261B6A00843994 /* PDFDiagramGeometry.swift */; };
+		C207E5E330261C4E00843994 /* DiagramPromotionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5E230261C4E00843994 /* DiagramPromotionEngine.swift */; };
+		C207E5E530261CD500843994 /* PDFReferentialIntegrity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5E430261CD500843994 /* PDFReferentialIntegrity.swift */; };
+		C207E5E730261D0A00843994 /* PDFDocumentProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5E630261D0A00843994 /* PDFDocumentProcessor.swift */; };
+		C207E5E930261DD100843994 /* PDFRedesignPhase123Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5E830261DD100843994 /* PDFRedesignPhase123Tests.swift */; };
+		C207E5EB3026217B00843994 /* citation-taxonomy.json in Resources */ = {isa = PBXBuildFile; fileRef = C207E5EA3026217B00843994 /* citation-taxonomy.json */; };
+		C207E5ED302621B300843994 /* CitationTaxonomy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5EC302621B300843994 /* CitationTaxonomy.swift */; };
+		C207E5EF3026225B00843994 /* CitationRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5EE3026225B00843994 /* CitationRegistry.swift */; };
+		C207E5F13026234F00843994 /* PDFAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F03026234F00843994 /* PDFAccessibility.swift */; };
+		C207E5F33026236A00843994 /* PDFRedesignPhase456Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */; };
+		C207E5F5302624A100843994 /* DocumentStructureEnhancer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F4302624A100843994 /* DocumentStructureEnhancer.swift */; };
+		C207E5F7302624D300843994 /* PDFRedesignPhase6StructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */; };
+		C207E5F93026B37B00843994 /* KokoroTTSClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F83026B37A00843994 /* KokoroTTSClient.swift */; };
+		C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */; };
+		C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */; };
+		C207E6023026CAB600843994 /* PremiumTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6013026CAB600843994 /* PremiumTabBar.swift */; };
+		C207E6043026CAC900843994 /* AtlasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6033026CAC900843994 /* AtlasView.swift */; };
+		C207E6063026D40500843994 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6053026D40500843994 /* ListenView.swift */; };
+		C207E6083026E11900843994 /* ContentTruncationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6073026E11900843994 /* ContentTruncationTests.swift */; };
 		C21355A72EE6360100B6662D /* CormorantGaramond-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */; };
 		C21355A82EE6360100B6662D /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559C2EE6360100B6662D /* Inter-Regular.ttf */; };
 		C21355A92EE6360100B6662D /* CormorantGaramond-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355922EE6360100B6662D /* CormorantGaramond-Italic.ttf */; };
@@ -58,7 +82,20 @@
 		C22353FF30250AEA0022D852 /* UIDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22353FE30250AEA0022D852 /* UIDriver.swift */; };
 		C284A0062F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */; };
 		C284A0082F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md in Resources */ = {isa = PBXBuildFile; fileRef = C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */; };
+		C2C832273027ECF300305D9E /* PremiumUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C832263027ECF300305D9E /* PremiumUI.swift */; };
+		C2C832293028083300305D9E /* WorkspaceMockupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C832283028083300305D9E /* WorkspaceMockupView.swift */; };
+		C2C8335E30291D5800305D9E /* OnDeviceInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C8335D30291D5800305D9E /* OnDeviceInsightService.swift */; };
+		C2C8336030291D6200305D9E /* OfflineNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C8335F30291D6200305D9E /* OfflineNarrator.swift */; };
+		C2C8336230291D7B00305D9E /* OnDeviceInsightPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C8336130291D7B00305D9E /* OnDeviceInsightPreviewView.swift */; };
+		C2D8DF17302BF51200F782C0 /* OverflowMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF16302BF51200F782C0 /* OverflowMenuView.swift */; };
+		C2D8DF19302BF62000F782C0 /* SwipeActionsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */; };
+		C2D8DF1B302BFB3E00F782C0 /* MiniMaxOAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */; };
 		C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C2E9A9242F0A4D1200480055 /* ZIPFoundation */; };
+		C2ED8EEB3029478F003096F3 /* NarrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8EEA3029478F003096F3 /* NarrationService.swift */; };
+		C2ED8F11302A1214003096F3 /* InsightNoteFragmentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8F10302A1214003096F3 /* InsightNoteFragmentationTests.swift */; };
+		C2ED8F13302A1E13003096F3 /* TableFragmentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */; };
+		C2ED8F15302A2A98003096F3 /* DiagramScaleToFitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8F14302A2A98003096F3 /* DiagramScaleToFitTests.swift */; };
+		C2ED8F17302A2EC0003096F3 /* ConceptMapGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8F16302A2EC0003096F3 /* ConceptMapGeometryTests.swift */; };
 		E29C402FB823CF0FC43901BE /* PDFAudioBundler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */; };
 		E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00002D000001007AAAAA /* InsightAtlasApp.swift */; };
 		E81A00032D000001007AAAAA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00022D000001007AAAAA /* ContentView.swift */; };
@@ -81,7 +118,6 @@
 		E81A002C2D000016007AAAAA /* InsightAtlasStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A002D2D000016007AAAAA /* InsightAtlasStyle.swift */; };
 		E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A002F2D000017007AAAAA /* QualityAuditService.swift */; };
 		E81A00302D000018007AAAAB /* RegenerateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00312D000018007AAAAB /* RegenerateView.swift */; };
-		E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */; };
 		E8THEMAT01F00000100ABCDE /* InsightAtlasThematicPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */; };
 		F1A10D85767648BCB0B41E5F /* PDFAnalysisDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */; };
 		IAAPI0001AAAAAAAAAAAAAA1 /* InsightAtlasAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */; };
@@ -95,6 +131,9 @@
 		IABULK0003AAAAAAAAAA003 /* LibraryComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */; };
 		IABULK0005AAAAAAAAAA005 /* BulkExportComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */; };
 		IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */; };
+		IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */; };
+		IACGVTESTBLD000000000002 /* ChatGPTVoiceProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */; };
+		IACGVTESTBLD000000000003 /* ChatGPTVoiceServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */; };
 		IACONTVAL01AAAAAA001 /* ContentValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACONTVAL02AAAAAA002 /* ContentValidation.swift */; };
 		IAEDIT001AAAAAAAAAA001 /* EditorialBlockTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */; };
 		IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */; };
@@ -119,7 +158,6 @@
 		IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */; };
 		IAVISUALS02AAAAAAAAAA002 /* InsightVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */; };
 		IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */; };
-		IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPKVW02AAA002 /* VoicePickerView.swift */; };
 		IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEPROV02AAA002 /* VoiceProvider.swift */; };
 		IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */; };
 /* End PBXBuildFile section */
@@ -147,23 +185,45 @@
 		7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainServiceTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixerTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorTests.swift; sourceTree = "<group>"; };
-		IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProviderTests.swift; sourceTree = "<group>"; };
-		IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProtocolTests.swift; sourceTree = "<group>"; };
-		IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceServiceTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234596 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDiagramRenderer.swift; sourceTree = "<group>"; };
 		9E4CE5A059B44E1EBB2E7CB8 /* PDFStyleConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFStyleConfiguration.swift; sourceTree = "<group>"; };
 		9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFCoverPageRenderer.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroVoiceRegistryTests.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroModelManagerTests.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTextChunkerTests.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000000104 /* KokoroAudioServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroAudioServiceTests.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroVoiceRegistry.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001002 /* KokoroModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroModelManager.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001003 /* KokoroTextChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTextChunker.swift; sourceTree = "<group>"; };
+		A11C0C0A0000000000001004 /* KokoroAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroAudioService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = PDFTextFixerPatterns.json; sourceTree = "<group>"; };
+		A70D1001302A000100000001 /* MegaTranscriptNarration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MegaTranscriptNarration.swift; sourceTree = "<group>"; };
+		A70D1003302A000100000003 /* MegaTranscriptNarrationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MegaTranscriptNarrationViews.swift; sourceTree = "<group>"; };
+		A70D1005302A000100000005 /* MegaTranscriptNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MegaTranscriptNarrationTests.swift; sourceTree = "<group>"; };
 		A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/EditorialBlockViews.swift; sourceTree = SOURCE_ROOT; };
 		AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFContentBlockRenderer.swift; sourceTree = "<group>"; };
-		C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTOAuthService.swift; sourceTree = "<group>"; };
-		IACGVPROTOFILE0000000001 /* ChatGPTVoiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProtocol.swift; sourceTree = "<group>"; };
-		IACGVSVCFILE000000000001 /* ChatGPTVoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceService.swift; sourceTree = "<group>"; };
-		IACGVAUDIOFILE0000000001 /* ChatGPTVoiceAudioEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceAudioEncoder.swift; sourceTree = "<group>"; };
-		IACGVREGFILE000000000001 /* ChatGPTVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceRegistry.swift; sourceTree = "<group>"; };
-		C207E5CD3024382000843994 /* ChatGPTSignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTSignInView.swift; sourceTree = "<group>"; };
+		C207E5DE30261B3000843994 /* CitationBudgetEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationBudgetEngine.swift; sourceTree = "<group>"; };
+		C207E5E030261B6A00843994 /* PDFDiagramGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDiagramGeometry.swift; sourceTree = "<group>"; };
+		C207E5E230261C4E00843994 /* DiagramPromotionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagramPromotionEngine.swift; sourceTree = "<group>"; };
+		C207E5E430261CD500843994 /* PDFReferentialIntegrity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReferentialIntegrity.swift; sourceTree = "<group>"; };
+		C207E5E630261D0A00843994 /* PDFDocumentProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDocumentProcessor.swift; sourceTree = "<group>"; };
+		C207E5E830261DD100843994 /* PDFRedesignPhase123Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFRedesignPhase123Tests.swift; sourceTree = "<group>"; };
+		C207E5EA3026217B00843994 /* citation-taxonomy.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "citation-taxonomy.json"; sourceTree = "<group>"; };
+		C207E5EC302621B300843994 /* CitationTaxonomy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationTaxonomy.swift; sourceTree = "<group>"; };
+		C207E5EE3026225B00843994 /* CitationRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationRegistry.swift; sourceTree = "<group>"; };
+		C207E5F03026234F00843994 /* PDFAccessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAccessibility.swift; sourceTree = "<group>"; };
+		C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFRedesignPhase456Tests.swift; sourceTree = "<group>"; };
+		C207E5F4302624A100843994 /* DocumentStructureEnhancer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentStructureEnhancer.swift; sourceTree = "<group>"; };
+		C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFRedesignPhase6StructureTests.swift; sourceTree = "<group>"; };
+		C207E5F83026B37A00843994 /* KokoroTTSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTTSClient.swift; sourceTree = "<group>"; };
+		C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationService.swift; sourceTree = "<group>"; };
+		C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationTests.swift; sourceTree = "<group>"; };
+		C207E6013026CAB600843994 /* PremiumTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumTabBar.swift; sourceTree = "<group>"; };
+		C207E6033026CAC900843994 /* AtlasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasView.swift; sourceTree = "<group>"; };
+		C207E6053026D40500843994 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
+		C207E6073026E11900843994 /* ContentTruncationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentTruncationTests.swift; sourceTree = "<group>"; };
 		C213558F2EE6360100B6662D /* Caveat.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Caveat.ttf; sourceTree = "<group>"; };
 		C21355902EE6360100B6662D /* CormorantGaramond-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-Bold.ttf"; sourceTree = "<group>"; };
 		C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CormorantGaramond-BoldItalic.ttf"; sourceTree = "<group>"; };
@@ -194,6 +254,19 @@
 		C22353FE30250AEA0022D852 /* UIDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIDriver.swift; sourceTree = "<group>"; };
 		C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PREMIUM_UPGRADE_SUMMARY.md; sourceTree = "<group>"; };
 		C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_CHECKLIST.md; sourceTree = "<group>"; };
+		C2C832263027ECF300305D9E /* PremiumUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumUI.swift; sourceTree = "<group>"; };
+		C2C832283028083300305D9E /* WorkspaceMockupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMockupView.swift; sourceTree = "<group>"; };
+		C2C8335D30291D5800305D9E /* OnDeviceInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceInsightService.swift; sourceTree = "<group>"; };
+		C2C8335F30291D6200305D9E /* OfflineNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineNarrator.swift; sourceTree = "<group>"; };
+		C2C8336130291D7B00305D9E /* OnDeviceInsightPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceInsightPreviewView.swift; sourceTree = "<group>"; };
+		C2D8DF16302BF51200F782C0 /* OverflowMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverflowMenuView.swift; sourceTree = "<group>"; };
+		C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeActionsRow.swift; sourceTree = "<group>"; };
+		C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxOAuthService.swift; sourceTree = "<group>"; };
+		C2ED8EEA3029478F003096F3 /* NarrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationService.swift; sourceTree = "<group>"; };
+		C2ED8F10302A1214003096F3 /* InsightNoteFragmentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightNoteFragmentationTests.swift; sourceTree = "<group>"; };
+		C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableFragmentationTests.swift; sourceTree = "<group>"; };
+		C2ED8F14302A2A98003096F3 /* DiagramScaleToFitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagramScaleToFitTests.swift; sourceTree = "<group>"; };
+		C2ED8F16302A2EC0003096F3 /* ConceptMapGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConceptMapGeometryTests.swift; sourceTree = "<group>"; };
 		E81A00002D000001007AAAAA /* InsightAtlasApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasApp.swift; sourceTree = "<group>"; };
 		E81A00022D000001007AAAAA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E81A00042D000001007AAAAA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -216,7 +289,6 @@
 		E81A002D2D000016007AAAAA /* InsightAtlasStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasStyle.swift; sourceTree = "<group>"; };
 		E81A002F2D000017007AAAAA /* QualityAuditService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QualityAuditService.swift; sourceTree = "<group>"; };
 		E81A00312D000018007AAAAB /* RegenerateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegenerateView.swift; sourceTree = "<group>"; };
-		E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPatternLibrary.swift; sourceTree = "<group>"; };
 		E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasThematicPrompt.swift; sourceTree = "<group>"; };
 		F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAudioBundler.swift; sourceTree = "<group>"; };
 		IAAPI0002AAAAAAAAAAAAAA2 /* InsightAtlasAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasAPI.swift; sourceTree = "<group>"; };
@@ -230,6 +302,9 @@
 		IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryComponents.swift; sourceTree = "<group>"; };
 		IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExportComponents.swift; sourceTree = "<group>"; };
 		IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualAssetCache.swift; sourceTree = "<group>"; };
+		IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProviderTests.swift; sourceTree = "<group>"; };
+		IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProtocolTests.swift; sourceTree = "<group>"; };
+		IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceServiceTests.swift; sourceTree = "<group>"; };
 		IACONTVAL02AAAAAA002 /* ContentValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentValidation.swift; sourceTree = "<group>"; };
 		IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialBlockTypes.swift; sourceTree = "<group>"; };
 		IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioNarrationPlan.swift; sourceTree = "<group>"; };
@@ -254,7 +329,6 @@
 		IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideVisualView.swift; sourceTree = "<group>"; };
 		IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisuals.swift; sourceTree = "<group>"; };
 		IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerCopy.swift; sourceTree = "<group>"; };
-		IAVOICEPKVW02AAA002 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		IAVOICEPROV02AAA002 /* VoiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProvider.swift; sourceTree = "<group>"; };
 		IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -273,6 +347,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */,
+				A11C0C0A0000000000005001 /* sherpa-onnx in Frameworks */,
+				A11C0C0A0000000000005002 /* SWCompression in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,6 +358,7 @@
 		7A1B2C3D4E5F67890123456F /* InsightAtlasTests */ = {
 			isa = PBXGroup;
 			children = (
+				A70D1005302A000100000005 /* MegaTranscriptNarrationTests.swift */,
 				7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */,
 				7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */,
 				7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */,
@@ -291,7 +368,20 @@
 				IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */,
 				IACGVTESTFILE00000000002 /* ChatGPTVoiceProtocolTests.swift */,
 				IACGVTESTFILE00000000003 /* ChatGPTVoiceServiceTests.swift */,
+				A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */,
+				A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */,
+				A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */,
+				A11C0C0A0000000000000104 /* KokoroAudioServiceTests.swift */,
 				7A1B2C3D4E5F678901234596 /* Info.plist */,
+				C207E5E830261DD100843994 /* PDFRedesignPhase123Tests.swift */,
+				C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */,
+				C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */,
+				C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */,
+				C207E6073026E11900843994 /* ContentTruncationTests.swift */,
+				C2ED8F10302A1214003096F3 /* InsightNoteFragmentationTests.swift */,
+				C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */,
+				C2ED8F14302A2A98003096F3 /* DiagramScaleToFitTests.swift */,
+				C2ED8F16302A2EC0003096F3 /* ConceptMapGeometryTests.swift */,
 			);
 			path = InsightAtlasTests;
 			sourceTree = "<group>";
@@ -306,8 +396,24 @@
 				54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */,
 				F6EF2C48AF7974A3E71C7309 /* PDFAudioBundler.swift */,
 				0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */,
+				C207E5DE30261B3000843994 /* CitationBudgetEngine.swift */,
+				C207E5E030261B6A00843994 /* PDFDiagramGeometry.swift */,
+				C207E5E230261C4E00843994 /* DiagramPromotionEngine.swift */,
+				C207E5E430261CD500843994 /* PDFReferentialIntegrity.swift */,
+				C207E5E630261D0A00843994 /* PDFDocumentProcessor.swift */,
+				C207E5EC302621B300843994 /* CitationTaxonomy.swift */,
+				C207E5EE3026225B00843994 /* CitationRegistry.swift */,
+				C207E5F03026234F00843994 /* PDFAccessibility.swift */,
+				C207E5F4302624A100843994 /* DocumentStructureEnhancer.swift */,
 			);
 			path = PDFRenderer;
+			sourceTree = "<group>";
+		};
+		C207E5CF30252E2C00843994 /* Reader */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Reader;
 			sourceTree = "<group>";
 		};
 		C21355A02EE6360100B6662D /* Fonts */ = {
@@ -376,6 +482,7 @@
 		E81A00302D000020007AAAAA /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				A70D1003302A000100000003 /* MegaTranscriptNarrationViews.swift */,
 				IABULK0007AAAAAAAAAA007 /* Library */,
 				E81A00192D000006007AAAAA /* LibraryView.swift */,
 				E81A001B2D000007007AAAAA /* GuideView.swift */,
@@ -389,13 +496,19 @@
 				IAVISUALS01AAAAAAAAAA001 /* InsightVisuals.swift */,
 				E81A00312D000018007AAAAB /* RegenerateView.swift */,
 				IAVISUAL006AAAAAAAAAA006 /* GuideVisualView.swift */,
-				IAVOICEPKVW02AAA002 /* VoicePickerView.swift */,
 				C284A0052F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md */,
 				C284A0072F0A3E97004A223C /* IMPLEMENTATION_CHECKLIST.md */,
-				C207E5CD3024382000843994 /* ChatGPTSignInView.swift */,
 				C22353FA302507080022D852 /* LLMUIRegistry.swift */,
 				C22353FC302507CE0022D852 /* LLMActionRouter.swift */,
 				C22353FE30250AEA0022D852 /* UIDriver.swift */,
+				C207E5CF30252E2C00843994 /* Reader */,
+				C207E6013026CAB600843994 /* PremiumTabBar.swift */,
+				C207E6033026CAC900843994 /* AtlasView.swift */,
+				C207E6053026D40500843994 /* ListenView.swift */,
+				C2C832283028083300305D9E /* WorkspaceMockupView.swift */,
+				C2C8336130291D7B00305D9E /* OnDeviceInsightPreviewView.swift */,
+				C2D8DF16302BF51200F782C0 /* OverflowMenuView.swift */,
+				C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -403,10 +516,10 @@
 		E81A00312D000021007AAAAA /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A70D1001302A000100000001 /* MegaTranscriptNarration.swift */,
 				C092D0231E3E4446B1B094E3 /* PDFRenderer */,
 				E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */,
 				E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */,
-				E8ABCD012F00000100ABCDEF /* InsightAtlasPatternLibrary.swift */,
 				E81A00132D000003007AAAAA /* AIService.swift */,
 				E81A00152D000004007AAAAA /* BookProcessor.swift */,
 				E81A00212D000010007AAAAA /* DataManager.swift */,
@@ -427,10 +540,16 @@
 				IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */,
 				IAVOICEPROV02AAA002 /* VoiceProvider.swift */,
 				IAOPENAIAUD02AAA002 /* OpenAIAudioService.swift */,
-				C207E5CB3024380C00843994 /* ChatGPTOAuthService.swift */,
-				IACGVPROTOFILE0000000001 /* ChatGPTVoiceProtocol.swift */,
-				IACGVSVCFILE000000000001 /* ChatGPTVoiceService.swift */,
-				IACGVAUDIOFILE0000000001 /* ChatGPTVoiceAudioEncoder.swift */,
+				C207E5EA3026217B00843994 /* citation-taxonomy.json */,
+				C207E5F83026B37A00843994 /* KokoroTTSClient.swift */,
+				C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */,
+				C2C8335D30291D5800305D9E /* OnDeviceInsightService.swift */,
+				C2C8335F30291D6200305D9E /* OfflineNarrator.swift */,
+				C2ED8EEA3029478F003096F3 /* NarrationService.swift */,
+				A11C0C0A0000000000001002 /* KokoroModelManager.swift */,
+				A11C0C0A0000000000001003 /* KokoroTextChunker.swift */,
+				A11C0C0A0000000000001004 /* KokoroAudioService.swift */,
+				C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -536,7 +655,7 @@
 				IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */,
 				IAVOICEREG02AAAAA002 /* ElevenLabsVoiceRegistry.swift */,
 				IAOPENAIVREG02AA002 /* OpenAIVoiceRegistry.swift */,
-				IACGVREGFILE000000000001 /* ChatGPTVoiceRegistry.swift */,
+				A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */,
 				IAVISBRIDGE02AAAA002 /* AudioVisualBridge.swift */,
 				IAVOICEPKCPY02AA002 /* VoicePickerCopy.swift */,
 			);
@@ -547,6 +666,7 @@
 			isa = PBXGroup;
 			children = (
 				IATHEME002AAAAAAAAAA002 /* VisualTheme.swift */,
+				C2C832263027ECF300305D9E /* PremiumUI.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -587,6 +707,8 @@
 			name = InsightAtlas;
 			packageProductDependencies = (
 				C2E9A9242F0A4D1200480055 /* ZIPFoundation */,
+				A11C0C0A0000000000004001 /* sherpa-onnx */,
+				A11C0C0A0000000000004002 /* SWCompression */,
 			);
 			productName = InsightAtlas;
 			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
@@ -621,6 +743,8 @@
 			mainGroup = E81AFFF72D000001007AAAAA;
 			packageReferences = (
 				C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */,
+				A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */,
 			);
 			productRefGroup = E81AFFFE2D000001007AAAAA /* Products */;
 			projectDirPath = "";
@@ -645,6 +769,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C21355A72EE6360100B6662D /* CormorantGaramond-Bold.ttf in Resources */,
+				C207E5EB3026217B00843994 /* citation-taxonomy.json in Resources */,
 				C21355A82EE6360100B6662D /* Inter-Regular.ttf in Resources */,
 				C21355A92EE6360100B6662D /* CormorantGaramond-Italic.ttf in Resources */,
 				C21355AA2EE6360100B6662D /* CormorantGaramond-LightItalic.ttf in Resources */,
@@ -676,15 +801,29 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A70D1006302A000100000006 /* MegaTranscriptNarrationTests.swift in Sources */,
+				C2ED8F17302A2EC0003096F3 /* ConceptMapGeometryTests.swift in Sources */,
+				C207E6083026E11900843994 /* ContentTruncationTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */,
+				C2ED8F13302A1E13003096F3 /* TableFragmentationTests.swift in Sources */,
+				C2ED8F15302A2A98003096F3 /* DiagramScaleToFitTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */,
+				C207E5E930261DD100843994 /* PDFRedesignPhase123Tests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */,
+				C207E5F33026236A00843994 /* PDFRedesignPhase456Tests.swift in Sources */,
+				C207E5F7302624D300843994 /* PDFRedesignPhase6StructureTests.swift in Sources */,
+				C2ED8F11302A1214003096F3 /* InsightNoteFragmentationTests.swift in Sources */,
+				C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */,
 				IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */,
 				IACGVTESTBLD000000000002 /* ChatGPTVoiceProtocolTests.swift in Sources */,
 				IACGVTESTBLD000000000003 /* ChatGPTVoiceServiceTests.swift in Sources */,
+				A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */,
+				A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */,
+				A11C0C0A0000000000000203 /* KokoroTextChunkerTests.swift in Sources */,
+				A11C0C0A0000000000000204 /* KokoroAudioServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -692,30 +831,37 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A70D1002302A000100000002 /* MegaTranscriptNarration.swift in Sources */,
+				A70D1004302A000100000004 /* MegaTranscriptNarrationViews.swift in Sources */,
 				47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */,
-				C207E5CC3024380C00843994 /* ChatGPTOAuthService.swift in Sources */,
-				IACGVPROTOBLD00000000001 /* ChatGPTVoiceProtocol.swift in Sources */,
-				IACGVSVCBLD0000000000001 /* ChatGPTVoiceService.swift in Sources */,
-				IACGVAUDIOBLD00000000001 /* ChatGPTVoiceAudioEncoder.swift in Sources */,
-				IACGVREGBLD0000000000001 /* ChatGPTVoiceRegistry.swift in Sources */,
 				82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */,
 				9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */,
 				48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */,
+				C2C832293028083300305D9E /* WorkspaceMockupView.swift in Sources */,
+				C207E5E530261CD500843994 /* PDFReferentialIntegrity.swift in Sources */,
+				C207E5F5302624A100843994 /* DocumentStructureEnhancer.swift in Sources */,
 				012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */,
+				C207E5E130261B6A00843994 /* PDFDiagramGeometry.swift in Sources */,
 				65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */,
+				C207E5F93026B37B00843994 /* KokoroTTSClient.swift in Sources */,
+				C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */,
 				B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */,
 				3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */,
 				E29C402FB823CF0FC43901BE /* PDFAudioBundler.swift in Sources */,
+				C2C832273027ECF300305D9E /* PremiumUI.swift in Sources */,
 				C22353FB302507090022D852 /* LLMUIRegistry.swift in Sources */,
 				F1A10D85767648BCB0B41E5F /* PDFAnalysisDocument.swift in Sources */,
 				E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */,
 				E81A00032D000001007AAAAA /* ContentView.swift in Sources */,
+				C2ED8EEB3029478F003096F3 /* NarrationService.swift in Sources */,
 				E81A00102D000002007AAAAA /* InsightAtlasPrompt.swift in Sources */,
+				C207E5E730261D0A00843994 /* PDFDocumentProcessor.swift in Sources */,
+				C2D8DF1B302BFB3E00F782C0 /* MiniMaxOAuthService.swift in Sources */,
 				E8THEMAT01F00000100ABCDE /* InsightAtlasThematicPrompt.swift in Sources */,
-				E8ABCD022F00000100ABCDEF /* InsightAtlasPatternLibrary.swift in Sources */,
 				E81A00122D000003007AAAAA /* AIService.swift in Sources */,
 				E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */,
 				C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */,
+				C207E6023026CAB600843994 /* PremiumTabBar.swift in Sources */,
 				E81A00162D000005007AAAAA /* GuideModels.swift in Sources */,
 				C22353FF30250AEA0022D852 /* UIDriver.swift in Sources */,
 				E81A00182D000006007AAAAA /* LibraryView.swift in Sources */,
@@ -724,6 +870,7 @@
 				E81A001E2D000009007AAAAA /* GenerationView.swift in Sources */,
 				E81A00202D000010007AAAAA /* DataManager.swift in Sources */,
 				E81A00222D000011007AAAAA /* QuickGlanceView.swift in Sources */,
+				C2C8336030291D6200305D9E /* OfflineNarrator.swift in Sources */,
 				E81A00242D000012007AAAAA /* ActionBoxView.swift in Sources */,
 				E81A00262D000013007AAAAA /* InsightNoteView.swift in Sources */,
 				E81A00282D000014007AAAAA /* ExerciseView.swift in Sources */,
@@ -740,31 +887,38 @@
 				IAAPI0005AAAAAAAAAAAAAA5 /* GenerateGuideResponse.swift in Sources */,
 				IAAPI0007AAAAAAAAAAAAAA7 /* GuideGenerationService.swift in Sources */,
 				IAAPI0009AAAAAAAAAAAAAA9 /* InsightAtlasConfig.swift in Sources */,
+				C2C8336230291D7B00305D9E /* OnDeviceInsightPreviewView.swift in Sources */,
+				C2D8DF19302BF62000F782C0 /* SwipeActionsRow.swift in Sources */,
 				IAVISUAL001AAAAAAAAAA001 /* GuideVisual.swift in Sources */,
 				IAVISUAL003AAAAAAAAAA003 /* GuideVisualType.swift in Sources */,
 				IAVISUAL005AAAAAAAAAA005 /* GuideVisualView.swift in Sources */,
 				IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */,
 				C22353FD302507CE0022D852 /* LLMActionRouter.swift in Sources */,
-				C207E5CE3024382000843994 /* ChatGPTSignInView.swift in Sources */,
 				IATHEME001AAAAAAAAAA001 /* VisualTheme.swift in Sources */,
 				IALAYOUT001AAAAAAAAA001 /* LayoutScore.swift in Sources */,
 				IABULK0001AAAAAAAAAA001 /* BulkExportCoordinator.swift in Sources */,
+				C207E5E330261C4E00843994 /* DiagramPromotionEngine.swift in Sources */,
 				IABULK0003AAAAAAAAAA003 /* LibraryComponents.swift in Sources */,
 				IABULK0005AAAAAAAAAA005 /* BulkExportComponents.swift in Sources */,
 				IABGGEN001AAAAAAAAAA001 /* BackgroundGenerationCoordinator.swift in Sources */,
 				IAEDIT001AAAAAAAAAA001 /* EditorialBlockTypes.swift in Sources */,
 				IASEMNORM01AAAAAAAAA01 /* SemanticNormalizationService.swift in Sources */,
 				IAVISSEL01AAAAAAAAA001 /* VisualSelectionService.swift in Sources */,
+				C207E5ED302621B300843994 /* CitationTaxonomy.swift in Sources */,
+				C207E5EF3026225B00843994 /* CitationRegistry.swift in Sources */,
 				IAOUTVAL01AAAAAAAAA01 /* OutputContractValidator.swift in Sources */,
+				C207E5DF30261B3000843994 /* CitationBudgetEngine.swift in Sources */,
 				IACONTVAL01AAAAAA001 /* ContentValidation.swift in Sources */,
 				IAEDITPACE01AAAAAA001 /* ReaderProfilePacing.swift in Sources */,
 				IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */,
 				IAVOICEREG01AAAAA001 /* ElevenLabsVoiceRegistry.swift in Sources */,
+				C2C8335E30291D5800305D9E /* OnDeviceInsightService.swift in Sources */,
 				IAVISBRIDGE01AAAA001 /* AudioVisualBridge.swift in Sources */,
 				IAELAUDIOSVC01AAA001 /* ElevenLabsAudioService.swift in Sources */,
+				C2D8DF17302BF51200F782C0 /* OverflowMenuView.swift in Sources */,
 				IAKEYCHNSVC01AAA001 /* KeychainService.swift in Sources */,
+				C207E5F13026234F00843994 /* PDFAccessibility.swift in Sources */,
 				IAVOICEPKCPY01AA001 /* VoicePickerCopy.swift in Sources */,
-				IAVOICEPKVW01AAA001 /* VoicePickerView.swift in Sources */,
 				IAGOVTYPE01AAAAAAA001 /* SummaryTypeGovernor.swift in Sources */,
 				IAGOVPRES01AAAAAAA001 /* SummaryGovernorPresets.swift in Sources */,
 				IAGOVENG01AAAAAAAA001 /* SummaryGovernorEngine.swift in Sources */,
@@ -772,7 +926,13 @@
 				IAGOVSYN01AAAAAAAA001 /* SummaryGovernorSynthesis.swift in Sources */,
 				IAAPPENV001AAAAAAAAA001 /* AppEnvironment.swift in Sources */,
 				IAVOICEPROV01AAA001 /* VoiceProvider.swift in Sources */,
+				A11C0C0A0000000000002001 /* KokoroVoiceRegistry.swift in Sources */,
+				A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */,
+				A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */,
+				A11C0C0A0000000000002004 /* KokoroAudioService.swift in Sources */,
 				IAOPENAIAUD01AAA001 /* OpenAIAudioService.swift in Sources */,
+				C207E6043026CAC900843994 /* AtlasView.swift in Sources */,
+				C207E6063026D40500843994 /* ListenView.swift in Sources */,
 				IAOPENAIVREG01AA001 /* OpenAIVoiceRegistry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -952,7 +1112,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2026081102;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -985,7 +1145,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2026081102;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1044,6 +1204,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/k2-fsa/sherpa-onnx";
+			requirement = {
+				kind = revision;
+				revision = 634265c9b57642fdd158120148785c89aa281c4b;
+			};
+		};
+		A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tsolomko/SWCompression.git";
+			requirement = {
+				kind = exactVersion;
+				version = 4.9.1;
+			};
+		};
 		C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
@@ -1055,6 +1231,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A11C0C0A0000000000004001 /* sherpa-onnx */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */;
+			productName = "sherpa-onnx";
+		};
+		A11C0C0A0000000000004002 /* SWCompression */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */;
+			productName = SWCompression;
+		};
 		C2E9A9242F0A4D1200480055 /* ZIPFoundation */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;

@@ -124,6 +124,15 @@ extension PDFContentBlock: Codable {
         case "researchInsight": type = .researchInsight
         case "conceptMap": type = .conceptMap
         case "processTimeline": type = .processTimeline
+        case "loopDiagram": type = .loopDiagram
+        case "spectrum": type = .spectrum
+        case "pyramid": type = .pyramid
+        case "cycle": type = .cycle
+        case "funnel": type = .funnel
+        case "barChart": type = .barChart
+        case "pieChart": type = .pieChart
+        case "libraryEntry": type = .libraryEntry
+        case "readingChip": type = .readingChip
         case "example": type = .example
         case "exerciseReflection": type = .exerciseReflection
         default: type = .paragraph
@@ -163,6 +172,15 @@ extension PDFContentBlock: Codable {
         case .researchInsight: typeString = "researchInsight"
         case .conceptMap: typeString = "conceptMap"
         case .processTimeline: typeString = "processTimeline"
+        case .loopDiagram: typeString = "loopDiagram"
+        case .spectrum: typeString = "spectrum"
+        case .pyramid: typeString = "pyramid"
+        case .cycle: typeString = "cycle"
+        case .funnel: typeString = "funnel"
+        case .barChart: typeString = "barChart"
+        case .pieChart: typeString = "pieChart"
+        case .libraryEntry: typeString = "libraryEntry"
+        case .readingChip: typeString = "readingChip"
         case .example: typeString = "example"
         case .exerciseReflection: typeString = "exerciseReflection"
         }
@@ -361,7 +379,7 @@ extension PDFAnalysisDocument {
                     type: .exercise,
                     content: exerciseText,
                     listItems: steps,
-                    metadata: ["title": formatExerciseTitle(exerciseType), "time": "10-15 minutes"]
+                    metadata: ["title": formatExerciseTitle(exerciseType), "time": estimateExerciseMinutes(text: exerciseText, steps: steps)]
                 ))
                 exerciseContent = []
                 exerciseType = nil
@@ -428,7 +446,16 @@ extension PDFAnalysisDocument {
                     .joined(separator: " ")
                     .trimmingCharacters(in: .whitespaces)
                 if !titleText.isEmpty {
-                    currentBlocks.append(PDFContentBlock(type: .premiumH1, content: titleText))
+                    // Premium H1 opens a real SECTION (not an in-section block) so
+                    // premium-heading guides get §-anchors instead of one "untitled"
+                    // section. Mirrors the #/## handler. (H2 stays in-section.)
+                    if let current = currentSection {
+                        var updated = current
+                        updated.blocks = currentBlocks
+                        sections.append(updated)
+                    }
+                    currentSection = PDFSection(heading: titleText, headingLevel: 1, blocks: [])
+                    currentBlocks = []
                 }
                 premiumH1Content = []
             }
@@ -501,7 +528,17 @@ extension PDFAnalysisDocument {
             let line = lines[i].trimmingCharacters(in: .whitespaces)
 
             if let inline = inlineTagContent(line, tag: "PREMIUM_H1") {
-                currentBlocks.append(PDFContentBlock(type: .premiumH1, content: stripMarkdownFromLine(inline.content)))
+                // Inline premium H1 also opens a section (see block-form above).
+                let h1 = stripMarkdownFromLine(inline.content).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !h1.isEmpty {
+                    if let current = currentSection {
+                        var updated = current
+                        updated.blocks = currentBlocks
+                        sections.append(updated)
+                    }
+                    currentSection = PDFSection(heading: h1, headingLevel: 1, blocks: [])
+                    currentBlocks = []
+                }
                 i += 1
                 continue
             }
@@ -594,7 +631,7 @@ extension PDFAnalysisDocument {
                     type: .exercise,
                     content: exerciseText,
                     listItems: steps,
-                    metadata: ["title": formatExerciseTitle(inline.type), "time": "10-15 minutes"]
+                    metadata: ["title": formatExerciseTitle(inline.type), "time": estimateExerciseMinutes(text: exerciseText, steps: steps)]
                 ))
                 i += 1
                 continue
@@ -758,7 +795,7 @@ extension PDFAnalysisDocument {
                     type: .exercise,
                     content: exerciseText,
                     listItems: steps,
-                    metadata: ["title": formatExerciseTitle(exerciseType), "time": "10-15 minutes"]
+                    metadata: ["title": formatExerciseTitle(exerciseType), "time": estimateExerciseMinutes(text: exerciseText, steps: steps)]
                 ))
                 i += 1
                 continue
@@ -909,7 +946,16 @@ extension PDFAnalysisDocument {
                     .joined(separator: " ")
                     .trimmingCharacters(in: .whitespaces)
                 if !titleText.isEmpty {
-                    currentBlocks.append(PDFContentBlock(type: .premiumH1, content: titleText))
+                    // Premium H1 opens a real SECTION (not an in-section block) so
+                    // premium-heading guides get §-anchors instead of one "untitled"
+                    // section. Mirrors the #/## handler. (H2 stays in-section.)
+                    if let current = currentSection {
+                        var updated = current
+                        updated.blocks = currentBlocks
+                        sections.append(updated)
+                    }
+                    currentSection = PDFSection(heading: titleText, headingLevel: 1, blocks: [])
+                    currentBlocks = []
                 }
                 i += 1
                 continue
@@ -1142,7 +1188,7 @@ extension PDFAnalysisDocument {
                 while i < lines.count {
                     let listLine = lines[i].trimmingCharacters(in: .whitespaces)
                     if listLine.hasPrefix("- ") || listLine.hasPrefix("* ") {
-                        listItems.append(stripMarkdownFromLine(String(listLine.dropFirst(2))))
+                        listItems.append(stripLeadingListArrow(stripMarkdownFromLine(String(listLine.dropFirst(2)))))
                         i += 1
                     } else if listLine.isEmpty {
                         i += 1
@@ -1168,7 +1214,7 @@ extension PDFAnalysisDocument {
                     let listLine = lines[i].trimmingCharacters(in: .whitespaces)
                     if listLine.range(of: "^\\d+\\.\\s+", options: .regularExpression) != nil {
                         let text = listLine.replacingOccurrences(of: "^\\d+\\.\\s+", with: "", options: .regularExpression)
-                        listItems.append(stripMarkdownFromLine(text))
+                        listItems.append(stripLeadingListArrow(stripMarkdownFromLine(text)))
                         i += 1
                     } else if listLine.isEmpty {
                         i += 1
@@ -1235,6 +1281,32 @@ extension PDFAnalysisDocument {
                     ))
                 }
                 continue
+            }
+
+            // Borderless pipe table: rows like "A | B | C" (no leading/trailing
+            // "|") that the model sometimes emits for a comparison table instead
+            // of a bordered markdown table. Conservative: require ≥3 columns and
+            // ≥2 consecutive rows of matching width (peek before consuming) so a
+            // lone prose line containing a pipe is never mis-captured as a table.
+            let pipeColumns: (String) -> Int = { $0.components(separatedBy: "|").count }
+            if !line.hasPrefix("|"), line.contains("|"), pipeColumns(line) >= 3, i + 1 < lines.count {
+                let next = lines[i + 1].trimmingCharacters(in: .whitespaces)
+                if !next.hasPrefix("|"), next.contains("|"), pipeColumns(next) == pipeColumns(line) {
+                    let cols = pipeColumns(line)
+                    var rows: [[String]] = []
+                    while i < lines.count {
+                        let t = lines[i].trimmingCharacters(in: .whitespaces)
+                        guard !t.isEmpty, !t.hasPrefix("|"), t.contains("|"),
+                              pipeColumns(t) == cols, !t.contains("---") else { break }
+                        rows.append(t.components(separatedBy: "|")
+                            .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) })
+                        i += 1
+                    }
+                    if rows.count >= 2 {
+                        currentBlocks.append(PDFContentBlock(type: .table, content: "", tableData: rows))
+                        continue
+                    }
+                }
             }
 
             if let implicit = parseImplicitVisualBlocks(from: lines, startIndex: i) {
@@ -1467,10 +1539,21 @@ extension PDFAnalysisDocument {
             if trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) != nil { break }
             if trimmed.count > 80 { break }   // long line = prose, not a branch
             blanksSkipped = 0
-            branches.append(stripInlineMarkdown(trimmed))
+            // Per-branch sanitization via the shared source (rulings 1/2/3). The
+            // structural boundaries above ("- "/"* "/[/#/numbered/prose>80) are
+            // LOCAL collection logic and run first, so any line reaching here is a
+            // concept, not a boundary — which is why the canonical set including
+            // "- "/"* " is harmless here (those lines already broke the loop).
+            if let branch = sanitizeConceptBranch(trimmed) {
+                branches.append(branch)
+            }
             index += 1
             consumed += 1
-            if branches.count >= 8 { break }
+            // No hard branch cap. The adaptive radial geometry (grow-to-hold,
+            // width-binds, ceiling-tested to n≥30) sizes to any real count; the
+            // former `>= 8` cap silently truncated maps (Defect C — concepts
+            // spilled as loose bullets past the eighth). The structural guards
+            // above (blank×2, prose>80, [ / # / numbered prefixes) bound collection.
         }
 
         guard branches.count >= 2 else { return nil }
@@ -1813,6 +1896,22 @@ extension PDFAnalysisDocument {
         return result.trimmingCharacters(in: .whitespaces)
     }
 
+    /// Remove a leading flow-arrow decoration ("→", "⇒", "->") — and any list
+    /// ordinal it drags along ("→ 3.") — from the START of a list item only.
+    /// This is deliberately distinct from the ruled retention of MID-sentence
+    /// arrows in stripMarkdownFromLine: an arrow between clauses ("dispute →
+    /// offer") is meaning and stays; a lone arrow at the head of a discrete list
+    /// item is leaked decoration. The `^` anchor guarantees interior arrows —
+    /// e.g. a whole item "Input → Output" — are never touched.
+    private static func stripLeadingListArrow(_ text: String) -> String {
+        let cleaned = text.replacingOccurrences(
+            of: #"^\s*(?:→|⇒|->)\s*(?:\d+[.)]\s*)?"#,
+            with: "",
+            options: .regularExpression
+        )
+        return cleaned.trimmingCharacters(in: .whitespaces)
+    }
+
     /// A line consisting solely of repeated rule characters, e.g. "═══" or "━━━".
     private static func isHorizontalRule(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -1934,6 +2033,18 @@ extension PDFAnalysisDocument {
             return [PDFContentBlock(type: .visual, content: title ?? "", visualURL: cacheURL)]
         }
 
+        // Prerender cache miss → native fallback below, rendered from the TYPED
+        // payload (independent of the rasterizer's text-decode). Every producible
+        // visual type now falls back to a native diagram/table and renders fine.
+        // radar/hierarchy — the former "diagram-to-bullets producers" — were REMOVED
+        // from the generator offer (2026-08-10, ruling (d)): they were never drawable
+        // (prose payload → no rasterization → bullet fallback), so offering them was
+        // a broken promise. The parse-side stays TOLERANT so any pre-cut STORED guide
+        // still degrades to clean bullets on re-export; there is simply no producible
+        // type left that degrades, so the DEGRADED label retires as resolved-by-removal.
+        // conceptMap likewise renders a real adaptive radial map (fixed 2026-08-10).
+        print("🖼️ [PDF Visual] Prerender miss → native fallback (renders fine): type=\(visual.type) title=\(title ?? "—")")
+
         func addHeadingIfNeeded(useInlineTitle: Bool) {
             if !useInlineTitle, let title, !title.isEmpty {
                 blocks.append(PDFContentBlock(type: .heading4, content: title))
@@ -1981,6 +2092,13 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
 
         case .conceptMap(let data):
+            // Defect-C diagnostic (no behavior change): dump the parsed branch
+            // list so a spill can be attributed. Concepts that render as loose
+            // bullets OUTSIDE the map but are ABSENT here were dropped at block
+            // collection upstream (tag-boundary/generator) — not by this parser
+            // or the radial renderer. If they're PRESENT here yet missing from
+            // the drawn map, the defect is downstream. Reads against the PDF.
+            print("🗺️ [PDF ConceptMap] central=\"\(data.center)\" branches(\(data.branches.count))=\(data.branches)")
             blocks.append(PDFContentBlock(
                 type: .conceptMap,
                 content: "",
@@ -2009,9 +2127,10 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["From", "To", "Type"]] + connectionRows))
 
         case .barChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Label", "Value"]] + rows))
+            // Native bar chart (capability-audit Batch 2): horizontal bars instead
+            // of a Label/Value table. Values ride in metadata for the renderer.
+            blocks.append(PDFContentBlock(type: .barChart, content: "", listItems: data.labels,
+                metadata: ["title": title ?? "Bar Chart", "values": data.values.map { String($0) }.joined(separator: "|")]))
 
         case .quadrant(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2021,13 +2140,10 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Quadrant", "Items"]] + rows))
 
         case .pieChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let total = data.segments.map { $0.value }.reduce(0, +)
-            let rows = data.segments.map { segment in
-                let percent = total > 0 ? (segment.value / total) * 100 : 0
-                return [segment.label, "\(formatNumber(percent))%"]
-            }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Segment", "Share"]] + rows))
+            // Native pie chart (capability-audit Batch 2): wedges + legend instead
+            // of a Segment/Share table. Values ride in metadata for the renderer.
+            blocks.append(PDFContentBlock(type: .pieChart, content: "", listItems: data.segments.map { $0.label },
+                metadata: ["title": title ?? "Pie Chart", "values": data.segments.map { String($0.value) }.joined(separator: "|")]))
 
         case .lineChart(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2064,25 +2180,29 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Task", "Start", "Duration", "Status"]] + rows))
 
         case .funnelDiagram(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = data.stages.map { stage in
-                [stage.label, formatNumber(stage.value)]
+            // Native funnel renderer (capability-audit Batch 2): narrowing bands
+            // rather than a Stage/Value table. Value rides in each band's label.
+            let items = data.stages.map { stage -> String in
+                "\(stage.label) — \(formatNumber(stage.value))"
             }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Stage", "Value"]] + rows))
+            blocks.append(PDFContentBlock(type: .funnel, content: "", listItems: items, metadata: ["title": title ?? "Funnel"]))
 
         case .pyramidDiagram(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let items = data.levels.map { level in
+            // Native pyramid renderer (capability-audit Batch 2): draw stacked bands
+            // rather than degrade to a bullet list. Title rides in metadata so figure
+            // numbering + scale-to-fit apply as for the other native diagrams.
+            let items = data.levels.map { level -> String in
                 if let description = level.description, !description.isEmpty {
-                    return "\(level.label): \(description)"
+                    return "\(level.label) — \(description)"
                 }
                 return level.label
             }
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: items))
+            blocks.append(PDFContentBlock(type: .pyramid, content: "", listItems: items, metadata: ["title": title ?? "Pyramid"]))
 
         case .cycleDiagram(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: data.stages))
+            // Native cycle renderer (capability-audit Batch 2): draw a ring of
+            // stages with closing arrows instead of degrading to a bullet list.
+            blocks.append(PDFContentBlock(type: .cycle, content: "", listItems: data.stages, metadata: ["title": title ?? "Cycle"]))
 
         case .fishboneDiagram(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2207,7 +2327,37 @@ extension PDFAnalysisDocument {
         return (quoteLines.joined(separator: " "), attribution)
     }
 
-    private static func parseConceptMap(from lines: [String]) -> (central: String, related: [String]) {
+    /// SINGLE SOURCE of concept-map per-branch sanitization (RULED CONSOLIDATION
+    /// 2026-08-10 — see memory pdf-visual-pipeline). Handles ONLY the per-concept
+    /// transform; collection/boundary logic (blank lines, structural breaks) and
+    /// idiosyncratic transforms (#2's arrow-target) stay LOCAL to each caller —
+    /// that separation is why the former "- = strip vs boundary" contradiction was
+    /// a category error, not a real conflict. Rulings:
+    ///   1. strip ONE leading bullet token from { - * • — → } (spaced or bare);
+    ///   2. strip inline markdown incl. **bold** — concept nodes render plain text,
+    ///      so preserved bold was a latent literal-asterisk bug, not a policy;
+    ///   3. a bare colon-terminated header ("Orbiting domains:") → nil (skip);
+    ///      an "X: Y" line → "X — Y".
+    /// Returns nil when the line is not a concept, so callers `continue`.
+    static func sanitizeConceptBranch(_ raw: String) -> String? {
+        var entry = raw.trimmingCharacters(in: .whitespaces)
+        for bullet in ["— ", "→ ", "- ", "* ", "• ", "—", "→", "-", "*", "•"] {
+            if entry.hasPrefix(bullet) {
+                entry = String(entry.dropFirst(bullet.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+        if entry.hasSuffix(":") { return nil }
+        if entry.isEmpty { return nil }
+        if let colon = entry.firstIndex(of: ":") {
+            let head = String(entry[..<colon]).trimmingCharacters(in: .whitespaces)
+            let tail = String(entry[entry.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            entry = tail.isEmpty ? head : "\(head) — \(tail)"
+        }
+        return stripInlineMarkdown(entry)
+    }
+
+    static func parseConceptMap(from lines: [String]) -> (central: String, related: [String]) {
         var central = ""
         var related: [String] = []
 
@@ -2215,6 +2365,8 @@ extension PDFAnalysisDocument {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty { continue }
 
+            // Central detection is LOCAL (collection concern): first non-empty line,
+            // via central:/main:/core: prefix or the whole line.
             if central.isEmpty {
                 if trimmed.lowercased().hasPrefix("central:") ||
                     trimmed.lowercased().hasPrefix("main:") ||
@@ -2228,21 +2380,9 @@ extension PDFAnalysisDocument {
                 continue
             }
 
-            var entry = trimmed
-            if entry.hasPrefix("→") || entry.hasPrefix("-") || entry.hasPrefix("•") || entry.hasPrefix("*") {
-                entry = String(entry.dropFirst()).trimmingCharacters(in: .whitespaces)
-            }
-
-            if let colonIndex = entry.firstIndex(of: ":") {
-                let concept = String(entry[..<colonIndex]).trimmingCharacters(in: .whitespaces)
-                let relationship = String(entry[entry.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
-                if relationship.isEmpty {
-                    related.append(stripMarkdownFromLine(concept))
-                } else {
-                    related.append(stripMarkdownFromLine("\(concept) — \(relationship)"))
-                }
-            } else {
-                related.append(stripMarkdownFromLine(entry))
+            // Per-branch sanitization via the shared source (rulings 1/2/3).
+            if let branch = sanitizeConceptBranch(trimmed) {
+                related.append(branch)
             }
         }
 
@@ -2271,6 +2411,18 @@ extension PDFAnalysisDocument {
             .replacingOccurrences(of: "_", with: " ")
             .capitalized
         return formatted + " Exercise"
+    }
+
+    /// Estimate an exercise's duration from its OWN content instead of a fixed
+    /// "10-15 minutes" that was visibly wrong on quick items (e.g. a "Ninety-Second
+    /// Reset"). Rough model: ~1.5 min per step (read + do + write) plus prose at
+    /// ~120 effective words/min, floored at 1 minute. Honest estimate over a
+    /// precise-looking constant that erodes trust.
+    private static func estimateExerciseMinutes(text: String, steps: [String]) -> String {
+        let wordCount: (String) -> Int = { $0.split(whereSeparator: { $0.isWhitespace }).count }
+        let words = wordCount(text) + steps.reduce(0) { $0 + wordCount($1) }
+        let minutes = max(1, Int((Double(steps.count) * 1.5 + Double(words) / 120.0).rounded()))
+        return "~\(minutes) min"
     }
 }
 

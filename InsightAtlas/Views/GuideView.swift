@@ -32,10 +32,11 @@ struct GuideView: View {
     @State private var showExportSheet = false
     @State private var isExporting = false
     @State private var exportError: String?
+    @State private var audioError: String?
     @State private var shareItem: URL?
-    @State private var showVoicePicker = false
     @State private var showRegenerateOptions = false
     @State private var isRegeneratingContent = false
+    @State private var showOnDevicePreview = false  // SPIKE: on-device Foundation Models preview
     
     // MARK: - Computed Properties
     
@@ -75,28 +76,18 @@ struct GuideView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, hasPlayableAudio || canGenerateAudio ? 120 : 20)
+                    .padding(.bottom, item.summaryContent != nil ? 150 : 20)
                     .frame(maxWidth: 800, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(PremiumUI.background)
             
-            // Sticky Audio Player
-            if hasPlayableAudio || canGenerateAudio {
-                StickyAudioPlayer(
-                    item: item,
-                    isPlaying: $isPlayingAudio,
-                    progress: $audioPlaybackProgress,
-                    isGenerating: $isGeneratingAudio,
-                    playbackRate: $audioPlaybackRate,
-                    onPlayPause: toggleAudioPlayback,
-                    onGenerate: generateAudioOnly,
-                    onRateChange: setPlaybackRate
-                )
+            // Shared narration control: Mega Transcript, OpenAI, then Liam.
+            if item.summaryContent != nil {
+                NarrationControlsView(item: item)
                 .padding(.horizontal)
                 .padding(.bottom, 8)
-                .background(.ultraThinMaterial)
             }
         }
         .navigationTitle(item.title)
@@ -145,14 +136,21 @@ struct GuideView: View {
         } message: {
             Text(exportError ?? "An unknown error occurred")
         }
-        .sheet(isPresented: $showVoicePicker) {
-            VoicePickerSheet(
-                currentVoiceID: item.audioVoiceID ?? environment.userSettings.selectedVoiceID,
-                onSelectVoice: { voiceID in
-                    regenerateAudioWithVoice(voiceID)
+        .alert("Narration Failed", isPresented: Binding(
+            get: { audioError != nil },
+            set: { if !$0 { audioError = nil } }
+        )) {
+            Button("Retry") {
+                audioError = nil
+                if item.audioFileURL != nil {
+                    regenerateAudioWithCurrentVoice()
+                } else {
+                    generateAudioOnly()
                 }
-            )
-            .environmentObject(environment)
+            }
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(audioError ?? "An unknown error occurred")
         }
         .sheet(isPresented: $showRegenerateOptions) {
             RegenerateView(item: item, onComplete: { newContent, score in
@@ -162,6 +160,20 @@ struct GuideView: View {
                 environment.dataManager.updateLibraryItem(updatedItem)
             })
                 .environmentObject(environment)
+        }
+        .sheet(isPresented: $showOnDevicePreview) {
+            NavigationStack {
+                OnDeviceInsightPreviewView(
+                    title: item.title,
+                    author: item.author,
+                    bodyText: Self.prepareTextForAudio(item.summaryContent ?? "")
+                )
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { showOnDevicePreview = false }
+                    }
+                }
+            }
         }
         .onAppear {
             generateTableOfContents()
@@ -198,6 +210,15 @@ struct GuideView: View {
                 audioSubmenu
             }
             regenerateSubmenu
+            if item.summaryContent != nil {
+                Divider()
+                Button {
+                    showOnDevicePreview = true
+                } label: {
+                    Label("Offline Preview (spike)", systemImage: "cpu")
+                }
+                .accessibilityIdentifier("guide_ondevice_preview_button")
+            }
             Divider()
             deleteButton
         } label: {
@@ -220,6 +241,27 @@ struct GuideView: View {
             }
             .disabled(item.summaryContent == nil)
             .accessibilityIdentifier("guide_export_pdf_button")
+            
+            Button {
+                exportDocument(format: .html)
+            } label: {
+                Label("Export as HTML", systemImage: "safari.fill")
+            }
+            .disabled(item.summaryContent == nil)
+            
+            Button {
+                exportDocument(format: .markdown)
+            } label: {
+                Label("Export as Markdown", systemImage: "text.alignleft")
+            }
+            .disabled(item.summaryContent == nil)
+            
+            Button {
+                exportDocument(format: .docx)
+            } label: {
+                Label("Export as Word (.docx)", systemImage: "doc.text.fill")
+            }
+            .disabled(item.summaryContent == nil)
 
             if item.audioFileURL != nil {
                 Button {
@@ -246,17 +288,9 @@ struct GuideView: View {
         Menu {
             if item.audioFileURL != nil {
                 Button {
-                    showVoicePicker = true
-                } label: {
-                    Label("Change Voice & Regenerate", systemImage: "person.wave.2")
-                }
-                .disabled(isGeneratingAudio)
-                .accessibilityIdentifier("guide_change_voice_button")
-
-                Button {
                     regenerateAudioWithCurrentVoice()
                 } label: {
-                    Label("Regenerate Audio", systemImage: "arrow.clockwise")
+                    Label("Regenerate Narration", systemImage: "arrow.clockwise")
                 }
                 .disabled(isGeneratingAudio)
                 .accessibilityIdentifier("guide_regenerate_audio_button")
@@ -264,22 +298,15 @@ struct GuideView: View {
                 Button(role: .destructive) {
                     deleteAudio()
                 } label: {
-                    Label("Delete Audio", systemImage: "trash")
+                    Label("Delete Narration", systemImage: "trash")
                 }
                 .accessibilityIdentifier("guide_delete_audio_button")
             } else {
-                Button {
-                    showVoicePicker = true
-                } label: {
-                    Label("Generate with Voice Selection", systemImage: "waveform.badge.plus")
-                }
-                .disabled(isGeneratingAudio)
-                .accessibilityIdentifier("guide_generate_with_selection_button")
-
+                // Narration uses a single fixed voice (Liam) — no voice picker.
                 Button {
                     generateAudioOnly()
                 } label: {
-                    Label("Generate with Default Voice", systemImage: "waveform")
+                    Label("Generate Narration", systemImage: "waveform")
                 }
                 .disabled(isGeneratingAudio)
                 .accessibilityIdentifier("guide_generate_with_default_button")
@@ -380,7 +407,7 @@ struct GuideView: View {
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(entry.level == 1 ? Color(.secondarySystemGroupedBackground) : Color.clear)
+                            .fill(entry.level == 1 ? PremiumUI.searchFill : Color.clear)
                     )
                 }
                 .buttonStyle(.plain)
@@ -391,7 +418,7 @@ struct GuideView: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
+                .fill(PremiumUI.card)
                 .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         )
         .padding(.horizontal, 4)
@@ -543,8 +570,9 @@ struct GuideView: View {
     // MARK: - Actions
 
     private func toggleAudioPlayback() {
-        guard let audioURLString = item.audioFileURL,
-              let audioURL = URL(string: audioURLString) ?? URL(fileURLWithPath: audioURLString) as URL? else { return }
+        guard let audioFileName = item.audioFileURL else { return }
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let audioURL = documentsDir.appendingPathComponent(audioFileName)
 
         if isPlayingAudio {
             // Pause playback
@@ -591,55 +619,47 @@ struct GuideView: View {
     }
 
     private func generateAudioOnly() {
+        guard let content = item.summaryContent else { return }
         isGeneratingAudio = true
 
-        // Increment attempt counter immediately
+        // Reflect the in-progress state durably and increment the attempt counter.
         var updatedItem = item
         updatedItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
+        updatedItem.narrationState = .generating
         environment.updateLibraryItem(updatedItem)
+
+        let itemId = item.id
+        let baseAttempts = item.audioGenerationAttempts ?? 0
 
         Task {
             do {
-                let voiceManager = VoiceServiceManager.shared
-                guard let content = item.summaryContent else {
-                    isGeneratingAudio = false
-                    return
-                }
-
-                // Strip markup tags for cleaner audio narration
-                let cleanedText = Self.prepareTextForAudio(content)
-
-                let routed = try await voiceManager.generateAudioWithFallback(
-                    text: cleanedText,
-                    preferredVoiceID: environment.userSettings.selectedVoiceID,
-                    preferredProvider: environment.userSettings.voiceProvider,
-                    readerProfile: environment.userSettings.preferredReaderProfile
+                // Mega Transcript is preferred, OpenAI is next, and Liam is last. The
+                // service sanitizes the spoken copy while caching by exact text.
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
+                    itemId: itemId
                 )
-                let result = routed.audio
 
-                // Save audio file to documents directory
-                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                    Self.logger.error("Unable to access documents directory for audio storage")
+                await MainActor.run {
+                    var successItem = item
+                    successItem.audioFileURL = asset.relativeFileName
+                    successItem.audioDuration = asset.duration
+                    successItem.audioVoiceID = asset.voiceID
+                    successItem.narrationState = .ready
+                    successItem.audioGenerationAttempts = baseAttempts + 1
+                    environment.updateLibraryItem(successItem)
                     isGeneratingAudio = false
-                    return
                 }
-
-                let audioFileName = "audio_\(item.id.uuidString).\(routed.provider.audioFileExtension)"
-                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
-
-                // Update library item with audio URL on success
-                var successItem = item
-                successItem.audioFileURL = audioFileName
-                successItem.audioDuration = result.duration
-                successItem.audioVoiceID = routed.voiceID
-                successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
-                environment.updateLibraryItem(successItem)
-
-                isGeneratingAudio = false
             } catch {
-                Self.logger.error("Audio generation failed (attempt \(item.audioGenerationAttempts ?? 1)/\(LibraryItem.maxAudioGenerationAttempts)): \(error.localizedDescription)")
-                isGeneratingAudio = false
+                Self.logger.error("Narration failed (attempt \(baseAttempts + 1)/\(LibraryItem.maxAudioGenerationAttempts)): \(error.localizedDescription)")
+                await MainActor.run {
+                    var failedItem = item
+                    failedItem.narrationState = .failed
+                    failedItem.audioGenerationAttempts = baseAttempts + 1
+                    environment.updateLibraryItem(failedItem)
+                    isGeneratingAudio = false
+                    audioError = error.localizedDescription
+                }
             }
         }
     }
@@ -652,11 +672,7 @@ struct GuideView: View {
     // MARK: - Audio Management
 
     private func regenerateAudioWithCurrentVoice() {
-        let currentVoice = item.audioVoiceID ?? environment.userSettings.selectedVoiceID ?? environment.userSettings.voiceProvider.defaultVoiceID
-        regenerateAudioWithVoice(currentVoice)
-    }
-
-    private func regenerateAudioWithVoice(_ voiceID: String) {
+        guard let content = item.summaryContent else { return }
         isGeneratingAudio = true
 
         // Stop any current playback
@@ -666,57 +682,43 @@ struct GuideView: View {
             stopProgressTimer()
         }
 
+        // Mark in-progress durably; prior audio is preserved by the service until
+        // the new file is promoted atomically.
+        var pending = item
+        pending.narrationState = .generating
+        environment.updateLibraryItem(pending)
+
+        let itemId = item.id
+        let baseAttempts = item.audioGenerationAttempts ?? 0
+
         Task {
             do {
-                let voiceManager = VoiceServiceManager.shared
-                guard let content = item.summaryContent else {
-                    await MainActor.run { isGeneratingAudio = false }
-                    return
-                }
-
-                // Strip markup tags for cleaner audio narration
-                let cleanedText = Self.prepareTextForAudio(content)
-
-                let routed = try await voiceManager.generateAudioWithFallback(
-                    text: cleanedText,
-                    preferredVoiceID: voiceID,
-                    preferredProvider: environment.userSettings.voiceProvider,
-                    readerProfile: environment.userSettings.preferredReaderProfile
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
+                    itemId: itemId
                 )
-                let result = routed.audio
 
-                // Save audio file to documents directory
-                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                    Self.logger.error("Unable to access documents directory for audio storage")
-                    await MainActor.run { isGeneratingAudio = false }
-                    return
-                }
-
-                // Delete old audio file if exists (check both .mp3 and .m4a extensions)
-                if let oldPath = item.audioFileURL {
-                    let oldURL = documentsDir.appendingPathComponent(oldPath)
-                    try? FileManager.default.removeItem(at: oldURL)
-                }
-
-                let audioFileName = "audio_\(item.id.uuidString).\(routed.provider.audioFileExtension)"
-                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try result.data.write(to: audioFileURL)
-
-                // Update library item with new audio
                 await MainActor.run {
                     var successItem = item
-                    successItem.audioFileURL = audioFileName
-                    successItem.audioDuration = result.duration
-                    successItem.audioVoiceID = routed.voiceID
-                    successItem.audioGenerationAttempts = (item.audioGenerationAttempts ?? 0) + 1
+                    successItem.audioFileURL = asset.relativeFileName
+                    successItem.audioDuration = asset.duration
+                    successItem.audioVoiceID = asset.voiceID
+                    successItem.narrationState = .ready
+                    successItem.audioGenerationAttempts = baseAttempts + 1
                     environment.updateLibraryItem(successItem)
                     isGeneratingAudio = false
                 }
 
-                Self.logger.info("Audio regenerated with \(routed.provider.displayName) voice \(routed.voiceID)")
+                Self.logger.info("Narration regenerated")
             } catch {
-                Self.logger.error("Audio regeneration failed: \(error.localizedDescription)")
-                await MainActor.run { isGeneratingAudio = false }
+                Self.logger.error("Narration regeneration failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    var failedItem = item
+                    failedItem.narrationState = .failed
+                    environment.updateLibraryItem(failedItem)
+                    isGeneratingAudio = false
+                    audioError = error.localizedDescription
+                }
             }
         }
     }
@@ -747,6 +749,24 @@ struct GuideView: View {
         Self.logger.info("Audio deleted for item: \(item.title)")
     }
 
+    private func exportDocument(format: ExportFormat) {
+        isExporting = true
+        Task {
+            do {
+                let url = try environment.dataManager.exportGuide(item, format: format)
+                await MainActor.run {
+                    isExporting = false
+                    shareItem = url
+                }
+            } catch {
+                await MainActor.run {
+                    isExporting = false
+                    exportError = error.localizedDescription
+                }
+            }
+        }
+    }
+
     private func exportGuide(format: PDFAudioBundler.ExportFormat) {
         isExporting = true
 
@@ -758,7 +778,19 @@ struct GuideView: View {
                 var pdfData: Data? = nil
                 if format == .pdfOnly || format == .bundled {
                     if let content = item.summaryContent {
+                        // Rasterize structured visuals into the cache BEFORE layout
+                        // (else [VISUAL_*] blocks miss the cache and fall back).
+                        await PDFVisualPrerenderer.prerender(content: content)
                         let pdfRenderer = InsightAtlasPDFRenderer()
+
+                        // Use the RICH parser (render(markdownContent:) →
+                        // PDFAnalysisDocument.parse): it builds real .table and
+                        // [VISUAL_*] blocks and sections on #/##. The
+                        // ParsedAnalysisContent path was a REGRESSION here — its model
+                        // (AnalysisBlockType) has no `.table` case, so every `|` table
+                        // row was silently dropped, producing phantom Table N refs.
+                        // (Premium-heading → section anchoring is fixed separately in
+                        // PDFAnalysisDocument.parse.)
                         let result = try pdfRenderer.render(
                             markdownContent: content,
                             title: item.title,
@@ -770,8 +802,9 @@ struct GuideView: View {
 
                 // Convert audio file path to URL
                 var audioURL: URL? = nil
-                if let audioPath = item.audioFileURL {
-                    audioURL = URL(string: audioPath) ?? URL(fileURLWithPath: audioPath)
+                if let audioFileName = item.audioFileURL {
+                    let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    audioURL = documentsDir.appendingPathComponent(audioFileName)
                 }
 
                 let result = try bundler.createBundle(
@@ -1257,7 +1290,7 @@ struct StickyAudioPlayer: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(PremiumUI.card)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 5)
     }

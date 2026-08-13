@@ -168,6 +168,8 @@ struct InsightAtlasPromptGenerator {
 
         CITATION INTEGRITY (NON-NEGOTIABLE): Only cite sources, studies, or findings you are genuinely confident actually exist and truly support the point. NEVER invent researchers, book titles, study names, institutions, dates, sample sizes, or percentages. If you are not certain a specific study or statistic is real, do NOT fabricate one — instead attribute the idea to a well-known thinker or work you are confident about, describe the concept without false specifics, or omit the note entirely. A few accurate Atlas Notes are far better than many with fabricated precision. Inventing a citation is a critical failure, not a stylistic choice.
 
+        VISUAL REFERENCE INTEGRITY (NON-NEGOTIABLE): Never reference a figure, table, diagram, or chart unless you are actually emitting that visual in this guide. This bans BOTH explicit numbered references ("Figure 1", "Table 2", "see Table 3 below") AND relative/deictic ones ("the table above", "as shown below", "the preceding figure", "this diagram", "the chart that follows"). The renderer assigns all figure and table numbers and decides placement — you do NOT, and you cannot know a visual's number or whether it lands above or below your prose. Write prose that stands on its own without leaning on a visual. If a comparison genuinely warrants a table, EMIT the table rather than gesturing at one. A dangling reference to a visual that does not exist is a fabrication — the same critical failure as inventing a citation.
+
         ───
         PRIMARY READER PERSONA
         ───
@@ -212,6 +214,8 @@ struct InsightAtlasPromptGenerator {
         - A varied sequence of blocks (not the same order every time)
         - Visuals only when they add clarity beyond prose
         - Atlas Notes that vary across the four functions (don't only corroborate)
+
+        NOTE CADENCE (density control): Never place more than TWO [INSIGHT_NOTE] blocks back-to-back. After at most two consecutive notes you MUST resume with a substantive connective paragraph that does real analytical work — show how the notes relate, what tension they create together, or what the reader should conclude before the next claim. This paragraph must ADVANCE the argument; a filler sentence written only to separate notes is WORSE than the run it breaks up. If you cannot write a genuine connective passage, MERGE the adjacent notes or CUT the weaker one instead. Three or four notes stacked with no prose between them read as a wall of margin cards, not a guide.
 
         FORMATTING ESSENTIALS:
         - Use [PREMIUM_H1] and [PREMIUM_H2] for section headers (not markdown #)
@@ -440,7 +444,41 @@ struct InsightAtlasPromptGenerator {
         VISUAL FRAMEWORKS (WHEN THEY ADD CLARITY)
         ───
 
-        Use visuals to clarify relationships, processes, and comparisons that prose alone cannot efficiently convey. Available visual types:
+        Use visuals to clarify relationships, processes, and comparisons that prose alone cannot efficiently convey.
+
+        CHOOSE THE VISUAL TYPE THAT MATCHES THE CONTENT'S SHAPE — do NOT default to flowcharts:
+        - Ordered sequence / steps over time → [VISUAL_PROCESS] or [VISUAL_TIMELINE]
+        - Cyclical or self-reinforcing loop → [VISUAL_CYCLE]
+        - Hierarchy, foundation-to-peak, or layered levels → [VISUAL_PYRAMID]
+        - Narrowing stages (many → few) → [VISUAL_FUNNEL]
+        - Quantities / magnitudes to compare → [VISUAL_BAR_CHART]
+        - Parts of a whole / proportions → [VISUAL_PIE_CHART]
+        - Two opposing poles with a middle ground → [VISUAL_SPECTRUM]
+        - A central idea with radiating branches → [VISUAL_MINDMAP]
+        - Rows × columns / side-by-side comparison → [VISUAL_MATRIX] or [VISUAL_COMPARISON]
+
+        NEVER force non-sequential content into a flowchart or process diagram. Book metadata (title, author, publisher, copyright), citation/reading lists, intellectual lineages, and plain bullet lists are NOT processes — render them as ordinary prose or the matching structured type, never as a [VISUAL_FLOWCHART]/[VISUAL_PROCESS]. A flowchart/process is ONLY for a genuine ordered sequence where each step leads to the next.
+
+        Before emitting ANY flowchart or process diagram, ask: "Do these items happen in ORDER, each one causing or leading to the next?" If they are parallel items, categories, a list, or metadata, the answer is NO — use prose or a different visual type.
+
+        EXAMPLE — the most common mistake to avoid:
+        ✗ WRONG — a parallel list forced into a flowchart:
+          [VISUAL_FLOWCHART: Change Mechanisms]
+          Identify thoughts as thoughts
+          Shift attention from content to process
+          Create psychological distance
+          [/VISUAL_FLOWCHART]
+          (These are parallel mechanisms, not ordered steps — render as prose or a concept map.)
+        ✓ RIGHT — a genuine causal sequence:
+          [VISUAL_FLOWCHART: How a Fused Thought Drives Behavior]
+          Trigger event
+          Automatic thought
+          Thought taken as literal truth
+          Rigid rule-following
+          Narrowed behavior
+          [/VISUAL_FLOWCHART]
+
+        Available visual types:
 
         [VISUAL_SPECTRUM: Title]
         Left pole → Right pole with items positioned along the range
@@ -449,10 +487,6 @@ struct InsightAtlasPromptGenerator {
         [VISUAL_MATRIX: Title]
         Rows × Columns with cell content
         [/VISUAL_MATRIX]
-
-        [VISUAL_HIERARCHY: Title]
-        Parent-child relationships
-        [/VISUAL_HIERARCHY]
 
         [VISUAL_TIMELINE: Title]
         Chronological progression
@@ -469,10 +503,6 @@ struct InsightAtlasPromptGenerator {
         [VISUAL_VENN: Title]
         Overlapping categories
         [/VISUAL_VENN]
-
-        [VISUAL_RADAR: Title]
-        Multi-axis assessment
-        [/VISUAL_RADAR]
 
         [VISUAL_FUNNEL: Title]
         Narrowing stages
@@ -558,6 +588,14 @@ struct InsightAtlasPromptGenerator {
         Axes with labeled quadrants
         [/VISUAL_QUADRANT]
 
+        [VISUAL_BAR_CHART: Title]
+        Label: value   (one "label: number" per line)
+        [/VISUAL_BAR_CHART]
+
+        [VISUAL_PIE_CHART: Title]
+        Segment: value   (one "segment: number" per line; values are shares)
+        [/VISUAL_PIE_CHART]
+
         [VISUAL_GENERIC: Title]
         Use only if a new visual type is required
         [/VISUAL_GENERIC]
@@ -566,6 +604,7 @@ struct InsightAtlasPromptGenerator {
         - Use the full visual library (30+ supported visual types) across guides to avoid repetition.
         - Target 12–18 visuals in a full guide, spread across 8–12 distinct visual types.
         - Avoid repeating any single visual type more than 2–3 times.
+        - Flowcharts/process diagrams must not exceed ~1/3 of all visuals; once two have been used, the next visual MUST be a different type. Reach for variety, never a wall of flowcharts.
         - Do not turn the guide into a photobook: every visual must be justified and followed by interpretation.
 
         ───
@@ -841,8 +880,7 @@ struct InsightAtlasPromptGenerator {
             - All flow charts
             - All concept maps
             - All comparison tables
-            - All process diagrams
-            - All hierarchy diagrams
+            - All process diagrams — express vertical hierarchies (support pyramids, competence ladders, level stacks) as top-to-bottom process flows so they render as real diagrams instead of loose "LEVEL N —"/"Supported by" text
 
             Each visual should be self-explanatory.
             Include brief captions only.

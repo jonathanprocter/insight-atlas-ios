@@ -46,7 +46,7 @@ struct QuickGlanceBlockView: View {
                 .lineSpacing(6)
         }
         .padding(20)
-        .background(AnalysisTheme.bgCard)
+        .background(PremiumUI.card)
         .cornerRadius(AnalysisTheme.Radius.lg)
         .overlay(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
@@ -65,78 +65,82 @@ struct InsightNoteBlockView: View {
     var body: some View {
         let parsed = parseStructuredNoteContent(content)
 
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "lightbulb.fill")
-                    .font(.title3)
-                    .foregroundColor(AnalysisTheme.accentTeal)
+        HStack(spacing: 0) {
+            // Coral left border
+            Rectangle()
+                .fill(Color(hex: "#E8553A"))
+                .frame(width: 3)
+            
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.title3)
+                        .foregroundColor(AnalysisTheme.primaryGold)
 
-                Text(title ?? "INSIGHT ATLAS NOTE")
-                    .font(.analysisUIBold())
-                    .tracking(1.5)
-                    .foregroundColor(AnalysisTheme.accentTeal)
-            }
-
-            if !parsed.coreConnection.isEmpty {
-                Text(parseMarkdownBold(parsed.coreConnection))
-                    .font(.analysisBody())
-                    .foregroundColor(AnalysisTheme.textBody)
-                    .lineSpacing(6)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let keyDistinction = parsed.keyDistinction, !keyDistinction.isEmpty {
-                NoteSubsection(
-                    label: "KEY DISTINCTION",
-                    icon: "arrow.triangle.branch",
-                    text: keyDistinction
-                )
-            }
-
-            if let practical = parsed.practicalImplication, !practical.isEmpty {
-                NoteSubsection(
-                    label: "PRACTICAL IMPLICATION",
-                    icon: "lightbulb",
-                    text: practical
-                )
-            }
-
-            if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
-                // Inset "Go Deeper" card with gold accent bar, matching the PDF layout
-                HStack(alignment: .top, spacing: 12) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(AnalysisTheme.primaryGold)
-                        .frame(width: 3)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("GO DEEPER")
-                            .font(.analysisUISmall())
-                            .fontWeight(.semibold)
-                            .tracking(1.5)
-                            .foregroundColor(AnalysisTheme.primaryGoldText)
-
-                        Text(parseMarkdownBold(goDeeper))
-                            .font(.analysisBody())
-                            .italic()
-                            .foregroundColor(AnalysisTheme.textBody)
-                            .lineSpacing(5)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    Text(title ?? "INSIGHT ATLAS NOTE")
+                        .font(.custom("Inter-SemiBold", size: 14))
+                        .tracking(1.5)
+                        .foregroundColor(AnalysisTheme.primaryGold)
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AnalysisTheme.bgSecondary)
-                .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.sm))
+
+                if !parsed.coreConnection.isEmpty {
+                    Text(parseMarkdownBold(parsed.coreConnection))
+                        .font(.analysisBody())
+                        .foregroundColor(AnalysisTheme.textBody)
+                        .lineSpacing(6)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let keyDistinction = parsed.keyDistinction, !keyDistinction.isEmpty {
+                    NoteSubsection(
+                        label: "KEY DISTINCTION",
+                        icon: "arrow.triangle.branch",
+                        text: keyDistinction
+                    )
+                }
+
+                if let practical = parsed.practicalImplication, !practical.isEmpty {
+                    NoteSubsection(
+                        label: "PRACTICAL IMPLICATION",
+                        icon: "lightbulb",
+                        text: practical
+                    )
+                }
+
+                if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
+                    // Inset "Go Deeper" card with gold accent bar
+                    HStack(alignment: .top, spacing: 12) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(AnalysisTheme.primaryGold)
+                            .frame(width: 3)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("GO DEEPER")
+                                .font(.analysisUISmall())
+                                .fontWeight(.semibold)
+                                .tracking(1.5)
+                                .foregroundColor(AnalysisTheme.primaryGoldText)
+
+                            Text(parseMarkdownBold(goDeeper))
+                                .font(.analysisBody())
+                                .italic()
+                                .foregroundColor(AnalysisTheme.textBody)
+                                .lineSpacing(5)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(hex: "#FDF8F3")) // slightly off-white contrast against cream
+                    .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.sm))
+                }
             }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: "#F5F4F0")) // Warm Cream
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AnalysisTheme.accentTealSubtle.opacity(0.3))
-        .cornerRadius(AnalysisTheme.Radius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: AnalysisTheme.Radius.md)
-                .stroke(AnalysisTheme.accentTeal.opacity(0.3), lineWidth: 1)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.vertical, 8)
     }
 }
 
@@ -435,68 +439,38 @@ struct PremiumQuoteBlockView: View {
     }
 
     var body: some View {
-        VStack(spacing: 18) {
-            // Ornamental top rule with quote glyph
-            HStack(spacing: 12) {
-                Rectangle()
-                    .fill(LinearGradient(colors: [.clear, AnalysisTheme.primaryGold], startPoint: .leading, endPoint: .trailing))
-                    .frame(height: 1)
-
+        HStack(spacing: 0) {
+            // Coral left border
+            Rectangle()
+                .fill(Color(hex: "#E8553A"))
+                .frame(width: 3)
+            
+            VStack(alignment: .leading, spacing: 16) {
+                // Large faded gold quote
                 Image(systemName: "quote.opening")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(AnalysisTheme.primaryGold)
-
-                Rectangle()
-                    .fill(LinearGradient(colors: [AnalysisTheme.primaryGold, .clear], startPoint: .leading, endPoint: .trailing))
-                    .frame(height: 1)
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(AnalysisTheme.primaryGold.opacity(0.3))
+                
+                Text(cleanQuote)
+                    .font(.custom("CormorantGaramond-Italic", size: 18))
+                    .foregroundColor(AnalysisTheme.textHeading)
+                    .lineSpacing(8)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                if let attribution = attribution, !attribution.isEmpty {
+                    Text("— \(attribution.uppercased())")
+                        .font(.custom("Inter-SemiBold", size: 14))
+                        .tracking(1)
+                        .foregroundColor(Color(hex: "#E8553A"))
+                }
             }
-
-            Text(cleanQuote)
-                .font(.analysisDisplayH3())
-                .italic()
-                .foregroundColor(AnalysisTheme.textHeading)
-                .multilineTextAlignment(.center)
-                .lineSpacing(8)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let attribution = attribution, !attribution.isEmpty {
-                Text("— \(attribution)")
-                    .font(.analysisUIBold())
-                    .tracking(1)
-                    .foregroundColor(AnalysisTheme.primaryGoldText)
-            }
-
-            // Ornamental bottom rule
-            HStack(spacing: 12) {
-                Rectangle()
-                    .fill(LinearGradient(colors: [.clear, AnalysisTheme.primaryGold], startPoint: .leading, endPoint: .trailing))
-                    .frame(height: 1)
-
-                Image(systemName: "diamond.fill")
-                    .font(.system(size: 7))
-                    .foregroundColor(AnalysisTheme.primaryGold)
-
-                Rectangle()
-                    .fill(LinearGradient(colors: [AnalysisTheme.primaryGold, .clear], startPoint: .leading, endPoint: .trailing))
-                    .frame(height: 1)
-            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: "#F5F4F0")) // Warm Cream
         }
-        .padding(.vertical, 28)
-        .padding(.horizontal, 24)
-        .frame(maxWidth: .infinity)
-        .background(
-            LinearGradient(
-                colors: [AnalysisTheme.primaryGoldSubtle, AnalysisTheme.bgCard],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg))
-        .overlay(
-            RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
-                .stroke(AnalysisTheme.primaryGold.opacity(0.35), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+        .cornerRadius(12)
+        .padding(.vertical, 8)
     }
 }
 
@@ -549,7 +523,7 @@ struct BlockquoteBlockView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 LinearGradient(
-                    colors: [AnalysisTheme.primaryGoldSubtle, AnalysisTheme.bgCard],
+                    colors: [AnalysisTheme.primaryGoldSubtle, PremiumUI.card],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -729,28 +703,46 @@ struct SectionHeaderBlockView: View {
     }
 
     private var headerContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .center, spacing: 12) {
             if level == 1 {
+                Text("◆ ◇ ◆")
+                    .font(.custom("Inter-SemiBold", size: 14))
+                    .foregroundColor(AnalysisTheme.primaryGold)
+                    .tracking(4)
+                    .padding(.top, 24)
+                    
                 Text(text)
-                    .font(.analysisDisplayH2())
+                    .font(.custom("CormorantGaramond-SemiBold", size: 24))
                     .foregroundColor(AnalysisTheme.textHeading)
-                    .padding(.top, 16)
-
-                Rectangle()
-                    .fill(AnalysisTheme.primaryGold)
-                    .frame(width: 60, height: 3)
+                    .multilineTextAlignment(.center)
+                    .tracking(2)
+                    
+                Text("◆ ◇ ◆")
+                    .font(.custom("Inter-SemiBold", size: 14))
+                    .foregroundColor(AnalysisTheme.primaryGold)
+                    .tracking(4)
+                    .padding(.bottom, 8)
             } else if level == 2 {
-                Text(text)
-                    .font(.analysisDisplayH3())
-                    .foregroundColor(AnalysisTheme.textHeading)
-                    .padding(.top, 12)
+                HStack(spacing: 8) {
+                    Rectangle()
+                        .fill(Color(hex: "#E8553A")) // Coral accent
+                        .frame(width: 3, height: 18)
+                        
+                    Text(text)
+                        .font(.analysisDisplayH3())
+                        .foregroundColor(AnalysisTheme.textHeading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 16)
             } else {
                 Text(text)
                     .font(.analysisDisplayH4())
                     .foregroundColor(AnalysisTheme.textHeading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 8)
             }
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -774,7 +766,7 @@ struct PartHeaderBlockView: View {
                     .frame(height: 1)
             }
 
-            Text(text.uppercased())
+            Text(text)
                 .font(.analysisDisplayH1())
                 .foregroundColor(AnalysisTheme.textHeading)
                 .tracking(3)
@@ -998,7 +990,7 @@ struct FlowchartBlockView: View {
             }
         }
         .padding(20)
-        .background(Color(.systemBackground))
+        .background(PremiumUI.card)
         .cornerRadius(AnalysisTheme.Radius.lg)
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -1076,7 +1068,7 @@ struct ConceptMapBlockView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity)
-            .background(AnalysisTheme.bgCard)
+            .background(PremiumUI.card)
             .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg))
             .overlay(
                 RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
@@ -1187,7 +1179,7 @@ struct ProcessTimelineBlockView: View {
             }
         }
         .padding(20)
-        .background(Color(.systemBackground))
+        .background(PremiumUI.card)
         .cornerRadius(AnalysisTheme.Radius.lg)
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
@@ -1349,11 +1341,11 @@ struct TextDiagramBlockView: View {
                 }
             }
             .padding(16)
-            .background(AnalysisTheme.bgCard)
+            .background(PremiumUI.card)
             .cornerRadius(AnalysisTheme.Radius.md)
         }
         .padding(20)
-        .background(Color(.systemBackground))
+        .background(PremiumUI.card)
         .cornerRadius(AnalysisTheme.Radius.lg)
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }

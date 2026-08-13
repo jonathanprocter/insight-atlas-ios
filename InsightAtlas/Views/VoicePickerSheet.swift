@@ -34,8 +34,8 @@ struct VoicePickerSheet: View {
 
     private var recommendedVoices: [VoicePickerOption] {
         switch provider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.allVoices.map {
+        case .kokoro:
+            return KokoroVoiceRegistry.voicesSorted(for: profile).map {
                 VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
             }
         case .openai:
@@ -58,8 +58,8 @@ struct VoicePickerSheet: View {
 
     private var primarySectionTitle: String {
         switch provider {
-        case .chatgptVoice:
-            return "CHATGPT VOICES · EXPERIMENTAL"
+        case .kokoro:
+            return "KOKORO VOICES · ON-DEVICE"
         case .openai:
             return "OPENAI VOICES"
         case .elevenlabs:
@@ -71,7 +71,7 @@ struct VoicePickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Select a \(provider.displayName) voice. Audio regeneration tries ChatGPT Voice first, then configured stable fallbacks if needed.")
+                    Text("Select a \(provider.displayName) voice for manual previews. Full-guide narration uses offline Kokoro first, then Mega Transcript, OpenAI, and Liam when configured.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)

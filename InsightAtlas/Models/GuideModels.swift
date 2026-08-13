@@ -43,6 +43,10 @@ struct LibraryItem: Identifiable, Codable {
     /// Audio duration in seconds
     var audioDuration: TimeInterval?
 
+    /// Durable narration lifecycle state for the Liam (Kokoro) pipeline.
+    /// `nil` on legacy items — see `effectiveNarrationState`.
+    var narrationState: NarrationState?
+
     /// Number of audio generation attempts (allows retry up to max attempts)
     var audioGenerationAttempts: Int?
 
@@ -87,6 +91,7 @@ struct LibraryItem: Identifiable, Codable {
         audioFileURL: String? = nil,
         audioVoiceID: String? = nil,
         audioDuration: TimeInterval? = nil,
+        narrationState: NarrationState? = nil,
         audioGenerationAttempts: Int? = nil,
         bookmarks: [GuideBookmark]? = nil
     ) {
@@ -110,6 +115,7 @@ struct LibraryItem: Identifiable, Codable {
         self.audioFileURL = audioFileURL
         self.audioVoiceID = audioVoiceID
         self.audioDuration = audioDuration
+        self.narrationState = narrationState
         self.audioGenerationAttempts = audioGenerationAttempts
         self.bookmarks = bookmarks
     }
@@ -117,6 +123,14 @@ struct LibraryItem: Identifiable, Codable {
     /// Returns true if this item has generated audio available
     var hasAudio: Bool {
         audioFileURL != nil && audioDuration != nil
+    }
+
+    /// The narration state to drive UI from, deriving a sensible value for
+    /// legacy items saved before `narrationState` existed: audio present →
+    /// `.ready`, otherwise `.notGenerated`.
+    var effectiveNarrationState: NarrationState {
+        if let narrationState { return narrationState }
+        return hasAudio ? .ready : .notGenerated
     }
 
     /// Formatted audio duration string (e.g., "5:42")
@@ -134,6 +148,7 @@ struct LibraryItem: Identifiable, Codable {
         case pageCount, isbn, coverImagePath, isFavorite, createdAt, updatedAt
         case summaryType, governedWordCount, cutPolicyActivated, cutEventCount
         case audioFileURL, audioVoiceID, audioDuration
+        case narrationState
         case audioGenerationAttempts
         case audioGenerationAttempted  // Legacy key for backward compatibility
         case bookmarks
@@ -162,6 +177,7 @@ struct LibraryItem: Identifiable, Codable {
         audioFileURL = try container.decodeIfPresent(String.self, forKey: .audioFileURL)
         audioVoiceID = try container.decodeIfPresent(String.self, forKey: .audioVoiceID)
         audioDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .audioDuration)
+        narrationState = try container.decodeIfPresent(NarrationState.self, forKey: .narrationState)
         bookmarks = try container.decodeIfPresent([GuideBookmark].self, forKey: .bookmarks)
 
         // Handle backward compatibility: try new key first, fall back to legacy key
@@ -198,6 +214,7 @@ struct LibraryItem: Identifiable, Codable {
         try container.encodeIfPresent(audioFileURL, forKey: .audioFileURL)
         try container.encodeIfPresent(audioVoiceID, forKey: .audioVoiceID)
         try container.encodeIfPresent(audioDuration, forKey: .audioDuration)
+        try container.encodeIfPresent(narrationState, forKey: .narrationState)
         try container.encodeIfPresent(audioGenerationAttempts, forKey: .audioGenerationAttempts)
         try container.encodeIfPresent(bookmarks, forKey: .bookmarks)
         // Note: We intentionally don't encode audioGenerationAttempted (legacy key)
@@ -207,6 +224,25 @@ struct LibraryItem: Identifiable, Codable {
 enum FileType: String, Codable {
     case pdf = "pdf"
     case epub = "epub"
+}
+
+// MARK: - Narration State
+
+/// Durable lifecycle state for a guide's Liam (Kokoro) narration.
+///
+/// Persisted on `LibraryItem` so an in-progress or failed narration survives a
+/// relaunch. Legacy items saved before this field existed decode as `nil`;
+/// use `LibraryItem.effectiveNarrationState` to derive a state from the
+/// presence of audio in that case.
+enum NarrationState: String, Codable, Equatable {
+    /// No narration exists and none is in flight.
+    case notGenerated
+    /// A narration job is currently running.
+    case generating
+    /// A completed narration asset is available for playback.
+    case ready
+    /// The most recent narration attempt failed; prior audio (if any) is kept.
+    case failed
 }
 
 // MARK: - Guide Bookmark
@@ -265,6 +301,7 @@ enum AIProvider: String, Codable, CaseIterable {
     case claude = "claude"
     case openai = "openai"
     case openRouter = "openrouter"
+    case minimax = "minimax"
     case both = "both"
 
     var displayName: String {
@@ -272,6 +309,7 @@ enum AIProvider: String, Codable, CaseIterable {
         case .claude: return "Claude"
         case .openai: return "OpenAI"
         case .openRouter: return "OpenRouter"
+        case .minimax: return "MiniMax M3"
         case .both: return "Both"
         }
     }
@@ -625,7 +663,7 @@ struct UserSettings: Codable {
         autoGenerateAudio: Bool = true,
         selectedVoiceID: String? = nil,
         playbackSpeed: PlaybackSpeed = .normal,
-        voiceProvider: VoiceProvider = .chatgptVoice
+        voiceProvider: VoiceProvider = .kokoro
     ) {
         self.preferredProvider = preferredProvider
         self.preferredMode = preferredMode
@@ -666,7 +704,7 @@ struct UserSettings: Codable {
         autoGenerateAudio = try container.decode(Bool.self, forKey: .autoGenerateAudio)
         selectedVoiceID = try container.decodeIfPresent(String.self, forKey: .selectedVoiceID)
         playbackSpeed = try container.decodeIfPresent(PlaybackSpeed.self, forKey: .playbackSpeed) ?? .normal
-        voiceProvider = try container.decodeIfPresent(VoiceProvider.self, forKey: .voiceProvider) ?? .chatgptVoice
+        voiceProvider = try container.decodeIfPresent(VoiceProvider.self, forKey: .voiceProvider) ?? .kokoro
     }
 }
 

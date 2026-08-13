@@ -102,6 +102,15 @@ struct PDFStyleConfiguration {
         static let accentCrimson = UIColor(hex: "#7B2D3E")       // Deep Burgundy
         static let accentPurple = UIColor(hex: "#3B5E7A")        // Steel Blue
 
+        // === SEMANTIC ACCENTS (redesign — one hue per component class) ===
+        // Extend the base palette with four muted functional accents from the
+        // redesign mockup tokens. All verified ≥ WCAG AA on the cream ground.
+        static let semanticNotes = UIColor(hex: "#742B38")       // burgundy — notes & structure
+        static let semanticEvidence = UIColor(hex: "#2E6355")    // teal — research & data
+        static let semanticPractice = UIColor(hex: "#3B5876")    // slate — exercises & protocols
+        static let semanticCaution = UIColor(hex: "#8A6414")     // amber — limitations & warnings
+        static let semanticCautionBg = UIColor(hex: "#FBF7EC")   // amber-tinted callout ground
+
         // Brand Colors - Warm editorial palette
         static let brandSepia = UIColor(hex: "#5A5550")          // Warm Charcoal
         static let brandSepiaLight = UIColor(hex: "#8A8580")     // Warm Gray
@@ -157,7 +166,15 @@ struct PDFStyleConfiguration {
         }
 
         static func displayH2() -> UIFont {
-            make(serifSemiBoldFontName, 28, .systemFont(ofSize: 28, weight: .semibold))
+            // B5 heading ramp: 26pt (was 28) so section titles sit a clear step
+            // below the 30pt level-1 chapter headings (was only 2pt apart) while
+            // staying above 22pt level-3 subsections → 30/26/22. Differentiation is
+            // by SHRINKING L2, not growing L1: level-1 headings recur with the
+            // keep-with-next reserve at every chapter boundary, so growing them
+            // would inflate that joint total (airy chapter starts). Shrinking L2
+            // leaves the level-1 heading+reserve sum unchanged. Auto-syncs height
+            // and render (both read headingAttributes → displayH2).
+            make(serifSemiBoldFontName, 26, .systemFont(ofSize: 26, weight: .semibold))
         }
 
         static func displayH3() -> UIFont {

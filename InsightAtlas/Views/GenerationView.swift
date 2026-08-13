@@ -23,9 +23,7 @@ struct GenerationView: View {
     @State private var selectedFileType: FileType?
     @State private var cachedFileData: Data?
 
-    // Voice selection state
-    @State private var showingVoicePicker = false
-    @State private var selectedVoiceID: String?
+    // Narration state — voice is fixed (Liam); no selection UI.
     @State private var audioSpeed: Double = 1.0
 
     // MARK: - Body
@@ -63,12 +61,6 @@ struct GenerationView: View {
             allowsMultipleSelection: false
         ) { result in
             handleFileSelection(result)
-        }
-        .sheet(isPresented: $showingVoicePicker) {
-            VoiceSelectionSheet(
-                selectedVoiceID: $selectedVoiceID,
-                voiceProvider: environment.userSettings.voiceProvider
-            )
         }
         .onAppear {
             syncGenerationState()
@@ -261,7 +253,7 @@ struct GenerationView: View {
             Divider()
                 .padding(.vertical, 8)
 
-            // Audio Voice Selection
+            // Audio narration with fixed stable fallback order.
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "waveform")
@@ -271,56 +263,31 @@ struct GenerationView: View {
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
 
-                // Voice Provider
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Voice Provider")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
-                    Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
-                        ForEach(VoiceProvider.allCases, id: \.self) { provider in
-                            Text(provider.displayName).tag(provider)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .onChange(of: environment.userSettings.voiceProvider) {
-                        environment.updateVoiceProvider(environment.userSettings.voiceProvider)
-                        selectedVoiceID = environment.userSettings.voiceProvider.defaultVoiceID
-                        environment.userSettings.selectedVoiceID = selectedVoiceID
-                        environment.saveSettings()
-                    }
-                    .accessibilityIdentifier("generation_voice_provider_picker")
-
-                    if !environment.userSettings.voiceProvider.isConfigured() {
-                        Text(environment.userSettings.voiceProvider == .chatgptVoice
-                             ? "Sign in with ChatGPT under API Configuration to use experimental narration."
-                             : "\(environment.userSettings.voiceProvider.displayName) API key not configured.")
+                // Fixed provider order — not selectable during generation.
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Provider order")
                             .font(.analysisUISmall())
-                            .foregroundColor(AnalysisTheme.accentHighlight)
-                    }
-                }
-
-                // Voice Selection Button
-                Button {
-                    showingVoicePicker = true
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Selected Voice")
-                                .font(.analysisUISmall())
-                                .foregroundColor(AnalysisTheme.textMuted)
-                            Text(selectedVoiceName)
-                                .font(.analysisUI())
-                                .foregroundColor(AnalysisTheme.textHeading)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
                             .foregroundColor(AnalysisTheme.textMuted)
+                        Text("Kokoro → Mega Transcript → OpenAI → Liam")
+                            .font(.analysisUI())
+                            .foregroundColor(AnalysisTheme.textHeading)
                     }
-                    .padding(12)
-                    .background(AnalysisTheme.bgSecondary)
-                    .cornerRadius(AnalysisTheme.Radius.md)
+                    Spacer()
                 }
-                .accessibilityIdentifier("generation_voice_select_button")
+                .padding(12)
+                .background(AnalysisTheme.bgSecondary)
+                .cornerRadius(AnalysisTheme.Radius.md)
+                .accessibilityIdentifier("generation_voice_liam_label")
+
+                if !KokoroModelStore.isInstalled,
+                   !KeychainMegaTranscriptCredentialStore.shared.hasAPIKey,
+                   !KeychainService.shared.hasOpenAIApiKey,
+                   KokoroTTSClient.currentAPIKey() == nil {
+                    Text("⚠️ Download Kokoro or configure a cloud narrator in Settings → Audio & Narration")
+                        .font(.analysisUISmall())
+                        .foregroundColor(AnalysisTheme.accentHighlight)
+                }
 
                 // Audio Speed
                 VStack(alignment: .leading, spacing: 4) {
@@ -344,30 +311,6 @@ struct GenerationView: View {
         .cornerRadius(AnalysisTheme.Radius.lg)
         .shadow(color: AnalysisTheme.shadowCard, radius: 4, y: 2)
         .padding(.horizontal, 24)
-    }
-
-    /// Get the display name for the currently selected voice
-    private var selectedVoiceName: String {
-        let provider = environment.userSettings.voiceProvider
-        guard let voiceID = selectedVoiceID else {
-            switch provider {
-            case .chatgptVoice:
-                return ChatGPTVoiceRegistry.defaultVoice.name + " (Default)"
-            case .openai:
-                return OpenAIVoiceRegistry.defaultVoice.name + " (Default)"
-            case .elevenlabs:
-                return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: .practitioner).name + " (Default)"
-            }
-        }
-
-        switch provider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
-        }
     }
 
     private func selectedFileCard(fileName: String) -> some View {
@@ -652,7 +595,7 @@ struct GenerationView: View {
                     settings: environment.userSettings,
                     existingItemId: newItemId,
                     summaryType: environment.userSettings.preferredSummaryType,
-                    voiceID: selectedVoiceID
+                    voiceID: nil
                 )
 
                 await MainActor.run {
@@ -662,7 +605,7 @@ struct GenerationView: View {
                     let resolvedAuthor = output.resolvedAuthor
 
                     // Create library item with cover image path (using pre-created ID)
-                    let item = LibraryItem(
+                    var item = LibraryItem(
                         id: newItemId,
                         title: resolvedTitle,
                         author: resolvedAuthor,
@@ -680,19 +623,76 @@ struct GenerationView: View {
                         audioDuration: output.metadata?.audioDuration
                     )
 
-                    // Save to library
+                    // Narration is generated in the background (never inline), so the
+                    // completed guide shows immediately. Mark it pending when the user
+                    // has auto-narration on AND at least one provider is configured —
+                    // Mega Transcript (primary), OpenAI API (first fallback), or
+                    // the Liam token (final fallback). Otherwise leave
+                    // narration unset (it can be generated on demand later).
+                    let hasNarrationProvider = KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+                        || KeychainService.shared.hasOpenAIApiKey
+                        || KokoroTTSClient.currentAPIKey() != nil
+                    let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
+                    if willNarrate {
+                        item.narrationState = .generating
+                    }
+
+                    // Save to library and present the completed guide right away.
                     environment.addLibraryItem(item)
                     generatedItem = item
                     generationState = .completed
 
                     // Clear cached data to free memory
                     cachedFileData = nil
+
+                    // Kick off narration without blocking completion.
+                    if willNarrate {
+                        startBackgroundNarration(for: item)
+                    }
                 }
 
             } catch {
                 await MainActor.run {
                     generationState = .error(error.localizedDescription)
                     cachedFileData = nil
+                }
+            }
+        }
+    }
+
+    /// Generates narration in the background after the guide is
+    /// already saved and shown, so audio never blocks completion. Updates the
+    /// persisted item's `narrationState` as it progresses. Any failure/hang
+    /// surfaces as `.failed` on the item rather than freezing the UI.
+    private func startBackgroundNarration(for item: LibraryItem) {
+        guard let content = item.summaryContent else { return }
+        guard !NarrationTextSanitizer.prepare(content).isEmpty else { return }
+        let itemId = item.id
+
+        Task {
+            do {
+                let asset = try await NarrationService.shared.synthesize(
+                    text: content,
+                    itemId: itemId
+                )
+                await MainActor.run {
+                    // Re-fetch in case the item changed while narration ran.
+                    if var updated = environment.dataManager.getLibraryItem(id: itemId) {
+                        updated.audioFileURL = asset.relativeFileName
+                        updated.audioDuration = asset.duration
+                        updated.audioVoiceID = asset.voiceID
+                        updated.narrationState = .ready
+                        environment.updateLibraryItem(updated)
+                        if generatedItem?.id == itemId { generatedItem = updated }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    if var updated = environment.dataManager.getLibraryItem(id: itemId) {
+                        updated.narrationState = .failed
+                        environment.updateLibraryItem(updated)
+                        if generatedItem?.id == itemId { generatedItem = updated }
+                    }
                 }
             }
         }
@@ -794,146 +794,4 @@ struct GuidePreviewCard: View {
     }
 }
 
-// MARK: - Voice Selection Sheet
-
-/// Sheet for selecting a voice before generation
-struct VoiceSelectionSheet: View {
-    @Binding var selectedVoiceID: String?
-    let voiceProvider: VoiceProvider
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Select a voice for your audio narration.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal)
-
-                    switch voiceProvider {
-                    case .chatgptVoice:
-                        chatGPTVoiceList
-                    case .openai:
-                        openAIVoiceList
-                    case .elevenlabs:
-                        elevenLabsVoiceList
-                    }
-                }
-                .padding(.vertical)
-            }
-            .navigationTitle("Select Voice")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityIdentifier("voice_selection_cancel_button")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier("voice_selection_done_button")
-                }
-            }
-            .background(AnalysisTheme.bgSecondary.ignoresSafeArea())
-        }
-    }
-
-    private var chatGPTVoiceList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("CHATGPT VOICES · EXPERIMENTAL")
-                .font(.caption)
-                .fontWeight(.bold)
-                .tracking(1)
-                .foregroundColor(AnalysisTheme.accentTeal)
-                .padding(.horizontal)
-
-            ForEach(ChatGPTVoiceRegistry.allVoices, id: \.id) { voice in
-                voiceRow(
-                    id: voice.voiceID,
-                    name: voice.name,
-                    description: voice.description,
-                    isSelected: selectedVoiceID == voice.voiceID
-                )
-            }
-        }
-    }
-
-    private var openAIVoiceList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("OPENAI VOICES")
-                .font(.caption)
-                .fontWeight(.bold)
-                .tracking(1)
-                .foregroundColor(AnalysisTheme.accentTeal)
-                .padding(.horizontal)
-
-            ForEach(OpenAIVoiceRegistry.allVoices, id: \.id) { voice in
-                voiceRow(
-                    id: voice.voiceID,
-                    name: voice.name,
-                    description: voice.description,
-                    isSelected: selectedVoiceID == voice.voiceID
-                )
-            }
-        }
-    }
-
-    private var elevenLabsVoiceList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("ELEVENLABS VOICES")
-                .font(.caption)
-                .fontWeight(.bold)
-                .tracking(1)
-                .foregroundColor(AnalysisTheme.primaryGold)
-                .padding(.horizontal)
-
-            ForEach(ElevenLabsVoiceRegistry.allVoices, id: \.id) { voice in
-                voiceRow(
-                    id: voice.voiceID,
-                    name: voice.name,
-                    description: voice.description,
-                    isSelected: selectedVoiceID == voice.voiceID
-                )
-            }
-        }
-    }
-
-    private func voiceRow(id: String, name: String, description: String, isSelected: Bool) -> some View {
-        Button {
-            selectedVoiceID = id
-        } label: {
-            HStack(spacing: 12) {
-                // Selection indicator
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? AnalysisTheme.accentTeal : AnalysisTheme.textMuted)
-                    .font(.title3)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name)
-                        .font(.headline)
-                        .foregroundColor(AnalysisTheme.textHeading)
-
-                    Text(description)
-                        .font(.caption)
-                        .foregroundColor(AnalysisTheme.textMuted)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-            }
-            .padding(12)
-            .background(isSelected ? AnalysisTheme.accentTealSubtle : AnalysisTheme.bgCard)
-            .cornerRadius(AnalysisTheme.Radius.md)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal)
-        .accessibilityIdentifier("voice_row_\(id)")
-    }
-}
-
+// Voice selection was removed: narration uses the fixed provider order in AudioSettingsView.

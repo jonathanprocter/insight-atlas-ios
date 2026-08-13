@@ -3,6 +3,7 @@ import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
     @AppStorage(PremiumUI.themeStorageKey) private var themePreference = PremiumTheme.system.rawValue
     @AppStorage(PremiumUI.accentStorageKey) private var accentPreference = PremiumAccent.gold.rawValue
@@ -16,19 +17,19 @@ struct SettingsView: View {
     @AppStorage("settings_expand_about") private var expandAbout = true
     @State private var showResetAlert = false
 
-    private var selectedVoiceName: String {
-        guard let voiceID = environment.userSettings.selectedVoiceID else {
-            return "Default"
-        }
+    @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
+    private var selectedVoiceName = "Arthur"
 
-        switch environment.userSettings.voiceProvider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? "Default"
+    private var audioStatus: String {
+        if KokoroModelStore.isInstalled {
+            let voiceID = UserDefaults.standard.string(
+                forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
+            ) ?? KokoroVoiceRegistry.defaultVoice.voiceID
+            let voice = KokoroVoiceRegistry.voice(byVoiceID: voiceID)
+                ?? KokoroVoiceRegistry.defaultVoice
+            return "Kokoro · \(voice.name)"
         }
+        return selectedVoiceName
     }
 
     private var accentColor: Color {
@@ -122,7 +123,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "API Configuration",
-                        keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
+                        keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "minimax"],
                         dynamicValues: [apiConfigurationStatus]
                     ) {
                         PremiumSettingsCard(
@@ -132,7 +133,7 @@ struct SettingsView: View {
                             isExpanded: $expandAPI
                         ) {
                             PremiumSettingsNavigationRow(
-                                title: "Manage API Keys",
+                                title: "API Access",
                                 value: apiConfigurationStatus
                             ) {
                                 APIConfigurationView()
@@ -142,8 +143,8 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
-                        dynamicValues: [selectedVoiceName]
+                        keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "free", "mega transcript", "arthur", "liam"],
+                        dynamicValues: [audioStatus]
                     ) {
                         PremiumSettingsCard(
                             title: "AUDIO & NARRATION",
@@ -153,7 +154,7 @@ struct SettingsView: View {
                         ) {
                             PremiumSettingsNavigationRow(
                                 title: "Audio Settings",
-                                value: selectedVoiceName
+                                value: audioStatus
                             ) {
                                 AudioSettingsView()
                             }
@@ -206,7 +207,7 @@ struct SettingsView: View {
                                     get: { UserDefaults.standard.bool(forKey: "insight_atlas_high_contrast") },
                                     set: { newValue in
                                         UserDefaults.standard.set(newValue, forKey: "insight_atlas_high_contrast")
-                                        PremiumHaptics.selection()
+                                        UISelectionFeedbackGenerator().selectionChanged()
                                     }
                                 ),
                                 accentColor: accentColor
@@ -220,7 +221,7 @@ struct SettingsView: View {
                                     get: { UserDefaults.standard.bool(forKey: "insight_atlas_sepia_mode") },
                                     set: { newValue in
                                         UserDefaults.standard.set(newValue, forKey: "insight_atlas_sepia_mode")
-                                        PremiumHaptics.selection()
+                                        UISelectionFeedbackGenerator().selectionChanged()
                                     }
                                 ),
                                 accentColor: accentColor
@@ -348,7 +349,7 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "API Configuration",
-            keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
+            keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "minimax"],
             dynamicValues: [apiConfigurationStatus]
         ) &&
         !matchesSection(
@@ -390,14 +391,13 @@ struct SettingsView: View {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults
-        if let vProvider = VoiceProvider.allCases.first { environment.userSettings.voiceProvider = vProvider }
-        environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider.defaultVoiceID
+        // Audio defaults — provider order is fixed, so only playback speed and
+        // the auto-generate toggle are user-configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
 
         environment.saveSettings()
-        PremiumHaptics.selection()
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 }
 
@@ -639,7 +639,7 @@ struct DefaultFormatSettingsView: View {
                     Button {
                         environment.userSettings.preferredFormat = format
                         environment.saveSettings()
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         PremiumChoiceRow(
                             title: format.displayName,
@@ -657,7 +657,7 @@ struct DefaultFormatSettingsView: View {
                     Button {
                         environment.userSettings.preferredSummaryType = summaryType
                         environment.saveSettings()
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         PremiumChoiceRow(
                             title: summaryType.displayName,
@@ -692,7 +692,7 @@ struct PremiumChoiceList: View {
                 ForEach(choices) { choice in
                     Button {
                         onSelect(choice.id)
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         PremiumChoiceRow(
                             title: choice.title,
@@ -747,11 +747,9 @@ struct PremiumChoiceRow: View {
 
 struct APIConfigurationView: View {
     @EnvironmentObject private var environment: AppEnvironment
-    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
-    @AppStorage("insight_atlas_use_chatgpt_oauth") private var useChatGPTOAuth = false
-    @AppStorage(ChatGPTOAuthConfig.modelStorageKey) private var chatgptModel = ChatGPTOAuthConfig.defaultModel
+    @ObservedObject private var minimax = MiniMaxOAuthService.shared
     @AppStorage(OpenRouterConfig.modelStorageKey) private var openRouterModel = OpenRouterConfig.defaultModel
-    @State private var showChatGPTSignIn = false
+    @State private var minimaxError: String?
 
     private func savedSuffix(for key: String?) -> String? {
         guard let key, key.count >= 4 else { return nil }
@@ -816,7 +814,7 @@ struct APIConfigurationView: View {
                             ForEach(OpenRouterConfig.candidateModels, id: \.self) { model in
                                 Button {
                                     openRouterModel = model
-                                    PremiumHaptics.selection()
+                                    UISelectionFeedbackGenerator().selectionChanged()
                                 } label: {
                                     if openRouterModel == model {
                                         Label(model, systemImage: "checkmark")
@@ -842,25 +840,9 @@ struct APIConfigurationView: View {
             }
 
             Section {
-                SecureFieldRow(
-                    label: "ElevenLabs",
-                    placeholder: "ElevenLabs API Key",
-                    text: Binding(
-                        get: { KeychainService.shared.elevenLabsApiKey ?? "" },
-                        set: { KeychainService.shared.elevenLabsApiKey = $0.isEmpty ? nil : $0 }
-                    ),
-                    hasValue: KeychainService.shared.hasElevenLabsApiKey,
-                    savedSuffix: savedSuffix(for: KeychainService.shared.elevenLabsApiKey)
-                )
-                .listRowBackground(PremiumUI.card)
-            } header: {
-                Text("Optional Narration Provider")
-            }
-
-            Section {
-                if chatgpt.isSignedIn {
+                if minimax.isSignedIn {
                     HStack {
-                        Text("ChatGPT")
+                        Text("MiniMax")
                         Spacer()
                         Text("Signed in")
                             .foregroundStyle(PremiumUI.forest)
@@ -869,72 +851,72 @@ struct APIConfigurationView: View {
                     }
                     .listRowBackground(PremiumUI.card)
 
-                    Toggle("Use for guide generation", isOn: $useChatGPTOAuth)
-                        .tint(PremiumUI.gold)
-                        .listRowBackground(PremiumUI.card)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Codex Model")
+                    Button(role: .destructive) {
+                        minimax.signOut()
+                        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                    } label: {
+                        Text("Sign out of MiniMax")
+                    }
+                    .listRowBackground(PremiumUI.card)
+                } else if let code = minimax.pendingCode {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Approve this code in your browser:")
                             .font(PremiumUI.ui(13, .semibold))
                             .foregroundStyle(PremiumUI.secondaryText)
 
-                        HStack(spacing: 8) {
-                            TextField(ChatGPTOAuthConfig.defaultModel, text: $chatgptModel)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled(true)
-                                .submitLabel(.done)
-                                .font(PremiumUI.ui(15, .regular))
-                                .foregroundStyle(PremiumUI.ink)
+                        Text(code.userCode)
+                            .font(.system(.title2, design: .monospaced).weight(.bold))
+                            .foregroundStyle(PremiumUI.ink)
+                            .textSelection(.enabled)
 
-                            Menu {
-                                ForEach(ChatGPTOAuthConfig.candidateModels, id: \.self) { model in
-                                    Button {
-                                        chatgptModel = model
-                                        PremiumHaptics.selection()
-                                    } label: {
-                                        if chatgptModel == model {
-                                            Label(model, systemImage: "checkmark")
-                                        } else {
-                                            Text(model)
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(PremiumUI.gold)
-                                    .frame(width: 32, height: 32)
+                        if let url = code.bestVerificationURL {
+                            Link(destination: url) {
+                                Label("Open verification page", systemImage: "safari")
                             }
-                            .accessibilityLabel("Choose a suggested Codex model")
+                        }
+
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Waiting for approval…")
+                                .font(PremiumUI.ui(13))
+                                .foregroundStyle(PremiumUI.secondaryText)
                         }
                     }
-                    .listRowBackground(PremiumUI.card)
-
-                    Button(role: .destructive) {
-                        chatgpt.signOut()
-                        useChatGPTOAuth = false
-                        PremiumHaptics.notification(.warning)
-                    } label: {
-                        Text("Sign out of ChatGPT")
-                    }
+                    .padding(.vertical, 4)
                     .listRowBackground(PremiumUI.card)
                 } else {
                     Button {
-                        showChatGPTSignIn = true
+                        Task {
+                            do {
+                                try await minimax.signIn()
+                            } catch let error as MiniMaxOAuthError {
+                                minimaxError = error.errorDescription
+                            } catch {
+                                minimaxError = error.localizedDescription
+                            }
+                        }
                     } label: {
-                        Label("Sign in with ChatGPT", systemImage: "person.crop.circle")
+                        Label("Sign in with MiniMax", systemImage: "person.crop.circle")
                     }
                     .listRowBackground(PremiumUI.card)
                 }
             } header: {
-                Text("ChatGPT Subscription (Beta)")
+                Text("MiniMax (OAuth)")
             } footer: {
-                Text("Unofficial: uses your ChatGPT subscription for Codex guide generation and, when selected under Audio & Narration, experimental GPT-Live voice generation. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or restrict your account. GPT-Live availability depends on your ChatGPT account. If voice generation fails, InsightAtlas automatically tries a configured OpenAI or ElevenLabs fallback.")
+                Text("Sign in with MiniMax to generate guides with the \(MiniMaxOAuthConfig.defaultModel) model. Sign-in opens MiniMax in your browser to approve a code — no password is entered in the app. Then select MiniMax under Generation → AI Provider. Tokens are stored in the iOS Keychain.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
-        .sheet(isPresented: $showChatGPTSignIn) {
-            ChatGPTSignInSheet()
+        .alert(
+            "MiniMax sign-in failed",
+            isPresented: Binding(
+                get: { minimaxError != nil },
+                set: { if !$0 { minimaxError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(minimaxError ?? "")
         }
     }
 }
@@ -943,46 +925,118 @@ struct APIConfigurationView: View {
 
 struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
-    private var selectedVoiceName: String {
-        guard let voiceID = environment.userSettings.selectedVoiceID else {
-            return "Default"
-        }
+    @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
+    private var kokoroVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
 
-        switch environment.userSettings.voiceProvider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? "Default"
+    @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
+    private var megaVoiceName = "Arthur"
+
+    // Local mirror of the Keychain-backed narration token so edits redraw the row.
+    @State private var narrationToken: String = KokoroTTSClient.currentAPIKey() ?? ""
+
+    // Liam narration self-test state.
+    @State private var isTestingNarration = false
+    @State private var narrationDiagnostics: NarrationDiagnostics?
+
+    private func savedSuffix(for key: String) -> String? {
+        guard key.count >= 4 else { return nil }
+        return "Saved \u{2022}\u{2022}\u{2022}\u{2022}" + key.suffix(4)
+    }
+
+    private func diagnosticRow(_ label: String, _ ok: Bool, _ detail: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                .foregroundStyle(ok ? Color.green : Color.red)
+            Text(label)
+            Spacer()
+            Text(detail)
+                .font(.footnote)
+                .foregroundStyle(PremiumUI.secondaryText)
+                .multilineTextAlignment(.trailing)
         }
+    }
+
+    private var selectedKokoroVoice: KokoroVoice {
+        KokoroVoiceRegistry.voice(byVoiceID: kokoroVoiceID)
+            ?? KokoroVoiceRegistry.defaultVoice
     }
 
     var body: some View {
         List {
             Section {
-                Picker("Voice Provider", selection: $environment.userSettings.voiceProvider) {
-                    ForEach(VoiceProvider.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
+                kokoroModelStatus
+
+                if KokoroModelStore.isInstalled {
+                    NavigationLink {
+                        KokoroVoiceSelectionView()
+                            .environmentObject(environment)
+                    } label: {
+                        HStack {
+                            Text("Offline Voice")
+                            Spacer()
+                            Text(selectedKokoroVoice.name)
+                                .foregroundStyle(PremiumUI.secondaryText)
+                        }
                     }
                 }
-                .onChange(of: environment.userSettings.voiceProvider) {
-                    environment.updateVoiceProvider(environment.userSettings.voiceProvider)
-                    environment.userSettings.selectedVoiceID = environment.userSettings.voiceProvider.defaultVoiceID
-                    environment.saveSettings()
-                }
+            } header: {
+                Text("Kokoro On-Device Voice (Primary)")
+            } footer: {
+                Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The installed model uses about 182 MB.")
+            }
 
+            Section {
                 NavigationLink {
-                    VoiceSelectionSettingsView()
-                        .environmentObject(environment)
+                    MegaTranscriptDeveloperSettingsView()
                 } label: {
                     HStack {
-                        Text("Voice")
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Mega Transcript")
+                            Text(KeychainMegaTranscriptCredentialStore.shared.hasAPIKey ? "API key configured" : "Developer key not configured")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
-                        Text(selectedVoiceName)
+                        Text(megaVoiceName)
                             .foregroundStyle(PremiumUI.secondaryText)
                     }
+                }
+            } header: {
+                Text("First Cloud Fallback")
+            } footer: {
+                Text("If offline Kokoro is unavailable, Mega Transcript is tried next. Configure its key, choose another narrator, generate a paid preview, or clear its narration cache here.")
+            }
+
+            Section {
+                NavigationLink {
+                    APIConfigurationView()
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("OpenAI Audio API")
+                            Text(KeychainService.shared.hasOpenAIApiKey ? "API key configured" : "API key not configured")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text("Onyx")
+                            .foregroundStyle(PremiumUI.secondaryText)
+                    }
+                }
+            } header: {
+                Text("Second Cloud Fallback")
+            } footer: {
+                Text("If offline Kokoro and Mega Transcript are unavailable, InsightAtlas uses OpenAI gpt-4o-mini-tts with the Onyx voice. OpenAI API usage is billed separately.")
+            }
+
+            Section {
+                HStack {
+                    Text("Fallback Voice")
+                    Spacer()
+                    Text("Liam")
+                        .foregroundStyle(PremiumUI.secondaryText)
                 }
 
                 Picker("Playback Speed", selection: $environment.userSettings.playbackSpeed) {
@@ -994,7 +1048,35 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } header: {
-                Text("Narration")
+                Text("Playback & Final Fallback")
+            } footer: {
+                Text("The fixed route is offline Kokoro with \(selectedKokoroVoice.name), Mega Transcript with \(megaVoiceName), OpenAI Audio API with Onyx, then Liam as the final fallback.")
+            }
+
+            Section {
+                SecureFieldRow(
+                    label: "Narration Token",
+                    placeholder: "Liam narration token",
+                    text: Binding(
+                        get: { narrationToken },
+                        set: { newValue in
+                            narrationToken = newValue
+                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed.isEmpty {
+                                try? KokoroTTSClient.removeAPIKey()
+                            } else {
+                                try? KokoroTTSClient.storeAPIKey(trimmed)
+                            }
+                        }
+                    ),
+                    hasValue: !narrationToken.isEmpty,
+                    savedSuffix: savedSuffix(for: narrationToken)
+                )
+                .listRowBackground(PremiumUI.card)
+            } header: {
+                Text("Liam Narration")
+            } footer: {
+                Text("Required only when Liam is used as the final fallback. Stored securely in the iOS Keychain on this device only.")
             }
 
             Section {
@@ -1007,10 +1089,261 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("ChatGPT Voice uses your ChatGPT sign-in and is the primary experimental narration path. If it is unavailable or fails, InsightAtlas automatically tries configured OpenAI and ElevenLabs providers. OpenAI and ElevenLabs keys are entered under API Configuration.")
+                Text("When on, narration is generated after a guide finishes using offline Kokoro first, then Mega Transcript, OpenAI, and Liam. Kokoro needs no credential after its one-time model download.")
+            }
+
+            Section {
+                Button {
+                    Task {
+                        isTestingNarration = true
+                        narrationDiagnostics = nil
+                        narrationDiagnostics = await KokoroNarrationService.shared.runDiagnostics()
+                        isTestingNarration = false
+                    }
+                } label: {
+                    HStack {
+                        Text(isTestingNarration ? "Testing…" : "Test OpenAI & Liam Fallbacks")
+                        Spacer()
+                        if isTestingNarration { ProgressView() }
+                    }
+                }
+                .disabled(isTestingNarration)
+                .listRowBackground(PremiumUI.card)
+
+                if let diag = narrationDiagnostics {
+                    // Active OpenAI API fallback.
+                    diagnosticRow("OpenAI Key", diag.openAIKeyPresent, diag.openAIKeyPresent ? "Present" : "Missing")
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("OpenAI TTS (key)", diag.openAISynthOK, diag.openAISynthDetail)
+                        .listRowBackground(PremiumUI.card)
+                    // Last and final fallback: Kokoro / Liam.
+                    diagnosticRow("Liam Token", diag.tokenPresent, diag.tokenPresent ? "Present" : "Missing")
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("Liam Gateway", diag.healthOK, diag.healthDetail)
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("Liam Synthesis", diag.singleChunkOK, diag.singleChunkDetail)
+                        .listRowBackground(PremiumUI.card)
+                    diagnosticRow("Liam Assembly", diag.assemblyOK, diag.assemblyDetail)
+                        .listRowBackground(PremiumUI.card)
+                }
+            } header: {
+                Text("Diagnostics")
+            } footer: {
+                Text("Tests the OpenAI API and Liam cloud fallbacks. Kokoro readiness and voice selection are shown at the top; Mega Transcript status appears in First Cloud Fallback.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
+    }
+
+    @ViewBuilder
+    private var kokoroModelStatus: some View {
+        switch kokoroModelManager.state {
+        case .notInstalled:
+            Label("Not downloaded", systemImage: "arrow.down.circle")
+            Button("Download Kokoro Model") {
+                kokoroModelManager.install()
+            }
+
+        case .preparing:
+            Label("Preparing download…", systemImage: "hourglass")
+            ProgressView()
+
+        case .downloading(let progress):
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Downloading… \(Int(progress * 100))%")
+                ProgressView(value: progress)
+            }
+            Button("Cancel", role: .cancel) {
+                kokoroModelManager.cancelInstall()
+            }
+
+        case .verifying:
+            Label("Verifying model integrity…", systemImage: "checkmark.shield")
+            ProgressView()
+
+        case .extracting:
+            Label("Installing model…", systemImage: "archivebox")
+            ProgressView()
+
+        case .installed:
+            Label("Ready for offline narration", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(PremiumUI.forest)
+            Button("Remove Downloaded Model", role: .destructive) {
+                try? kokoroModelManager.deleteModel()
+            }
+
+        case .failed(let message):
+            Label("Download failed", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Try Download Again") {
+                kokoroModelManager.install()
+            }
+        }
+    }
+}
+
+// MARK: - Kokoro Voice Selection
+
+struct KokoroVoiceSelectionView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+
+    @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
+    private var selectedVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
+
+    @State private var previewingVoiceID: String?
+    @State private var isLoadingPreview = false
+    @State private var previewError: String?
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(KokoroVoiceRegistry.allVoices) { voice in
+                    KokoroVoiceSettingsRow(
+                        voice: voice,
+                        isSelected: selectedVoiceID == voice.voiceID,
+                        isPreviewing: previewingVoiceID == voice.voiceID,
+                        isLoading: isLoadingPreview && previewingVoiceID == voice.voiceID,
+                        isPreviewEnabled: KokoroModelStore.isInstalled,
+                        onSelect: { select(voice) },
+                        onPreview: { preview(voice) }
+                    )
+                }
+            } header: {
+                Text("Kokoro On-Device Voices")
+            } footer: {
+                Text(KokoroModelStore.isInstalled
+                     ? "Tap a voice to select it, then play a completely offline preview."
+                     : "Download the Kokoro model in Audio Settings to enable previews.")
+            }
+        }
+        .premiumSettingsList(title: "Offline Voice")
+        .onDisappear {
+            AudioPlaybackManager.shared.stop()
+        }
+        .alert(
+            "Preview failed",
+            isPresented: Binding(
+                get: { previewError != nil },
+                set: { if !$0 { previewError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { previewError = nil }
+        } message: {
+            Text(previewError ?? "")
+        }
+    }
+
+    private func select(_ voice: KokoroVoice) {
+        selectedVoiceID = voice.voiceID
+        environment.userSettings.selectedVoiceID = voice.voiceID
+        environment.saveSettings()
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    private func preview(_ voice: KokoroVoice) {
+        guard KokoroModelStore.isInstalled, !isLoadingPreview else { return }
+        AudioPlaybackManager.shared.stop()
+
+        if previewingVoiceID == voice.voiceID {
+            previewingVoiceID = nil
+            return
+        }
+
+        previewingVoiceID = voice.voiceID
+        isLoadingPreview = true
+
+        Task {
+            do {
+                let text = "Hello, I'm \(voice.name). I'll narrate your Insight Atlas guides privately and completely offline."
+                let audio = try await KokoroAudioService.shared.generateAudio(
+                    text: text,
+                    voiceID: voice.voiceID
+                )
+
+                await MainActor.run {
+                    isLoadingPreview = false
+                    do {
+                        try AudioPlaybackManager.shared.play(audio) {
+                            previewingVoiceID = nil
+                        }
+                    } catch {
+                        previewingVoiceID = nil
+                        previewError = error.localizedDescription
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPreview = false
+                    previewingVoiceID = nil
+                    previewError = error.localizedDescription
+                }
+            }
+        }
+    }
+}
+
+struct KokoroVoiceSettingsRow: View {
+    let voice: KokoroVoice
+    let isSelected: Bool
+    let isPreviewing: Bool
+    let isLoading: Bool
+    let isPreviewEnabled: Bool
+    let onSelect: () -> Void
+    let onPreview: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onSelect) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(voice.name)
+                            .font(.body.weight(.medium))
+
+                        if voice.voiceID == KokoroVoiceRegistry.defaultVoice.voiceID {
+                            Text("DEFAULT")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(PremiumUI.gold.opacity(0.2))
+                                .foregroundStyle(PremiumUI.goldDark)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                    }
+
+                    Text(voice.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: onPreview) {
+                if isLoading {
+                    ProgressView().scaleEffect(0.8)
+                } else {
+                    Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(isPreviewing ? Color.red : PremiumUI.gold)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(!isPreviewEnabled)
+            .opacity(isPreviewEnabled ? 1 : 0.5)
+            .accessibilityLabel(isPreviewEnabled
+                                ? (isPreviewing ? "Stop preview" : "Play preview")
+                                : "Preview unavailable")
+
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(PremiumUI.gold)
+            }
+        }
     }
 }
 
@@ -1044,7 +1377,7 @@ struct ThemeSettingsView: View {
                 ForEach(availableThemes) { theme in
                     Button {
                         selection = theme.rawValue
-                        PremiumHaptics.selection()
+                        UISelectionFeedbackGenerator().selectionChanged()
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: theme.icon)
@@ -1093,7 +1426,7 @@ struct AccentColorSettingsView: View {
             ForEach(PremiumAccent.allCases) { accent in
                 Button {
                     selection = accent.rawValue
-                    PremiumHaptics.selection()
+                    UISelectionFeedbackGenerator().selectionChanged()
                 } label: {
                     HStack(spacing: 12) {
                         Circle()
@@ -1215,446 +1548,6 @@ private extension View {
     }
 }
 
-// MARK: - Voice Selection Settings View
-
-struct VoiceSelectionSettingsView: View {
-    @EnvironmentObject var environment: AppEnvironment
-    @State private var previewingVoiceID: String?
-    @State private var isLoadingPreview = false
-    @State private var previewError: String?
-
-    private var hasVoiceKey: Bool {
-        switch environment.userSettings.voiceProvider {
-        case .chatgptVoice: return ChatGPTOAuthService.hasStoredCredentials
-        case .openai: return KeychainService.shared.hasOpenAIApiKey
-        case .elevenlabs: return KeychainService.shared.hasElevenLabsApiKey
-        }
-    }
-
-    var body: some View {
-        List {
-            switch environment.userSettings.voiceProvider {
-            case .chatgptVoice:
-                Section {
-                    ForEach(ChatGPTVoiceRegistry.allVoices) { voice in
-                        ChatGPTVoiceSettingsRow(
-                            voice: voice,
-                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: previewingVoiceID == voice.voiceID,
-                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
-                            isPreviewEnabled: hasVoiceKey,
-                            onSelect: { selectChatGPTVoice(voice) },
-                            onPreview: { previewChatGPTVoice(voice) }
-                        )
-                    }
-                } header: {
-                    Text("ChatGPT Voices")
-                } footer: {
-                    Text("Experimental GPT-Live voices. Preview requires an active ChatGPT sign-in.")
-                }
-
-            case .openai:
-                Section {
-                    ForEach(OpenAIVoiceRegistry.allVoices) { voice in
-                        OpenAIVoiceRow(
-                            voice: voice,
-                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: previewingVoiceID == voice.voiceID,
-                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
-                            isPreviewEnabled: hasVoiceKey,
-                            onSelect: { selectOpenAIVoice(voice) },
-                            onPreview: { previewOpenAIVoice(voice) }
-                        )
-                    }
-                } header: {
-                    Text("OpenAI Voices")
-                } footer: {
-                    Text("Tap to select, tap play to preview")
-                }
-
-            case .elevenlabs:
-                Section {
-                    ForEach(ElevenLabsVoiceRegistry.allVoices) { voice in
-                        SettingsVoiceRow(
-                            voice: voice,
-                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: previewingVoiceID == voice.voiceID,
-                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
-                            isPreviewEnabled: hasVoiceKey,
-                            onSelect: { selectElevenLabsVoice(voice) },
-                            onPreview: { previewElevenLabsVoice(voice) }
-                        )
-                    }
-                } header: {
-                    Text("ElevenLabs Voices")
-                } footer: {
-                    Text("Tap to select, tap play to preview")
-                }
-            }
-        }
-        .navigationTitle("Voice Selection")
-        .navigationBarTitleDisplayMode(.inline)
-        .alert(
-            "Preview failed",
-            isPresented: Binding(get: { previewError != nil }, set: { if !$0 { previewError = nil } })
-        ) {
-            Button("OK", role: .cancel) { previewError = nil }
-        } message: {
-            Text(previewError ?? "")
-        }
-    }
-
-    // MARK: - ChatGPT Voice Selection
-
-    private func selectChatGPTVoice(_ voice: ChatGPTVoice) {
-        environment.userSettings.selectedVoiceID = voice.voiceID
-        environment.saveSettings()
-    }
-
-    private func previewChatGPTVoice(_ voice: ChatGPTVoice) {
-        guard !isLoadingPreview else { return }
-        AudioPlaybackManager.shared.stop()
-
-        if previewingVoiceID == voice.voiceID {
-            previewingVoiceID = nil
-            return
-        }
-
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
-
-        Task {
-            do {
-                let sampleText = "Hello, I'm \(voice.name). This is an experimental ChatGPT Voice preview for InsightAtlas."
-                let audio = try await ChatGPTVoiceService().generateAudio(
-                    text: sampleText,
-                    voiceID: voice.voiceID
-                )
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                    do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            previewingVoiceID = nil
-                        }
-                    } catch {
-                        previewingVoiceID = nil
-                        previewError = error.localizedDescription
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
-                    previewError = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    // MARK: - OpenAI Voice Selection
-
-    private func selectOpenAIVoice(_ voice: OpenAIVoice) {
-        environment.userSettings.selectedVoiceID = voice.voiceID
-        environment.saveSettings()
-    }
-
-    private func previewOpenAIVoice(_ voice: OpenAIVoice) {
-        guard !isLoadingPreview else { return }
-        AudioPlaybackManager.shared.stop()
-
-        // Stop any current preview
-        if previewingVoiceID == voice.voiceID {
-            previewingVoiceID = nil
-            return
-        }
-
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
-
-        Task {
-            do {
-                let sampleText = "Hello, I'm \(voice.name). I'll be narrating your book summaries with clarity and warmth."
-                let audio = try await environment.openAIAudioService.generateAudio(
-                    text: sampleText,
-                    voiceID: voice.voiceID
-                )
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                    do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            previewingVoiceID = nil
-                        }
-                    } catch {
-                        previewingVoiceID = nil
-                        previewError = error.localizedDescription
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
-                    previewError = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    // MARK: - ElevenLabs Voice Selection
-
-    private func selectElevenLabsVoice(_ voice: ElevenLabsVoice) {
-        environment.userSettings.selectedVoiceID = voice.voiceID
-        environment.saveSettings()
-    }
-
-    private func previewElevenLabsVoice(_ voice: ElevenLabsVoice) {
-        guard !isLoadingPreview else { return }
-        AudioPlaybackManager.shared.stop()
-
-        // Stop any current preview
-        if previewingVoiceID == voice.voiceID {
-            previewingVoiceID = nil
-            return
-        }
-
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
-
-        Task {
-            do {
-                let sampleText = "Hello, I'm \(voice.name). I'll be narrating your book summaries with clarity and warmth."
-                let audio = try await environment.audioService.generateAudio(
-                    text: sampleText,
-                    voiceID: voice.voiceID
-                )
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                    do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            previewingVoiceID = nil
-                        }
-                    } catch {
-                        previewingVoiceID = nil
-                        previewError = error.localizedDescription
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
-                    previewError = error.localizedDescription
-                }
-            }
-        }
-    }
-}
-
-// MARK: - ChatGPT Voice Row
-
-struct ChatGPTVoiceSettingsRow: View {
-    let voice: ChatGPTVoice
-    let isSelected: Bool
-    let isPreviewing: Bool
-    let isLoading: Bool
-    let isPreviewEnabled: Bool
-    let onSelect: () -> Void
-    let onPreview: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(voice.name)
-                            .font(.body)
-                            .fontWeight(.medium)
-
-                        if voice.voiceID == ChatGPTVoiceRegistry.defaultVoice.voiceID {
-                            Text("DEFAULT")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(PremiumUI.gold.opacity(0.2))
-                                .foregroundColor(PremiumUI.goldDark)
-                                .cornerRadius(4)
-                        }
-                    }
-
-                    Text(voice.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                Button(action: onPreview) {
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isPreviewEnabled)
-                .opacity(isPreviewEnabled ? 1 : 0.5)
-                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
-                .accessibilityHint(isPreviewEnabled ? "Previews the experimental ChatGPT voice" : "Sign in with ChatGPT in API Configuration")
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(PremiumUI.gold)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - OpenAI Voice Row
-
-struct OpenAIVoiceRow: View {
-    let voice: OpenAIVoice
-    let isSelected: Bool
-    let isPreviewing: Bool
-    let isLoading: Bool
-    let isPreviewEnabled: Bool
-    let onSelect: () -> Void
-    let onPreview: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // Voice info
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(voice.name)
-                            .font(.body)
-                            .fontWeight(.medium)
-
-                        // Gender indicator
-                        Text(voice.characteristics.gender.rawValue.capitalized)
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.2))
-                            .foregroundColor(.secondary)
-                            .cornerRadius(4)
-                    }
-
-                    Text(voice.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                // Preview button
-                Button(action: onPreview) {
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isPreviewEnabled)
-                .opacity(isPreviewEnabled ? 1 : 0.5)
-                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
-                .accessibilityHint(isPreviewEnabled ? "Previews the selected voice" : "Add an API key in API Configuration")
-
-                // Selection indicator
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(PremiumUI.gold)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Settings Voice Row (ElevenLabs)
-
-struct SettingsVoiceRow: View {
-    let voice: ElevenLabsVoice
-    let isSelected: Bool
-    let isPreviewing: Bool
-    let isLoading: Bool
-    let isPreviewEnabled: Bool
-    let onSelect: () -> Void
-    let onPreview: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // Voice info
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(voice.name)
-                            .font(.body)
-                            .fontWeight(.medium)
-
-                        if voice.isPremium {
-                            Text("PREMIUM")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(PremiumUI.gold.opacity(0.2))
-                                .foregroundColor(PremiumUI.goldDark)
-                                .cornerRadius(4)
-                        }
-                    }
-
-                    Text(voice.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                // Preview button
-                Button(action: onPreview) {
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isPreviewEnabled)
-                .opacity(isPreviewEnabled ? 1 : 0.5)
-                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
-                .accessibilityHint(isPreviewEnabled ? "Previews the selected voice" : "Add an API key in API Configuration")
-
-                // Selection indicator
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(PremiumUI.gold)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
 
 // MARK: - Clean Secure Field Row
 
@@ -1741,9 +1634,41 @@ struct SystemInfoView: View {
                     let build = Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String ?? "-"
                     let summary = "App: \(version) (\(build))\nDevice: \(UIDevice.current.model)\niOS: \(UIDevice.current.systemVersion)"
                     UIPasteboard.general.string = summary
-                    PremiumHaptics.selection()
+                    UISelectionFeedbackGenerator().selectionChanged()
                 }
             }
         }
+    }
+}
+
+struct PremiumSearchField: View {
+    @Binding var text: String
+    var placeholder: String
+
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(PremiumUI.secondaryText)
+            TextField(placeholder, text: $text)
+                .font(PremiumUI.ui(16))
+                .foregroundColor(PremiumUI.ink)
+            
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(PremiumUI.secondaryText.opacity(0.7))
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 42)
+        .background(PremiumUI.card)
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(PremiumUI.divider, lineWidth: 1)
+        )
     }
 }

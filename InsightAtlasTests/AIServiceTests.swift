@@ -238,7 +238,7 @@ final class AIServiceTests: XCTestCase {
 
 // MARK: - AIServiceError Extension for Testing
 
-extension AIServiceError: Equatable {
+extension AIServiceError: @retroactive Equatable {
     public static func == (lhs: AIServiceError, rhs: AIServiceError) -> Bool {
         switch (lhs, rhs) {
         case (.missingApiKey(let l), .missingApiKey(let r)):

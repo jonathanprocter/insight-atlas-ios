@@ -416,25 +416,25 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 }
             }
 
-            // MARK: - Audio Generation
+            // MARK: - Audio Generation (deferred, non-blocking)
+            //
+            // Narration is intentionally NOT generated here. Doing it inline used
+            // to block completion: the guide text was already 100% done, but the
+            // coordinator awaited full Liam (Kokoro) narration before signaling
+            // completion — so if narration hung or was slow, the UI froze at 100%
+            // with nothing shown. The guide now completes on text alone, and the
+            // caller (GenerationView) kicks off narration in the background after
+            // the item is saved, updating `narrationState` as it progresses.
 
-            let audioResult = await generateAudioIfAvailable(
-                content: finalResult.content,
-                title: resolvedTitle,
-                generationId: generationId,
-                libraryItemId: existingItemId,
-                readerProfile: settings.preferredReaderProfile
-            )
-
-            // Create metadata
+            // Create metadata (audio is attached later, out of band)
             let metadata = GenerationMetadata(
                 summaryType: effectiveSummaryType,
                 governedWordCount: finalResult.wordCount,
                 cutPolicyActivated: finalResult.cutPolicyActivated,
                 cutEventCount: finalResult.cutEventCount,
-                audioFileURL: audioResult?.fileURL,
-                audioVoiceID: audioResult?.voiceID,
-                audioDuration: audioResult?.duration
+                audioFileURL: nil,
+                audioVoiceID: nil,
+                audioDuration: nil
             )
 
             // Update state to completed
@@ -1274,109 +1274,39 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        let availability = VoiceProviderAvailability.current
-        let voiceManager = await MainActor.run { VoiceServiceManager.shared }
-        let preferredProvider = await MainActor.run { voiceManager.currentProvider }
-        let providers = VoiceProviderFallbackPlanner.orderedProviders(
-            preferred: preferredProvider,
-            availability: availability
-        )
-
-        guard !providers.isEmpty else {
-            audioLog("⚠️ No configured voice provider found - skipping audio generation")
-            return nil
-        }
-        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            audioLog("❌ Unable to access documents directory for audio file storage")
+        // Fixed order: offline Kokoro, Mega Transcript, OpenAI API, then Liam.
+        guard KokoroModelStore.isInstalled
+                || KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
+                || KeychainService.shared.hasOpenAIApiKey
+                || KokoroTTSClient.currentAPIKey() != nil else {
+            audioLog("⚠️ No installed Kokoro model or configured cloud narrator found - skipping audio generation")
             return nil
         }
 
-        audioLog("Starting audio generation for: \(title)")
-        audioLog("Provider order: \(providers.map(\.displayName).joined(separator: " → "))")
+        // The item ID (or generation ID) owns the "audio_<id>.<ext>" file the
+        // service writes into Documents.
+        let audioOwnerId = libraryItemId ?? generationId
+        audioLog("Starting narration for: \(title)")
 
-        for provider in providers {
-            let voiceID: String
-            let voiceName: String
+        do {
+            let asset = try await NarrationService.shared.synthesize(
+                text: content,
+                itemId: audioOwnerId
+            )
 
-            switch provider {
-            case .chatgptVoice:
-                if let selectedVoiceID,
-                   let selectedVoice = ChatGPTVoiceRegistry.voice(byID: selectedVoiceID) {
-                    voiceID = selectedVoice.voiceID
-                    voiceName = selectedVoice.name
-                } else {
-                    voiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
-                    voiceName = ChatGPTVoiceRegistry.defaultVoice.name
-                }
+            audioLog("✅ Narration generated successfully")
+            audioLog("Duration: \(String(format: "%.1f", asset.duration)) seconds")
+            audioLog("File: \(asset.relativeFileName)")
 
-            case .openai:
-                if let selectedVoiceID,
-                   let selectedVoice = OpenAIVoiceRegistry.voice(byID: selectedVoiceID) {
-                    voiceID = selectedVoice.voiceID
-                    voiceName = selectedVoice.name
-                } else {
-                    voiceID = OpenAIVoiceRegistry.defaultVoice.voiceID
-                    voiceName = OpenAIVoiceRegistry.defaultVoice.name
-                }
-
-            case .elevenlabs:
-                var voiceConfig: VoiceSelectionConfig
-                if let selectedVoiceID,
-                   let selectedVoice = ElevenLabsVoiceRegistry.voice(byVoiceID: selectedVoiceID) {
-                    voiceConfig = .custom(profile: readerProfile, voice: selectedVoice)
-                } else {
-                    voiceConfig = VoiceSelectionConfig.premium(for: readerProfile)
-                    if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
-                        let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile)
-                        voiceConfig = .custom(profile: readerProfile, voice: fallback)
-                    }
-                }
-                voiceID = voiceConfig.voiceID
-                voiceName = voiceConfig.voiceName
-            }
-
-            audioLog("Trying \(provider.displayName) with voice \(voiceName)")
-
-            do {
-                let result = try await voiceManager.generateAudio(
-                    text: audioContent,
-                    voiceID: voiceID,
-                    provider: provider
-                )
-                guard !result.data.isEmpty else {
-                    throw ChatGPTVoiceServiceError.emptyAudio
-                }
-
-                let audioOwnerId = libraryItemId ?? generationId
-                let audioFileName = "audio_\(audioOwnerId.uuidString).\(provider.audioFileExtension)"
-                let audioFileURL = documentsDir.appendingPathComponent(audioFileName)
-                try? FileManager.default.removeItem(at: audioFileURL)
-                try result.data.write(to: audioFileURL, options: .atomic)
-
-                guard FileManager.default.fileExists(atPath: audioFileURL.path) else {
-                    throw CocoaError(.fileNoSuchFile)
-                }
-
-                let duration = result.duration > 0
-                    ? result.duration
-                    : try await calculateAudioDuration(from: audioFileURL)
-
-                audioLog("✅ Audio generated successfully with \(provider.displayName)")
-                audioLog("Duration: \(String(format: "%.1f", duration)) seconds")
-                audioLog("File: \(audioFileName)")
-
-                return AudioGenerationResult(
-                    fileURL: audioFileName,
-                    voiceID: voiceID,
-                    duration: duration
-                )
-            } catch {
-                audioLog("⚠️ \(provider.displayName) narration failed; trying the next configured provider (\(String(describing: type(of: error))))")
-            }
+            return AudioGenerationResult(
+                fileURL: asset.relativeFileName,
+                voiceID: asset.voiceID,
+                duration: asset.duration
+            )
+        } catch {
+            audioLog("❌ Narration failed: \(error.localizedDescription)")
+            return nil
         }
-
-        audioLog("❌ All configured voice providers failed")
-        return nil
     }
 
     /// Calculate audio duration from file

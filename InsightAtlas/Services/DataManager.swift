@@ -63,6 +63,37 @@ class DataManager: ObservableObject {
         }
     }
 
+    // MARK: - Narration State (Liam / Kokoro)
+
+    /// Persist a durable narration lifecycle state on an item so an in-progress
+    /// or failed job survives relaunch.
+    func setNarrationState(_ state: NarrationState, for itemId: UUID) {
+        guard let index = libraryItems.firstIndex(where: { $0.id == itemId }) else { return }
+        libraryItems[index].narrationState = state
+        libraryItems[index].updatedAt = Date()
+        saveLibrary()
+    }
+
+    /// Apply a completed narration asset to an item and mark it `.ready`.
+    func applyNarration(_ asset: NarrationAsset, for itemId: UUID) {
+        guard let index = libraryItems.firstIndex(where: { $0.id == itemId }) else { return }
+        libraryItems[index].audioFileURL = asset.relativeFileName
+        libraryItems[index].audioVoiceID = asset.voiceID
+        libraryItems[index].audioDuration = asset.duration
+        libraryItems[index].narrationState = .ready
+        libraryItems[index].updatedAt = Date()
+        saveLibrary()
+    }
+
+    /// Record that the most recent narration attempt failed. Any previously
+    /// valid audio is intentionally left untouched.
+    func markNarrationFailed(for itemId: UUID) {
+        guard let index = libraryItems.firstIndex(where: { $0.id == itemId }) else { return }
+        libraryItems[index].narrationState = .failed
+        libraryItems[index].updatedAt = Date()
+        saveLibrary()
+    }
+
     /// Delete a library item and its associated audio file
     func deleteLibraryItem(_ item: LibraryItem) {
         // Clean up associated audio file if it exists
@@ -228,6 +259,8 @@ class DataManager: ObservableObject {
             return KeychainService.shared.hasOpenAIApiKey
         case .openRouter:
             return KeychainService.shared.hasOpenRouterApiKey
+        case .minimax:
+            return MiniMaxOAuthService.hasStoredCredentials
         case .both:
             return KeychainService.shared.hasClaudeApiKey ||
                    KeychainService.shared.hasOpenAIApiKey
@@ -255,10 +288,13 @@ class DataManager: ObservableObject {
         } catch {
             logger.error("Failed to decode library: \(error.localizedDescription)")
 
-            // Attempt recovery: backup the corrupted data
+            // Attempt recovery: back up the corrupted data, then clear the
+            // primary key so we don't re-read (and re-fail on) the same blob
+            // every launch — otherwise the error recurs and backups accumulate.
             let backupKey = "\(libraryKey)_backup_\(Int(Date().timeIntervalSince1970))"
             UserDefaults.standard.set(data, forKey: backupKey)
-            logger.warning("Corrupted library data backed up to '\(backupKey)'")
+            UserDefaults.standard.removeObject(forKey: libraryKey)
+            logger.warning("Corrupted library data backed up to '\(backupKey)' and cleared")
 
             // Post notification so UI can inform user
             NotificationCenter.default.post(

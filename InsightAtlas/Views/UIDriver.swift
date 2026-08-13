@@ -20,8 +20,6 @@ public enum UIDriverCommand: String {
     case showRegenerateOptions
     case exportGuide // payload: ["itemId": UUID, "format": String]
     case deleteGuide // payload: ["itemId": UUID]
-    case showChatGPTSignIn
-    case signOutChatGPT
 }
 
 public enum UIDriverExporterFormat: String {
