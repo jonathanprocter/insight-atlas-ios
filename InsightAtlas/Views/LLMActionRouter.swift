@@ -92,7 +92,7 @@ public enum LLMActionRouter {
 
         case "voice_provider_picker":
             guard let v = value, let provider = parseVoiceProvider(v) else {
-                return .failure("Provide a voice provider value (e.g., On-Device or ElevenLabs).")
+                return .failure("Provide the On-Device voice provider value.")
             }
             environment.updateVoiceProvider(provider)
             environment.userSettings.voiceProvider = provider
@@ -140,11 +140,6 @@ public enum LLMActionRouter {
             guard let v = value else { return .failure("Provide an API key value.") }
             KeychainService.shared.openRouterApiKey = v.isEmpty ? nil : v
             return .success("Updated OpenRouter key")
-
-        case "securefield_elevenlabs":
-            guard let v = value else { return .failure("Provide an API key value.") }
-            KeychainService.shared.elevenLabsApiKey = v.isEmpty ? nil : v
-            return .success("Updated ElevenLabs key")
 
         default:
             // Navigation rows require UI interaction in this architecture.

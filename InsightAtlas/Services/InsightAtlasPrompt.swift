@@ -643,7 +643,22 @@ struct InsightAtlasPromptGenerator {
     private static func generateFormatInstructions(format: OutputFormat) -> String {
         switch format {
         case .fullGuide:
-            return "" // Default, no additional instructions needed
+            return """
+
+
+            OUTPUT FORMAT: FULL GUIDE
+
+            Produce the complete Insight Atlas guide with all standard sections:
+            1. Quick Glance Summary (visual highlights, key stats, at-a-glance takeaways)
+            2. 1-Page Summary with Atlas Notes (triangulated insights with SUPPORT/CORROBORATE/CONTRAST markers)
+            3. Thematic Sections (6-8 major themes, each with Key Insight, Atlas Note, and Action Box)
+            4. Visual Frameworks (at least 2: flow charts, concept maps, or comparison tables using ASCII/text art)
+            5. Exercises & Reflection Prompts (3-5 actionable exercises)
+            6. Quick Reference Card (printable one-pager format)
+
+            Target length: 8,000-12,000 words for standard books.
+            Use block-based formatting: [QUICK_GLANCE], [SUMMARY], [THEME], [ATLAS_NOTE], [ACTION_BOX], [VISUAL], [EXERCISE].
+            """
 
         case .thematicSynthesis:
             return "" // Handled by separate prompt generator
@@ -654,11 +669,12 @@ struct InsightAtlasPromptGenerator {
 
             OUTPUT FORMAT: QUICK REFERENCE
 
-            Generate ONLY:
-            - Quick Glance Summary
-            - 1-Page Summary with at least one Atlas Note
-            - All Action Boxes
-            - Key visual frameworks
+            Generate a compact reference with this exact visual hierarchy:
+            - H1: Book title + author
+            - H2: Core Concept (one sentence)
+            - Bullet list: 5-7 key takeaways
+            - Action grid: 3 immediate actions + 3 long-term practices
+            - Bottom strip: 3 recommended further reading
 
             Omit detailed explanations, exercises, and appendices.
             Target length: 2-3 pages.
@@ -677,9 +693,11 @@ struct InsightAtlasPromptGenerator {
             - Professional development resources
 
             Use formal terminology throughout.
-            Include citation-ready references in Atlas Notes.
+            Atlas Notes should include APA-style citation placeholders where sources are discussed.
             Increase CORROBORATE and RESEARCH_INSIGHT density.
             Prioritize peer-reviewed sources over popular press in triangulation.
+            Prefix every section heading with a section number for DOCX/PDF bookmark compatibility.
+            Add brief rendering notes where useful for PDF, HTML, and DOCX presentation.
             """
 
         case .readerEdition:
@@ -697,6 +715,9 @@ struct InsightAtlasPromptGenerator {
             Include more practical examples.
             Atlas Notes should favor accessible books over academic papers.
             Maintain full triangulation density but use conversational framing.
+            Use conversational transition phrases between sections.
+            Include call-out boxes for Book Club Discussion Questions (at least 3).
+            Add sidebar-style Did You Know? inserts where they reinforce comprehension.
             """
 
         case .exerciseWorkbook:
@@ -712,7 +733,8 @@ struct InsightAtlasPromptGenerator {
             - Self-assessments
 
             Format for printing.
-            Include clear instructions for each exercise.
+            Use ---PAGE BREAK--- between exercises for PDF rendering.
+            Each exercise must include: Title, Objective, Instructions (numbered), Space for Response (blank lines or [YOUR RESPONSE HERE]), and a Reflection prompt.
             Omit concept explanations (reference main guide).
             """
 
@@ -729,8 +751,13 @@ struct InsightAtlasPromptGenerator {
             - All process diagrams
             - All hierarchy diagrams
 
+            Every visual must include:
+            - A descriptive title in ALL CAPS
+            - An inline ASCII/text-art diagram using box-drawing characters where possible
+            - A 1-2 sentence caption explaining the visual
+            - A render label explaining how it should appear in PDF (styled table/diagram), HTML (responsive figure), and DOCX (styled table)
+
             Each visual should be self-explanatory.
-            Include brief captions only.
             """
         }
     }

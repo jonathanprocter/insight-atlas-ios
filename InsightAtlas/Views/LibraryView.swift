@@ -18,6 +18,8 @@ struct LibraryView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
+    private var isIPad: Bool { horizontalSizeClass == .regular }
+
     private var layout: PremiumLibraryLayout {
         get { PremiumLibraryLayout(rawValue: layoutRawValue) ?? .grid }
         nonmutating set { layoutRawValue = newValue.rawValue }
@@ -140,7 +142,7 @@ struct LibraryView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Library")
                         .font(PremiumUI.display(34, .bold))
-                        .foregroundStyle(PremiumUI.ink)
+                        .foregroundStyle(InsightAtlasColors.brandSepia)
 
                     Text("\(dataManager.libraryItems.count) \(dataManager.libraryItems.count == 1 ? "Guide" : "Guides")")
                         .font(PremiumUI.ui(15, .regular))
@@ -225,7 +227,7 @@ struct LibraryView: View {
     }
 
     private var gridColumns: [GridItem] {
-        let count = horizontalSizeClass == .regular ? 3 : 2
+        let count = isIPad ? 3 : 2
         return Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
     }
 
@@ -376,13 +378,10 @@ struct LibraryView: View {
                     searchText.isEmpty ? "Create Guide" : "Clear Search",
                     systemImage: searchText.isEmpty ? "plus" : "xmark"
                 )
-                    .font(PremiumUI.ui(15, .semibold))
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(PremiumUI.gold)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
+                .font(PremiumUI.ui(15, .semibold))
+                .premiumPrimaryCTA()
             }
+            .padding(.horizontal, 24)
             .padding(.top, 8)
             .accessibilityIdentifier("library_empty_primary_button")
 
@@ -580,12 +579,12 @@ struct PremiumGuideGridCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 238, alignment: .topLeading)
         .background(PremiumUI.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(PremiumUI.divider.opacity(0.75), lineWidth: 0.7)
         }
-        .shadow(color: PremiumUI.cardShadow, radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         .accessibilityElement(children: .combine)
     }
 }
@@ -641,12 +640,12 @@ struct PremiumGuideListRow: View {
         }
         .padding(.horizontal, 13)
         .frame(minHeight: 68)
-        .background(PremiumUI.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(PremiumUI.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(PremiumUI.divider.opacity(0.7), lineWidth: 0.7)
         }
-        .shadow(color: PremiumUI.cardShadow.opacity(0.7), radius: 5, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         .accessibilityElement(children: .combine)
     }
 }
@@ -843,4 +842,3 @@ struct CoverImage: View {
         image = loaded
     }
 }
-

@@ -1298,31 +1298,13 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             let voiceID: String
             let voiceName: String
 
-            switch provider {
-            case .onDevice:
-                if let selectedVoiceID,
-                   let selectedVoice = OnDeviceVoiceRegistry.voice(byID: selectedVoiceID) {
-                    voiceID = selectedVoice.voiceID
-                    voiceName = selectedVoice.name
-                } else {
-                    voiceID = OnDeviceVoiceRegistry.defaultVoice.voiceID
-                    voiceName = OnDeviceVoiceRegistry.defaultVoice.name
-                }
-
-            case .elevenlabs:
-                var voiceConfig: VoiceSelectionConfig
-                if let selectedVoiceID,
-                   let selectedVoice = ElevenLabsVoiceRegistry.voice(byVoiceID: selectedVoiceID) {
-                    voiceConfig = .custom(profile: readerProfile, voice: selectedVoice)
-                } else {
-                    voiceConfig = VoiceSelectionConfig.premium(for: readerProfile)
-                    if !ElevenLabsVoiceRegistry.isPremiumVoiceID(voiceConfig.voiceID) {
-                        let fallback = ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile)
-                        voiceConfig = .custom(profile: readerProfile, voice: fallback)
-                    }
-                }
-                voiceID = voiceConfig.voiceID
-                voiceName = voiceConfig.voiceName
+            if let selectedVoiceID,
+               let selectedVoice = OnDeviceVoiceRegistry.voice(byID: selectedVoiceID) {
+                voiceID = selectedVoice.voiceID
+                voiceName = selectedVoice.name
+            } else {
+                voiceID = OnDeviceVoiceRegistry.defaultVoice.voiceID
+                voiceName = OnDeviceVoiceRegistry.defaultVoice.name
             }
 
             audioLog("Trying \(provider.displayName) with voice \(voiceName)")

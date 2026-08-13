@@ -3,6 +3,7 @@ import UIKit
 
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @AppStorage(PremiumUI.themeStorageKey) private var themePreference = PremiumTheme.system.rawValue
     @AppStorage(PremiumUI.accentStorageKey) private var accentPreference = PremiumAccent.gold.rawValue
@@ -16,23 +17,14 @@ struct SettingsView: View {
     @AppStorage("settings_expand_about") private var expandAbout = true
     @State private var showResetAlert = false
 
+    private var isIPad: Bool { horizontalSizeClass == .regular }
+
     private var selectedVoiceName: String {
-        let provider = environment.userSettings.voiceProvider
         guard let voiceID = environment.userSettings.selectedVoiceID else {
-            switch provider {
-            case .onDevice:
-                return "Daniel"
-            case .elevenlabs:
-                return ElevenLabsVoiceRegistry.adam.name
-            }
+            return "Daniel"
         }
 
-        switch provider {
-        case .onDevice:
-            return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? ElevenLabsVoiceRegistry.adam.name
-        }
+        return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
     }
 
     private var accentColor: Color {
@@ -50,7 +42,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Settings")
                             .font(PremiumUI.display(34, .bold))
-                            .foregroundStyle(PremiumUI.ink)
+                            .foregroundStyle(InsightAtlasColors.brandSepia)
                         Spacer()
                         Menu {
                             Button(role: .destructive) {
@@ -126,7 +118,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "API Configuration",
-                        keywords: ["api", "configuration", "keys", "claude", "openrouter", "elevenlabs"],
+                        keywords: ["api", "configuration", "keys", "claude", "openrouter"],
                         dynamicValues: [apiConfigurationStatus]
                     ) {
                         PremiumSettingsCard(
@@ -146,7 +138,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "on-device", "daniel"],
+                        keywords: ["audio", "voice", "narration", "playback", "on-device", "kokoro", "daniel"],
                         dynamicValues: [selectedVoiceName]
                     ) {
                         PremiumSettingsCard(
@@ -309,9 +301,11 @@ struct SettingsView: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 10)
                 .padding(.bottom, 80)
+                .frame(maxWidth: isIPad ? 640 : .infinity)
+                .frame(maxWidth: .infinity)
             }
             .scrollIndicators(.hidden)
-            .scrollClipDisabled(false)
+            .scrollClipDisabled(true)
             .background(PremiumUI.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .tint(accentColor)
@@ -329,7 +323,7 @@ struct SettingsView: View {
     private var apiConfigurationStatus: String {
         let configuredCount = [
             KeychainService.shared.hasClaudeApiKey,
-            KeychainService.shared.hasElevenLabsApiKey
+            KeychainService.shared.hasOpenRouterApiKey
         ].filter { $0 }.count
 
         switch configuredCount {
@@ -353,12 +347,12 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "API Configuration",
-            keywords: ["api", "configuration", "keys", "claude", "openrouter", "elevenlabs"],
+            keywords: ["api", "configuration", "keys", "claude", "openrouter"],
             dynamicValues: [apiConfigurationStatus]
         ) &&
         !matchesSection(
             title: "Audio & Narration",
-            keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "on-device", "daniel"],
+            keywords: ["audio", "voice", "narration", "playback", "on-device", "kokoro", "daniel"],
             dynamicValues: [selectedVoiceName]
         ) &&
         !matchesSection(
@@ -833,21 +827,6 @@ struct APIConfigurationView: View {
                 Text("API keys are stored in the iOS Keychain and are not included in app settings backups. To generate via OpenRouter, also select it under Generation → AI Provider.")
             }
 
-            Section {
-                SecureFieldRow(
-                    label: "ElevenLabs",
-                    placeholder: "ElevenLabs API Key",
-                    text: Binding(
-                        get: { KeychainService.shared.elevenLabsApiKey ?? "" },
-                        set: { KeychainService.shared.elevenLabsApiKey = $0.isEmpty ? nil : $0 }
-                    ),
-                    hasValue: KeychainService.shared.hasElevenLabsApiKey,
-                    savedSuffix: savedSuffix(for: KeychainService.shared.elevenLabsApiKey)
-                )
-                .listRowBackground(PremiumUI.card)
-            } header: {
-                Text("Optional Narration Provider")
-            }
         }
         .premiumSettingsList(title: "API Configuration")
     }
@@ -859,22 +838,11 @@ struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
 
     private var selectedVoiceName: String {
-        let provider = environment.userSettings.voiceProvider
         guard let voiceID = environment.userSettings.selectedVoiceID else {
-            switch provider {
-            case .onDevice:
-                return "Daniel"
-            case .elevenlabs:
-                return ElevenLabsVoiceRegistry.adam.name
-            }
+            return "Daniel"
         }
 
-        switch provider {
-        case .onDevice:
-            return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? ElevenLabsVoiceRegistry.adam.name
-        }
+        return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
     }
 
     var body: some View {
@@ -925,7 +893,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("On-Device will use Kokoro TTS once the local inference integration is wired. ElevenLabs keys are entered under API Configuration.")
+                Text("On-Device will use Kokoro TTS once the local inference integration is wired.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
@@ -1137,62 +1105,25 @@ private extension View {
 
 struct VoiceSelectionSettingsView: View {
     @EnvironmentObject var environment: AppEnvironment
-    @State private var previewError: String?
-    @State private var previewingVoiceID: String?
-    @State private var isLoadingPreview = false
-
-    private var hasVoiceKey: Bool {
-        environment.userSettings.voiceProvider == .onDevice || KeychainService.shared.hasElevenLabsApiKey
-    }
 
     var body: some View {
         List {
-            switch environment.userSettings.voiceProvider {
-            case .onDevice:
-                Section {
-                    ForEach(OnDeviceVoiceRegistry.allVoices) { voice in
-                        OnDevicePlaceholderRow(
-                            voice: voice,
-                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            onSelect: { selectOnDeviceVoice(voice) }
-                        )
-                    }
-                } header: {
-                    Text("On-Device (Kokoro)")
-                } footer: {
-                    Text("Kokoro on-device synthesis is not wired yet. Daniel is the placeholder default voice.")
+            Section {
+                ForEach(OnDeviceVoiceRegistry.allVoices) { voice in
+                    OnDevicePlaceholderRow(
+                        voice: voice,
+                        isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
+                        onSelect: { selectOnDeviceVoice(voice) }
+                    )
                 }
-
-            case .elevenlabs:
-                Section {
-                    ForEach(ElevenLabsVoiceRegistry.allVoices) { voice in
-                        SettingsVoiceRow(
-                            voice: voice,
-                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: previewingVoiceID == voice.voiceID,
-                            isLoading: isLoadingPreview && previewingVoiceID == voice.voiceID,
-                            isPreviewEnabled: hasVoiceKey,
-                            onSelect: { selectElevenLabsVoice(voice) },
-                            onPreview: { previewElevenLabsVoice(voice) }
-                        )
-                    }
-                } header: {
-                    Text("ElevenLabs Voices")
-                } footer: {
-                    Text("Tap to select, tap play to preview")
-                }
+            } header: {
+                Text("On-Device (Kokoro)")
+            } footer: {
+                Text("Kokoro on-device synthesis is not wired yet. Daniel is the placeholder default voice.")
             }
         }
         .navigationTitle("Voice Selection")
         .navigationBarTitleDisplayMode(.inline)
-        .alert(
-            "Preview failed",
-            isPresented: Binding(get: { previewError != nil }, set: { if !$0 { previewError = nil } })
-        ) {
-            Button("OK", role: .cancel) { previewError = nil }
-        } message: {
-            Text(previewError ?? "")
-        }
     }
 
     // MARK: - On-Device Placeholder Selection
@@ -1200,58 +1131,6 @@ struct VoiceSelectionSettingsView: View {
     private func selectOnDeviceVoice(_ voice: OnDevicePlaceholderVoice) {
         environment.userSettings.selectedVoiceID = voice.voiceID
         environment.saveSettings()
-    }
-
-    // MARK: - ElevenLabs Voice Selection
-
-    private func selectElevenLabsVoice(_ voice: ElevenLabsVoice) {
-        environment.userSettings.selectedVoiceID = voice.voiceID
-        environment.saveSettings()
-    }
-
-    private func previewElevenLabsVoice(_ voice: ElevenLabsVoice) {
-        guard !isLoadingPreview else { return }
-
-        // Tapping the same voice again stops playback
-        if previewingVoiceID == voice.voiceID {
-            AudioPlaybackManager.shared.stop()
-            previewingVoiceID = nil
-            return
-        }
-
-        AudioPlaybackManager.shared.stop()
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
-
-        Task {
-            do {
-                let sampleText = "Hello, I'm \(voice.name). I'll be narrating your book summaries with clarity and warmth."
-                let audio = try await environment.audioService.generateAudio(
-                    text: sampleText,
-                    voiceID: voice.voiceID
-                )
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                    do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            Task { @MainActor in
-                                previewingVoiceID = nil
-                            }
-                        }
-                    } catch {
-                        previewingVoiceID = nil
-                        previewError = error.localizedDescription
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
-                    previewError = error.localizedDescription
-                }
-            }
-        }
     }
 }
 
@@ -1294,91 +1173,22 @@ struct OnDevicePlaceholderRow: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
                         .foregroundColor(PremiumUI.gold)
-                }
-
-                Text("COMING SOON")
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.15))
-                    .foregroundStyle(.secondary)
-                    .cornerRadius(4)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Settings Voice Row (ElevenLabs)
-
-struct SettingsVoiceRow: View {
-    let voice: ElevenLabsVoice
-    let isSelected: Bool
-    let isPreviewing: Bool
-    let isLoading: Bool
-    let isPreviewEnabled: Bool
-    let onSelect: () -> Void
-    let onPreview: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // Voice info
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(voice.name)
-                            .font(.body)
-                            .fontWeight(.medium)
-
-                        if voice.isPremium {
-                            Text("PREMIUM")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(PremiumUI.gold.opacity(0.2))
-                                .foregroundColor(PremiumUI.goldDark)
-                                .cornerRadius(4)
-                        }
-                    }
-
-                    Text(voice.description)
-                        .font(.caption)
+                } else {
+                    Text("COMING SOON")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.15))
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                // Preview button
-                Button(action: onPreview) {
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isPreviewEnabled)
-                .opacity(isPreviewEnabled ? 1 : 0.5)
-                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
-                .accessibilityHint(isPreviewEnabled ? "Previews the selected voice" : "Add an API key in API Configuration")
-
-                // Selection indicator
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(PremiumUI.gold)
+                        .cornerRadius(4)
                 }
             }
         }
         .buttonStyle(.plain)
     }
 }
+
 
 // MARK: - Clean Secure Field Row
 

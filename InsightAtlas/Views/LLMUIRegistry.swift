@@ -53,7 +53,6 @@ public enum LLMUIRegistry {
             LLMControl(id: "navrow_manage_api_keys", title: "Manage API Keys", kind: "navigation"),
             LLMControl(id: "securefield_claude", title: "Claude API Key", kind: "field"),
             LLMControl(id: "securefield_openrouter", title: "OpenRouter API Key", kind: "field"),
-            LLMControl(id: "securefield_elevenlabs", title: "ElevenLabs API Key", kind: "field"),
             LLMControl(id: "openrouter_model_field", title: "OpenRouter model slug", kind: "field"),
             LLMControl(id: "openrouter_model_menu", title: "OpenRouter model suggestions", kind: "menu"),
 
@@ -151,8 +150,6 @@ public enum LLMUIRegistry {
     public static func voicePickerControls() -> [LLMControl] {
         [
             LLMControl(id: "voice_picker_done_button", title: "Voice Picker Done", kind: "button"),
-            LLMControl(id: "voice_other_toggle_button", title: "Other Voices Expand/Collapse", kind: "button"),
-            LLMControl(id: "voice_preview_*", title: "Preview Voice (any voiceID)", kind: "button"),
             LLMControl(id: "voice_row_*", title: "Select Voice (any voiceID)", kind: "button")
         ]
     }
@@ -162,7 +159,6 @@ public enum LLMUIRegistry {
     private static func dynamicPatternControls() -> [LLMControl] {
         [
             LLMControl(id: "voice_row_*", title: "Select Voice (any voiceID)", kind: "button"),
-            LLMControl(id: "voice_preview_*", title: "Preview Voice (any voiceID)", kind: "button"),
             LLMControl(id: "theme_option_*", title: "Theme option (by name)", kind: "button"),
             LLMControl(id: "accent_option_*", title: "Accent option (by name)", kind: "button"),
             LLMControl(id: "library_item_*", title: "Library item (by UUID)", kind: "navigation"),

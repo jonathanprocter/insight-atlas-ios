@@ -2,7 +2,7 @@
 //  VoiceProvider.swift
 //  InsightAtlas
 //
-//  Voice provider abstraction for placeholder on-device Kokoro narration and ElevenLabs.
+//  Voice provider abstraction for placeholder on-device Kokoro narration.
 //
 
 import Foundation
@@ -12,64 +12,39 @@ import Foundation
 /// Available voice-generation providers, ordered by the default primary route.
 enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
     case onDevice = "on_device"
-    case elevenlabs = "elevenlabs"
 
     var id: String { rawValue }
 
     var displayName: String {
-        switch self {
-        case .onDevice:
-            return "On-Device (Kokoro)"
-        case .elevenlabs:
-            return "ElevenLabs"
-        }
+        "On-Device (Kokoro)"
     }
 
     var description: String {
-        switch self {
-        case .onDevice:
-            return "On-device Kokoro TTS — no API key required, works offline"
-        case .elevenlabs:
-            return "Premium voices with advanced customization"
-        }
+        "On-device Kokoro TTS — no API key required, works offline"
     }
 
     /// Whether this provider requires a provider-specific key beyond existing app credentials.
     var requiresSeparateApiKey: Bool {
-        switch self {
-        case .onDevice:
-            return false
-        case .elevenlabs:
-            return true
-        }
+        false
     }
 
     var defaultVoiceID: String {
-        switch self {
-        case .onDevice:
-            return "daniel"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.adam.voiceID
-        }
+        OnDeviceVoiceRegistry.defaultVoice.voiceID
     }
 
     var audioFileExtension: String {
-        switch self {
-        case .onDevice:
-            return "wav"
-        case .elevenlabs:
-            return "mp3"
-        }
+        "wav"
     }
 
     /// Check whether this provider has credentials available on this device.
     func isConfigured() -> Bool {
-        switch self {
-        case .onDevice:
-            return true
-        case .elevenlabs:
-            return KeychainService.shared.hasElevenLabsApiKey
-        }
+        true
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = (try? container.decode(String.self)) ?? VoiceProvider.onDevice.rawValue
+        self = VoiceProvider(rawValue: rawValue) ?? .onDevice
     }
 }
 
@@ -77,22 +52,13 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 
 struct VoiceProviderAvailability: Equatable, Sendable {
     let onDevice: Bool
-    let elevenLabs: Bool
 
     static var current: VoiceProviderAvailability {
-        VoiceProviderAvailability(
-            onDevice: true,
-            elevenLabs: KeychainService.shared.hasElevenLabsApiKey
-        )
+        VoiceProviderAvailability(onDevice: true)
     }
 
     func contains(_ provider: VoiceProvider) -> Bool {
-        switch provider {
-        case .onDevice:
-            return onDevice
-        case .elevenlabs:
-            return elevenLabs
-        }
+        provider == .onDevice && onDevice
     }
 }
 
@@ -101,16 +67,7 @@ enum VoiceProviderFallbackPlanner {
         preferred: VoiceProvider,
         availability: VoiceProviderAvailability
     ) -> [VoiceProvider] {
-        var candidates: [VoiceProvider] = [.onDevice]
-        if preferred != .onDevice {
-            candidates.append(preferred)
-        }
-        candidates.append(.elevenlabs)
-
-        var seen = Set<VoiceProvider>()
-        return candidates.filter { provider in
-            availability.contains(provider) && seen.insert(provider).inserted
-        }
+        availability.contains(preferred) ? [preferred] : []
     }
 }
 
@@ -153,9 +110,9 @@ enum VoiceRoutingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noConfiguredProvider:
-            return "No narration provider is configured. On-device synthesis is coming soon; configure an ElevenLabs key to enable narration now."
+            return "No narration provider is available."
         case .allProvidersFailed(let detail):
-            return "All configured narration providers failed. \(detail)"
+            return "On-device narration is currently unavailable. \(detail)"
         }
     }
 }
@@ -166,13 +123,9 @@ enum VoiceRoutingError: LocalizedError {
 final class VoiceServiceManager: ObservableObject {
     static let shared = VoiceServiceManager()
 
-    private let elevenLabsService: ElevenLabsAudioService
-
     @Published var currentProvider: VoiceProvider
 
     private init() {
-        self.elevenLabsService = ElevenLabsAudioService()
-
         if let savedProvider = UserDefaults.standard.string(forKey: "voice_provider"),
            let provider = VoiceProvider(rawValue: savedProvider) {
             self.currentProvider = provider
@@ -202,12 +155,10 @@ final class VoiceServiceManager: ObservableObject {
         voiceID: String,
         provider: VoiceProvider
     ) async throws -> GeneratedAudio {
-        switch provider {
-        case .onDevice:
-            throw VoiceRoutingError.allProvidersFailed("Kokoro on-device integration not yet wired — coming soon")
-        case .elevenlabs:
-            return try await elevenLabsService.generateAudio(text: text, voiceID: voiceID)
-        }
+        _ = text
+        _ = voiceID
+        _ = provider
+        throw VoiceRoutingError.allProvidersFailed("Kokoro on-device integration not yet wired.")
     }
 
     func generateAudioWithFallback(
@@ -253,65 +204,26 @@ final class VoiceServiceManager: ObservableObject {
         preferredVoiceID: String?,
         readerProfile: ReaderProfile
     ) -> String {
+        _ = readerProfile
         switch provider {
         case .onDevice:
             if let preferredVoiceID, OnDeviceVoiceRegistry.isValidVoiceID(preferredVoiceID) {
                 return preferredVoiceID
             }
             return OnDeviceVoiceRegistry.defaultVoice.voiceID
-
-        case .elevenlabs:
-            if let preferredVoiceID,
-               ElevenLabsVoiceRegistry.voice(byVoiceID: preferredVoiceID) != nil {
-                return preferredVoiceID
-            }
-            return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: readerProfile).voiceID
         }
     }
 
     func availableVoices() -> [any UnifiedVoice] {
-        switch currentProvider {
-        case .onDevice:
-            return OnDeviceVoiceRegistry.allVoices
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.allVoices.map { ElevenLabsUnifiedVoice(voice: $0) }
-        }
+        OnDeviceVoiceRegistry.allVoices
     }
 
     func defaultVoice() -> any UnifiedVoice {
-        switch currentProvider {
-        case .onDevice:
-            return OnDeviceVoiceRegistry.defaultVoice
-        case .elevenlabs:
-            return ElevenLabsUnifiedVoice(voice: ElevenLabsVoiceRegistry.adam)
-        }
+        OnDeviceVoiceRegistry.defaultVoice
     }
 
     func voice(byID id: String) -> (any UnifiedVoice)? {
-        switch currentProvider {
-        case .onDevice:
-            return OnDeviceVoiceRegistry.voice(byID: id)
-        case .elevenlabs:
-            guard let voice = ElevenLabsVoiceRegistry.voice(byID: id) else { return nil }
-            return ElevenLabsUnifiedVoice(voice: voice)
-        }
-    }
-}
-
-// MARK: - ElevenLabs Unified Voice Wrapper
-
-struct ElevenLabsUnifiedVoice: UnifiedVoice {
-    let voice: ElevenLabsVoice
-
-    var id: String { voice.id }
-    var voiceID: String { voice.voiceID }
-    var name: String { voice.name }
-    var description: String { voice.description }
-    var provider: VoiceProvider { .elevenlabs }
-    var previewText: String { VoicePreviewScript.primary }
-
-    static func == (lhs: ElevenLabsUnifiedVoice, rhs: ElevenLabsUnifiedVoice) -> Bool {
-        lhs.voice == rhs.voice
+        OnDeviceVoiceRegistry.voice(byID: id)
     }
 }
 

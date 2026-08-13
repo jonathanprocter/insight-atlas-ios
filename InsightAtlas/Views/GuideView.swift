@@ -15,6 +15,7 @@ struct GuideView: View {
 
     @EnvironmentObject var environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - State
 
@@ -43,6 +44,8 @@ struct GuideView: View {
     private var hasPlayableAudio: Bool {
         item.audioFileURL != nil
     }
+
+    private var isIPad: Bool { horizontalSizeClass == .regular }
     
     private var canGenerateAudio: Bool {
         item.summaryContent != nil && item.canRetryAudioGeneration
@@ -54,31 +57,7 @@ struct GuideView: View {
         ZStack(alignment: .bottom) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        // Header
-                        GuideHeaderView(item: item)
-                        
-                        // Table of Contents
-                        if !tableOfContents.isEmpty {
-                            tableOfContentsSection(proxy: proxy)
-                        }
-                        
-                        // Content - rendered with editorial styling
-                        if let content = item.summaryContent {
-                            EditorialContentRenderer(
-                                content: content,
-                                searchQuery: searchText,
-                                title: item.title,
-                                author: item.author
-                            )
-                        } else {
-                            emptyContentView
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, hasPlayableAudio || canGenerateAudio ? 120 : 20)
-                    .frame(maxWidth: 800, alignment: .leading)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    guideContent(proxy: proxy)
                 }
                 .onScrollGeometryChange(for: Double.self) { geo in
                     let scrollable = geo.contentSize.height - geo.containerSize.height
@@ -176,6 +155,58 @@ struct GuideView: View {
         .onAppear {
             generateTableOfContents()
             loadBookmarks()
+        }
+    }
+
+    @ViewBuilder
+    private func guideContent(proxy: ScrollViewProxy) -> some View {
+        if isIPad && !tableOfContents.isEmpty {
+            HStack(alignment: .top, spacing: 24) {
+                tableOfContentsSection(proxy: proxy)
+                    .frame(width: 280)
+
+                mainGuideContent
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, hasPlayableAudio || canGenerateAudio ? 120 : 20)
+            .frame(maxWidth: 1180, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        } else {
+            VStack(alignment: .leading, spacing: 24) {
+                GuideHeaderView(item: item)
+
+                if !tableOfContents.isEmpty {
+                    tableOfContentsSection(proxy: proxy)
+                }
+
+                guideBodyContent
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, hasPlayableAudio || canGenerateAudio ? 120 : 20)
+            .frame(maxWidth: 800, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+    }
+
+    private var mainGuideContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            GuideHeaderView(item: item)
+            guideBodyContent
+        }
+        .frame(maxWidth: 860, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var guideBodyContent: some View {
+        if let content = item.summaryContent {
+            EditorialContentRenderer(
+                content: content,
+                searchQuery: searchText,
+                title: item.title,
+                author: item.author
+            )
+        } else {
+            emptyContentView
         }
     }
 
@@ -355,7 +386,7 @@ struct GuideView: View {
                 }
                 Text("Table of Contents")
                     .font(.custom("CormorantGaramond-SemiBold", size: 18))
-                    .foregroundColor(AnalysisTheme.textHeading)
+                    .foregroundColor(InsightAtlasColors.brandSepia)
                 Spacer()
                 Text("\(tableOfContents.count) sections")
                     .font(.caption)
@@ -415,16 +446,16 @@ struct GuideView: View {
         .padding(.bottom, 12)
         .background(
             ZStack(alignment: .top) {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 16)
                     .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                    .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
                 LinearGradient(
                     colors: [AnalysisTheme.primaryGold, AnalysisTheme.accentOrange],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
                 .frame(height: 3)
-                .clipShape(.rect(topLeadingRadius: 12, topTrailingRadius: 12))
+                .clipShape(.rect(topLeadingRadius: 16, topTrailingRadius: 16))
             }
         )
         .padding(.horizontal, 4)
@@ -577,18 +608,28 @@ struct GuideView: View {
     
     private var emptyContentView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "doc.text")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.largeTitle)
+                .foregroundColor(InsightAtlasColors.goldDark)
             
-            Text("No Content Available")
+            Text("No Guide Content Yet")
                 .font(.title2)
                 .fontWeight(.semibold)
+                .foregroundColor(InsightAtlasColors.brandSepia)
             
-            Text("Generate content for this guide to view it here")
+            Text("Generate or regenerate this guide to start reading the synthesized editorial content.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+
+            Button {
+                showRegenerateOptions = true
+            } label: {
+                Label("Generate Guide Content", systemImage: "sparkles")
+                    .font(PremiumUI.ui(15, .semibold))
+                    .premiumPrimaryCTA()
+            }
+            .padding(.horizontal, 24)
         }
         .padding()
         .frame(maxWidth: .infinity)

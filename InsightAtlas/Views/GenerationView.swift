@@ -8,6 +8,7 @@ struct GenerationView: View {
     @EnvironmentObject var environment: AppEnvironment
     @ObservedObject private var generationCoordinator = BackgroundGenerationCoordinator.shared
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - State
 
@@ -27,6 +28,8 @@ struct GenerationView: View {
     @State private var showingVoicePicker = false
     @State private var selectedVoiceID: String?
     @State private var audioSpeed: Double = 1.0
+
+    private var isIPad: Bool { horizontalSizeClass == .regular }
 
     // MARK: - Body
 
@@ -103,7 +106,7 @@ struct GenerationView: View {
 
                     Text("Create Your Guide")
                         .font(PremiumUI.display(26, .bold))
-                        .foregroundColor(PremiumUI.ink)
+                        .foregroundColor(InsightAtlasColors.brandSepia)
 
                     Text("Upload a PDF or EPUB book to generate a comprehensive reading guide")
                         .font(PremiumUI.ui(16))
@@ -166,6 +169,8 @@ struct GenerationView: View {
 
                 Spacer(minLength: 40)
             }
+            .frame(maxWidth: isIPad ? 640 : .infinity)
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -173,7 +178,7 @@ struct GenerationView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Output Options")
                 .font(PremiumUI.ui(16, .semibold))
-                .foregroundColor(PremiumUI.ink)
+                .foregroundColor(InsightAtlasColors.brandSepia)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("AI Provider")
@@ -290,11 +295,9 @@ struct GenerationView: View {
                     }
                     .accessibilityIdentifier("generation_voice_provider_picker")
 
-                    if !environment.userSettings.voiceProvider.isConfigured() {
-                        Text("\(environment.userSettings.voiceProvider.displayName) API key not configured.")
-                            .font(PremiumUI.ui(13))
-                            .foregroundColor(PremiumUI.warmOrange)
-                    }
+                    Text("Kokoro is the default on-device narration option for Insight Atlas.")
+                        .font(PremiumUI.ui(13))
+                        .foregroundColor(PremiumUI.secondaryText)
                 }
 
                 // Voice Selection Button
@@ -316,7 +319,8 @@ struct GenerationView: View {
                     }
                     .padding(12)
                     .background(PremiumUI.background)
-                    .cornerRadius(8)
+                    .cornerRadius(16)
+                    .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
                 }
                 .accessibilityIdentifier("generation_voice_select_button")
 
@@ -339,29 +343,18 @@ struct GenerationView: View {
         }
         .padding(16)
         .background(PremiumUI.card)
-        .cornerRadius(12)
-        .shadow(color: PremiumUI.cardShadow, radius: 4, y: 2)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         .padding(.horizontal, 24)
     }
 
     /// Get the display name for the currently selected voice
     private var selectedVoiceName: String {
-        let provider = environment.userSettings.voiceProvider
         guard let voiceID = selectedVoiceID else {
-            switch provider {
-            case .onDevice:
-                return "Daniel (Default)"
-            case .elevenlabs:
-                return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: .practitioner).name + " (Default)"
-            }
+            return "Daniel (Default)"
         }
 
-        switch provider {
-        case .onDevice:
-            return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
-        case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
-        }
+        return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
     }
 
     private func selectedFileCard(fileName: String) -> some View {
@@ -392,8 +385,8 @@ struct GenerationView: View {
         }
         .padding(16)
         .background(PremiumUI.card)
-        .cornerRadius(12)
-        .shadow(color: PremiumUI.cardShadow, radius: 4, y: 2)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         .padding(.horizontal, 24)
     }
 
@@ -417,36 +410,14 @@ struct GenerationView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            // Animated progress indicator
-            ZStack {
-                Circle()
-                    .stroke(PremiumUI.divider, lineWidth: 8)
-                    .frame(width: 120, height: 120)
-
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(
-                        LinearGradient(
-                            colors: [PremiumUI.teal, PremiumUI.teal.opacity(0.6)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-                    .frame(width: 120, height: 120)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.3), value: progress)
-
-                Image(systemName: "sparkles")
-                    .font(.system(size: 40))
-                    .foregroundColor(PremiumUI.teal)
-            }
-            .accessibilityIdentifier("generation_progress_ring")
-
             VStack(spacing: 12) {
+                ProgressView(value: progress)
+                    .tint(InsightAtlasColors.goldDark)
+                    .accessibilityIdentifier("generation_progress_ring")
+
                 Text(statusMessage.isEmpty ? "Analyzing your book..." : statusMessage)
                     .font(PremiumUI.display(20, .semibold))
-                    .foregroundColor(PremiumUI.ink)
+                    .foregroundColor(InsightAtlasColors.brandSepia)
                     .multilineTextAlignment(.center)
 
                 Text("This may take a few minutes")
@@ -462,6 +433,8 @@ struct GenerationView: View {
             Spacer()
         }
         .padding()
+        .frame(maxWidth: isIPad ? 640 : .infinity)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Completed View
@@ -530,6 +503,8 @@ struct GenerationView: View {
                 .padding(.top, 20)
             }
             .padding(.bottom, 40)
+            .frame(maxWidth: isIPad ? 640 : .infinity)
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -568,6 +543,8 @@ struct GenerationView: View {
 
             Spacer()
         }
+        .frame(maxWidth: isIPad ? 640 : .infinity)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - File Selection Handler
@@ -776,7 +753,7 @@ struct GuidePreviewCard: View {
         .padding(16)
         .background(PremiumUI.card)
         .cornerRadius(16)
-        .shadow(color: PremiumUI.cardShadow, radius: 8, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }
 
     private func loadCoverImageData(from path: String) -> Data? {
@@ -796,6 +773,9 @@ struct VoiceSelectionSheet: View {
     let voiceProvider: VoiceProvider
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var isIPad: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
         NavigationStack {
@@ -806,14 +786,11 @@ struct VoiceSelectionSheet: View {
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
 
-                    switch voiceProvider {
-                    case .onDevice:
-                        onDeviceVoiceList
-                    case .elevenlabs:
-                        elevenLabsVoiceList
-                    }
+                    onDeviceVoiceList
                 }
                 .padding(.vertical)
+                .frame(maxWidth: isIPad ? 640 : .infinity)
+                .frame(maxWidth: .infinity)
             }
             .navigationTitle("Select Voice")
             .navigationBarTitleDisplayMode(.inline)
@@ -856,26 +833,6 @@ struct VoiceSelectionSheet: View {
         }
     }
 
-    private var elevenLabsVoiceList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("ELEVENLABS VOICES")
-                .font(.caption)
-                .fontWeight(.bold)
-                .tracking(1)
-                .foregroundColor(PremiumUI.gold)
-                .padding(.horizontal)
-
-            ForEach(ElevenLabsVoiceRegistry.allVoices, id: \.id) { voice in
-                voiceRow(
-                    id: voice.voiceID,
-                    name: voice.name,
-                    description: voice.description,
-                    isSelected: selectedVoiceID == voice.voiceID
-                )
-            }
-        }
-    }
-
     private func voiceRow(id: String, name: String, description: String, isSelected: Bool) -> some View {
         Button {
             selectedVoiceID = id
@@ -901,7 +858,8 @@ struct VoiceSelectionSheet: View {
             }
             .padding(12)
             .background(isSelected ? PremiumUI.teal.opacity(0.08) : PremiumUI.card)
-            .cornerRadius(8)
+            .cornerRadius(16)
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
         .padding(.horizontal)

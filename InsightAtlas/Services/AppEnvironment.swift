@@ -16,7 +16,6 @@ class AppEnvironment: ObservableObject {
     // MARK: - Services
 
     let aiService: AIService
-    let audioService: ElevenLabsAudioService
     let voiceServiceManager: VoiceServiceManager
     let generationCoordinator: BackgroundGenerationCoordinator
     let dataManager: DataManager
@@ -30,7 +29,6 @@ class AppEnvironment: ObservableObject {
 
     init() {
         self.aiService = AIService()
-        self.audioService = ElevenLabsAudioService()
         self.voiceServiceManager = VoiceServiceManager.shared
         self.generationCoordinator = BackgroundGenerationCoordinator.shared
         self.dataManager = DataManager.shared

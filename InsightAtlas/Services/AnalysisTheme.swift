@@ -591,9 +591,15 @@ extension View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .foregroundStyle(.white)
-            .background(PremiumUI.gold)
-            .clipShape(Capsule())
-            .shadow(color: PremiumUI.gold.opacity(0.25), radius: 12, y: 4)
+            .background(
+                LinearGradient(
+                    colors: [InsightAtlasColors.gold, InsightAtlasColors.goldDark],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }
 
     /// Ghost capsule secondary CTA using PremiumUI tokens.
