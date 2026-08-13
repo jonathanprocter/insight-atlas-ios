@@ -25,7 +25,7 @@ struct RegenerateView: View {
     @State private var showingError = false
 
     // User-selectable generation options
-    @State private var selectedProvider: AIProvider = .both
+    @State private var selectedProvider: AIProvider = .claude
     @State private var selectedMode: GenerationMode = .deepResearch
     @State private var selectedTone: ToneMode = .professional
     @State private var selectedFormat: OutputFormat = .fullGuide
@@ -33,6 +33,7 @@ struct RegenerateView: View {
 
     private let aiService = AIService()
     private let bookProcessor = BookProcessor()
+    private let availableProviders: [AIProvider] = [.claude, .openRouter]
 
     private let maxIterations = 3
     private let passingThreshold = 95
@@ -98,7 +99,9 @@ struct RegenerateView: View {
         }
         .onAppear {
             // Initialize with user's saved settings
-            selectedProvider = dataManager.userSettings.preferredProvider
+            selectedProvider = availableProviders.contains(dataManager.userSettings.preferredProvider)
+                ? dataManager.userSettings.preferredProvider
+                : .claude
             selectedMode = dataManager.userSettings.preferredMode
             selectedTone = dataManager.userSettings.preferredTone
             selectedFormat = dataManager.userSettings.preferredFormat
@@ -121,7 +124,7 @@ struct RegenerateView: View {
                     .foregroundColor(InsightAtlasColors.muted)
 
                 Picker("Provider", selection: $selectedProvider) {
-                    ForEach(AIProvider.allCases, id: \.self) { provider in
+                    ForEach(availableProviders, id: \.self) { provider in
                         Text(provider.displayName).tag(provider)
                     }
                 }
@@ -185,7 +188,19 @@ struct RegenerateView: View {
             }
         }
         .padding()
-        .background(InsightAtlasColors.card)
+        .background(
+            ZStack(alignment: .top) {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(InsightAtlasColors.card)
+                LinearGradient(
+                    colors: [InsightAtlasColors.gold, InsightAtlasColors.goldLight],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 3)
+                .clipShape(.rect(topLeadingRadius: 12, topTrailingRadius: 12))
+            }
+        )
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -194,7 +209,13 @@ struct RegenerateView: View {
             // Phase Icon
             ZStack {
                 Circle()
-                    .fill(phaseColor.opacity(0.15))
+                    .fill(
+                        LinearGradient(
+                            colors: [phaseColor.opacity(0.2), phaseColor.opacity(0.07)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .frame(width: 80, height: 80)
 
                 if isGenerating {
@@ -246,7 +267,19 @@ struct RegenerateView: View {
                                 .clipShape(Capsule())
 
                             Rectangle()
-                                .fill(currentScore >= passingThreshold ? Color.green : InsightAtlasColors.gold)
+                                .fill(
+                                    currentScore >= passingThreshold
+                                        ? LinearGradient(
+                                            colors: [Color.green, Color.green.opacity(0.75)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                        : LinearGradient(
+                                            colors: [InsightAtlasColors.gold, InsightAtlasColors.goldLight],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                )
                                 .frame(width: geometry.size.width * CGFloat(currentScore) / 100, height: 8)
                                 .clipShape(Capsule())
 
@@ -350,18 +383,18 @@ struct RegenerateView: View {
                 } label: {
                     Label("Start Regeneration", systemImage: "wand.and.stars")
                         .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
+                        .premiumPrimaryCTA()
                 }
-                .buttonStyle(InsightAtlasPrimaryButtonStyle())
+                .buttonStyle(.plain)
             } else if phase == .complete && currentScore >= passingThreshold {
                 Button {
                     onComplete(currentContent, currentScore)
                 } label: {
                     Label("Save & Use This Guide", systemImage: "checkmark.circle.fill")
                         .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
+                        .premiumPrimaryCTA()
                 }
-                .buttonStyle(InsightAtlasPrimaryButtonStyle())
+                .buttonStyle(.plain)
             } else if phase == .complete && currentScore < passingThreshold {
                 VStack(spacing: 8) {
                     Text("Guide did not meet quality threshold after \(maxIterations) iterations.")
@@ -376,18 +409,18 @@ struct RegenerateView: View {
                             startRegeneration()
                         } label: {
                             Label("Try Again", systemImage: "arrow.clockwise")
-                                .frame(maxWidth: .infinity)
+                                .premiumSecondaryCTA()
                         }
-                        .buttonStyle(InsightAtlasSecondaryButtonStyle())
+                        .buttonStyle(.plain)
 
                         Button {
                             // Accept anyway
                             onComplete(currentContent, currentScore)
                         } label: {
                             Label("Use Anyway", systemImage: "checkmark")
-                                .frame(maxWidth: .infinity)
+                                .premiumPrimaryCTA()
                         }
-                        .buttonStyle(InsightAtlasPrimaryButtonStyle())
+                        .buttonStyle(.plain)
                     }
                 }
             }

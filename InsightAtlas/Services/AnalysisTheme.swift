@@ -587,3 +587,35 @@ extension Color {
     }
 }
 
+
+// MARK: - Premium CTA View Modifiers
+
+extension View {
+    /// Gold capsule primary CTA using PremiumUI tokens.
+    func premiumPrimaryCTA() -> some View {
+        self
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .foregroundStyle(.white)
+            .background(
+                LinearGradient(
+                    colors: [InsightAtlasColors.gold, InsightAtlasColors.goldDark],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+    }
+
+    /// Ghost capsule secondary CTA using PremiumUI tokens.
+    func premiumSecondaryCTA() -> some View {
+        self
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .foregroundStyle(PremiumUI.gold)
+            .background(PremiumUI.gold.opacity(0.12))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(PremiumUI.gold.opacity(0.30), lineWidth: 1))
+    }
+}
