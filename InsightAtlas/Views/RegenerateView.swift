@@ -33,7 +33,8 @@ struct RegenerateView: View {
 
     private let aiService = AIService()
     private let bookProcessor = BookProcessor()
-    private let availableProviders: [AIProvider] = [.claude, .openRouter]
+    static let supportedProviders = AIProvider.allCases
+    private var availableProviders: [AIProvider] { Self.supportedProviders }
 
     private let maxIterations = 3
     private let passingThreshold = 95
