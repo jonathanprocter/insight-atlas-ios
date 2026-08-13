@@ -17,17 +17,21 @@ struct SettingsView: View {
     @State private var showResetAlert = false
 
     private var selectedVoiceName: String {
+        let provider = environment.userSettings.voiceProvider
         guard let voiceID = environment.userSettings.selectedVoiceID else {
-            return "Default"
+            switch provider {
+            case .onDevice:
+                return "Daniel"
+            case .elevenlabs:
+                return ElevenLabsVoiceRegistry.adam.name
+            }
         }
 
-        switch environment.userSettings.voiceProvider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
+        switch provider {
+        case .onDevice:
+            return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
         case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? "Default"
+            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? ElevenLabsVoiceRegistry.adam.name
         }
     }
 
@@ -122,7 +126,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "API Configuration",
-                        keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
+                        keywords: ["api", "configuration", "keys", "claude", "openrouter", "elevenlabs"],
                         dynamicValues: [apiConfigurationStatus]
                     ) {
                         PremiumSettingsCard(
@@ -142,7 +146,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
+                        keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "on-device", "daniel"],
                         dynamicValues: [selectedVoiceName]
                     ) {
                         PremiumSettingsCard(
@@ -304,9 +308,10 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 10)
-                .padding(.bottom, 32)
+                .padding(.bottom, 80)
             }
             .scrollIndicators(.hidden)
+            .scrollClipDisabled(false)
             .background(PremiumUI.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .tint(accentColor)
@@ -324,7 +329,7 @@ struct SettingsView: View {
     private var apiConfigurationStatus: String {
         let configuredCount = [
             KeychainService.shared.hasClaudeApiKey,
-            KeychainService.shared.hasOpenAIApiKey
+            KeychainService.shared.hasElevenLabsApiKey
         ].filter { $0 }.count
 
         switch configuredCount {
@@ -348,12 +353,12 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "API Configuration",
-            keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "chatgpt"],
+            keywords: ["api", "configuration", "keys", "claude", "openrouter", "elevenlabs"],
             dynamicValues: [apiConfigurationStatus]
         ) &&
         !matchesSection(
             title: "Audio & Narration",
-            keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "openai"],
+            keywords: ["audio", "voice", "narration", "playback", "elevenlabs", "on-device", "daniel"],
             dynamicValues: [selectedVoiceName]
         ) &&
         !matchesSection(
@@ -574,15 +579,18 @@ struct PremiumSettingsDivider: View {
 
 struct AIProviderSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+    private let availableProviders: [AIProvider] = [.claude, .openRouter]
 
     var body: some View {
         PremiumChoiceList(
             title: "AI Provider",
-            footer: "Choose the provider used by default for new guides.",
-            choices: AIProvider.allCases.map {
+            footer: "Choose whether new guides use Claude directly or OpenRouter.",
+            choices: availableProviders.map {
                 PremiumChoice(id: $0.rawValue, title: $0.displayName)
             },
-            selectedID: environment.userSettings.preferredProvider.rawValue
+            selectedID: availableProviders.contains(environment.userSettings.preferredProvider)
+                ? environment.userSettings.preferredProvider.rawValue
+                : AIProvider.claude.rawValue
         ) { id in
             guard let provider = AIProvider(rawValue: id) else { return }
             environment.userSettings.preferredProvider = provider
@@ -747,11 +755,7 @@ struct PremiumChoiceRow: View {
 
 struct APIConfigurationView: View {
     @EnvironmentObject private var environment: AppEnvironment
-    @ObservedObject private var chatgpt = ChatGPTOAuthService.shared
-    @AppStorage("insight_atlas_use_chatgpt_oauth") private var useChatGPTOAuth = false
-    @AppStorage(ChatGPTOAuthConfig.modelStorageKey) private var chatgptModel = ChatGPTOAuthConfig.defaultModel
     @AppStorage(OpenRouterConfig.modelStorageKey) private var openRouterModel = OpenRouterConfig.defaultModel
-    @State private var showChatGPTSignIn = false
 
     private func savedSuffix(for key: String?) -> String? {
         guard let key, key.count >= 4 else { return nil }
@@ -770,18 +774,6 @@ struct APIConfigurationView: View {
                     ),
                     hasValue: KeychainService.shared.hasClaudeApiKey,
                     savedSuffix: savedSuffix(for: KeychainService.shared.claudeApiKey)
-                )
-                .listRowBackground(PremiumUI.card)
-
-                SecureFieldRow(
-                    label: "OpenAI",
-                    placeholder: "OpenAI API Key",
-                    text: Binding(
-                        get: { KeychainService.shared.openaiApiKey ?? "" },
-                        set: { environment.updateOpenAIApiKey($0.isEmpty ? nil : $0) }
-                    ),
-                    hasValue: KeychainService.shared.hasOpenAIApiKey,
-                    savedSuffix: savedSuffix(for: KeychainService.shared.openaiApiKey)
                 )
                 .listRowBackground(PremiumUI.card)
 
@@ -838,7 +830,7 @@ struct APIConfigurationView: View {
             } header: {
                 Text("AI Providers")
             } footer: {
-                Text("API keys are stored in the iOS Keychain and are not included in app settings backups. To generate via OpenRouter, also select it under Generation → AI Provider. OpenRouter bills separately from OpenAI and can reach OpenAI, Anthropic (incl. Claude Opus), Google, and Meta models with one key.")
+                Text("API keys are stored in the iOS Keychain and are not included in app settings backups. To generate via OpenRouter, also select it under Generation → AI Provider.")
             }
 
             Section {
@@ -856,86 +848,8 @@ struct APIConfigurationView: View {
             } header: {
                 Text("Optional Narration Provider")
             }
-
-            Section {
-                if chatgpt.isSignedIn {
-                    HStack {
-                        Text("ChatGPT")
-                        Spacer()
-                        Text("Signed in")
-                            .foregroundStyle(PremiumUI.forest)
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(PremiumUI.forest)
-                    }
-                    .listRowBackground(PremiumUI.card)
-
-                    Toggle("Use for guide generation", isOn: $useChatGPTOAuth)
-                        .tint(PremiumUI.gold)
-                        .listRowBackground(PremiumUI.card)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Codex Model")
-                            .font(PremiumUI.ui(13, .semibold))
-                            .foregroundStyle(PremiumUI.secondaryText)
-
-                        HStack(spacing: 8) {
-                            TextField(ChatGPTOAuthConfig.defaultModel, text: $chatgptModel)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled(true)
-                                .submitLabel(.done)
-                                .font(PremiumUI.ui(15, .regular))
-                                .foregroundStyle(PremiumUI.ink)
-
-                            Menu {
-                                ForEach(ChatGPTOAuthConfig.candidateModels, id: \.self) { model in
-                                    Button {
-                                        chatgptModel = model
-                                        PremiumHaptics.selection()
-                                    } label: {
-                                        if chatgptModel == model {
-                                            Label(model, systemImage: "checkmark")
-                                        } else {
-                                            Text(model)
-                                        }
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(PremiumUI.gold)
-                                    .frame(width: 32, height: 32)
-                            }
-                            .accessibilityLabel("Choose a suggested Codex model")
-                        }
-                    }
-                    .listRowBackground(PremiumUI.card)
-
-                    Button(role: .destructive) {
-                        chatgpt.signOut()
-                        useChatGPTOAuth = false
-                        PremiumHaptics.notification(.warning)
-                    } label: {
-                        Text("Sign out of ChatGPT")
-                    }
-                    .listRowBackground(PremiumUI.card)
-                } else {
-                    Button {
-                        showChatGPTSignIn = true
-                    } label: {
-                        Label("Sign in with ChatGPT", systemImage: "person.crop.circle")
-                    }
-                    .listRowBackground(PremiumUI.card)
-                }
-            } header: {
-                Text("ChatGPT Subscription (Beta)")
-            } footer: {
-                Text("Unofficial: uses your ChatGPT subscription for Codex guide generation and, when selected under Audio & Narration, experimental GPT-Live voice generation. This is not supported by OpenAI, may violate its Terms of Service, and could rate-limit or restrict your account. GPT-Live availability depends on your ChatGPT account. If voice generation fails, InsightAtlas automatically tries a configured OpenAI or ElevenLabs fallback.")
-            }
         }
         .premiumSettingsList(title: "API Configuration")
-        .sheet(isPresented: $showChatGPTSignIn) {
-            ChatGPTSignInSheet()
-        }
     }
 }
 
@@ -945,17 +859,21 @@ struct AudioSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
 
     private var selectedVoiceName: String {
+        let provider = environment.userSettings.voiceProvider
         guard let voiceID = environment.userSettings.selectedVoiceID else {
-            return "Default"
+            switch provider {
+            case .onDevice:
+                return "Daniel"
+            case .elevenlabs:
+                return ElevenLabsVoiceRegistry.adam.name
+            }
         }
 
-        switch environment.userSettings.voiceProvider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? ChatGPTVoiceRegistry.defaultVoice.name
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? "Alloy"
+        switch provider {
+        case .onDevice:
+            return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
         case .elevenlabs:
-            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? "Default"
+            return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? ElevenLabsVoiceRegistry.adam.name
         }
     }
 
@@ -1007,7 +925,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("ChatGPT Voice uses your ChatGPT sign-in and is the primary experimental narration path. If it is unavailable or fails, InsightAtlas automatically tries configured OpenAI and ElevenLabs providers. OpenAI and ElevenLabs keys are entered under API Configuration.")
+                Text("On-Device will use Kokoro TTS once the local inference integration is wired. ElevenLabs keys are entered under API Configuration.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
@@ -1219,57 +1137,28 @@ private extension View {
 
 struct VoiceSelectionSettingsView: View {
     @EnvironmentObject var environment: AppEnvironment
-    @State private var previewingVoiceID: String?
-    @State private var isLoadingPreview = false
     @State private var previewError: String?
 
     private var hasVoiceKey: Bool {
-        switch environment.userSettings.voiceProvider {
-        case .chatgptVoice: return ChatGPTOAuthService.hasStoredCredentials
-        case .openai: return KeychainService.shared.hasOpenAIApiKey
-        case .elevenlabs: return KeychainService.shared.hasElevenLabsApiKey
-        }
+        environment.userSettings.voiceProvider == .onDevice || KeychainService.shared.hasElevenLabsApiKey
     }
 
     var body: some View {
         List {
             switch environment.userSettings.voiceProvider {
-            case .chatgptVoice:
+            case .onDevice:
                 Section {
-                    ForEach(ChatGPTVoiceRegistry.allVoices) { voice in
-                        ChatGPTVoiceSettingsRow(
+                    ForEach(OnDeviceVoiceRegistry.allVoices) { voice in
+                        OnDevicePlaceholderRow(
                             voice: voice,
                             isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: previewingVoiceID == voice.voiceID,
-                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
-                            isPreviewEnabled: hasVoiceKey,
-                            onSelect: { selectChatGPTVoice(voice) },
-                            onPreview: { previewChatGPTVoice(voice) }
+                            onSelect: { selectOnDeviceVoice(voice) }
                         )
                     }
                 } header: {
-                    Text("ChatGPT Voices")
+                    Text("On-Device (Kokoro)")
                 } footer: {
-                    Text("Experimental GPT-Live voices. Preview requires an active ChatGPT sign-in.")
-                }
-
-            case .openai:
-                Section {
-                    ForEach(OpenAIVoiceRegistry.allVoices) { voice in
-                        OpenAIVoiceRow(
-                            voice: voice,
-                            isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: previewingVoiceID == voice.voiceID,
-                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
-                            isPreviewEnabled: hasVoiceKey,
-                            onSelect: { selectOpenAIVoice(voice) },
-                            onPreview: { previewOpenAIVoice(voice) }
-                        )
-                    }
-                } header: {
-                    Text("OpenAI Voices")
-                } footer: {
-                    Text("Tap to select, tap play to preview")
+                    Text("Kokoro on-device synthesis is not wired yet. Daniel is the placeholder default voice.")
                 }
 
             case .elevenlabs:
@@ -1278,8 +1167,8 @@ struct VoiceSelectionSettingsView: View {
                         SettingsVoiceRow(
                             voice: voice,
                             isSelected: environment.userSettings.selectedVoiceID == voice.voiceID,
-                            isPreviewing: previewingVoiceID == voice.voiceID,
-                            isLoading: previewingVoiceID == voice.voiceID && isLoadingPreview,
+                            isPreviewing: false,
+                            isLoading: false,
                             isPreviewEnabled: hasVoiceKey,
                             onSelect: { selectElevenLabsVoice(voice) },
                             onPreview: { previewElevenLabsVoice(voice) }
@@ -1304,101 +1193,11 @@ struct VoiceSelectionSettingsView: View {
         }
     }
 
-    // MARK: - ChatGPT Voice Selection
+    // MARK: - On-Device Placeholder Selection
 
-    private func selectChatGPTVoice(_ voice: ChatGPTVoice) {
+    private func selectOnDeviceVoice(_ voice: OnDevicePlaceholderVoice) {
         environment.userSettings.selectedVoiceID = voice.voiceID
         environment.saveSettings()
-    }
-
-    private func previewChatGPTVoice(_ voice: ChatGPTVoice) {
-        guard !isLoadingPreview else { return }
-        AudioPlaybackManager.shared.stop()
-
-        if previewingVoiceID == voice.voiceID {
-            previewingVoiceID = nil
-            return
-        }
-
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
-
-        Task {
-            do {
-                let sampleText = "Hello, I'm \(voice.name). This is an experimental ChatGPT Voice preview for InsightAtlas."
-                let audio = try await ChatGPTVoiceService().generateAudio(
-                    text: sampleText,
-                    voiceID: voice.voiceID
-                )
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                    do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            previewingVoiceID = nil
-                        }
-                    } catch {
-                        previewingVoiceID = nil
-                        previewError = error.localizedDescription
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
-                    previewError = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    // MARK: - OpenAI Voice Selection
-
-    private func selectOpenAIVoice(_ voice: OpenAIVoice) {
-        environment.userSettings.selectedVoiceID = voice.voiceID
-        environment.saveSettings()
-    }
-
-    private func previewOpenAIVoice(_ voice: OpenAIVoice) {
-        guard !isLoadingPreview else { return }
-        AudioPlaybackManager.shared.stop()
-
-        // Stop any current preview
-        if previewingVoiceID == voice.voiceID {
-            previewingVoiceID = nil
-            return
-        }
-
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
-
-        Task {
-            do {
-                let sampleText = "Hello, I'm \(voice.name). I'll be narrating your book summaries with clarity and warmth."
-                let audio = try await environment.openAIAudioService.generateAudio(
-                    text: sampleText,
-                    voiceID: voice.voiceID
-                )
-
-                await MainActor.run {
-                    isLoadingPreview = false
-                    do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            previewingVoiceID = nil
-                        }
-                    } catch {
-                        previewingVoiceID = nil
-                        previewError = error.localizedDescription
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
-                    previewError = error.localizedDescription
-                }
-            }
-        }
     }
 
     // MARK: - ElevenLabs Voice Selection
@@ -1409,17 +1208,7 @@ struct VoiceSelectionSettingsView: View {
     }
 
     private func previewElevenLabsVoice(_ voice: ElevenLabsVoice) {
-        guard !isLoadingPreview else { return }
         AudioPlaybackManager.shared.stop()
-
-        // Stop any current preview
-        if previewingVoiceID == voice.voiceID {
-            previewingVoiceID = nil
-            return
-        }
-
-        previewingVoiceID = voice.voiceID
-        isLoadingPreview = true
 
         Task {
             do {
@@ -1430,20 +1219,14 @@ struct VoiceSelectionSettingsView: View {
                 )
 
                 await MainActor.run {
-                    isLoadingPreview = false
                     do {
-                        try AudioPlaybackManager.shared.play(audio) {
-                            previewingVoiceID = nil
-                        }
+                        try AudioPlaybackManager.shared.play(audio)
                     } catch {
-                        previewingVoiceID = nil
                         previewError = error.localizedDescription
                     }
                 }
             } catch {
                 await MainActor.run {
-                    isLoadingPreview = false
-                    previewingVoiceID = nil
                     previewError = error.localizedDescription
                 }
             }
@@ -1451,16 +1234,12 @@ struct VoiceSelectionSettingsView: View {
     }
 }
 
-// MARK: - ChatGPT Voice Row
+// MARK: - On-Device Placeholder Row
 
-struct ChatGPTVoiceSettingsRow: View {
-    let voice: ChatGPTVoice
+struct OnDevicePlaceholderRow: View {
+    let voice: OnDevicePlaceholderVoice
     let isSelected: Bool
-    let isPreviewing: Bool
-    let isLoading: Bool
-    let isPreviewEnabled: Bool
     let onSelect: () -> Void
-    let onPreview: () -> Void
 
     var body: some View {
         Button(action: onSelect) {
@@ -1471,7 +1250,7 @@ struct ChatGPTVoiceSettingsRow: View {
                             .font(.body)
                             .fontWeight(.medium)
 
-                        if voice.voiceID == ChatGPTVoiceRegistry.defaultVoice.voiceID {
+                        if voice.voiceID == OnDeviceVoiceRegistry.defaultVoice.voiceID {
                             Text("DEFAULT")
                                 .font(.caption2)
                                 .fontWeight(.bold)
@@ -1488,98 +1267,22 @@ struct ChatGPTVoiceSettingsRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
-
                 Spacer()
-
-                Button(action: onPreview) {
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isPreviewEnabled)
-                .opacity(isPreviewEnabled ? 1 : 0.5)
-                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
-                .accessibilityHint(isPreviewEnabled ? "Previews the experimental ChatGPT voice" : "Sign in with ChatGPT in API Configuration")
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
                         .foregroundColor(PremiumUI.gold)
                 }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
 
-// MARK: - OpenAI Voice Row
-
-struct OpenAIVoiceRow: View {
-    let voice: OpenAIVoice
-    let isSelected: Bool
-    let isPreviewing: Bool
-    let isLoading: Bool
-    let isPreviewEnabled: Bool
-    let onSelect: () -> Void
-    let onPreview: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // Voice info
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(voice.name)
-                            .font(.body)
-                            .fontWeight(.medium)
-
-                        // Gender indicator
-                        Text(voice.characteristics.gender.rawValue.capitalized)
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.2))
-                            .foregroundColor(.secondary)
-                            .cornerRadius(4)
-                    }
-
-                    Text(voice.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                // Preview button
-                Button(action: onPreview) {
-                    if isLoading {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(isPreviewing ? .red : PremiumUI.gold)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isPreviewEnabled)
-                .opacity(isPreviewEnabled ? 1 : 0.5)
-                .accessibilityLabel(isPreviewEnabled ? (isPreviewing ? "Stop preview" : "Play preview") : "Preview unavailable")
-                .accessibilityHint(isPreviewEnabled ? "Previews the selected voice" : "Add an API key in API Configuration")
-
-                // Selection indicator
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(PremiumUI.gold)
-                }
+                Text("COMING SOON")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.15))
+                    .foregroundStyle(.secondary)
+                    .cornerRadius(4)
             }
         }
         .buttonStyle(.plain)

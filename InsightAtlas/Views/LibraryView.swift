@@ -335,6 +335,7 @@ struct LibraryView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             Spacer()
+                .frame(maxHeight: 60)
 
             ZStack {
                 Circle()

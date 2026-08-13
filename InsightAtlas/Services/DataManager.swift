@@ -214,23 +214,13 @@ class DataManager: ObservableObject {
         KeychainService.shared.claudeApiKey = key
     }
 
-    /// Update OpenAI API key (stored securely in Keychain)
-    func updateOpenAIApiKey(_ key: String?) {
-        KeychainService.shared.openaiApiKey = key
-    }
-
     /// Check if API keys are configured (reads from Keychain)
     var hasValidApiKeys: Bool {
         switch userSettings.preferredProvider {
         case .claude:
             return KeychainService.shared.hasClaudeApiKey
-        case .openai:
-            return KeychainService.shared.hasOpenAIApiKey
         case .openRouter:
             return KeychainService.shared.hasOpenRouterApiKey
-        case .both:
-            return KeychainService.shared.hasClaudeApiKey ||
-                   KeychainService.shared.hasOpenAIApiKey
         }
     }
 

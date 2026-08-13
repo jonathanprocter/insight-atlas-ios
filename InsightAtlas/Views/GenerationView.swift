@@ -291,9 +291,7 @@ struct GenerationView: View {
                     .accessibilityIdentifier("generation_voice_provider_picker")
 
                     if !environment.userSettings.voiceProvider.isConfigured() {
-                        Text(environment.userSettings.voiceProvider == .chatgptVoice
-                             ? "Sign in with ChatGPT under API Configuration to use experimental narration."
-                             : "\(environment.userSettings.voiceProvider.displayName) API key not configured.")
+                        Text("\(environment.userSettings.voiceProvider.displayName) API key not configured.")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.accentHighlight)
                     }
@@ -351,20 +349,16 @@ struct GenerationView: View {
         let provider = environment.userSettings.voiceProvider
         guard let voiceID = selectedVoiceID else {
             switch provider {
-            case .chatgptVoice:
-                return ChatGPTVoiceRegistry.defaultVoice.name + " (Default)"
-            case .openai:
-                return OpenAIVoiceRegistry.defaultVoice.name + " (Default)"
+            case .onDevice:
+                return "Daniel (Default)"
             case .elevenlabs:
                 return ElevenLabsVoiceRegistry.premiumPrimaryVoice(for: .practitioner).name + " (Default)"
             }
         }
 
         switch provider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: voiceID)?.name ?? voiceID
+        case .onDevice:
+            return OnDeviceVoiceRegistry.voice(byID: voiceID)?.name ?? "Daniel"
         case .elevenlabs:
             return ElevenLabsVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
         }
@@ -813,10 +807,8 @@ struct VoiceSelectionSheet: View {
                         .padding(.horizontal)
 
                     switch voiceProvider {
-                    case .chatgptVoice:
-                        chatGPTVoiceList
-                    case .openai:
-                        openAIVoiceList
+                    case .onDevice:
+                        onDeviceVoiceList
                     case .elevenlabs:
                         elevenLabsVoiceList
                     }
@@ -844,36 +836,16 @@ struct VoiceSelectionSheet: View {
         }
     }
 
-    private var chatGPTVoiceList: some View {
+    private var onDeviceVoiceList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("CHATGPT VOICES · EXPERIMENTAL")
+            Text("ON-DEVICE (KOKORO)")
                 .font(.caption)
                 .fontWeight(.bold)
                 .tracking(1)
                 .foregroundColor(AnalysisTheme.accentTeal)
                 .padding(.horizontal)
 
-            ForEach(ChatGPTVoiceRegistry.allVoices, id: \.id) { voice in
-                voiceRow(
-                    id: voice.voiceID,
-                    name: voice.name,
-                    description: voice.description,
-                    isSelected: selectedVoiceID == voice.voiceID
-                )
-            }
-        }
-    }
-
-    private var openAIVoiceList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("OPENAI VOICES")
-                .font(.caption)
-                .fontWeight(.bold)
-                .tracking(1)
-                .foregroundColor(AnalysisTheme.accentTeal)
-                .padding(.horizontal)
-
-            ForEach(OpenAIVoiceRegistry.allVoices, id: \.id) { voice in
+            ForEach(OnDeviceVoiceRegistry.allVoices, id: \.id) { voice in
                 voiceRow(
                     id: voice.voiceID,
                     name: voice.name,
@@ -936,4 +908,3 @@ struct VoiceSelectionSheet: View {
         .accessibilityIdentifier("voice_row_\(id)")
     }
 }
-

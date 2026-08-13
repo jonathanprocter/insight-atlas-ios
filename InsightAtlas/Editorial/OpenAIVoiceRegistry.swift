@@ -20,7 +20,7 @@ import Foundation
 // MARK: - OpenAI Voice
 
 /// Represents an OpenAI TTS voice with its characteristics
-struct OpenAIVoice: UnifiedVoice, Codable, Equatable, Identifiable {
+struct OpenAIVoice: Codable, Equatable, Identifiable {
     let id: String
     let voiceID: String
     let name: String
@@ -28,7 +28,6 @@ struct OpenAIVoice: UnifiedVoice, Codable, Equatable, Identifiable {
     let characteristics: VoiceCharacteristics
     let recommendedFor: [String]
 
-    var provider: VoiceProvider { .openai }
     var previewText: String { VoicePreviewScript.primary }
 
     struct VoiceCharacteristics: Codable, Equatable {

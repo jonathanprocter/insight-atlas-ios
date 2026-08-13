@@ -263,16 +263,12 @@ enum BookmarkColor: String, Codable, CaseIterable {
 
 enum AIProvider: String, Codable, CaseIterable {
     case claude = "claude"
-    case openai = "openai"
     case openRouter = "openrouter"
-    case both = "both"
 
     var displayName: String {
         switch self {
         case .claude: return "Claude"
-        case .openai: return "OpenAI"
         case .openRouter: return "OpenRouter"
-        case .both: return "Both"
         }
     }
 }
@@ -603,12 +599,6 @@ struct UserSettings: Codable {
         set { KeychainService.shared.claudeApiKey = newValue }
     }
 
-    /// OpenAI API key - stored securely in Keychain (not Codable)
-    var openaiApiKey: String? {
-        get { KeychainService.shared.openaiApiKey }
-        set { KeychainService.shared.openaiApiKey = newValue }
-    }
-
     /// OpenRouter API key - stored securely in Keychain (not Codable)
     var openRouterApiKey: String? {
         get { KeychainService.shared.openRouterApiKey }
@@ -616,7 +606,7 @@ struct UserSettings: Codable {
     }
 
     init(
-        preferredProvider: AIProvider = .both,
+        preferredProvider: AIProvider = .claude,
         preferredMode: GenerationMode = .deepResearch,
         preferredTone: ToneMode = .professional,
         preferredFormat: OutputFormat = .fullGuide,
@@ -625,7 +615,7 @@ struct UserSettings: Codable {
         autoGenerateAudio: Bool = true,
         selectedVoiceID: String? = nil,
         playbackSpeed: PlaybackSpeed = .normal,
-        voiceProvider: VoiceProvider = .chatgptVoice
+        voiceProvider: VoiceProvider = .onDevice
     ) {
         self.preferredProvider = preferredProvider
         self.preferredMode = preferredMode
@@ -657,7 +647,12 @@ struct UserSettings: Codable {
     // Custom decoder to handle missing fields in older settings
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        preferredProvider = try container.decode(AIProvider.self, forKey: .preferredProvider)
+        // Safely decode preferredProvider — old values "openai" and "both" are migrated to .claude
+        if let decodedPreferredProvider = try? container.decode(AIProvider.self, forKey: .preferredProvider) {
+            preferredProvider = decodedPreferredProvider
+        } else {
+            preferredProvider = .claude
+        }
         preferredMode = try container.decode(GenerationMode.self, forKey: .preferredMode)
         preferredTone = try container.decode(ToneMode.self, forKey: .preferredTone)
         preferredFormat = try container.decode(OutputFormat.self, forKey: .preferredFormat)
@@ -666,7 +661,7 @@ struct UserSettings: Codable {
         autoGenerateAudio = try container.decode(Bool.self, forKey: .autoGenerateAudio)
         selectedVoiceID = try container.decodeIfPresent(String.self, forKey: .selectedVoiceID)
         playbackSpeed = try container.decodeIfPresent(PlaybackSpeed.self, forKey: .playbackSpeed) ?? .normal
-        voiceProvider = try container.decodeIfPresent(VoiceProvider.self, forKey: .voiceProvider) ?? .chatgptVoice
+        voiceProvider = try container.decodeIfPresent(VoiceProvider.self, forKey: .voiceProvider) ?? .onDevice
     }
 }
 

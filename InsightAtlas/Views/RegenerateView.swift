@@ -25,7 +25,7 @@ struct RegenerateView: View {
     @State private var showingError = false
 
     // User-selectable generation options
-    @State private var selectedProvider: AIProvider = .both
+    @State private var selectedProvider: AIProvider = .claude
     @State private var selectedMode: GenerationMode = .deepResearch
     @State private var selectedTone: ToneMode = .professional
     @State private var selectedFormat: OutputFormat = .fullGuide
@@ -33,6 +33,7 @@ struct RegenerateView: View {
 
     private let aiService = AIService()
     private let bookProcessor = BookProcessor()
+    private let availableProviders: [AIProvider] = [.claude, .openRouter]
 
     private let maxIterations = 3
     private let passingThreshold = 95
@@ -98,7 +99,9 @@ struct RegenerateView: View {
         }
         .onAppear {
             // Initialize with user's saved settings
-            selectedProvider = dataManager.userSettings.preferredProvider
+            selectedProvider = availableProviders.contains(dataManager.userSettings.preferredProvider)
+                ? dataManager.userSettings.preferredProvider
+                : .claude
             selectedMode = dataManager.userSettings.preferredMode
             selectedTone = dataManager.userSettings.preferredTone
             selectedFormat = dataManager.userSettings.preferredFormat
@@ -121,7 +124,7 @@ struct RegenerateView: View {
                     .foregroundColor(InsightAtlasColors.muted)
 
                 Picker("Provider", selection: $selectedProvider) {
-                    ForEach(AIProvider.allCases, id: \.self) { provider in
+                    ForEach(availableProviders, id: \.self) { provider in
                         Text(provider.displayName).tag(provider)
                     }
                 }

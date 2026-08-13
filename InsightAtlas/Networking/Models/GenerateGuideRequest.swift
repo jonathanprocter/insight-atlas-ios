@@ -36,7 +36,6 @@ enum EditorialStance: String, Codable {
 }
 
 enum LLMProvider: String, Codable {
-    case openai
-    case anthropic
-    case local
+    case claude
+    case openRouter
 }

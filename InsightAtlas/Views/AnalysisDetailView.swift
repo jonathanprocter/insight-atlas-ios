@@ -340,6 +340,16 @@ struct AnalysisDetailView: View {
 
             // Player controls
             HStack(spacing: 16) {
+                // Book cover thumbnail
+                CoverImage(
+                    title: item.title,
+                    author: item.author,
+                    coverImagePath: item.coverImagePath
+                )
+                .frame(width: 40, height: 54)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+
                 // Play/Pause button
                 Button(action: { toggleAudioPlayback() }) {
                     Image(systemName: isPlayingAudio ? "pause.circle.fill" : "play.circle.fill")
@@ -349,9 +359,10 @@ struct AnalysisDetailView: View {
 
                 // Track info
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Audio Guide")
+                    Text(item.title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(AnalysisTheme.textHeading)
+                        .lineLimit(1)
 
                     if let duration = item.audioDuration, duration > 0 {
                         let currentTime = duration * audioPlaybackProgress

@@ -137,7 +137,6 @@ final class OpenAIAudioService: AudioServiceProtocol {
 
     // MARK: - Properties
 
-    let provider: VoiceProvider = .openai
     private let urlSession: URLSession
 
     // MARK: - Initialization

@@ -1,12 +1,11 @@
 import Foundation
 
-struct ChatGPTVoice: UnifiedVoice {
+struct ChatGPTVoice: Equatable, Identifiable {
     let voiceID: String
     let name: String
     let description: String
 
     var id: String { voiceID }
-    var provider: VoiceProvider { .chatgptVoice }
     var previewText: String { VoicePreviewScript.primary }
 }
 

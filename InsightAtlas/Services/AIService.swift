@@ -1,22 +1,18 @@
 import Foundation
 import os.log
 
-/// OpenRouter is an OpenAI-compatible gateway to many models (OpenAI, Anthropic,
-/// Google, Meta, …) behind a single API key and billing account — a practical
-/// alternative when a direct OpenAI key is out of quota.
+/// OpenRouter is an OpenAI-compatible gateway to many models (Anthropic,
+/// Google, Meta, …) behind a single API key and billing account.
 enum OpenRouterConfig {
     static let endpoint = "https://openrouter.ai/api/v1/chat/completions"
 
     /// UserDefaults key backing the user-selected OpenRouter model slug.
     static let modelStorageKey = "insight_atlas_openrouter_model"
 
-    static let defaultModel = "openai/gpt-4o"
+    static let defaultModel = "anthropic/claude-opus-4.1"
 
     /// Suggested model slugs offered in Settings; users may type any valid slug.
     static let candidateModels = [
-        "openai/gpt-4o",
-        "openai/gpt-4o-mini",
-        "openai/gpt-4.1",
         "anthropic/claude-opus-4.1",
         "anthropic/claude-sonnet-4",
         "anthropic/claude-3.5-sonnet",
@@ -43,14 +39,11 @@ actor AIService {
     // MARK: - Properties
 
     private let claudeEndpoint = "https://api.anthropic.com/v1/messages"
-    private let openaiEndpoint = "https://api.openai.com/v1/chat/completions"
     private let openRouterEndpoint = OpenRouterConfig.endpoint
 
     private let claudeModel = "claude-sonnet-4-20250514"  // Sonnet 4: 64K output, excellent quality
-    private let openaiModel = "gpt-4.1-2025-04-14"  // Latest GPT-4.1 with 1M context
 
     private let maxTokensClaude = 64000  // Claude Sonnet 4 max output tokens
-    private let maxTokensOpenAI = 32768  // GPT-4.1 max output tokens
 
     /// Custom URLSession with extended timeouts for long-running AI generation
     private lazy var urlSession: URLSession = {
@@ -83,10 +76,10 @@ actor AIService {
     }
 
     /// Context window limits (approximate, leaving room for output)
-    /// Claude Opus 4: 200K context, we reserve 20K for output (max_tokens)
+    /// Claude Sonnet 4: 200K context, we reserve 20K for output (max_tokens)
     private let claudeContextLimit = 180_000
-    /// OpenAI GPT-4.1: 1M context, we reserve 32K for output
-    private let openaiContextLimit = 500_000
+    /// OpenRouter: generous limit to accommodate various models
+    private let openRouterContextLimit = 500_000
 
     // MARK: - Token Estimation
 
@@ -140,11 +133,10 @@ actor AIService {
         let userTokens = estimateTokenCount(for: userMessage)
         let totalTokens = systemTokens + userTokens
 
-        // For tandem mode (.both), use OpenAI's limit since GPT-4.1 analyzes the full book first
         let contextLimit: Int
         switch settings.preferredProvider {
-        case .openai, .both, .openRouter:
-            contextLimit = openaiContextLimit
+        case .openRouter:
+            contextLimit = openRouterContextLimit
         case .claude:
             contextLimit = claudeContextLimit
         }
@@ -177,12 +169,8 @@ actor AIService {
         if estimate.exceedsLimit {
             let providerName: String
             switch settings.preferredProvider {
-            case .openai:
-                providerName = "OpenAI"
             case .claude:
                 providerName = "Claude"
-            case .both:
-                providerName = "GPT-4.1"  // GPT handles the full book in tandem mode
             case .openRouter:
                 providerName = "OpenRouter"
             }
@@ -214,41 +202,14 @@ actor AIService {
         onReset: (() -> Void)? = nil,
         shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
-        let hasClaudeKey = !(settings.claudeApiKey ?? "").isEmpty
-        let hasOpenAIKey = !(settings.openaiApiKey ?? "").isEmpty
-
-        // UNOFFICIAL: route generation through the user's ChatGPT subscription
-        // (Codex backend) when opted in AND signed in. Overrides provider
-        // selection and API-key checks. See ChatGPTOAuthService.
-        if UserDefaults.standard.bool(forKey: "insight_atlas_use_chatgpt_oauth"),
-           ChatGPTOAuthService.hasStoredCredentials {
-            return try await generateWithChatGPTOAuth(
-                bookText: bookText,
-                title: title,
-                author: author,
-                settings: settings,
-                onChunk: onChunk,
-                onStatus: onStatus,
-                shouldTerminate: shouldTerminate
-            )
-        }
-
         // Pre-flight validation: check input size before making API call
         // Skip for continuation/improvement requests which use smaller input
         if previousContent == nil {
-            var validationSettings = settings
-            if settings.preferredProvider == .both {
-                if hasClaudeKey && !hasOpenAIKey {
-                    validationSettings.preferredProvider = .claude
-                } else if hasOpenAIKey && !hasClaudeKey {
-                    validationSettings.preferredProvider = .openai
-                }
-            }
             try validateInputSize(
                 bookText: bookText,
                 title: title,
                 author: author,
-                settings: validationSettings
+                settings: settings
             )
         }
 
@@ -269,24 +230,8 @@ actor AIService {
                 shouldTerminate: shouldTerminate
             )
 
-        case .openai:
-            return try await streamWithOpenAI(
-                text: bookText,
-                title: title,
-                author: author,
-                mode: settings.preferredMode,
-                tone: settings.preferredTone,
-                format: settings.preferredFormat,
-                apiKey: settings.openaiApiKey ?? "",
-                previousContent: previousContent,
-                improvementHints: improvementHints,
-                onChunk: onChunk,
-                onStatus: onStatus,
-                shouldTerminate: shouldTerminate
-            )
-
         case .openRouter:
-            return try await streamWithOpenAI(
+            return try await streamWithCompatibleAPI(
                 text: bookText,
                 title: title,
                 author: author,
@@ -304,195 +249,10 @@ actor AIService {
                 onStatus: onStatus,
                 shouldTerminate: shouldTerminate
             )
-
-        case .both:
-            // Dual Provider Mode (Optimized): GPT-4.1 analyzes full book (1M context), Claude synthesizes premium prose.
-            // This leverages GPT's massive context for comprehensive analysis and Claude's superior prose quality.
-
-            guard hasClaudeKey || hasOpenAIKey else {
-                throw AIServiceError.missingApiKey(provider: "Claude or OpenAI")
-            }
-
-            // If only one key available, use single-provider mode
-            if !hasOpenAIKey {
-                return try await streamWithClaude(
-                    text: bookText,
-                    title: title,
-                    author: author,
-                    mode: settings.preferredMode,
-                    tone: settings.preferredTone,
-                    format: settings.preferredFormat,
-                    apiKey: settings.claudeApiKey ?? "",
-                    previousContent: previousContent,
-                    improvementHints: improvementHints,
-                    onChunk: onChunk,
-                    onStatus: onStatus,
-                    shouldTerminate: shouldTerminate
-                )
-            }
-
-            if !hasClaudeKey {
-                return try await streamWithOpenAI(
-                    text: bookText,
-                    title: title,
-                    author: author,
-                    mode: settings.preferredMode,
-                    tone: settings.preferredTone,
-                    format: settings.preferredFormat,
-                    apiKey: settings.openaiApiKey ?? "",
-                    previousContent: previousContent,
-                    improvementHints: improvementHints,
-                    onChunk: onChunk,
-                    onStatus: onStatus,
-                    shouldTerminate: shouldTerminate
-                )
-            }
-
-            // PHASE 1: GPT-4.1 Deep Analysis (leverages 1M context window)
-            // GPT analyzes the ENTIRE book and extracts:
-            // - Author metadata from title/copyright pages
-            // - Book structure and chapter organization
-            // - Core thesis and key arguments
-            // - Notable quotes with locations
-            // - Key concepts and frameworks
-            onStatus(GenerationStatus(
-                phase: .analyzing,
-                progress: 0.05,
-                wordCount: 0,
-                model: "GPT-4.1 (Phase 1/2 - Deep Analysis)"
-            ))
-
-            let gptAnalysis: String
-            do {
-                gptAnalysis = try await performGPTAnalysis(
-                    bookText: bookText,
-                    title: title,
-                    author: author,
-                    apiKey: settings.openaiApiKey ?? "",
-                    onStatus: { status in
-                        var adjusted = status
-                        adjusted.model = "GPT-4.1 (Phase 1/2 - Analysis)"
-                        adjusted.progress = status.progress * 0.25  // First 25% is analysis
-                        onStatus(adjusted)
-                    },
-                    shouldTerminate: shouldTerminate
-                )
-            } catch {
-                Self.logger.error("Tandem mode Phase 1 (GPT-4.1 Analysis) failed: \(error.localizedDescription)")
-                throw AIServiceError.tandemModePhaseFailure(phase: "GPT-4.1 Analysis", underlyingError: error)
-            }
-
-            if shouldTerminate?() == true {
-                return gptAnalysis
-            }
-
-            Self.logger.info("GPT-4.1 analysis complete: \(gptAnalysis.count) characters")
-
-            // PHASE 2: Claude Premium Synthesis (superior prose quality)
-            // Claude receives GPT's comprehensive analysis + condensed book text
-            // and generates the final premium editorial guide
-            onStatus(GenerationStatus(
-                phase: .writing,
-                progress: 0.30,
-                wordCount: 0,
-                model: "Claude (Phase 2/2 - Premium Synthesis)"
-            ))
-
-            let finalResult: String
-            do {
-                finalResult = try await streamWithClaudeUsingAnalysis(
-                    bookText: bookText,
-                    title: title,
-                    author: author,
-                    gptAnalysis: gptAnalysis,
-                    mode: settings.preferredMode,
-                    tone: settings.preferredTone,
-                    format: settings.preferredFormat,
-                    apiKey: settings.claudeApiKey ?? "",
-                    onChunk: onChunk,
-                    onStatus: { status in
-                        var adjusted = status
-                        adjusted.model = "Claude (Phase 2/2 - Synthesis)"
-                        adjusted.progress = 0.30 + (status.progress * 0.70)  // Last 70% is synthesis
-                        onStatus(adjusted)
-                    },
-                    shouldTerminate: shouldTerminate
-                )
-            } catch {
-                Self.logger.error("Tandem mode Phase 2 (Claude Synthesis) failed: \(error.localizedDescription)")
-                throw AIServiceError.tandemModePhaseFailure(phase: "Claude Synthesis", underlyingError: error)
-            }
-
-            return finalResult
         }
     }
 
     // MARK: - Claude Integration
-
-    /// UNOFFICIAL ChatGPT-subscription generation via the Codex backend.
-    /// Streams the guide progressively via onChunk (incremental deltas),
-    /// mirroring the Claude/OpenAI streaming paths.
-    private func generateWithChatGPTOAuth(
-        bookText: String,
-        title: String,
-        author: String,
-        settings: UserSettings,
-        onChunk: @escaping (String) -> Void,
-        onStatus: @escaping (GenerationStatus) -> Void,
-        shouldTerminate: (() -> Bool)? = nil
-    ) async throws -> String {
-        let token = try await ChatGPTOAuthService.shared.validAccessToken()
-        let accountID = ChatGPTOAuthService.storedAccountID
-        let system = InsightAtlasPromptGenerator.generatePrompt(
-            title: title,
-            author: author,
-            mode: settings.preferredMode,
-            tone: settings.preferredTone,
-            format: settings.preferredFormat
-        )
-        let user = InsightAtlasPromptGenerator.generateUserMessage(
-            title: title,
-            author: author,
-            bookText: bookText,
-            format: settings.preferredFormat
-        )
-        let stream = ChatGPTCodexClient().stream(
-            systemPrompt: system,
-            userMessage: user,
-            model: ChatGPTOAuthConfig.resolvedModel,
-            accessToken: token,
-            accountID: accountID
-        )
-
-        var chunks: [String] = []
-        var wordCount = 0
-        var lastCharWasWhitespace = true
-        var lastPhaseUpdate = 0
-        var terminated = false
-
-        for try await delta in stream {
-            if shouldTerminate?() == true { terminated = true; break }
-            chunks.append(delta)
-            onChunk(delta)
-            updateWordCount(for: delta, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
-            if wordCount > lastPhaseUpdate + 1000 {
-                lastPhaseUpdate = wordCount
-                onStatus(GenerationStatus(
-                    phase: determinePhase(wordCount: wordCount),
-                    progress: min(Double(wordCount) / 15000.0, 0.95),
-                    wordCount: wordCount,
-                    model: "ChatGPT"
-                ))
-            }
-        }
-
-        if !terminated {
-            guard !chunks.isEmpty else {
-                throw ChatGPTOAuthError.inferenceFailed("empty response from Codex stream")
-            }
-        }
-        return chunks.joined()
-    }
 
     private func streamWithClaude(
         text: String,
@@ -763,9 +523,9 @@ actor AIService {
         return chunks.joined()
     }
 
-    // MARK: - OpenAI Integration
+    // MARK: - OpenRouter Integration
 
-    private func streamWithOpenAI(
+    private func streamWithCompatibleAPI(
         text: String,
         title: String,
         author: String,
@@ -776,7 +536,7 @@ actor AIService {
         endpoint: String? = nil,
         model: String? = nil,
         maxTokens: Int? = nil,
-        providerLabel: String = "OpenAI",
+        providerLabel: String = "OpenRouter",
         previousContent: String? = nil,
         improvementHints: String? = nil,
         onChunk: @escaping (String) -> Void,
@@ -784,11 +544,9 @@ actor AIService {
         shouldTerminate: (() -> Bool)? = nil
     ) async throws -> String {
 
-        // OpenRouter is OpenAI wire-compatible, so this path serves both by
-        // swapping the endpoint URL, model, and provider label.
-        let resolvedEndpoint = endpoint ?? openaiEndpoint
-        let resolvedModel = model ?? openaiModel
-        let resolvedMaxTokens = maxTokens ?? maxTokensOpenAI
+        let resolvedEndpoint = endpoint ?? openRouterEndpoint
+        let resolvedModel = model ?? OpenRouterConfig.resolvedModel
+        let resolvedMaxTokens = maxTokens ?? 16_000
 
         guard !apiKey.isEmpty else {
             throw AIServiceError.missingApiKey(provider: providerLabel)
@@ -870,10 +628,10 @@ actor AIService {
             )
         }
 
-        guard let openaiURL = URL(string: resolvedEndpoint) else {
+        guard let requestURL = URL(string: resolvedEndpoint) else {
             throw AIServiceError.invalidURL(provider: providerLabel)
         }
-        var request = URLRequest(url: openaiURL)
+        var request = URLRequest(url: requestURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -904,8 +662,9 @@ actor AIService {
                     accumulatedChunks.append(chunk)
                     onChunk(chunk)
                 }
-                let streamed = try await performOpenAIStream(
+                let streamed = try await performCompatibleAPIStream(
                     request: request,
+                    providerLabel: providerLabel,
                     onChunk: trackingOnChunk,
                     onStatus: onStatus,
                     shouldTerminate: shouldTerminate
@@ -926,7 +685,7 @@ actor AIService {
                         phase: .analyzing,
                         progress: 0.0,
                         wordCount: 0,
-                        model: "OpenAI (retrying in \(delaySeconds)s - attempt \(attempt)/\(maxRetryAttempts))"
+                        model: "\(providerLabel) (retrying in \(delaySeconds)s - attempt \(attempt)/\(maxRetryAttempts))"
                     ))
 
                     // Check for cancellation before sleeping
@@ -936,7 +695,7 @@ actor AIService {
                     try Task.checkCancellation()
                 }
             } catch is CancellationError {
-                Self.logger.info("OpenAI streaming cancelled during retry")
+                Self.logger.info("\(providerLabel) streaming cancelled during retry")
                 return accumulatedChunks.joined()
             } catch {
                 if shouldTerminate?() == true {
@@ -949,9 +708,10 @@ actor AIService {
         throw lastError ?? AIServiceError.networkError(message: "Failed after \(maxRetryAttempts) attempts")
     }
 
-    /// Performs the actual OpenAI streaming request
-    private func performOpenAIStream(
+    /// Performs the actual OpenRouter-compatible streaming request
+    private func performCompatibleAPIStream(
         request: URLRequest,
+        providerLabel: String,
         onChunk: @escaping (String) -> Void,
         onStatus: @escaping (GenerationStatus) -> Void,
         shouldTerminate: (() -> Bool)? = nil
@@ -964,7 +724,7 @@ actor AIService {
         }
 
         guard httpResponse.statusCode == 200 else {
-            // Drain the error payload so OpenAI's actual reason (e.g.
+            // Drain the error payload so the provider's actual reason (e.g.
             // insufficient_quota vs rate_limit_exceeded) reaches the user
             // instead of a bare status code.
             var errorBody = ""
@@ -991,20 +751,20 @@ actor AIService {
                 if data == "[DONE]" { continue }
 
                 guard let jsonData = data.data(using: .utf8) else {
-                    Self.logger.warning("OpenAI stream: Failed to convert line to UTF-8 data: \(data.prefix(100))")
+                    Self.logger.warning("\(providerLabel) stream: Failed to convert line to UTF-8 data: \(data.prefix(100))")
                     continue
                 }
 
                 do {
                     guard let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-                        Self.logger.warning("OpenAI stream: Response is not a dictionary")
+                        Self.logger.warning("\(providerLabel) stream: Response is not a dictionary")
                         continue
                     }
 
                     // Check for error responses embedded in a 200 stream event
                     if let error = json["error"] as? [String: Any],
                        let message = error["message"] as? String {
-                        Self.logger.error("OpenAI stream: API error - \(message)")
+                        Self.logger.error("\(providerLabel) stream: API error - \(message)")
                         asyncBytes.task.cancel()
                         throw AIServiceError.streamError(message: message)
                     }
@@ -1039,11 +799,11 @@ actor AIService {
                             phase: phase,
                             progress: progress,
                             wordCount: wordCount,
-                            model: "OpenAI"
+                            model: providerLabel
                         ))
                     }
                 } catch {
-                    Self.logger.error("OpenAI stream: JSON parse failed - \(error.localizedDescription). Data: \(data.prefix(200))")
+                    Self.logger.error("\(providerLabel) stream: JSON parse failed - \(error.localizedDescription). Data: \(data.prefix(200))")
                     // Continue processing - don't fail the entire stream for one bad event
                 }
             }
@@ -1053,364 +813,14 @@ actor AIService {
             phase: .complete,
             progress: 1.0,
             wordCount: wordCount,
-            model: "OpenAI"
+            model: providerLabel
         ))
 
         return chunks.joined()
     }
 
-    // MARK: - Tandem Mode: GPT Analysis Phase
-
-    /// Phase 1 of tandem mode: GPT-4.1 performs deep analysis of the book
-    /// Leverages GPT's 1M context window to analyze the entire book
-    private func performGPTAnalysis(
-        bookText: String,
-        title: String,
-        author: String,
-        apiKey: String,
-        onStatus: @escaping (GenerationStatus) -> Void,
-        shouldTerminate: (() -> Bool)? = nil
-    ) async throws -> String {
-
-        guard !apiKey.isEmpty else {
-            throw AIServiceError.missingApiKey(provider: "OpenAI")
-        }
-
-        onStatus(GenerationStatus(
-            phase: .analyzing,
-            progress: 0.0,
-            wordCount: 0,
-            model: "GPT-4.1 (Deep Analysis)"
-        ))
-
-        let analysisPrompt = """
-        You are an expert book analyst preparing a comprehensive analysis for a guide writer.
-        Your analysis will be used by another AI to create a reader's guide.
-
-        CRITICAL: Start by extracting exact metadata from the document.
-
-        Analyze this book thoroughly and provide:
-
-        ## METADATA (EXTRACT FROM DOCUMENT - DO NOT SKIP)
-        **Author Name:** [Extract the EXACT author name from title page, copyright page, or "About the Author" section. If "\(author)" shows as "Unknown", you MUST find the real author name in the document.]
-        **Publication Year:** [Extract from copyright page, e.g., "Copyright © 2023"]
-        **Publisher:** [Extract from copyright page if available]
-        **Full Title:** [Include subtitle if present]
-
-        ## BOOK STRUCTURE
-        - List all chapters/sections with their titles and page ranges (if identifiable)
-        - Identify the book's organizational pattern (chronological, thematic, problem-solution, etc.)
-        - Note any unique structural elements (case studies, exercises, frameworks)
-
-        ## CORE THESIS & ARGUMENTS
-        - State the book's central thesis in 2-3 sentences (this should be quotable)
-        - List the 5-7 main arguments or key points the author makes
-        - Identify the primary evidence or support for each argument
-
-        ## KEY CONCEPTS & FRAMEWORKS
-        - List and briefly explain all major concepts, models, or frameworks introduced
-        - Note any proprietary terminology the author uses (use their exact names)
-        - Identify relationships between concepts
-
-        ## NOTABLE QUOTES & PASSAGES
-        - Extract 8-12 of the most impactful quotes (with chapter/section location if possible)
-        - Note any recurring phrases or mantras the author emphasizes
-        - Include the quote text exactly as written
-
-        ## AUTHOR'S PERSPECTIVE
-        - Identify the author's background/credentials as presented in the book
-        - Note their philosophical or methodological approach
-        - Identify any biases or limitations acknowledged
-
-        ## TARGET AUDIENCE & APPLICATIONS
-        - Who is this book written for?
-        - What problems does it solve?
-        - What are the practical applications?
-
-        ## THEMATIC PATTERNS
-        - Identify recurring themes throughout the book
-        - Note any narrative arcs or progression of ideas
-        - Identify the emotional journey the reader is taken on
-
-        ## CRITICAL INSIGHTS
-        - What makes this book unique or valuable?
-        - What are its strongest contributions?
-        - Any notable weaknesses or gaps?
-
-        ## EXCEED-EXPECTATIONS INSIGHTS (GO BEYOND SHORTFORM)
-        - 3-5 original synthesis insights that go beyond summary (novel connections, implications, or tensions)
-        - 2-3 practical frameworks or lenses the guide can introduce (name them)
-        - 3-5 visual recommendations using the VISUAL_* tags (include brief bullet data or structure)
-
-        Be thorough and specific. Include chapter references or section locations where possible.
-        The METADATA section is CRITICAL - the guide writer needs accurate author and publication info.
-        """
-
-        guard let openaiURL = URL(string: openaiEndpoint) else {
-            throw AIServiceError.invalidURL(provider: "OpenAI")
-        }
-
-        var request = URLRequest(url: openaiURL)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-
-        let requestBody: [String: Any] = [
-            "model": openaiModel,
-            "max_tokens": maxTokensOpenAI,
-            "stream": false,  // Non-streaming for analysis phase
-            "messages": [
-                ["role": "system", "content": analysisPrompt],
-                ["role": "user", "content": """
-                    Please analyze the following book:
-
-                    Title: \(title)
-                    Author: \(author)
-
-                    ---BOOK CONTENT START---
-                    \(bookText)
-                    ---BOOK CONTENT END---
-
-                    Provide your comprehensive analysis following the structure outlined.
-                    """]
-            ]
-        ]
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-
-        // Non-streaming request for analysis
-        let (data, response) = try await urlSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw AIServiceError.invalidResponse
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw AIServiceError.apiErrorWithBody(statusCode: httpResponse.statusCode, body: errorBody)
-        }
-
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let message = choices.first?["message"] as? [String: Any],
-              let content = message["content"] as? String else {
-            throw AIServiceError.invalidResponse
-        }
-
-        Self.logger.info("GPT Analysis complete: \(content.count) characters")
-
-        onStatus(GenerationStatus(
-            phase: .analyzing,
-            progress: 1.0,
-            wordCount: content.split(separator: " ").count,
-            model: "GPT-4.1 (Analysis Complete)"
-        ))
-
-        return content
-    }
-
-    // MARK: - Tandem Mode: Claude Synthesis Phase
-
-    /// Phase 2 of tandem mode: Claude synthesizes the guide using GPT's analysis
-    /// Receives condensed book content + comprehensive GPT analysis
-    private func streamWithClaudeUsingAnalysis(
-        bookText: String,
-        title: String,
-        author: String,
-        gptAnalysis: String,
-        mode: GenerationMode,
-        tone: ToneMode,
-        format: OutputFormat,
-        apiKey: String,
-        onChunk: @escaping (String) -> Void,
-        onStatus: @escaping (GenerationStatus) -> Void,
-        shouldTerminate: (() -> Bool)? = nil
-    ) async throws -> String {
-
-        guard !apiKey.isEmpty else {
-            throw AIServiceError.missingApiKey(provider: "Claude")
-        }
-
-        onStatus(GenerationStatus(
-            phase: .writing,
-            progress: 0.0,
-            wordCount: 0,
-            model: "Claude (Synthesis)"
-        ))
-
-        // Generate the standard system prompt for guide creation
-        let baseSystemPrompt = InsightAtlasPromptGenerator.generatePrompt(
-            title: title,
-            author: author,
-            mode: mode,
-            tone: tone,
-            format: format
-        )
-
-        // Enhance with analysis context
-        let systemPrompt = """
-        \(baseSystemPrompt)
-
-        IMPORTANT: You have been provided with a comprehensive analysis of this book performed by GPT-4.1.
-        Use this analysis to inform and enrich your guide. The analysis includes:
-        - Detailed chapter structure and organization
-        - Core thesis and arguments with supporting evidence
-        - Key concepts, frameworks, and terminology
-        - Notable quotes and passages
-        - Author perspective and methodology
-        - Target audience and applications
-        - Thematic patterns and critical insights
-
-        Integrate these insights throughout your guide. Reference specific concepts and quotes from the analysis.
-        Create a guide that demonstrates deep understanding of the book's content and structure.
-        The goal is to EXCEED what a shortform summary delivers: synthesize, interpret, and add value.
-        """
-
-        // Condense book text to fit within Claude's context while keeping key parts
-        // Claude's total context is 200K. We need: input tokens + max_tokens (output) <= 200K
-        // So available input = 200K - 64K (max_tokens) = 136K tokens
-        // Reserve space for: system prompt + GPT analysis + user message wrapper + safety margin
-        let totalContextLimit = 200_000  // Claude's actual context window
-        let availableForInput = totalContextLimit - maxTokensClaude  // 200K - 64K = 136K
-        let systemPromptTokens = estimateTokenCount(for: systemPrompt)
-        let gptAnalysisTokens = estimateTokenCount(for: gptAnalysis)
-        let messageOverhead = 2000  // Buffer for user message wrapper text
-        let safetyMargin = 5000  // Extra safety margin
-
-        let maxBookTokens = max(0, availableForInput - systemPromptTokens - gptAnalysisTokens - messageOverhead - safetyMargin)
-        Self.logger.info("Claude synthesis budget: \(maxBookTokens) tokens for book (available: \(availableForInput), prompt: \(systemPromptTokens), analysis: \(gptAnalysisTokens))")
-
-        let condensedBook = condenseBookText(bookText, maxTokens: maxBookTokens)
-
-        let userMessage = """
-        Create a comprehensive Insight Atlas guide for this book.
-
-        ## GPT-4.1 BOOK ANALYSIS
-        The following comprehensive analysis was performed by GPT-4.1 with access to the COMPLETE book:
-
-        \(gptAnalysis)
-
-        ## BOOK CONTENT
-        Title: \(title)
-        Author: \(author)
-
-        \(condensedBook)
-
-        ---
-
-        CRITICAL INSTRUCTIONS:
-
-        1. **METADATA FIRST**: Check the GPT analysis for the METADATA section. If it contains an author name different from "\(author)" (especially if "\(author)" is "Unknown"), USE THE AUTHOR NAME FROM THE ANALYSIS throughout your guide.
-
-        2. **QUICK GLANCE**: Use the extracted author name and publication year in the Quick Glance header. Extract SPECIFIC key insights from the "Core Thesis & Arguments" and "Key Concepts" sections of the analysis.
-
-        3. **QUOTES**: The analysis includes notable quotes with locations - incorporate these with proper attribution.
-
-        4. **STRUCTURE**: Follow the book structure identified in the analysis to organize your synthesis thematically.
-
-        5. **TERMINOLOGY**: Use the author's actual terminology and framework names as documented in the "Key Concepts & Frameworks" section.
-
-        6. **EXCEED SHORTFORM**: Go beyond summary. Add synthesis, original framing, and applied insights.
-
-        7. **VISUALS**: Use 2-4 VISUAL_* blocks that clarify core ideas (prefer structured data over placeholders).
-
-        Create a complete Insight Atlas guide that demonstrates deep understanding of the book's content and structure.
-        """
-
-        guard let claudeURL = URL(string: claudeEndpoint) else {
-            throw AIServiceError.invalidURL(provider: "Claude")
-        }
-
-        var request = URLRequest(url: claudeURL)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-
-        let requestBody = ClaudeRequest(
-            model: claudeModel,
-            max_tokens: maxTokensClaude,
-            stream: true,
-            system: systemPrompt,
-            messages: [
-                ClaudeMessage(role: "user", content: userMessage)
-            ]
-        )
-
-        request.httpBody = try JSONEncoder().encode(requestBody)
-
-        return try await performClaudeStream(
-            request: request,
-            onChunk: onChunk,
-            onStatus: onStatus,
-            shouldTerminate: shouldTerminate
-        )
-    }
-
-    /// Condenses book text to fit within token limits while preserving key content
-    private func condenseBookText(_ text: String, maxTokens: Int) -> String {
-        guard maxTokens > 0 else {
-            return ""
-        }
-        let currentTokens = estimateTokenCount(for: text)
-
-        if currentTokens <= maxTokens {
-            return text
-        }
-
-        // Need to condense - keep beginning, important middle sections, and end
-        let targetChars = maxTokens * 4  // ~4 chars per token
-
-        // Strategy: Keep first 40%, sample middle 30%, keep last 30%
-        let firstPortion = Int(Double(targetChars) * 0.4)
-        let lastPortion = Int(Double(targetChars) * 0.3)
-        let middlePortion = targetChars - firstPortion - lastPortion
-
-        let textLength = text.count
-
-        // Get first portion
-        let firstEndIndex = text.index(text.startIndex, offsetBy: min(firstPortion, textLength))
-        let firstPart = String(text[text.startIndex..<firstEndIndex])
-
-        // Get last portion
-        let lastStartOffset = max(0, textLength - lastPortion)
-        let lastStartIndex = text.index(text.startIndex, offsetBy: lastStartOffset)
-        let lastPart = String(text[lastStartIndex..<text.endIndex])
-
-        // Sample from middle
-        let middleStart = firstPortion
-        let middleEnd = textLength - lastPortion
-        var middlePart = ""
-
-        if middleEnd > middleStart && middlePortion > 0 {
-            // Sample evenly from the middle section
-            let middleRange = middleEnd - middleStart
-            let sampleSize = min(middlePortion, middleRange)
-            let sampleStart = middleStart + (middleRange - sampleSize) / 2
-
-            let sampleStartIndex = text.index(text.startIndex, offsetBy: sampleStart)
-            let sampleEndIndex = text.index(sampleStartIndex, offsetBy: sampleSize)
-            middlePart = String(text[sampleStartIndex..<sampleEndIndex])
-        }
-
-        let condensedText = """
-        \(firstPart)
-
-        [...content condensed for context limits - GPT analysis above contains full book analysis...]
-
-        \(middlePart)
-
-        [...additional content condensed...]
-
-        \(lastPart)
-        """
-
-        Self.logger.info("Condensed book from \(textLength) to \(condensedText.count) characters for Claude")
-
-        return condensedText
-    }
-
     // MARK: - Helpers
+
 
     private func updateWordCount(for chunk: String, currentCount: inout Int, lastCharWasWhitespace: inout Bool) {
         for character in chunk {
@@ -1470,7 +880,6 @@ enum AIServiceError: LocalizedError {
     // NEW: More specific error types for better user feedback
     case contentPolicyViolation(message: String, provider: String)
     case rateLimitExceeded(retryAfter: TimeInterval?, provider: String)
-    case tandemModePhaseFailure(phase: String, underlyingError: Error)
     case tokenEstimationWarning(estimated: Int, limit: Int, utilizationPercent: Double)
 
     var errorDescription: String? {
@@ -1483,7 +892,7 @@ enum AIServiceError: LocalizedError {
             return "Received an invalid response from the API."
         case .apiError(let statusCode):
             if statusCode == 429 {
-                return "API error 429 (rate limit / quota). If this persists, your OpenAI API account is most likely out of credits — add billing at platform.openai.com. Note: a ChatGPT Plus subscription does not fund API usage."
+                return "API error 429 (rate limit / quota). If this persists, your provider account may be out of credits or rate limited."
             }
             return "API error with status code: \(statusCode)"
         case .apiErrorWithBody(let statusCode, let body):
@@ -1497,7 +906,7 @@ enum AIServiceError: LocalizedError {
             }
             if statusCode == 429 {
                 let hint = detail.lowercased().contains("quota")
-                    ? " Your OpenAI API account is out of credits — add billing at platform.openai.com. (A ChatGPT Plus subscription does not fund API usage.)"
+                    ? " Your provider account appears to be out of credits."
                     : " You're being rate limited; wait a moment and try again."
                 return "API error (429): \(detail)\(hint)"
             }
@@ -1511,7 +920,7 @@ enum AIServiceError: LocalizedError {
             let limitFormatted = NumberFormatter.localizedString(from: NSNumber(value: limit), number: .decimal)
             let suggestion = provider == "Claude"
                 ? "Try a shorter book, or contact support for extended context options."
-                : "Try a shorter book or switch to Claude for larger context."
+                : "Try a shorter book or switch to Claude."
             return "This book is too large for \(provider) (~\(formatted) tokens, limit: \(limitFormatted)). \(suggestion)"
         case .contentPolicyViolation(let message, let provider):
             return "\(provider) content policy violation: \(message)"
@@ -1520,8 +929,6 @@ enum AIServiceError: LocalizedError {
                 return "\(provider) rate limit exceeded. Please wait \(Int(retryAfter)) seconds before retrying."
             }
             return "\(provider) rate limit exceeded. Please try again in a few minutes."
-        case .tandemModePhaseFailure(let phase, let error):
-            return "Tandem mode failed during \(phase): \(error.localizedDescription)"
         case .tokenEstimationWarning(let estimated, let limit, let percent):
             return "Warning: Input size is \(String(format: "%.1f", percent))% of context limit (\(estimated)/\(limit) tokens). Generation may be slow or fail."
         }
@@ -1533,10 +940,8 @@ enum AIServiceError: LocalizedError {
             return "Please review the book content for potentially sensitive material and try a different book."
         case .rateLimitExceeded:
             return "Wait a few minutes before trying again, or check your API plan limits."
-        case .tandemModePhaseFailure(let phase, _):
-            return "Try switching to single-provider mode (Claude or OpenAI only) instead of tandem mode. The \(phase) phase encountered an error."
         case .tokenEstimationWarning:
-            return "Consider using a smaller excerpt or switching to GPT-4.1 (1M context) if using Claude."
+            return "Consider using a smaller excerpt or switching providers."
         case .missingApiKey:
             return "Go to Settings and add your API key."
         case .networkError:

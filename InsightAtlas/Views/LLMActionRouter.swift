@@ -92,7 +92,7 @@ public enum LLMActionRouter {
 
         case "voice_provider_picker":
             guard let v = value, let provider = parseVoiceProvider(v) else {
-                return .failure("Provide a voice provider value (e.g., ChatGPT Voice, OpenAI, or ElevenLabs).")
+                return .failure("Provide a voice provider value (e.g., On-Device or ElevenLabs).")
             }
             environment.updateVoiceProvider(provider)
             environment.userSettings.voiceProvider = provider
@@ -117,27 +117,6 @@ public enum LLMActionRouter {
                 return .failure("Provide a model slug for OpenRouter.")
             }
 
-        case "chatgpt_use_toggle":
-            let key = "insight_atlas_use_chatgpt_oauth"
-            let newValue: Bool
-            if let v = value?.lowercased() {
-                newValue = (v == "true" || v == "1" || v == "yes")
-            } else {
-                newValue = !(UserDefaults.standard.bool(forKey: key))
-            }
-            UserDefaults.standard.set(newValue, forKey: key)
-            PremiumHaptics.selection()
-            return .success("Use ChatGPT set to \(newValue)")
-
-        case "chatgpt_model_field":
-            if let v = value, !v.isEmpty {
-                UserDefaults.standard.set(v, forKey: ChatGPTOAuthConfig.modelStorageKey)
-                PremiumHaptics.selection()
-                return .success("ChatGPT model set to \(v)")
-            } else {
-                return .failure("Provide a model slug for ChatGPT.")
-            }
-
         case "contact_support_button":
             if let url = URL(string: "mailto:support@example.com") {
                 UIApplication.shared.open(url)
@@ -151,11 +130,6 @@ public enum LLMActionRouter {
                 return .success("Opened App Store review page")
             }
             return .failure("Unable to open App Store")
-
-        case "securefield_openai":
-            guard let v = value else { return .failure("Provide an API key value.") }
-            environment.updateOpenAIApiKey(v.isEmpty ? nil : v)
-            return .success("Updated OpenAI key")
 
         case "securefield_claude":
             guard let v = value else { return .failure("Provide an API key value.") }

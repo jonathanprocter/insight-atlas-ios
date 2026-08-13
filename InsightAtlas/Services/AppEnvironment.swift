@@ -17,7 +17,6 @@ class AppEnvironment: ObservableObject {
 
     let aiService: AIService
     let audioService: ElevenLabsAudioService
-    let openAIAudioService: OpenAIAudioService
     let voiceServiceManager: VoiceServiceManager
     let generationCoordinator: BackgroundGenerationCoordinator
     let dataManager: DataManager
@@ -32,7 +31,6 @@ class AppEnvironment: ObservableObject {
     init() {
         self.aiService = AIService()
         self.audioService = ElevenLabsAudioService()
-        self.openAIAudioService = OpenAIAudioService()
         self.voiceServiceManager = VoiceServiceManager.shared
         self.generationCoordinator = BackgroundGenerationCoordinator.shared
         self.dataManager = DataManager.shared
@@ -96,10 +94,6 @@ class AppEnvironment: ObservableObject {
         KeychainService.shared.claudeApiKey = key
     }
 
-    func updateOpenAIApiKey(_ key: String?) {
-        KeychainService.shared.openaiApiKey = key
-    }
-
     func updateVoiceProvider(_ provider: VoiceProvider) {
         userSettings.voiceProvider = provider
         voiceServiceManager.setProvider(provider)
@@ -114,13 +108,8 @@ class AppEnvironment: ObservableObject {
         switch userSettings.preferredProvider {
         case .claude:
             return KeychainService.shared.hasClaudeApiKey
-        case .openai:
-            return KeychainService.shared.hasOpenAIApiKey
         case .openRouter:
             return KeychainService.shared.hasOpenRouterApiKey
-        case .both:
-            return KeychainService.shared.hasClaudeApiKey ||
-                   KeychainService.shared.hasOpenAIApiKey
         }
     }
 

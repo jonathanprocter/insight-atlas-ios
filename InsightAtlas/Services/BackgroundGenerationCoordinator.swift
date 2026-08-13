@@ -1299,24 +1299,14 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             let voiceName: String
 
             switch provider {
-            case .chatgptVoice:
+            case .onDevice:
                 if let selectedVoiceID,
-                   let selectedVoice = ChatGPTVoiceRegistry.voice(byID: selectedVoiceID) {
+                   let selectedVoice = OnDeviceVoiceRegistry.voice(byID: selectedVoiceID) {
                     voiceID = selectedVoice.voiceID
                     voiceName = selectedVoice.name
                 } else {
-                    voiceID = ChatGPTVoiceRegistry.defaultVoice.voiceID
-                    voiceName = ChatGPTVoiceRegistry.defaultVoice.name
-                }
-
-            case .openai:
-                if let selectedVoiceID,
-                   let selectedVoice = OpenAIVoiceRegistry.voice(byID: selectedVoiceID) {
-                    voiceID = selectedVoice.voiceID
-                    voiceName = selectedVoice.name
-                } else {
-                    voiceID = OpenAIVoiceRegistry.defaultVoice.voiceID
-                    voiceName = OpenAIVoiceRegistry.defaultVoice.name
+                    voiceID = OnDeviceVoiceRegistry.defaultVoice.voiceID
+                    voiceName = OnDeviceVoiceRegistry.defaultVoice.name
                 }
 
             case .elevenlabs:
@@ -1344,7 +1334,11 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                     provider: provider
                 )
                 guard !result.data.isEmpty else {
-                    throw ChatGPTVoiceServiceError.emptyAudio
+                    throw NSError(
+                        domain: "InsightAtlas.AudioGeneration",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Voice provider returned empty audio data."]
+                    )
                 }
 
                 let audioOwnerId = libraryItemId ?? generationId

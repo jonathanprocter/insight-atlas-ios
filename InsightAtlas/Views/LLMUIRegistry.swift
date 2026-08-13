@@ -52,16 +52,10 @@ public enum LLMUIRegistry {
             // API
             LLMControl(id: "navrow_manage_api_keys", title: "Manage API Keys", kind: "navigation"),
             LLMControl(id: "securefield_claude", title: "Claude API Key", kind: "field"),
-            LLMControl(id: "securefield_openai", title: "OpenAI API Key", kind: "field"),
             LLMControl(id: "securefield_openrouter", title: "OpenRouter API Key", kind: "field"),
             LLMControl(id: "securefield_elevenlabs", title: "ElevenLabs API Key", kind: "field"),
             LLMControl(id: "openrouter_model_field", title: "OpenRouter model slug", kind: "field"),
             LLMControl(id: "openrouter_model_menu", title: "OpenRouter model suggestions", kind: "menu"),
-            LLMControl(id: "chatgpt_use_toggle", title: "Use ChatGPT for guide generation", kind: "toggle"),
-            LLMControl(id: "chatgpt_model_field", title: "ChatGPT Codex model slug", kind: "field"),
-            LLMControl(id: "chatgpt_model_menu", title: "ChatGPT model suggestions", kind: "menu"),
-            LLMControl(id: "chatgpt_sign_in_button", title: "Sign in with ChatGPT", kind: "button"),
-            LLMControl(id: "chatgpt_sign_out_button", title: "Sign out of ChatGPT", kind: "button"),
 
             // Audio
             LLMControl(id: "navrow_audio_settings", title: "Audio Settings", kind: "navigation"),

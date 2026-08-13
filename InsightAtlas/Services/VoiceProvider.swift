@@ -2,7 +2,7 @@
 //  VoiceProvider.swift
 //  InsightAtlas
 //
-//  Voice provider abstraction for ChatGPT Voice, OpenAI TTS, and ElevenLabs.
+//  Voice provider abstraction for placeholder on-device Kokoro narration and ElevenLabs.
 //
 
 import Foundation
@@ -11,18 +11,15 @@ import Foundation
 
 /// Available voice-generation providers, ordered by the default primary route.
 enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
-    case chatgptVoice = "chatgpt_voice"
-    case openai = "openai"
+    case onDevice = "on_device"
     case elevenlabs = "elevenlabs"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .chatgptVoice:
-            return "ChatGPT Voice (Experimental)"
-        case .openai:
-            return "OpenAI"
+        case .onDevice:
+            return "On-Device (Kokoro)"
         case .elevenlabs:
             return "ElevenLabs"
         }
@@ -30,10 +27,8 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var description: String {
         switch self {
-        case .chatgptVoice:
-            return "Experimental GPT-Live narration using your ChatGPT sign-in"
-        case .openai:
-            return "High-quality narration using your OpenAI API key"
+        case .onDevice:
+            return "On-device Kokoro TTS — no API key required, works offline"
         case .elevenlabs:
             return "Premium voices with advanced customization"
         }
@@ -42,7 +37,7 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Whether this provider requires a provider-specific key beyond existing app credentials.
     var requiresSeparateApiKey: Bool {
         switch self {
-        case .chatgptVoice, .openai:
+        case .onDevice:
             return false
         case .elevenlabs:
             return true
@@ -51,10 +46,8 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var defaultVoiceID: String {
         switch self {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.defaultVoice.voiceID
-        case .openai:
-            return OpenAIVoiceRegistry.defaultVoice.voiceID
+        case .onDevice:
+            return "daniel"
         case .elevenlabs:
             return ElevenLabsVoiceRegistry.adam.voiceID
         }
@@ -62,8 +55,8 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var audioFileExtension: String {
         switch self {
-        case .chatgptVoice, .openai:
-            return "m4a"
+        case .onDevice:
+            return "wav"
         case .elevenlabs:
             return "mp3"
         }
@@ -72,10 +65,8 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Check whether this provider has credentials available on this device.
     func isConfigured() -> Bool {
         switch self {
-        case .chatgptVoice:
-            return ChatGPTOAuthService.hasStoredCredentials
-        case .openai:
-            return KeychainService.shared.hasOpenAIApiKey
+        case .onDevice:
+            return true
         case .elevenlabs:
             return KeychainService.shared.hasElevenLabsApiKey
         }
@@ -85,24 +76,20 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 // MARK: - Provider Availability and Fallbacks
 
 struct VoiceProviderAvailability: Equatable, Sendable {
-    let chatgptVoice: Bool
-    let openAI: Bool
+    let onDevice: Bool
     let elevenLabs: Bool
 
     static var current: VoiceProviderAvailability {
         VoiceProviderAvailability(
-            chatgptVoice: ChatGPTOAuthService.hasStoredCredentials,
-            openAI: KeychainService.shared.hasOpenAIApiKey,
+            onDevice: true,
             elevenLabs: KeychainService.shared.hasElevenLabsApiKey
         )
     }
 
     func contains(_ provider: VoiceProvider) -> Bool {
         switch provider {
-        case .chatgptVoice:
-            return chatgptVoice
-        case .openai:
-            return openAI
+        case .onDevice:
+            return onDevice
         case .elevenlabs:
             return elevenLabs
         }
@@ -114,11 +101,11 @@ enum VoiceProviderFallbackPlanner {
         preferred: VoiceProvider,
         availability: VoiceProviderAvailability
     ) -> [VoiceProvider] {
-        var candidates: [VoiceProvider] = [.chatgptVoice]
-        if preferred != .chatgptVoice {
+        var candidates: [VoiceProvider] = [.onDevice]
+        if preferred != .onDevice {
             candidates.append(preferred)
         }
-        candidates.append(contentsOf: [.openai, .elevenlabs])
+        candidates.append(.elevenlabs)
 
         var seen = Set<VoiceProvider>()
         return candidates.filter { provider in
@@ -141,7 +128,6 @@ protocol UnifiedVoice: Identifiable, Equatable {
 // MARK: - Audio Service Protocol
 
 protocol AudioServiceProtocol {
-    var provider: VoiceProvider { get }
     var isConfigured: Bool { get }
 
     func generateAudio(
@@ -167,7 +153,7 @@ enum VoiceRoutingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noConfiguredProvider:
-            return "No narration provider is configured. Sign in with ChatGPT or add an OpenAI or ElevenLabs key."
+            return "No narration provider is configured. On-device narration should be available, or configure an ElevenLabs key."
         case .allProvidersFailed(let detail):
             return "All configured narration providers failed. \(detail)"
         }
@@ -180,22 +166,18 @@ enum VoiceRoutingError: LocalizedError {
 final class VoiceServiceManager: ObservableObject {
     static let shared = VoiceServiceManager()
 
-    private let chatGPTVoiceService: ChatGPTVoiceService
-    private let openAIService: OpenAIAudioService
     private let elevenLabsService: ElevenLabsAudioService
 
     @Published var currentProvider: VoiceProvider
 
     private init() {
-        self.chatGPTVoiceService = ChatGPTVoiceService()
-        self.openAIService = OpenAIAudioService()
         self.elevenLabsService = ElevenLabsAudioService()
 
         if let savedProvider = UserDefaults.standard.string(forKey: "voice_provider"),
            let provider = VoiceProvider(rawValue: savedProvider) {
             self.currentProvider = provider
         } else {
-            self.currentProvider = .chatgptVoice
+            self.currentProvider = .onDevice
         }
     }
 
@@ -221,10 +203,8 @@ final class VoiceServiceManager: ObservableObject {
         provider: VoiceProvider
     ) async throws -> GeneratedAudio {
         switch provider {
-        case .chatgptVoice:
-            return try await chatGPTVoiceService.generateAudio(text: text, voiceID: voiceID)
-        case .openai:
-            return try await openAIService.generateAudio(text: text, voiceID: voiceID)
+        case .onDevice:
+            throw VoiceRoutingError.allProvidersFailed("Kokoro on-device integration not yet wired — coming soon")
         case .elevenlabs:
             return try await elevenLabsService.generateAudio(text: text, voiceID: voiceID)
         }
@@ -274,17 +254,11 @@ final class VoiceServiceManager: ObservableObject {
         readerProfile: ReaderProfile
     ) -> String {
         switch provider {
-        case .chatgptVoice:
-            if let preferredVoiceID, ChatGPTVoiceRegistry.isValidVoiceID(preferredVoiceID) {
+        case .onDevice:
+            if let preferredVoiceID, OnDeviceVoiceRegistry.isValidVoiceID(preferredVoiceID) {
                 return preferredVoiceID
             }
-            return ChatGPTVoiceRegistry.defaultVoice.voiceID
-
-        case .openai:
-            if let preferredVoiceID, OpenAIVoiceRegistry.isValidVoiceID(preferredVoiceID) {
-                return preferredVoiceID
-            }
-            return OpenAIVoiceRegistry.defaultVoice.voiceID
+            return OnDeviceVoiceRegistry.defaultVoice.voiceID
 
         case .elevenlabs:
             if let preferredVoiceID,
@@ -297,10 +271,8 @@ final class VoiceServiceManager: ObservableObject {
 
     func availableVoices() -> [any UnifiedVoice] {
         switch currentProvider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.allVoices
-        case .openai:
-            return OpenAIVoiceRegistry.allVoices
+        case .onDevice:
+            return OnDeviceVoiceRegistry.allVoices
         case .elevenlabs:
             return ElevenLabsVoiceRegistry.allVoices.map { ElevenLabsUnifiedVoice(voice: $0) }
         }
@@ -308,10 +280,8 @@ final class VoiceServiceManager: ObservableObject {
 
     func defaultVoice() -> any UnifiedVoice {
         switch currentProvider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.defaultVoice
-        case .openai:
-            return OpenAIVoiceRegistry.defaultVoice
+        case .onDevice:
+            return OnDeviceVoiceRegistry.defaultVoice
         case .elevenlabs:
             return ElevenLabsUnifiedVoice(voice: ElevenLabsVoiceRegistry.adam)
         }
@@ -319,10 +289,8 @@ final class VoiceServiceManager: ObservableObject {
 
     func voice(byID id: String) -> (any UnifiedVoice)? {
         switch currentProvider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.voice(byID: id)
-        case .openai:
-            return OpenAIVoiceRegistry.voice(byID: id)
+        case .onDevice:
+            return OnDeviceVoiceRegistry.voice(byID: id)
         case .elevenlabs:
             guard let voice = ElevenLabsVoiceRegistry.voice(byID: id) else { return nil }
             return ElevenLabsUnifiedVoice(voice: voice)
@@ -344,5 +312,38 @@ struct ElevenLabsUnifiedVoice: UnifiedVoice {
 
     static func == (lhs: ElevenLabsUnifiedVoice, rhs: ElevenLabsUnifiedVoice) -> Bool {
         lhs.voice == rhs.voice
+    }
+}
+
+struct OnDevicePlaceholderVoice: UnifiedVoice {
+    let voiceID: String
+    let name: String
+    let description: String
+
+    var id: String { voiceID }
+    var provider: VoiceProvider { .onDevice }
+    var previewText: String { VoicePreviewScript.primary }
+
+    static func == (lhs: OnDevicePlaceholderVoice, rhs: OnDevicePlaceholderVoice) -> Bool {
+        lhs.voiceID == rhs.voiceID
+    }
+}
+
+enum OnDeviceVoiceRegistry {
+    static let daniel = OnDevicePlaceholderVoice(
+        voiceID: "daniel",
+        name: "Daniel",
+        description: "Default Kokoro placeholder voice. On-device synthesis integration coming soon."
+    )
+
+    static let allVoices: [OnDevicePlaceholderVoice] = [daniel]
+    static let defaultVoice: OnDevicePlaceholderVoice = daniel
+
+    static func voice(byID id: String) -> OnDevicePlaceholderVoice? {
+        allVoices.first { $0.voiceID == id }
+    }
+
+    static func isValidVoiceID(_ id: String) -> Bool {
+        voice(byID: id) != nil
     }
 }

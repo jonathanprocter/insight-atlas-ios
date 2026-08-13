@@ -34,12 +34,8 @@ struct VoicePickerSheet: View {
 
     private var recommendedVoices: [VoicePickerOption] {
         switch provider {
-        case .chatgptVoice:
-            return ChatGPTVoiceRegistry.allVoices.map {
-                VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
-            }
-        case .openai:
-            return OpenAIVoiceRegistry.allVoices.map {
+        case .onDevice:
+            return OnDeviceVoiceRegistry.allVoices.map {
                 VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
             }
         case .elevenlabs:
@@ -58,20 +54,24 @@ struct VoicePickerSheet: View {
 
     private var primarySectionTitle: String {
         switch provider {
-        case .chatgptVoice:
-            return "CHATGPT VOICES · EXPERIMENTAL"
-        case .openai:
-            return "OPENAI VOICES"
+        case .onDevice:
+            return "ON-DEVICE (KOKORO)"
         case .elevenlabs:
             return "RECOMMENDED FOR YOU"
         }
+    }
+
+    private var canPreviewSelectedProvider: Bool {
+        provider != .onDevice && provider.isConfigured()
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Select a \(provider.displayName) voice. Audio regeneration tries ChatGPT Voice first, then configured stable fallbacks if needed.")
+                    Text(provider == .onDevice
+                         ? "Select the placeholder Kokoro voice. On-device synthesis is coming soon, so previews are unavailable for now."
+                         : "Select a \(provider.displayName) voice. Audio regeneration will use your selected provider and fall back to other available narration providers if needed.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
@@ -90,7 +90,7 @@ struct VoicePickerSheet: View {
                                 isSelected: selectedVoiceID == voice.id,
                                 isPreviewing: previewingVoiceID == voice.id,
                                 isLoadingPreview: isLoadingPreview && previewingVoiceID == voice.id,
-                                isPreviewEnabled: provider.isConfigured(),
+                                isPreviewEnabled: canPreviewSelectedProvider,
                                 onSelect: { selectVoice(voice) },
                                 onPreview: { previewVoice(voice) }
                             )
@@ -112,7 +112,7 @@ struct VoicePickerSheet: View {
                                     isSelected: selectedVoiceID == voice.id,
                                     isPreviewing: previewingVoiceID == voice.id,
                                     isLoadingPreview: isLoadingPreview && previewingVoiceID == voice.id,
-                                    isPreviewEnabled: provider.isConfigured(),
+                                    isPreviewEnabled: canPreviewSelectedProvider,
                                     onSelect: { selectVoice(voice) },
                                     onPreview: { previewVoice(voice) }
                                 )
@@ -159,7 +159,7 @@ struct VoicePickerSheet: View {
     }
 
     private func previewVoice(_ voice: VoicePickerOption) {
-        guard !isLoadingPreview, provider.isConfigured() else { return }
+        guard !isLoadingPreview, canPreviewSelectedProvider else { return }
 
         if previewingVoiceID == voice.id {
             AudioPlaybackManager.shared.stop()

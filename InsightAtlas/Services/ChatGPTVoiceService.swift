@@ -191,8 +191,6 @@ final class ChatGPTVoiceService: AudioServiceProtocol, @unchecked Sendable {
     typealias TransportFactory = @Sendable () -> any ChatGPTVoiceTransporting
     typealias EncoderFactory = @Sendable () throws -> any ChatGPTVoiceAudioEncoding
 
-    let provider: VoiceProvider = .chatgptVoice
-
     var isConfigured: Bool {
         ChatGPTOAuthService.hasStoredCredentials
     }
