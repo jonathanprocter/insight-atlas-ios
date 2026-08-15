@@ -87,6 +87,9 @@
 		C2C8335E30291D5800305D9E /* OnDeviceInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C8335D30291D5800305D9E /* OnDeviceInsightService.swift */; };
 		C2C8336030291D6200305D9E /* OfflineNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C8335F30291D6200305D9E /* OfflineNarrator.swift */; };
 		C2C8336230291D7B00305D9E /* OnDeviceInsightPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C8336130291D7B00305D9E /* OnDeviceInsightPreviewView.swift */; };
+		C2D0D341302D98DE00ABACC9 /* NarrationScriptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D0D340302D98DE00ABACC9 /* NarrationScriptService.swift */; };
+		C2D0D343302D9CEB00ABACC9 /* ManuscriptIntegrity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D0D342302D9CEB00ABACC9 /* ManuscriptIntegrity.swift */; };
+		C2D0D345302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */; };
 		C2D8DF17302BF51200F782C0 /* OverflowMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF16302BF51200F782C0 /* OverflowMenuView.swift */; };
 		C2D8DF19302BF62000F782C0 /* SwipeActionsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */; };
 		C2D8DF1B302BFB3E00F782C0 /* MiniMaxOAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */; };
@@ -253,6 +256,9 @@
 		C2C8335D30291D5800305D9E /* OnDeviceInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceInsightService.swift; sourceTree = "<group>"; };
 		C2C8335F30291D6200305D9E /* OfflineNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineNarrator.swift; sourceTree = "<group>"; };
 		C2C8336130291D7B00305D9E /* OnDeviceInsightPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceInsightPreviewView.swift; sourceTree = "<group>"; };
+		C2D0D340302D98DE00ABACC9 /* NarrationScriptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationScriptService.swift; sourceTree = "<group>"; };
+		C2D0D342302D9CEB00ABACC9 /* ManuscriptIntegrity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptIntegrity.swift; sourceTree = "<group>"; };
+		C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptIntegrityTests.swift; sourceTree = "<group>"; };
 		C2D8DF16302BF51200F782C0 /* OverflowMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverflowMenuView.swift; sourceTree = "<group>"; };
 		C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeActionsRow.swift; sourceTree = "<group>"; };
 		C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxOAuthService.swift; sourceTree = "<group>"; };
@@ -368,6 +374,7 @@
 				C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */,
 				C2ED8F14302A2A98003096F3 /* DiagramScaleToFitTests.swift */,
 				C2ED8F16302A2EC0003096F3 /* ConceptMapGeometryTests.swift */,
+				C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */,
 			);
 			path = InsightAtlasTests;
 			sourceTree = "<group>";
@@ -534,6 +541,8 @@
 				A11C0C0A0000000000001003 /* KokoroTextChunker.swift */,
 				A11C0C0A0000000000001004 /* KokoroAudioService.swift */,
 				C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */,
+				C2D0D340302D98DE00ABACC9 /* NarrationScriptService.swift */,
+				C2D0D342302D9CEB00ABACC9 /* ManuscriptIntegrity.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -788,6 +797,7 @@
 				C207E6083026E11900843994 /* ContentTruncationTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A1 /* BookProcessorTests.swift in Sources */,
+				C2D0D345302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift in Sources */,
 				C2ED8F13302A1E13003096F3 /* TableFragmentationTests.swift in Sources */,
 				C2ED8F15302A2A98003096F3 /* DiagramScaleToFitTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
@@ -814,6 +824,7 @@
 				A70D1002302A000100000002 /* MegaTranscriptNarration.swift in Sources */,
 				A70D1004302A000100000004 /* MegaTranscriptNarrationViews.swift in Sources */,
 				47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */,
+				C2D0D341302D98DE00ABACC9 /* NarrationScriptService.swift in Sources */,
 				82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */,
 				9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */,
 				48193D10C68C4511BBC56599 /* PDFStyleConfiguration.swift in Sources */,
@@ -838,6 +849,7 @@
 				C207E5E730261D0A00843994 /* PDFDocumentProcessor.swift in Sources */,
 				C2D8DF1B302BFB3E00F782C0 /* MiniMaxOAuthService.swift in Sources */,
 				E8THEMAT01F00000100ABCDE /* InsightAtlasThematicPrompt.swift in Sources */,
+				C2D0D343302D9CEB00ABACC9 /* ManuscriptIntegrity.swift in Sources */,
 				E81A00122D000003007AAAAA /* AIService.swift in Sources */,
 				E81A00142D000004007AAAAA /* BookProcessor.swift in Sources */,
 				C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */,
@@ -1088,7 +1100,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081102;
+				CURRENT_PROJECT_VERSION = 2026081506;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1121,7 +1133,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081102;
+				CURRENT_PROJECT_VERSION = 2026081506;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;

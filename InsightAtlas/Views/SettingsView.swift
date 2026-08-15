@@ -350,7 +350,7 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "API Configuration",
-            keywords: ["api", "configuration", "keys", "claude", "openai", "openrouter", "minimax"],
+            keywords: ["api", "configuration", "keys", "claude", "openrouter", "minimax"],
             dynamicValues: [apiConfigurationStatus]
         ) &&
         !matchesSection(

@@ -76,7 +76,7 @@ struct LibraryItem: Identifiable, Codable {
         author: String,
         fileType: FileType,
         summaryContent: String? = nil,
-        provider: AIProvider = .claude,
+        provider: AIProvider = .minimax,
         mode: GenerationMode = .standard,
         pageCount: Int? = nil,
         isbn: String? = nil,
@@ -297,16 +297,18 @@ enum BookmarkColor: String, Codable, CaseIterable {
 
 // MARK: - AI Provider
 
+/// Generation providers. MiniMax M3 is the primary generator and leads the
+/// list so it is the first choice everywhere providers are offered.
 enum AIProvider: String, Codable, CaseIterable {
+    case minimax = "minimax"
     case claude = "claude"
     case openRouter = "openrouter"
-    case minimax = "minimax"
 
     var displayName: String {
         switch self {
+        case .minimax: return "MiniMax M3"
         case .claude: return "Claude"
         case .openRouter: return "OpenRouter"
-        case .minimax: return "MiniMax M3"
         }
     }
 }
@@ -644,7 +646,7 @@ struct UserSettings: Codable {
     }
 
     init(
-        preferredProvider: AIProvider = .claude,
+        preferredProvider: AIProvider = .minimax,
         preferredMode: GenerationMode = .deepResearch,
         preferredTone: ToneMode = .professional,
         preferredFormat: OutputFormat = .fullGuide,
@@ -686,7 +688,9 @@ struct UserSettings: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let preferredProviderRawValue = try container.decodeIfPresent(String.self, forKey: .preferredProvider)
-        preferredProvider = preferredProviderRawValue.flatMap(AIProvider.init(rawValue:)) ?? .claude
+        // Unknown values include the retired "openai" selection, which lands on
+        // MiniMax M3 rather than being carried forward.
+        preferredProvider = preferredProviderRawValue.flatMap(AIProvider.init(rawValue:)) ?? .minimax
         preferredMode = try container.decode(GenerationMode.self, forKey: .preferredMode)
         preferredTone = try container.decode(ToneMode.self, forKey: .preferredTone)
         preferredFormat = try container.decode(OutputFormat.self, forKey: .preferredFormat)

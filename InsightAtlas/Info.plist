@@ -21,7 +21,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
-	<string>2026081102</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
@@ -51,16 +51,11 @@
 	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
+		<!-- Playback of generated summary narration. -->
 		<string>audio</string>
+		<!-- BGProcessingTask (com.insightatlas.guide-generation) continues
+		     summary and narration generation in the background. -->
 		<string>processing</string>
-		<string>nearby-interaction</string>
-		<string>location</string>
-		<string>external-accessory</string>
-		<string>fetch</string>
-		<string>bluetooth-peripheral</string>
-		<string>remote-notification</string>
-		<string>bluetooth-central</string>
-		<string>push-to-talk</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>

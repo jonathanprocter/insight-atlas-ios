@@ -353,7 +353,7 @@ enum MegaTranscriptError: LocalizedError {
         case .rateLimited(let detail):
             return detail ?? "Mega Transcript is rate limiting requests. Wait briefly before retrying."
         case .generationTimedOut:
-            return "This summary exceeded Mega Transcript’s 600-second synchronous generation window. OpenAI and Liam remain available as fallbacks."
+            return "This summary exceeded Mega Transcript’s 600-second synchronous generation window. Kokoro on-device narration remains available as a fallback."
         case .serverError(let statusCode, let detail):
             return detail ?? "Mega Transcript is temporarily unavailable (HTTP \(statusCode))."
         case .decodingFailed:
@@ -366,7 +366,7 @@ enum MegaTranscriptError: LocalizedError {
             return "Narration preparation was cancelled."
         case .network(let error):
             if error.code == .notConnectedToInternet || error.code == .networkConnectionLost {
-                return "The network connection is unavailable. OpenAI and Liam remain available as fallbacks."
+                return "The network connection is unavailable. Kokoro on-device narration remains available as a fallback."
             }
             return "Network error: \(error.localizedDescription)"
         }
@@ -922,7 +922,6 @@ enum NarrationPreparationProgress: Sendable, Equatable {
     case generating(narrator: String)
     case downloading
     case usingCache
-    case fallingBackToOpenAI(reason: String)
     case fallingBackToLiam(reason: String)
     case ready(narrator: String)
 }

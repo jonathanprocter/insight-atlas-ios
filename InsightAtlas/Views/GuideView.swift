@@ -83,7 +83,7 @@ struct GuideView: View {
             }
             .background(PremiumUI.background)
             
-            // Shared narration control: Mega Transcript, OpenAI, then Liam.
+            // Shared narration control: Mega Transcript, then on-device Kokoro (Liam).
             if item.summaryContent != nil {
                 NarrationControlsView(item: item)
                 .padding(.horizontal)
@@ -633,7 +633,7 @@ struct GuideView: View {
 
         Task {
             do {
-                // Mega Transcript is preferred, OpenAI is next, and Liam is last. The
+                // Mega Transcript is preferred; on-device Kokoro (Liam) is the fallback. The
                 // service sanitizes the spoken copy while caching by exact text.
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
@@ -777,7 +777,15 @@ struct GuideView: View {
                 // Generate PDF data if needed
                 var pdfData: Data? = nil
                 if format == .pdfOnly || format == .bundled {
-                    if let content = item.summaryContent {
+                    if let rawContent = item.summaryContent {
+                        // Track A · release gate (shared with all other export
+                        // formats). Repairs safe defects — corrupted hyphens,
+                        // missing spaces, non-canonical names — so even legacy
+                        // library items export cleanly, then hard-blocks any
+                        // manuscript with unshippable defects (mid-sentence
+                        // truncation, brand strings leaking into body prose).
+                        let content = try ManuscriptGate.prepareForExport(rawContent)
+
                         // Rasterize structured visuals into the cache BEFORE layout
                         // (else [VISUAL_*] blocks miss the cache and fall back).
                         await PDFVisualPrerenderer.prerender(content: content)

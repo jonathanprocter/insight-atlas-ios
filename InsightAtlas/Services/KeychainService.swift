@@ -78,26 +78,9 @@ final class KeychainService {
         }
     }
 
-    /// OpenAI API key stored securely in Keychain
-    var openaiApiKey: String? {
-        get { retrieve(key: Keys.openaiApiKey) }
-        set {
-            if let value = newValue, !value.isEmpty {
-                save(key: Keys.openaiApiKey, value: value)
-            } else {
-                delete(key: Keys.openaiApiKey)
-            }
-        }
-    }
-
     /// Check if Claude API key is configured
     var hasClaudeApiKey: Bool {
         claudeApiKey?.isEmpty == false
-    }
-
-    /// Check if OpenAI API key is configured
-    var hasOpenAIApiKey: Bool {
-        openaiApiKey?.isEmpty == false
     }
 
     /// OpenRouter API key stored securely in Keychain.
@@ -214,12 +197,12 @@ final class KeychainService {
     /// Result of a keychain migration operation
     struct MigrationResult {
         let claudeKeyMigrated: Bool
-        let openaiKeyMigrated: Bool
+        let openaiKeyPurged: Bool
         let alreadyCompleted: Bool
         let error: String?
 
         var anyKeyMigrated: Bool {
-            claudeKeyMigrated || openaiKeyMigrated
+            claudeKeyMigrated
         }
     }
 
@@ -235,7 +218,7 @@ final class KeychainService {
             logger.debug("Keychain migration already completed, skipping")
             return MigrationResult(
                 claudeKeyMigrated: false,
-                openaiKeyMigrated: false,
+                openaiKeyPurged: false,
                 alreadyCompleted: true,
                 error: nil
             )
@@ -244,7 +227,7 @@ final class KeychainService {
         logger.info("Starting keychain migration from UserDefaults")
 
         var claudeKeyMigrated = false
-        var openaiKeyMigrated = false
+        var openaiKeyPurged = false
 
         // Try to load old settings
         guard let data = defaults.data(forKey: settingsKey) else {
@@ -252,7 +235,7 @@ final class KeychainService {
             defaults.set(true, forKey: "keychain_migration_completed")
             return MigrationResult(
                 claudeKeyMigrated: false,
-                openaiKeyMigrated: false,
+                openaiKeyPurged: false,
                 alreadyCompleted: false,
                 error: nil
             )
@@ -263,7 +246,7 @@ final class KeychainService {
                 logger.error("Keychain migration failed: Settings data is not a valid dictionary")
                 return MigrationResult(
                     claudeKeyMigrated: false,
-                    openaiKeyMigrated: false,
+                    openaiKeyPurged: false,
                     alreadyCompleted: false,
                     error: "Settings data format invalid"
                 )
@@ -279,15 +262,17 @@ final class KeychainService {
                 }
             }
 
-            // Migrate OpenAI API key
+            // OpenAI is a retired provider. Purge any legacy key rather than
+            // carrying it forward into the Keychain.
             if let openaiKey = json["openaiApiKey"] as? String, !openaiKey.isEmpty {
-                if save(key: Keys.openaiApiKey, value: openaiKey) {
-                    openaiKeyMigrated = true
-                    logger.info("OpenAI API key migrated successfully")
-                } else {
-                    logger.error("Failed to migrate OpenAI API key to Keychain")
-                }
+                openaiKeyPurged = true
+                logger.info("Legacy OpenAI API key discarded during migration")
             }
+            if retrieve(key: Keys.openaiApiKey)?.isEmpty == false {
+                openaiKeyPurged = true
+                logger.info("Removed previously stored OpenAI API key from Keychain")
+            }
+            delete(key: Keys.openaiApiKey)
 
             // Remove API keys from UserDefaults (keep other settings)
             var mutableJson = json
@@ -302,7 +287,7 @@ final class KeychainService {
             logger.error("Keychain migration failed: \(error.localizedDescription)")
             return MigrationResult(
                 claudeKeyMigrated: claudeKeyMigrated,
-                openaiKeyMigrated: openaiKeyMigrated,
+                openaiKeyPurged: openaiKeyPurged,
                 alreadyCompleted: false,
                 error: error.localizedDescription
             )
@@ -310,11 +295,11 @@ final class KeychainService {
 
         // Mark migration as complete
         defaults.set(true, forKey: "keychain_migration_completed")
-        logger.info("Keychain migration completed. Claude: \(claudeKeyMigrated), OpenAI: \(openaiKeyMigrated)")
+        logger.info("Keychain migration completed. Claude migrated: \(claudeKeyMigrated), legacy OpenAI key purged: \(openaiKeyPurged)")
 
         return MigrationResult(
             claudeKeyMigrated: claudeKeyMigrated,
-            openaiKeyMigrated: openaiKeyMigrated,
+            openaiKeyPurged: openaiKeyPurged,
             alreadyCompleted: false,
             error: nil
         )

@@ -12,8 +12,8 @@ final class ProviderConfigurationTests: XCTestCase {
     }
 
     func testSupportedGenerationProvidersExcludeRetiredOpenAIModesAndIncludeMiniMax() {
-        XCTAssertEqual(AIProvider.allCases, [.claude, .openRouter, .minimax])
-        XCTAssertEqual(UserSettings().preferredProvider, .claude)
+        XCTAssertEqual(AIProvider.allCases, [.minimax, .claude, .openRouter])
+        XCTAssertEqual(UserSettings().preferredProvider, .minimax)
     }
 
     func testNewUserSettingsDefaultToKokoro() {
@@ -49,7 +49,8 @@ final class ProviderConfigurationTests: XCTestCase {
 
         let decoded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
 
-        XCTAssertEqual(decoded.preferredProvider, .claude)
+        // A retired "openai" selection lands on MiniMax M3, the current default.
+        XCTAssertEqual(decoded.preferredProvider, .minimax)
         XCTAssertEqual(decoded.voiceProvider, .kokoro)
         XCTAssertEqual(decoded.preferredReaderProfile, .academic)
         XCTAssertFalse(decoded.autoGenerateAudio)

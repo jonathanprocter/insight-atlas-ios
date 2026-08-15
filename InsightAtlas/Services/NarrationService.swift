@@ -54,7 +54,15 @@ actor NarrationService {
         itemId: UUID,
         progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in }
     ) async throws -> NarrationAsset {
-        let spokenText = NarrationTextSanitizer.prepare(text)
+        // Rewrite the written guide into an audio-first script (describing every
+        // visual in words) when MiniMax is available. Safe pass-through otherwise:
+        // `spokenScript` returns `text` unchanged on any failure.
+        let narrationSource = await NarrationScriptService.shared.spokenScript(
+            for: itemId,
+            guideContent: text,
+            progress: progress
+        )
+        let spokenText = NarrationTextSanitizer.prepare(narrationSource)
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
         let routes = NarrationFallbackPolicy.orderedRoutes(
@@ -96,7 +104,7 @@ actor NarrationService {
             case .megaTranscript:
                 do {
                     let result = try await MegaTranscriptNarrationCoordinator.shared.synthesize(
-                        text: text,
+                        text: narrationSource,
                         itemID: itemId,
                         progress: progress
                     )

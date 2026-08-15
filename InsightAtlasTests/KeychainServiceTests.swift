@@ -85,52 +85,87 @@ final class KeychainServiceTests: XCTestCase {
         )
     }
 
-    // MARK: - OpenAI API Key Tests
+    // MARK: - OpenRouter API Key Tests
 
-    func testSaveAndRetrieveOpenAIApiKey() {
-        let testKey = "sk-openai-test-key-67890"
+    func testSaveAndRetrieveOpenRouterApiKey() {
+        let testKey = "sk-or-test-key-67890"
 
-        KeychainService.shared.openaiApiKey = testKey
+        KeychainService.shared.openRouterApiKey = testKey
 
         XCTAssertEqual(
-            KeychainService.shared.openaiApiKey,
+            KeychainService.shared.openRouterApiKey,
             testKey,
-            "Should retrieve the saved OpenAI API key"
+            "Should retrieve the saved OpenRouter API key"
         )
     }
 
-    func testOpenAIApiKeyInitiallyNil() {
+    func testOpenRouterApiKeyInitiallyNil() {
         XCTAssertNil(
-            KeychainService.shared.openaiApiKey,
-            "OpenAI API key should be nil initially"
+            KeychainService.shared.openRouterApiKey,
+            "OpenRouter API key should be nil initially"
         )
     }
 
-    func testDeleteOpenAIApiKey() {
-        let testKey = "sk-openai-test-key-67890"
+    func testDeleteOpenRouterApiKey() {
+        let testKey = "sk-or-test-key-67890"
 
         // Save key
-        KeychainService.shared.openaiApiKey = testKey
-        XCTAssertNotNil(KeychainService.shared.openaiApiKey)
+        KeychainService.shared.openRouterApiKey = testKey
+        XCTAssertNotNil(KeychainService.shared.openRouterApiKey)
 
         // Delete key
-        KeychainService.shared.openaiApiKey = nil
+        KeychainService.shared.openRouterApiKey = nil
         XCTAssertNil(
-            KeychainService.shared.openaiApiKey,
-            "OpenAI API key should be nil after deletion"
+            KeychainService.shared.openRouterApiKey,
+            "OpenRouter API key should be nil after deletion"
         )
     }
 
-    func testHasOpenAIApiKey() {
+    func testHasOpenRouterApiKey() {
         XCTAssertFalse(
-            KeychainService.shared.hasOpenAIApiKey,
-            "hasOpenAIApiKey should be false initially"
+            KeychainService.shared.hasOpenRouterApiKey,
+            "hasOpenRouterApiKey should be false initially"
         )
 
-        KeychainService.shared.openaiApiKey = "sk-openai-test-key"
+        KeychainService.shared.openRouterApiKey = "sk-or-test-key"
         XCTAssertTrue(
-            KeychainService.shared.hasOpenAIApiKey,
-            "hasOpenAIApiKey should be true after setting key"
+            KeychainService.shared.hasOpenRouterApiKey,
+            "hasOpenRouterApiKey should be true after setting key"
+        )
+    }
+
+    // MARK: - Retired Provider Tests
+
+    /// OpenAI is retired. Migration must discard any legacy key rather than
+    /// carrying it into the Keychain.
+    func testLegacyOpenAIKeyIsPurgedOnMigration() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "keychain_migration_completed")
+        let legacySettings: [String: Any] = [
+            "openaiApiKey": "sk-openai-legacy-key",
+            "claudeApiKey": "sk-ant-legacy-key"
+        ]
+        defaults.set(
+            try? JSONSerialization.data(withJSONObject: legacySettings),
+            forKey: "insight_atlas_settings"
+        )
+
+        let result = KeychainService.shared.migrateFromUserDefaults()
+
+        XCTAssertTrue(
+            result.openaiKeyPurged,
+            "A legacy OpenAI key should be reported as purged"
+        )
+        XCTAssertTrue(
+            result.claudeKeyMigrated,
+            "The Claude key should still migrate normally"
+        )
+
+        let stored = defaults.data(forKey: "insight_atlas_settings")
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        XCTAssertNil(
+            stored?["openaiApiKey"],
+            "The legacy OpenAI key should be stripped from UserDefaults"
         )
     }
 
@@ -138,33 +173,33 @@ final class KeychainServiceTests: XCTestCase {
 
     func testMultipleKeysIndependent() {
         let claudeKey = "sk-ant-claude-key"
-        let openaiKey = "sk-openai-key"
+        let openRouterKey = "sk-or-key"
 
         KeychainService.shared.claudeApiKey = claudeKey
-        KeychainService.shared.openaiApiKey = openaiKey
+        KeychainService.shared.openRouterApiKey = openRouterKey
 
         XCTAssertEqual(KeychainService.shared.claudeApiKey, claudeKey)
-        XCTAssertEqual(KeychainService.shared.openaiApiKey, openaiKey)
+        XCTAssertEqual(KeychainService.shared.openRouterApiKey, openRouterKey)
 
         // Deleting one should not affect the other
         KeychainService.shared.claudeApiKey = nil
         XCTAssertNil(KeychainService.shared.claudeApiKey)
-        XCTAssertEqual(KeychainService.shared.openaiApiKey, openaiKey)
+        XCTAssertEqual(KeychainService.shared.openRouterApiKey, openRouterKey)
     }
 
     func testClearAllKeys() {
         KeychainService.shared.claudeApiKey = "sk-ant-claude-key"
-        KeychainService.shared.openaiApiKey = "sk-openai-key"
+        KeychainService.shared.openRouterApiKey = "sk-or-key"
 
         XCTAssertTrue(KeychainService.shared.hasClaudeApiKey)
-        XCTAssertTrue(KeychainService.shared.hasOpenAIApiKey)
+        XCTAssertTrue(KeychainService.shared.hasOpenRouterApiKey)
 
         KeychainService.shared.clearAllKeys()
 
         XCTAssertFalse(KeychainService.shared.hasClaudeApiKey)
-        XCTAssertFalse(KeychainService.shared.hasOpenAIApiKey)
+        XCTAssertFalse(KeychainService.shared.hasOpenRouterApiKey)
         XCTAssertNil(KeychainService.shared.claudeApiKey)
-        XCTAssertNil(KeychainService.shared.openaiApiKey)
+        XCTAssertNil(KeychainService.shared.openRouterApiKey)
     }
 
     // MARK: - Update Key Tests

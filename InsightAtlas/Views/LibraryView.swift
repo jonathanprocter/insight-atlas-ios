@@ -99,6 +99,8 @@ struct LibraryView: View {
         .tint(PremiumUI.gold)
         .sheet(isPresented: $showingGenerationView) {
                 GenerationView()
+                    .environmentObject(environment)
+                    .environmentObject(environment.dataManager)
             }
             .sheet(isPresented: $showingLibraryOptions) {
                 PremiumLibraryOptionsSheet(

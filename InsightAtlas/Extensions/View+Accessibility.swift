@@ -97,8 +97,6 @@ enum AccessibilityID {
     enum ApiKeys {
         static let claudeField = "apikeys.claude.field"
         static let claudeToggle = "apikeys.claude.toggle"
-        static let openaiField = "apikeys.openai.field"
-        static let openaiToggle = "apikeys.openai.toggle"
         static let saveButton = "apikeys.save.button"
         static let cancelButton = "apikeys.cancel.button"
     }

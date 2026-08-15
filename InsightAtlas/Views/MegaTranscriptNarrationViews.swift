@@ -168,7 +168,7 @@ struct MegaTranscriptDeveloperSettingsView: View {
                     ContentUnavailableView(
                         "Configure Mega Transcript",
                         systemImage: "waveform.badge.key",
-                        description: Text("Save the regenerated key above to load the live English narrator catalog. OpenAI is the first fallback and Liam is the final fallback.")
+                        description: Text("Save the regenerated key above to load the live English narrator catalog. Kokoro on-device narration (Liam) is the fallback.")
                     )
                 } else if model.isLoadingVoices {
                     HStack {
@@ -330,7 +330,6 @@ final class NarrationControlViewModel: ObservableObject {
         case .generating(let narrator): return "Preparing narration with \(narrator)…"
         case .downloading: return "Downloading narration…"
         case .usingCache: return "Opening cached narration…"
-        case .fallingBackToOpenAI: return "Preparing OpenAI fallback…"
         case .fallingBackToLiam: return "Preparing Liam fallback…"
         case .ready(let narrator): return "Ready with \(narrator)"
         case nil: return "Preparing narration…"
@@ -355,7 +354,7 @@ final class NarrationControlViewModel: ObservableObject {
                     Task { @MainActor in
                         self?.progress = update
                         switch update {
-                        case .fallingBackToOpenAI(let reason), .fallingBackToLiam(let reason):
+                        case .fallingBackToLiam(let reason):
                             self?.fallbackMessage = reason
                         default:
                             break

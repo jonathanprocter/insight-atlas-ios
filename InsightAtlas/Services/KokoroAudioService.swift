@@ -125,6 +125,14 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
     private var loadedDirectory: URL?
     private let chunker: KokoroTextChunker
 
+    /// ONNX inference threads for synthesis. Scales with the device but leaves a
+    /// core for the main/audio threads, so faster hardware finishes sooner while
+    /// smaller devices are not oversubscribed. Previously hardcoded to 2.
+    static let synthesisThreadCount: Int32 = {
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        return Int32(min(6, max(2, cores - 1)))
+    }()
+
     init(chunker: KokoroTextChunker = KokoroTextChunker()) {
         self.chunker = chunker
     }
@@ -142,6 +150,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         let chunks = chunker.chunks(for: text)
         guard !chunks.isEmpty else { throw KokoroAudioError.emptyText }
 
+        let synthesisStart = Date()
         let tts = try loadModelIfNeeded(from: modelDirectory)
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-\(UUID().uuidString).wav")
@@ -197,9 +206,17 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         let data = try Data(contentsOf: outputURL)
         guard !data.isEmpty else { throw KokoroAudioError.audioWritingFailed }
 
+        let audioDuration = Double(totalFrames) / Double(sampleRate)
+        let elapsed = Date().timeIntervalSince(synthesisStart)
+        let rtf = audioDuration > 0 ? elapsed / audioDuration : 0
+        print(String(
+            format: "[Timing] Kokoro synthesis: %.1fs wall for %.1fs audio across %d chunk(s) — RTF %.2f (threads: %d)",
+            elapsed, audioDuration, chunks.count, rtf, Self.synthesisThreadCount
+        ))
+
         return KokoroSynthesisResult(
             data: data,
-            duration: Double(totalFrames) / Double(sampleRate)
+            duration: audioDuration
         )
     }
 
@@ -227,7 +244,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         )
         let modelConfig = sherpaOnnxOfflineTtsModelConfig(
             kokoro: kokoro,
-            numThreads: 2,
+            numThreads: Int(Self.synthesisThreadCount),
             debug: 0,
             provider: "cpu"
         )

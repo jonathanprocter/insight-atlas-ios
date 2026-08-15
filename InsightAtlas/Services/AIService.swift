@@ -253,27 +253,355 @@ actor AIService {
             )
 
         case .minimax:
+            do {
+                let token = try await MiniMaxOAuthService.shared.validAccessToken()
+                return try await streamWithClaude(
+                    text: bookText,
+                    title: title,
+                    author: author,
+                    mode: settings.preferredMode,
+                    tone: settings.preferredTone,
+                    format: settings.preferredFormat,
+                    apiKey: token,
+                    endpoint: MiniMaxOAuthConfig.inferenceURL,
+                    model: MiniMaxOAuthConfig.defaultModel,
+                    maxTokens: 16000,
+                    useBearerAuth: true,
+                    providerLabel: "MiniMax",
+                    previousContent: previousContent,
+                    improvementHints: improvementHints,
+                    onChunk: onChunk,
+                    onStatus: onStatus,
+                    shouldTerminate: shouldTerminate
+                )
+            } catch {
+                let openRouterKey = settings.openRouterApiKey ?? ""
+                guard Self.shouldFallBackToOpenRouter(after: error),
+                      shouldTerminate?() != true,
+                      !openRouterKey.isEmpty else {
+                    throw error
+                }
+
+                Self.logger.warning(
+                    "MiniMax M3 generation failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
+                )
+
+                // Discard whatever MiniMax streamed before failing so the
+                // OpenRouter attempt does not append to a partial guide.
+                onReset?()
+                onStatus(GenerationStatus(
+                    phase: .analyzing,
+                    progress: 0.0,
+                    wordCount: 0,
+                    model: "OpenRouter (MiniMax M3 fallback)"
+                ))
+
+                return try await streamWithCompatibleAPI(
+                    text: bookText,
+                    title: title,
+                    author: author,
+                    mode: settings.preferredMode,
+                    tone: settings.preferredTone,
+                    format: settings.preferredFormat,
+                    apiKey: openRouterKey,
+                    endpoint: openRouterEndpoint,
+                    model: OpenRouterConfig.resolvedModel,
+                    maxTokens: 16000,
+                    providerLabel: "OpenRouter",
+                    previousContent: previousContent,
+                    improvementHints: improvementHints,
+                    onChunk: onChunk,
+                    onStatus: onStatus,
+                    shouldTerminate: shouldTerminate
+                )
+            }
+        }
+    }
+
+    /// Whether a failed MiniMax M3 attempt is worth retrying on OpenRouter.
+    ///
+    /// Availability failures (auth, network, rate limits, server errors) are
+    /// retried. Failures that describe the *request* rather than the provider —
+    /// oversized input, content policy — would fail identically on OpenRouter,
+    /// so they surface immediately. User cancellation is never retried.
+    static func shouldFallBackToOpenRouter(after error: Error) -> Bool {
+        if error is CancellationError { return false }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return false }
+
+        guard let serviceError = error as? AIServiceError else {
+            // Unknown errors (including MiniMax OAuth failures) are treated as
+            // availability problems.
+            return true
+        }
+
+        switch serviceError {
+        case .contentPolicyViolation, .inputTooLarge, .tokenEstimationWarning:
+            return false
+        case .missingApiKey, .invalidURL, .invalidResponse, .apiError,
+             .apiErrorWithBody, .streamError, .networkError, .rateLimitExceeded:
+            return true
+        }
+    }
+
+    // MARK: - Audio Narration Script
+
+    /// Rewrite a finished Insight Atlas guide (markdown with embedded `[VISUAL_*]`
+    /// blocks) into a spoken-word narration script suitable for text-to-speech.
+    ///
+    /// The written guide is optimized for the eye — headings, citations, tables,
+    /// and 30+ visual types that a listener cannot see. This pass, run on MiniMax
+    /// M3, translates all of that into natural spoken prose so an audio listener
+    /// loses no information: every visual is described in words, references are
+    /// spoken naturally, and sentences are shaped for the ear. Requires a valid
+    /// MiniMax session; callers should gate on `MiniMaxOAuthService.isSignedIn`.
+    func generateNarrationScript(
+        from guideContent: String,
+        title: String?,
+        author: String?,
+        openRouterApiKey: String? = nil
+    ) async throws -> String {
+        let trimmed = guideContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw AIServiceError.networkError(message: "No guide content to narrate.")
+        }
+
+        let bookLine = [
+            title.map { "Book title: \($0)" },
+            author.map { "Author: \($0)" }
+        ].compactMap { $0 }.joined(separator: "\n")
+
+        let userMessage = """
+        \(bookLine.isEmpty ? "" : bookLine + "\n\n")Convert the Insight Atlas guide below into a spoken-word narration script. \
+        Return ONLY the narration text — no preamble, no headings, no markdown, no stage directions.
+
+        ---GUIDE START---
+        \(trimmed)
+        ---GUIDE END---
+        """
+
+        let script: String
+        do {
             let token = try await MiniMaxOAuthService.shared.validAccessToken()
-            return try await streamWithClaude(
-                text: bookText,
-                title: title,
-                author: author,
-                mode: settings.preferredMode,
-                tone: settings.preferredTone,
-                format: settings.preferredFormat,
-                apiKey: token,
+            script = try await anthropicOneShot(
                 endpoint: MiniMaxOAuthConfig.inferenceURL,
+                apiKey: token,
                 model: MiniMaxOAuthConfig.defaultModel,
-                maxTokens: 16000,
                 useBearerAuth: true,
                 providerLabel: "MiniMax",
-                previousContent: previousContent,
-                improvementHints: improvementHints,
-                onChunk: onChunk,
-                onStatus: onStatus,
-                shouldTerminate: shouldTerminate
+                system: Self.narrationScriptSystemPrompt,
+                user: userMessage,
+                maxTokens: 16000
+            )
+        } catch {
+            let openRouterKey = (openRouterApiKey ?? KeychainService.shared.openRouterApiKey) ?? ""
+            guard Self.shouldFallBackToOpenRouter(after: error), !openRouterKey.isEmpty else {
+                throw error
+            }
+            Self.logger.warning(
+                "MiniMax M3 narration script failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
+            )
+            script = try await openAIOneShot(
+                apiKey: openRouterKey,
+                system: Self.narrationScriptSystemPrompt,
+                user: userMessage,
+                maxTokens: 16000
             )
         }
+
+        let cleaned = script.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else {
+            throw AIServiceError.invalidResponse
+        }
+        return cleaned
+    }
+
+    /// System prompt for the narration-script rewrite. Teaches the model to speak
+    /// every visual type Insight Atlas can emit so no information is lost in audio.
+    private static let narrationScriptSystemPrompt: String = """
+    You are a narration writer for Insight Atlas. You turn a written study guide into a script that will be read aloud by a text-to-speech voice. The listener CANNOT see the page, so anything visual must be spoken.
+
+    NON-NEGOTIABLE GOALS
+    1. Be exactly as informative as the written guide. Preserve every idea, claim, example, and takeaway. Do NOT summarize, abridge, or drop sections. The spoken script should carry the same substance and roughly the same length as the source.
+    2. Sound natural when spoken. Prefer shorter sentences, plain connectives, and spoken transitions ("Let's start with…", "The key point here is…", "That brings us to…"). Never leave a heading as a bare fragment — fold it into a spoken transition.
+    3. Output plain spoken text only. No markdown, no "#", no "*", no bullet characters, no bracket tags, no emoji, no "Figure 1", no URLs.
+
+    HANDLING CITATIONS AND REFERENCES
+    - Speak references naturally ("as Yalom argues", "according to the author") or omit bare parenthetical citations and page numbers when they would only be noise to a listener. Never read raw citation syntax aloud.
+
+    HANDLING VISUALS — THE MOST IMPORTANT RULE
+    The guide contains visual blocks delimited by tags like [VISUAL_TYPE: Title] ... [/VISUAL_TYPE]. A listener cannot see these. For EACH visual block you must replace it with a spoken passage that: (a) names what it shows, (b) walks through every data point / node / row / stage in words, and (c) states the insight it conveys. Never read the raw payload, JSON, or tag. Describe these types as follows:
+
+    - TIMELINE / GANTT: narrate events in order with their dates and what happened at each.
+    - FLOWCHART / PROCESS / CYCLE: describe the sequence step by step ("first…, which leads to…, and finally…"); for a cycle, make clear it loops back to the start.
+    - COMPARISON / MATRIX / TABLE: read it as prose — for each row, state how it differs across the columns; don't just list cells.
+    - CONCEPT MAP / MINDMAP / NETWORK / HIERARCHY: name the central idea, then each branch/child and how it connects; for networks, describe the key relationships and their strength.
+    - RADAR: name each dimension being assessed and what high vs low means.
+    - BAR / LINE / AREA / STACKED / GROUPED CHART: state the categories and their values, and call out the highest, lowest, and any trend.
+    - PIE / FUNNEL / TREEMAP: give the proportions or stage sizes and what dominates.
+    - QUADRANT / SPECTRUM / SCATTER / BUBBLE: describe the two axes, then where each item sits and why that placement matters.
+    - VENN: name each set, what is unique to each, and what they share in the overlap.
+    - PYRAMID / ICEBERG / LADDER: describe the layers from base to top and what each level means.
+    - FISHBONE: state the effect, then each cause category and its contributing items.
+    - SWOT: narrate strengths, weaknesses, opportunities, and threats in turn.
+    - SANKEY: describe what flows from where to where and the relative magnitudes.
+    - HEATMAP: describe rows and columns and where intensity is highest and lowest.
+    - JOURNEY MAP / STORYBOARD: narrate each stage or scene in order, including touchpoints and emotional tone.
+    - INFOGRAPHIC / GAUGE: speak the headline statistics and highlights.
+    Use the visual's title and surrounding text to keep the description in context. If a visual restates nearby prose, integrate it so you don't repeat yourself.
+
+    Begin directly with the narration of the guide's content.
+    """
+
+    // MARK: - Closing Section (conclusion pass)
+
+    /// Generate ONLY a closing section — a short synthesis plus a `[TAKEAWAYS]`
+    /// block — for a guide body that ran out of word budget before concluding.
+    /// Routed through the same provider the guide used, bounded to `maxWords`.
+    func generateClosingSection(
+        bodyContent: String,
+        title: String,
+        author: String,
+        settings: UserSettings,
+        maxWords: Int
+    ) async throws -> String {
+        let system = """
+        You write the closing section of an Insight Atlas guide that will be appended after the body. \
+        Output ONLY the closing section — no restating of earlier material.
+
+        Produce, in this order:
+        1. One short synthesis paragraph (3–5 sentences) that ties the guide's argument together.
+        2. A takeaways block using EXACTLY these markers on their own lines:
+        [TAKEAWAYS]
+        - <takeaway 1>
+        - <takeaway 2>
+        - <takeaway 3>
+        [/TAKEAWAYS]
+
+        Rules: 3–5 takeaways, each one line. No markdown headings, no "#", no brand names. \
+        Do not repeat sentences from the body. Stay under \(maxWords) words total. Begin directly with the synthesis paragraph.
+        """
+        let user = """
+        Book: "\(title)" by \(author). Write the closing section for the guide body below.
+
+        ---GUIDE BODY START---
+        \(bodyContent)
+        ---GUIDE BODY END---
+        """
+        let maxTokens = max(512, min(4000, maxWords * 3))
+        let text = try await oneShotCompletion(
+            system: system, user: user, settings: settings, maxTokens: maxTokens
+        )
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Single-shot, non-guide completion routed to the configured provider.
+    private func oneShotCompletion(
+        system: String,
+        user: String,
+        settings: UserSettings,
+        maxTokens: Int
+    ) async throws -> String {
+        switch settings.preferredProvider {
+        case .claude:
+            return try await anthropicOneShot(
+                endpoint: claudeEndpoint,
+                apiKey: settings.claudeApiKey ?? "",
+                model: claudeModel,
+                useBearerAuth: false,
+                providerLabel: "Claude",
+                system: system, user: user, maxTokens: maxTokens
+            )
+        case .minimax:
+            do {
+                let token = try await MiniMaxOAuthService.shared.validAccessToken()
+                return try await anthropicOneShot(
+                    endpoint: MiniMaxOAuthConfig.inferenceURL,
+                    apiKey: token,
+                    model: MiniMaxOAuthConfig.defaultModel,
+                    useBearerAuth: true,
+                    providerLabel: "MiniMax",
+                    system: system, user: user, maxTokens: maxTokens
+                )
+            } catch {
+                let openRouterKey = settings.openRouterApiKey ?? ""
+                guard Self.shouldFallBackToOpenRouter(after: error), !openRouterKey.isEmpty else {
+                    throw error
+                }
+                Self.logger.warning(
+                    "MiniMax M3 one-shot failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
+                )
+                return try await openAIOneShot(
+                    apiKey: openRouterKey,
+                    system: system, user: user, maxTokens: maxTokens
+                )
+            }
+        case .openRouter:
+            return try await openAIOneShot(
+                apiKey: settings.openRouterApiKey ?? "",
+                system: system, user: user, maxTokens: maxTokens
+            )
+        }
+    }
+
+    /// Anthropic Messages-format single-shot (Claude and MiniMax).
+    private func anthropicOneShot(
+        endpoint: String,
+        apiKey: String,
+        model: String,
+        useBearerAuth: Bool,
+        providerLabel: String,
+        system: String,
+        user: String,
+        maxTokens: Int
+    ) async throws -> String {
+        guard !apiKey.isEmpty else { throw AIServiceError.missingApiKey(provider: providerLabel) }
+        guard let url = URL(string: endpoint) else { throw AIServiceError.invalidURL(provider: providerLabel) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        if useBearerAuth {
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        } else {
+            request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
+            request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        }
+        let body = ClaudeRequest(
+            model: model, max_tokens: maxTokens, stream: true, system: system,
+            messages: [ClaudeMessage(role: "user", content: user)]
+        )
+        request.httpBody = try JSONEncoder().encode(body)
+        return try await performClaudeStream(
+            request: request, onChunk: { _ in }, onStatus: { _ in }, shouldTerminate: nil
+        )
+    }
+
+    /// OpenAI Chat-format single-shot (OpenRouter).
+    private func openAIOneShot(
+        apiKey: String,
+        system: String,
+        user: String,
+        maxTokens: Int
+    ) async throws -> String {
+        guard !apiKey.isEmpty else { throw AIServiceError.missingApiKey(provider: "OpenRouter") }
+        guard let url = URL(string: openRouterEndpoint) else { throw AIServiceError.invalidURL(provider: "OpenRouter") }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let requestBody: [String: Any] = [
+            "model": OpenRouterConfig.resolvedModel,
+            "max_tokens": maxTokens,
+            "stream": true,
+            "messages": [
+                ["role": "system", "content": system],
+                ["role": "user", "content": user],
+            ],
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        return try await performCompatibleAPIStream(
+            request: request, providerLabel: "OpenRouter",
+            onChunk: { _ in }, onStatus: { _ in }, shouldTerminate: nil
+        )
     }
 
     // MARK: - Claude Integration

@@ -301,14 +301,24 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 totalBudget: totalBudget,
                 sourceType: sourceTypeResult.detectedType
             )
+            // Stop the body at 90% so a dedicated conclusion pass can compose a
+            // proper synthesis/takeaways in the reserved remainder.
+            governorContext.reserveConclusionBudget = true
 
             // Perform generation with streaming governor
+            let textGenStart = Date()
             let (rawResult, governorResult) = try await performGeneration(
                 bookText: bookText,
                 state: state,
                 settings: settings,
                 governorContext: governorContext
             )
+            print(String(
+                format: "[Timing] text generation: %.1fs (%d chars) via %@",
+                Date().timeIntervalSince(textGenStart),
+                rawResult.count,
+                state.provider.displayName
+            ))
 
             // Use governor result (streaming enforcement already applied)
             var finalResult = governorResult ?? GovernorEnforcementResult(
@@ -398,6 +408,43 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                     cutEventCount: finalResult.cutEventCount
                 )
                 governorLog("Markdown artifacts stripped from output")
+            }
+
+            // MARK: - Conclusion Pass
+            //
+            // The body stopped at ~90% of the ceiling. If it has no closing
+            // element, spend the reserved remainder composing a real synthesis +
+            // takeaways so the guide ends deliberately rather than mid-thought.
+            if !ManuscriptPreflight.hasClosingElement(finalResult.content) {
+                let reserve = max(300, governor.maxWordCeiling - Int(Double(governor.maxWordCeiling) * 0.9))
+                progress = GenerationProgress(
+                    phase: "Composing conclusion...",
+                    percentComplete: 0.92,
+                    wordCount: finalResult.wordCount,
+                    model: "\(state.provider.displayName) (Conclusion)",
+                    content: finalResult.content
+                )
+                do {
+                    let closing = try await aiService.generateClosingSection(
+                        bodyContent: finalResult.content,
+                        title: state.title,
+                        author: state.author,
+                        settings: settings,
+                        maxWords: reserve
+                    )
+                    if !closing.isEmpty {
+                        let combined = sanitizeGeneratedContent(finalResult.content + "\n\n" + closing)
+                        finalResult = GovernorEnforcementResult(
+                            content: combined,
+                            wordCount: combined.split(separator: " ").count,
+                            cutPolicyActivated: finalResult.cutPolicyActivated,
+                            cutEventCount: finalResult.cutEventCount
+                        )
+                        governorLog("Conclusion pass appended \(closing.split(separator: " ").count) words; total \(finalResult.wordCount)")
+                    }
+                } catch {
+                    governorLog("Conclusion pass failed: \(error.localizedDescription) — continuing without appended conclusion")
+                }
             }
 
             // Soft enforcement: log warning but don't throw for minor violations
@@ -736,7 +783,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                         phase: "Refining with secondary model...",
                         percentComplete: 0.0,
                         wordCount: 0,
-                        model: "OpenAI",
+                        model: settings.preferredProvider.displayName,
                         content: ""
                     )
                 }
@@ -935,6 +982,10 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             with: "$1",
             options: .regularExpression
         )
+
+        // A1 · manufacturing-integrity normalization: repair corrupted-hyphen
+        // glyphs, missing sentence spaces, and non-canonical names before layout.
+        sanitized = ManuscriptNormalizer.normalize(sanitized)
         return sanitized
     }
 
@@ -1247,7 +1298,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     // MARK: - Audio Generation
 
-    /// Generate audio if a voice provider (OpenAI or ElevenLabs) is available
+    /// Generate audio if the on-device Kokoro voice model is installed
     /// - Parameters:
     ///   - content: The text content to convert to audio
     ///   - title: Title for logging purposes
@@ -1548,6 +1599,18 @@ private final class StreamingGovernorContext {
     private(set) var cutEventCount: Int = 0
     private(set) var shouldTerminate: Bool = false
 
+    /// When true, the body stops at 90% of the ceiling so a dedicated
+    /// conclusion pass can compose a synthesis/takeaways within the reserved
+    /// remainder — instead of the body being guillotined mid-block at 100%.
+    var reserveConclusionBudget: Bool = false
+
+    /// The word count at which the body pass stops accepting content.
+    var effectiveBodyCeiling: Int {
+        reserveConclusionBudget
+            ? Int(Double(governor.maxWordCeiling) * 0.9)
+            : governor.maxWordCeiling
+    }
+
     /// Buffer for incomplete sentences at chunk boundaries
     private var pendingBuffer: String = ""
 
@@ -1625,13 +1688,14 @@ private final class StreamingGovernorContext {
         // Check current utilization before processing
         let projectedWordCount = wordCount + completeContent.split(separator: " ").count
 
-        // Check if we've hit the hard ceiling
-        if projectedWordCount >= governor.maxWordCeiling {
-            governorLog("⚠️ Approaching ceiling (\(projectedWordCount)/\(governor.maxWordCeiling)) - terminating")
+        // Check if we've hit the body ceiling (reserving room for a conclusion
+        // pass when enabled, so the body never terminates mid-block).
+        if projectedWordCount >= effectiveBodyCeiling {
+            governorLog("⚠️ Approaching ceiling (\(projectedWordCount)/\(effectiveBodyCeiling)) - terminating")
             shouldTerminate = true
 
-            // Accept only what fits within ceiling
-            let remainingBudget = governor.maxWordCeiling - wordCount
+            // Accept only what fits within the body ceiling
+            let remainingBudget = effectiveBodyCeiling - wordCount
             if remainingBudget > 0 {
                 let truncated = truncateToWordCount(completeContent, maxWords: remainingBudget)
                 accumulatedContent += truncated
@@ -1674,7 +1738,7 @@ private final class StreamingGovernorContext {
     func finalize() -> String {
         // Process any remaining buffer
         if !pendingBuffer.isEmpty && !shouldTerminate {
-            let remainingBudget = governor.maxWordCeiling - wordCount
+            let remainingBudget = effectiveBodyCeiling - wordCount
             if remainingBudget > 0 {
                 var finalContent = pendingBuffer
                 if cutPolicyActivated {
@@ -1739,9 +1803,19 @@ private final class StreamingGovernorContext {
 
         let truncated = words.prefix(maxWords).joined(separator: " ")
 
-        // Find last sentence end
+        // Prefer a clean sentence end — but only if it does not strand a partial
+        // table row or an unclosed bracket tag after the cut.
         if let lastEnd = truncated.lastIndex(where: { [".", "!", "?"].contains($0) }) {
-            return String(truncated[...lastEnd])
+            let tail = truncated[truncated.index(after: lastEnd)...]
+            if !tail.contains("|") && !tail.contains("[") {
+                return String(truncated[...lastEnd])
+            }
+        }
+
+        // Otherwise fall back to the last complete line, dropping a partial
+        // trailing line (e.g. a half-written table row).
+        if let lastNewline = truncated.lastIndex(of: "\n") {
+            return String(truncated[..<lastNewline])
         }
 
         return truncated

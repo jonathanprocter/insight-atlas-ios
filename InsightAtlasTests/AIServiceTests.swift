@@ -161,7 +161,59 @@ final class AIServiceTests: XCTestCase {
     }
 
     func testAllProvidersEnumerated() {
-        XCTAssertEqual(AIProvider.allCases, [.claude, .openRouter, .minimax])
+        XCTAssertEqual(AIProvider.allCases, [.minimax, .claude, .openRouter])
+    }
+
+    // MARK: - MiniMax -> OpenRouter Fallback Policy
+
+    func testAvailabilityFailuresFallBackToOpenRouter() {
+        let retryable: [AIServiceError] = [
+            .missingApiKey(provider: "MiniMax"),
+            .invalidURL(provider: "MiniMax"),
+            .invalidResponse,
+            .apiError(statusCode: 500),
+            .apiErrorWithBody(statusCode: 502, body: "bad gateway"),
+            .streamError(message: "stream closed"),
+            .networkError(message: "offline"),
+            .rateLimitExceeded(retryAfter: 30, provider: "MiniMax")
+        ]
+
+        for error in retryable {
+            XCTAssertTrue(
+                AIService.shouldFallBackToOpenRouter(after: error),
+                "\(error) should fall back to OpenRouter"
+            )
+        }
+    }
+
+    func testRequestShapedFailuresDoNotFallBack() {
+        let terminal: [AIServiceError] = [
+            .contentPolicyViolation(message: "blocked", provider: "MiniMax"),
+            .inputTooLarge(estimatedTokens: 900_000, limit: 200_000, provider: "MiniMax"),
+            .tokenEstimationWarning(estimated: 190_000, limit: 200_000, utilizationPercent: 95)
+        ]
+
+        for error in terminal {
+            XCTAssertFalse(
+                AIService.shouldFallBackToOpenRouter(after: error),
+                "\(error) would fail identically on OpenRouter and should surface"
+            )
+        }
+    }
+
+    func testCancellationNeverFallsBack() {
+        XCTAssertFalse(AIService.shouldFallBackToOpenRouter(after: CancellationError()))
+        XCTAssertFalse(
+            AIService.shouldFallBackToOpenRouter(after: URLError(.cancelled))
+        )
+    }
+
+    func testUnknownErrorsAreTreatedAsAvailabilityFailures() {
+        struct OAuthFailure: Error {}
+        XCTAssertTrue(AIService.shouldFallBackToOpenRouter(after: OAuthFailure()))
+        XCTAssertTrue(
+            AIService.shouldFallBackToOpenRouter(after: URLError(.timedOut))
+        )
     }
 
     // MARK: - Request Model Tests

@@ -25,7 +25,7 @@ struct RegenerateView: View {
     @State private var showingError = false
 
     // User-selectable generation options
-    @State private var selectedProvider: AIProvider = .claude
+    @State private var selectedProvider: AIProvider = .minimax
     @State private var selectedMode: GenerationMode = .deepResearch
     @State private var selectedTone: ToneMode = .professional
     @State private var selectedFormat: OutputFormat = .fullGuide

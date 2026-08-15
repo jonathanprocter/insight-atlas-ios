@@ -247,6 +247,8 @@ struct AnalysisDetailView: View {
                 // Re-parse the content
                 parsedContent = ParsedAnalysisContent.parse(from: newContent)
             })
+                .environmentObject(environment)
+                .environmentObject(environment.dataManager)
         }
         .onAppear {
             parseContent()
@@ -506,7 +508,7 @@ struct AnalysisDetailView: View {
 
         Task {
             do {
-                // Mega Transcript is preferred; OpenAI follows, then Liam last.
+                // Mega Transcript is preferred; on-device Kokoro (Liam) is the fallback.
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
                     itemId: itemId

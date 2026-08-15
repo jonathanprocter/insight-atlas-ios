@@ -92,13 +92,10 @@ enum L10n {
         static let title = "settings.apiKeys.title".localized
         static let bothConfigured = "settings.apiKeys.bothConfigured".localized
         static let claudeConfigured = "settings.apiKeys.claudeConfigured".localized
-        static let openaiConfigured = "settings.apiKeys.openaiConfigured".localized
         static let addKeys = "settings.apiKeys.addKeys".localized
         static let securityNote = "settings.apiKeys.securityNote".localized
         static let claudeTitle = "settings.apiKeys.claude.title".localized
         static let claudePlaceholder = "settings.apiKeys.claude.placeholder".localized
-        static let openaiTitle = "settings.apiKeys.openai.title".localized
-        static let openaiPlaceholder = "settings.apiKeys.openai.placeholder".localized
     }
 
     // MARK: - Generation

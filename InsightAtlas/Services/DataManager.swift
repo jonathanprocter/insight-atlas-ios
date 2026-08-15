@@ -368,9 +368,14 @@ class DataManager: ObservableObject {
 
     /// Export a guide to a file with comprehensive error handling
     nonisolated func exportGuide(_ item: LibraryItem, format: ExportFormat) throws -> URL {
-        guard let content = item.summaryContent, !content.isEmpty else {
+        guard let rawContent = item.summaryContent, !rawContent.isEmpty else {
             throw DataManagerError.noContent
         }
+
+        // Track A · release gate — applies to every non-PDF format (html/txt/md).
+        // Repairs safe defects and blocks export of a manuscript with unshippable
+        // defects, so no format can leak a truncated or corrupted guide.
+        let content = try ManuscriptGate.prepareForExport(rawContent)
 
         // Generate clean, readable filename in Title Case with proper formatting
         let sanitizedTitle = sanitizeFilename(item.title)
