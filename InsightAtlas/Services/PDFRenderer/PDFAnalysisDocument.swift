@@ -2199,6 +2199,23 @@ extension PDFAnalysisDocument {
             }
             blocks.append(PDFContentBlock(type: .pyramid, content: "", listItems: items, metadata: ["title": title ?? "Pyramid"]))
 
+        case .spectrum(let data):
+            // No native spectrum figure in the PDF renderer yet. Emit the poles
+            // as a heading line plus the positioned items as a list so the
+            // exported document keeps the meaning rather than dropping it.
+            addHeadingIfNeeded(useInlineTitle: false)
+            blocks.append(PDFContentBlock(
+                type: .paragraph,
+                content: "\(data.leftPole) → \(data.rightPole)"
+            ))
+            if !data.items.isEmpty {
+                blocks.append(PDFContentBlock(
+                    type: .bulletList,
+                    content: "",
+                    listItems: data.items.map(\.label)
+                ))
+            }
+
         case .cycleDiagram(let data):
             // Native cycle renderer (capability-audit Batch 2): draw a ring of
             // stages with closing arrows instead of degrading to a bullet list.

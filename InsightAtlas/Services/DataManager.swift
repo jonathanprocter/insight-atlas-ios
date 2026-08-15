@@ -828,6 +828,7 @@ class DataManager: ObservableObject {
 
     nonisolated private func visualHeader(for type: InsightVisualType) -> (icon: String, title: String) {
         switch type {
+        case .spectrum: return ("↔️", "SPECTRUM")
         case .timeline: return ("📅", "TIMELINE")
         case .flowchart: return ("🔀", "PROCESS FLOW")
         case .comparisonMatrix: return ("📊", "COMPARISON")
@@ -953,6 +954,22 @@ class DataManager: ObservableObject {
         }
 
         switch visual.payload {
+        case .spectrum(let data):
+            // Poles as a labelled row, items beneath, mirroring the in-app card.
+            let items = data.items
+                .map { "<li>\(escapeHTML($0.label))</li>" }
+                .joined()
+            return """
+            <div class="spectrum">
+              <div class="spectrum-poles">
+                <span class="spectrum-pole-left">\(escapeHTML(data.leftPole))</span>
+                <span class="spectrum-pole-right">\(escapeHTML(data.rightPole))</span>
+              </div>
+              <div class="spectrum-axis"></div>
+              \(items.isEmpty ? "" : "<ul class=\"spectrum-items\">\(items)</ul>")
+            </div>
+            """
+
         case .timeline(let data):
             return timelineHTML(data.events)
 

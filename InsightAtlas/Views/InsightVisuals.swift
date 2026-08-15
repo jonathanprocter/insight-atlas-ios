@@ -33,6 +33,7 @@ enum InsightVisualType: String {
     case journeyMap = "VISUAL_JOURNEY_MAP"
     case barChartStacked = "VISUAL_BAR_CHART_STACKED"
     case barChartGrouped = "VISUAL_BAR_CHART_GROUPED"
+    case spectrum = "VISUAL_SPECTRUM"
     case generic = "VISUAL_GENERIC"
 }
 
@@ -43,6 +44,7 @@ struct InsightVisual {
 }
 
 enum InsightVisualPayload {
+    case spectrum(SpectrumData)
     case timeline(TimelineData)
     case flowchart(FlowchartData)
     case comparison(ComparisonMatrixData)
@@ -229,6 +231,21 @@ struct FunnelData: Codable {
     let stages: [Stage]
 }
 
+/// A one-dimensional scale between two opposing poles, with items placed
+/// along it. The prompt asks for "Left pole → Right pole with items positioned
+/// along the range", so the poles arrive as an arrow-separated line and the
+/// remaining lines are the items.
+struct SpectrumData: Codable {
+    struct Item: Codable {
+        let label: String
+        /// 0 = hard left pole, 1 = hard right pole.
+        let position: Double
+    }
+    let leftPole: String
+    let rightPole: String
+    let items: [Item]
+}
+
 struct PyramidData: Codable {
     struct Level: Codable {
         let label: String
@@ -368,7 +385,8 @@ struct InsightVisualParser {
     /// re-typing is safe — the closest type's line parser handles the content.
     /// (Resolves FOLLOWUPS.md §1.)
     static let tagAliases: [String: String] = [
-        "VISUAL_SPECTRUM": "VISUAL_QUADRANT",              // poles along a range → 2-axis positioning
+        "VISUAL_COMPARISON_TABLE": "VISUAL_COMPARISON_MATRIX", // rows of compared attributes
+        "VISUAL_FLOW_DIAGRAM": "VISUAL_FLOWCHART",         // ordered steps
         "VISUAL_MATRIX": "VISUAL_TABLE",                   // rows × columns
         "VISUAL_COMPARISON": "VISUAL_COMPARISON_MATRIX",   // side-by-side comparison
         "VISUAL_PROCESS": "VISUAL_FLOWCHART",              // sequential steps
@@ -511,6 +529,9 @@ struct InsightVisualParser {
         case .barChartGrouped:
             guard let data = decode(GroupedBarChartData.self) else { return nil }
             return InsightVisual(type: type, title: title, payload: .barChartGrouped(data))
+        case .spectrum:
+            guard let data = decode(SpectrumData.self) else { return nil }
+            return InsightVisual(type: type, title: title, payload: .spectrum(data))
         case .generic:
             return InsightVisual(type: type, title: title, payload: .generic(text))
         }
@@ -881,9 +902,81 @@ struct InsightVisualParser {
             return nil
         case .barChartGrouped:
             return nil
+        case .spectrum:
+            guard let data = parseSpectrum(trimmed) else { return nil }
+            return InsightVisual(type: type, title: title, payload: .spectrum(data))
+
         case .generic:
             return InsightVisual(type: type, title: title, payload: .generic(lines.joined(separator: "\n")))
         }
+    }
+
+    /// Parse the loose spectrum payload the prompt asks for.
+    ///
+    /// The poles arrive on one line separated by an arrow ("A → B", "A -> B",
+    /// or "A vs B"). Remaining lines are items, optionally carrying their own
+    /// position as a trailing percentage or a "label: 0.7" suffix; otherwise
+    /// items are distributed evenly across the range so the diagram still reads
+    /// sensibly.
+    static func parseSpectrum(_ lines: [String]) -> SpectrumData? {
+        // Longest first: "->" would otherwise consume the tail of "<->" and
+        // leave a stray "<" on the left pole.
+        let separators = ["<->", "‹›", "↔", "→", "->", " versus ", " vs "]
+
+        var leftPole: String?
+        var rightPole: String?
+        var poleLineIndex: Int?
+
+        for (index, line) in lines.enumerated() {
+            guard let separator = separators.first(where: { line.contains($0) }) else { continue }
+            let parts = line.components(separatedBy: separator)
+            guard parts.count >= 2 else { continue }
+            let left = parts[0].trimmingCharacters(in: .whitespaces)
+            let right = parts[1].trimmingCharacters(in: .whitespaces)
+            guard !left.isEmpty, !right.isEmpty else { continue }
+            leftPole = left
+            rightPole = right
+            poleLineIndex = index
+            break
+        }
+
+        guard let left = leftPole, let right = rightPole else { return nil }
+
+        let itemLines = lines.enumerated()
+            .filter { $0.offset != poleLineIndex }
+            .map { $0.element.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        var items: [SpectrumData.Item] = []
+        for (index, raw) in itemLines.enumerated() {
+            var label = raw
+            if label.hasPrefix("- ") || label.hasPrefix("* ") || label.hasPrefix("• ") {
+                label = String(label.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            }
+
+            var position: Double?
+            // "label: 70%" or "label: 0.7"
+            if let colon = label.lastIndex(of: ":") {
+                let suffix = label[label.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+                if suffix.hasSuffix("%"), let value = Double(suffix.dropLast()) {
+                    position = value / 100
+                    label = String(label[..<colon]).trimmingCharacters(in: .whitespaces)
+                } else if let value = Double(suffix), (0...1).contains(value) {
+                    position = value
+                    label = String(label[..<colon]).trimmingCharacters(in: .whitespaces)
+                }
+            }
+
+            guard !label.isEmpty else { continue }
+            let fallback = itemLines.count == 1
+                ? 0.5
+                : Double(index) / Double(max(itemLines.count - 1, 1))
+            items.append(
+                SpectrumData.Item(label: label, position: min(max(position ?? fallback, 0), 1))
+            )
+        }
+
+        return SpectrumData(leftPole: left, rightPole: right, items: items)
     }
 }
 
@@ -961,6 +1054,8 @@ struct InsightVisualView: View {
                 StackedBarChartCardView(data: data)
             case .barChartGrouped(let data):
                 GroupedBarChartCardView(data: data)
+            case .spectrum(let data):
+                SpectrumCardView(data: data)
             case .generic(let data):
                 GenericVisualCardView(data: data)
             }
@@ -1804,13 +1899,104 @@ private struct GroupedBarChartCardView: View {
     }
 }
 
+private struct SpectrumCardView: View {
+    let data: SpectrumData
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
+            VisualHeader(label: "Spectrum", icon: "arrow.left.and.right")
+
+            HStack(alignment: .top, spacing: AnalysisTheme.Spacing.sm) {
+                Text(data.leftPole)
+                    .font(.analysisUIBold())
+                    .foregroundColor(AnalysisTheme.textHeading)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(data.rightPole)
+                    .font(.analysisUIBold())
+                    .foregroundColor(AnalysisTheme.textHeading)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+
+            // The axis itself: a gradient bar with a tick per positioned item.
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    AnalysisTheme.primaryGold.opacity(0.55),
+                                    AnalysisTheme.primaryGold.opacity(0.15),
+                                    AnalysisTheme.primaryGold.opacity(0.55)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(height: 6)
+                    ForEach(Array(data.items.enumerated()), id: \.offset) { _, item in
+                        Circle()
+                            .fill(AnalysisTheme.primaryGold)
+                            .frame(width: 10, height: 10)
+                            .position(
+                                x: max(5, min(geo.size.width - 5, geo.size.width * item.position)),
+                                y: 3
+                            )
+                    }
+                }
+            }
+            .frame(height: 10)
+
+            if !data.items.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(data.items.enumerated()), id: \.offset) { _, item in
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle()
+                                .fill(AnalysisTheme.primaryGold)
+                                .frame(width: 6, height: 6)
+                                .padding(.top, 6)
+                            Text(item.label)
+                                .font(.analysisUISmall())
+                                .foregroundColor(AnalysisTheme.textBody)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// Fallback for a visual whose payload no typed parser could read.
+///
+/// This used to dump the payload as one undifferentiated blob, which read as
+/// broken prose spliced into the guide -- pole labels and fragments running
+/// together mid-sentence. Presenting the lines as a titled, bulleted card keeps
+/// an unparsed visual legible and obviously a figure rather than body text.
 private struct GenericVisualCardView: View {
     let data: String
 
+    private var lines: [String] {
+        data
+            .components(separatedBy: .newlines)
+            .map { line -> String in
+                var trimmed = line.trimmingCharacters(in: .whitespaces)
+                for marker in ["- ", "* ", "• "] where trimmed.hasPrefix(marker) {
+                    trimmed = String(trimmed.dropFirst(marker.count)).trimmingCharacters(in: .whitespaces)
+                }
+                return trimmed
+            }
+            .filter { !$0.isEmpty }
+    }
+
     var body: some View {
-        VStack(alignment: .center, spacing: AnalysisTheme.Spacing.md) {
+        VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Visual", icon: "sparkles")
-            if data == "Unable to render visual content" {
+
+            if data == "Unable to render visual content" || lines.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "photo.artframe")
                         .font(.system(size: 32))
@@ -1819,11 +2005,24 @@ private struct GenericVisualCardView: View {
                         .font(.analysisUI())
                         .foregroundColor(AnalysisTheme.textMuted)
                 }
+                .frame(maxWidth: .infinity)
                 .padding(.vertical, AnalysisTheme.Spacing.lg)
             } else {
-                Text(data)
-                    .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.textBody)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle()
+                                .fill(AnalysisTheme.primaryGold.opacity(0.7))
+                                .frame(width: 5, height: 5)
+                                .padding(.top, 6)
+                            Text(line)
+                                .font(.analysisUISmall())
+                                .foregroundColor(AnalysisTheme.textBody)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity)
