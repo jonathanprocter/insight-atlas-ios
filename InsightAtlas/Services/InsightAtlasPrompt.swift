@@ -478,6 +478,14 @@ struct InsightAtlasPromptGenerator {
           Narrowed behavior
           [/VISUAL_FLOWCHART]
 
+        TABLES AND EMPHASIS:
+        - Never emit a bare markdown table. Any tabular content MUST be wrapped in
+          [VISUAL_TABLE: Title] ... [/VISUAL_TABLE] using the pipe format shown
+          below. A bare markdown table is not laid out as a grid.
+        - Do not emit a "|---|---|" alignment row; the renderer does not need one.
+        - Use **double asterisks** for bold and *single asterisks* for italics.
+          Do not use underscores, backticks, or HTML tags for emphasis.
+
         Available visual types — PAYLOAD FORMAT IS MANDATORY:
 
         Each entry below shows the EXACT line format its renderer parses. Emit the

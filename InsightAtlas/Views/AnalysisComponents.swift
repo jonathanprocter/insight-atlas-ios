@@ -161,24 +161,56 @@ func parseMarkdownBold(_ text: String) -> AttributedString {
     }
 
     // 2. Process bold markdown syntax (**text**)
-    let currentText = String(result.characters) // Convert back to plain string to find matches
-    let boldPattern = #"\*\*([^*]+)\*\*"#
-    if let boldRegex = try? NSRegularExpression(pattern: boldPattern) {
-        let matches = boldRegex.matches(in: currentText, range: NSRange(currentText.startIndex..., in: currentText))
-        for match in matches.reversed() {
-            guard let captureRange = Range(match.range(at: 1), in: currentText) else { continue }
-            let boldText = String(currentText[captureRange])
-            let fullMatch = "**\(boldText)**"
-            
-            if let attrRange = result.range(of: fullMatch) {
-                var styledBold = AttributedString(boldText)
-                styledBold.font = .system(size: 17, weight: .bold)
-                result.replaceSubrange(attrRange, with: styledBold)
-            }
-        }
-    }
+    applyInlineEmphasis(
+        to: &result,
+        pattern: #"\*\*([^*]+)\*\*"#,
+        wrap: { "**\($0)**" },
+        font: .system(size: 17, weight: .bold)
+    )
+
+    // 3. Process italic markdown (*text* and _text_).
+    //
+    // Bold runs first and has already been consumed above, so a lone asterisk
+    // here is emphasis. Without this pass the asterisks were rendered literally
+    // to the reader, which is how "*arbitrary*" reached the page with its
+    // markers intact.
+    applyInlineEmphasis(
+        to: &result,
+        pattern: #"(?<![\*\w])\*([^\*\n]+)\*(?![\*\w])"#,
+        wrap: { "*\($0)*" },
+        font: .system(size: 17).italic()
+    )
+    applyInlineEmphasis(
+        to: &result,
+        pattern: #"(?<![_\w])_([^_\n]+)_(?![_\w])"#,
+        wrap: { "_\($0)_" },
+        font: .system(size: 17).italic()
+    )
 
     return result
+}
+
+/// Replace every `pattern` match in `result` with its captured text restyled.
+///
+/// Matching is done against the current plain-text projection and applied in
+/// reverse so earlier ranges stay valid as later ones are replaced.
+private func applyInlineEmphasis(
+    to result: inout AttributedString,
+    pattern: String,
+    wrap: (String) -> String,
+    font: Font
+) {
+    let currentText = String(result.characters)
+    guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
+    let matches = regex.matches(in: currentText, range: NSRange(currentText.startIndex..., in: currentText))
+    for match in matches.reversed() {
+        guard let captureRange = Range(match.range(at: 1), in: currentText) else { continue }
+        let inner = String(currentText[captureRange])
+        guard let attrRange = result.range(of: wrap(inner)) else { continue }
+        var styled = AttributedString(inner)
+        styled.font = font
+        result.replaceSubrange(attrRange, with: styled)
+    }
 }
 
 // MARK: - Analysis Header View

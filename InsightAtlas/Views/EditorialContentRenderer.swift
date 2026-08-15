@@ -819,21 +819,44 @@ struct ContentBlockParser {
                 continue
             }
 
-            // Handle tables
-            if trimmed.hasPrefix("|") && trimmed.hasSuffix("|") {
+            // Handle tables.
+            //
+            // Detection used to require a leading AND trailing pipe. Generated
+            // tables regularly omit the trailing pipe, or drop the edge pipes
+            // entirely ("Name | Value | Notes"), and those rows fell through to
+            // the paragraph branch -- which joins its lines with spaces and so
+            // collapsed the whole table into one unreadable run of text.
+            let pipeCount = trimmed.filter { $0 == "|" }.count
+            let nextPipeCount = i + 1 < lines.count
+                ? lines[i + 1].trimmingCharacters(in: .whitespaces).filter { $0 == "|" }.count
+                : 0
+            // Three or more columns are unambiguous on their own. A two-column
+            // table has a single pipe per row, which is also what a sentence
+            // containing a pipe looks like -- so require the next row to agree
+            // on the column count before treating it as a table.
+            let startsTable = isTableRow(trimmed)
+                || (pipeCount == 1 && nextPipeCount == 1)
+            if startsTable {
                 flushParagraph()
                 var tableLines: [String] = [trimmed]
                 i += 1
                 while i < lines.count {
                     let nextLine = lines[i].trimmingCharacters(in: .whitespaces)
-                    if nextLine.hasPrefix("|") {
+                    let count = nextLine.filter { $0 == "|" }.count
+                    if isTableSeparatorRow(nextLine) || (count > 0 && count == pipeCount) {
                         tableLines.append(nextLine)
                         i += 1
                     } else {
                         break
                     }
                 }
-                blocks.append(ParsedContentBlock(type: .table, tableData: parseTable(tableLines)))
+                let rows = parseTable(tableLines)
+                // One row is prose that happened to contain a pipe.
+                if rows.count >= 2 {
+                    blocks.append(ParsedContentBlock(type: .table, tableData: rows))
+                    continue
+                }
+                currentParagraph.append(contentsOf: tableLines)
                 continue
             }
 
@@ -1074,6 +1097,34 @@ struct ContentBlockParser {
             }
             return trimmed
         }
+    }
+
+
+    /// Whether `line` reads as a markdown table row.
+    ///
+    /// Requires two or more pipes so an ordinary sentence containing a single
+    /// "|" is not mistaken for a table. Edge pipes are optional because
+    /// generated tables often omit them.
+    static func isTableRow(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+        if isTableSeparatorRow(trimmed) { return true }
+        let pipes = trimmed.filter { $0 == "|" }.count
+        guard pipes >= 2 else { return false }
+        // Reject a line whose pipes sit inside one long clause rather than
+        // delimiting cells.
+        let cells = trimmed
+            .trimmingCharacters(in: CharacterSet(charactersIn: "|"))
+            .components(separatedBy: "|")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        return cells.count >= 2 && cells.contains { !$0.isEmpty }
+    }
+
+    /// The "|---|---|" alignment row beneath a table header.
+    static func isTableSeparatorRow(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.contains("-"), trimmed.contains("|") else { return false }
+        return trimmed.allSatisfy { $0 == "|" || $0 == "-" || $0 == ":" || $0 == " " }
     }
 
     private static func parseTable(_ lines: [String]) -> [[String]] {
