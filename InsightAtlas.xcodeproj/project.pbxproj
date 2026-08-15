@@ -52,6 +52,7 @@
 		C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */; };
 		E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */; };
 		E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */; };
+		E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */; };
 		C207E6023026CAB600843994 /* PremiumTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6013026CAB600843994 /* PremiumTabBar.swift */; };
 		C207E6043026CAC900843994 /* AtlasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6033026CAC900843994 /* AtlasView.swift */; };
 		C207E6063026D40500843994 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6053026D40500843994 /* ListenView.swift */; };
@@ -217,6 +218,7 @@
 		C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationTests.swift; sourceTree = "<group>"; };
 		E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialHeadingParsingTests.swift; sourceTree = "<group>"; };
 		E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisualCoverageTests.swift; sourceTree = "<group>"; };
+		E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualPayloadContractTests.swift; sourceTree = "<group>"; };
 		C207E6013026CAB600843994 /* PremiumTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumTabBar.swift; sourceTree = "<group>"; };
 		C207E6033026CAC900843994 /* AtlasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasView.swift; sourceTree = "<group>"; };
 		C207E6053026D40500843994 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
@@ -372,6 +374,7 @@
 				C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */,
 				E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */,
 				E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */,
+				E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */,
 				C207E6073026E11900843994 /* ContentTruncationTests.swift */,
 				C2ED8F10302A1214003096F3 /* InsightNoteFragmentationTests.swift */,
 				C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */,
@@ -813,6 +816,7 @@
 				C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */,
 				E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */,
 				E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */,
+				E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */,
 				IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */,
 				A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */,
 				A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */,
@@ -1104,7 +1108,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081510;
+				CURRENT_PROJECT_VERSION = 2026081511;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1137,7 +1141,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081510;
+				CURRENT_PROJECT_VERSION = 2026081511;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;

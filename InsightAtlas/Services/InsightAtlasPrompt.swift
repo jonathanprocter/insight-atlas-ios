@@ -478,126 +478,255 @@ struct InsightAtlasPromptGenerator {
           Narrowed behavior
           [/VISUAL_FLOWCHART]
 
-        Available visual types:
+        Available visual types — PAYLOAD FORMAT IS MANDATORY:
+
+        Each entry below shows the EXACT line format its renderer parses. Emit the
+        payload in that shape, one item per line. Never write a prose sentence as
+        the payload: a payload the renderer cannot parse is drawn as a plain text
+        box, which reads to the user as a broken visual. Titles go in the opening
+        tag, never in the payload.
 
         [VISUAL_SPECTRUM: Title]
-        Left pole → Right pole with items positioned along the range
+        Left pole → Right pole
+        Item nearer the left
+        Item in the middle
+        Item nearer the right
         [/VISUAL_SPECTRUM]
 
-        [VISUAL_MATRIX: Title]
-        Rows × Columns with cell content
-        [/VISUAL_MATRIX]
-
         [VISUAL_TIMELINE: Title]
-        Chronological progression
+        1945: Event name — what happened
+        1962: Event name — what happened
         [/VISUAL_TIMELINE]
 
+        [VISUAL_TABLE: Title]
+        Column A | Column B | Column C
+        Row 1 cell | Row 1 cell | Row 1 cell
+        [/VISUAL_TABLE]
+
+        [VISUAL_MATRIX: Title]
+        Dimension | Option A | Option B
+        Cost | Low | High
+        [/VISUAL_MATRIX]
+
         [VISUAL_COMPARISON: Title]
-        Side-by-side comparison of concepts
+        Aspect | First concept | Second concept
+        Focus | Present moment | Past causes
         [/VISUAL_COMPARISON]
 
-        [VISUAL_PROCESS: Title]
-        Sequential steps
-        [/VISUAL_PROCESS]
-
-        [VISUAL_VENN: Title]
-        Overlapping categories
-        [/VISUAL_VENN]
-
-        [VISUAL_FUNNEL: Title]
-        Narrowing stages
-        [/VISUAL_FUNNEL]
-
-        [VISUAL_PYRAMID: Title]
-        Layered hierarchy
-        [/VISUAL_PYRAMID]
-
-        [VISUAL_MINDMAP: Title]
-        Central concept with radiating branches
-        [/VISUAL_MINDMAP]
-
-        [VISUAL_FLOWCHART: Title]
-        Decision paths with conditions
-        [/VISUAL_FLOWCHART]
-
-        [VISUAL_GAUGE: Title]
-        Measurement with zones
-        [/VISUAL_GAUGE]
+        [VISUAL_COMPARISON_TABLE: Title]
+        Aspect | Option A | Option B
+        Duration | 8 weeks | 12 weeks
+        [/VISUAL_COMPARISON_TABLE]
 
         [VISUAL_BEFORE_AFTER: Title]
-        Transformation comparison
+        Aspect | Before | After
+        Response to anxiety | Avoidance | Willingness
         [/VISUAL_BEFORE_AFTER]
 
-        [VISUAL_ICEBERG: Title]
-        Visible vs hidden layers
-        [/VISUAL_ICEBERG]
+        [VISUAL_FLOWCHART: Title]
+        First step
+        Second step
+        Third step
+        [/VISUAL_FLOWCHART]
+
+        [VISUAL_PROCESS: Title]
+        First step
+        Second step
+        [/VISUAL_PROCESS]
+
+        [VISUAL_FLOW_DIAGRAM: Title]
+        First step
+        Second step
+        [/VISUAL_FLOW_DIAGRAM]
 
         [VISUAL_BRIDGE: Title]
-        From current state to desired state
+        Current state
+        Intervening move
+        Desired state
         [/VISUAL_BRIDGE]
 
+        [VISUAL_CONCEPT_MAP: Title]
+        Central: The core idea
+        First related concept
+        Second related concept
+        [/VISUAL_CONCEPT_MAP]
+
+        [VISUAL_MINDMAP: Title]
+        Central: The core idea
+        First branch
+        Second branch
+        [/VISUAL_MINDMAP]
+
         [VISUAL_ORBIT: Title]
-        Central concept with orbiting elements
+        Central: The core idea
+        First orbiting element
+        Second orbiting element
         [/VISUAL_ORBIT]
 
-        [VISUAL_LADDER: Title]
-        Progressive levels of mastery
-        [/VISUAL_LADDER]
+        [VISUAL_BAR_CHART: Title]
+        First label: 42
+        Second label: 71
+        [/VISUAL_BAR_CHART]
 
-        [VISUAL_CYCLE: Title]
-        Repeating loop with stages
-        [/VISUAL_CYCLE]
+        [VISUAL_BAR_CHART_STACKED: Title]
+        Week 1, Week 2, Week 3
+        Practice: 3, 5, 8
+        Avoidance: 6, 4, 1
+        [/VISUAL_BAR_CHART_STACKED]
 
-        [VISUAL_FISHBONE: Title]
-        Effect with categorized causes
-        [/VISUAL_FISHBONE]
+        [VISUAL_BAR_CHART_GROUPED: Title]
+        Week 1, Week 2, Week 3
+        Practice: 3, 5, 8
+        Avoidance: 6, 4, 1
+        [/VISUAL_BAR_CHART_GROUPED]
 
-        [VISUAL_SWOT: Title]
-        Strengths/Weaknesses/Opportunities/Threats
-        [/VISUAL_SWOT]
+        [VISUAL_PIE_CHART: Title]
+        First segment: 45
+        Second segment: 30
+        Third segment: 25
+        [/VISUAL_PIE_CHART]
 
-        [VISUAL_SANKEY: Title]
-        Flows with values
-        [/VISUAL_SANKEY]
+        [VISUAL_LINE_CHART: Title]
+        2020: 12
+        2021: 19
+        [/VISUAL_LINE_CHART]
+
+        [VISUAL_AREA_CHART: Title]
+        2020: 12
+        2021: 19
+        [/VISUAL_AREA_CHART]
+
+        [VISUAL_FUNNEL: Title]
+        Awareness: 1000
+        Consideration: 400
+        Commitment: 120
+        [/VISUAL_FUNNEL]
+
+        [VISUAL_GAUGE: Title]
+        Current reading: 72
+        Healthy range: 60
+        [/VISUAL_GAUGE]
 
         [VISUAL_TREEMAP: Title]
-        Items sized by value
+        First item: 40
+        Second item: 25
         [/VISUAL_TREEMAP]
 
-        [VISUAL_HEATMAP: Title]
-        Rows/cols with values
-        [/VISUAL_HEATMAP]
-
         [VISUAL_BUBBLE: Title]
-        Bubbles sized by magnitude
+        First bubble, 2, 3, 40
+        Second bubble, 5, 1, 15
         [/VISUAL_BUBBLE]
 
         [VISUAL_INFOGRAPHIC: Title]
-        Key stats and highlights
+        First statistic: 62
+        Second statistic: 75
         [/VISUAL_INFOGRAPHIC]
 
+        [VISUAL_SCATTER_PLOT: Title]
+        3.2, 4.5, First point label
+        5.1, 2.8, Second point label
+        [/VISUAL_SCATTER_PLOT]
+
+        [VISUAL_QUADRANT: Title]
+        Quadrant: High urgency, high importance
+        Do it now
+        Quadrant: Low urgency, high importance
+        Schedule it
+        [/VISUAL_QUADRANT]
+
+        [VISUAL_VENN: Title]
+        First set: item one, item two
+        Second set: item three, item four
+        Intersection: shared item
+        [/VISUAL_VENN]
+
+        [VISUAL_GANTT: Title]
+        Task name | 0 | 3
+        Second task | 2 | 4
+        [/VISUAL_GANTT]
+
+        [VISUAL_NETWORK: Title]
+        Node: First concept | group A
+        Node: Second concept | group B
+        Link: First concept -> Second concept
+        [/VISUAL_NETWORK]
+
+        [VISUAL_FISHBONE: Title]
+        Effect: The outcome being explained
+        Category one: cause A, cause B
+        Category two: cause C, cause D
+        [/VISUAL_FISHBONE]
+
+        [VISUAL_SWOT: Title]
+        Strengths: first strength, second strength
+        Weaknesses: first weakness
+        Opportunities: first opportunity
+        Threats: first threat
+        [/VISUAL_SWOT]
+
+        [VISUAL_SANKEY: Title]
+        Source -> Destination: 40
+        Source -> Other destination: 60
+        [/VISUAL_SANKEY]
+
+        [VISUAL_HEATMAP: Title]
+        Column A, Column B, Column C
+        Row label: 3, 7, 1
+        Second row: 5, 2, 8
+        [/VISUAL_HEATMAP]
+
+        [VISUAL_PYRAMID: Title]
+        Base layer
+        Middle layer
+        Top layer
+        [/VISUAL_PYRAMID]
+
+        [VISUAL_ICEBERG: Title]
+        Visible behaviour
+        Underlying belief
+        Core assumption
+        [/VISUAL_ICEBERG]
+
+        [VISUAL_LADDER: Title]
+        First level
+        Second level
+        Third level
+        [/VISUAL_LADDER]
+
+        [VISUAL_CYCLE: Title]
+        First stage
+        Second stage
+        Third stage
+        [/VISUAL_CYCLE]
+
+        [VISUAL_HIERARCHY: Title]
+        Root concept
+        First child
+        Second child
+        [/VISUAL_HIERARCHY]
+
+        [VISUAL_RADAR: Title]
+        First dimension
+        Second dimension
+        Third dimension
+        [/VISUAL_RADAR]
+
         [VISUAL_STORYBOARD: Title]
-        Scene-by-scene progression
+        First scene: what happens
+        Second scene: what happens next
         [/VISUAL_STORYBOARD]
 
         [VISUAL_JOURNEY_MAP: Title]
-        Stages with touchpoints and emotions
+        Stage: Awareness | curious
+        First touchpoint
+        Second touchpoint
+        Stage: Commitment | resolved
+        Third touchpoint
         [/VISUAL_JOURNEY_MAP]
 
-        [VISUAL_QUADRANT: Title]
-        Axes with labeled quadrants
-        [/VISUAL_QUADRANT]
-
-        [VISUAL_BAR_CHART: Title]
-        Label: value   (one "label: number" per line)
-        [/VISUAL_BAR_CHART]
-
-        [VISUAL_PIE_CHART: Title]
-        Segment: value   (one "segment: number" per line; values are shares)
-        [/VISUAL_PIE_CHART]
-
         [VISUAL_GENERIC: Title]
-        Use only if a new visual type is required
+        One point per line
+        Use only if no type above fits
         [/VISUAL_GENERIC]
 
         VISUAL COVERAGE STANDARD (GLOBAL):

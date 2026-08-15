@@ -898,10 +898,47 @@ struct InsightVisualParser {
             guard !stages.isEmpty else { return nil }
             return InsightVisual(type: type, title: title, payload: .journeyMap(JourneyMapData(stages: stages)))
 
-        case .barChartStacked:
-            return nil
-        case .barChartGrouped:
-            return nil
+        case .barChartStacked, .barChartGrouped:
+            // First line names the categories, each later line is
+            // "Series name: v1, v2, v3" aligned to those categories.
+            guard trimmed.count >= 2 else { return nil }
+            let labels = trimmed[0]
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            guard !labels.isEmpty else { return nil }
+
+            var seriesLabels: [String] = []
+            var series: [[Double]] = []
+            for line in trimmed.dropFirst() {
+                let parts = line.split(separator: ":", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+                guard parts.count == 2 else { continue }
+                let values = parts[1]
+                    .split(separator: ",")
+                    .compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+                guard !values.isEmpty else { continue }
+                seriesLabels.append(parts[0])
+                series.append(values)
+            }
+            guard !series.isEmpty else { return nil }
+
+            if type == .barChartStacked {
+                return InsightVisual(
+                    type: type,
+                    title: title,
+                    payload: .barChartStacked(
+                        StackedBarChartData(labels: labels, series: series, seriesLabels: seriesLabels)
+                    )
+                )
+            }
+            return InsightVisual(
+                type: type,
+                title: title,
+                payload: .barChartGrouped(
+                    GroupedBarChartData(labels: labels, series: series, seriesLabels: seriesLabels)
+                )
+            )
+
         case .spectrum:
             guard let data = parseSpectrum(trimmed) else { return nil }
             return InsightVisual(type: type, title: title, payload: .spectrum(data))
