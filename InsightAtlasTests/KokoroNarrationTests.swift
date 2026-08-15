@@ -150,14 +150,13 @@ final class KokoroNarrationTests: XCTestCase {
 
     // MARK: - Stable provider fallback policy
 
-    func testNarrationFallbackPolicyUsesKokoroThenMegaThenLiam() {
+    func testNarrationFallbackPolicyUsesKokoroThenLiam() {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: true,
-                megaTranscriptConfigured: true,
                 liamConfigured: true
             ),
-            [.kokoro, .megaTranscript, .liam]
+            [.kokoro, .liam]
         )
     }
 
@@ -165,7 +164,6 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: false,
-                megaTranscriptConfigured: false,
                 liamConfigured: true
             ),
             [.liam]
@@ -173,19 +171,46 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: true,
-                megaTranscriptConfigured: true,
-                liamConfigured: true
-            ),
-            [.kokoro, .megaTranscript, .liam]
-        )
-        XCTAssertEqual(
-            NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: true,
-                megaTranscriptConfigured: false,
                 liamConfigured: false
             ),
             [.kokoro]
         )
+        XCTAssertTrue(
+            NarrationFallbackPolicy.orderedRoutes(
+                kokoroConfigured: false,
+                liamConfigured: false
+            ).isEmpty
+        )
+    }
+
+    // MARK: - Synthesis progress
+
+    func testSynthesizingProgressReportsWholePercentages() {
+        XCTAssertEqual(
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 0).percentComplete, 0
+        )
+        XCTAssertEqual(
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 0.5).percentComplete, 50
+        )
+        XCTAssertEqual(
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 1).percentComplete, 100
+        )
+        XCTAssertEqual(NarrationPreparationProgress.ready(narrator: "Kokoro").percentComplete, 100)
+    }
+
+    func testSynthesizingProgressClampsOutOfRangeFractions() {
+        XCTAssertEqual(
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: -2).percentComplete, 0
+        )
+        XCTAssertEqual(
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 7).percentComplete, 100
+        )
+    }
+
+    func testIndeterminateStagesHaveNoPercentage() {
+        XCTAssertNil(NarrationPreparationProgress.checkingCache.percentComplete)
+        XCTAssertNil(NarrationPreparationProgress.generating(narrator: "Kokoro").percentComplete)
+        XCTAssertNil(NarrationPreparationProgress.downloading.percentComplete)
     }
 
     func testNarrationContainerDetectionRecognizesWAVM4AAndMP3() {

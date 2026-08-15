@@ -17,9 +17,6 @@ struct SettingsView: View {
     @AppStorage("settings_expand_about") private var expandAbout = true
     @State private var showResetAlert = false
 
-    @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
-    private var selectedVoiceName = "Arthur"
-
     private var audioStatus: String {
         if KokoroModelStore.isInstalled {
             let voiceID = UserDefaults.standard.string(
@@ -29,7 +26,7 @@ struct SettingsView: View {
                 ?? KokoroVoiceRegistry.defaultVoice
             return "Kokoro · \(voice.name)"
         }
-        return selectedVoiceName
+        return "Liam"
     }
 
     private var accentColor: Color {
@@ -355,8 +352,8 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "Audio & Narration",
-            keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "mega transcript", "liam"],
-            dynamicValues: [selectedVoiceName]
+            keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "liam"],
+            dynamicValues: [audioStatus]
         ) &&
         !matchesSection(
             title: "Appearance",
@@ -919,9 +916,6 @@ struct AudioSettingsView: View {
     @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
     private var kokoroVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
 
-    @AppStorage(MegaTranscriptNarratorPreferences.selectedVoiceNameKey)
-    private var megaVoiceName = "Arthur"
-
     // Local mirror of the Keychain-backed narration token so edits redraw the row.
     @State private var narrationToken: String = KokoroTTSClient.currentAPIKey() ?? ""
 
@@ -976,27 +970,6 @@ struct AudioSettingsView: View {
                 Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The installed model uses about 182 MB.")
             }
 
-            Section {
-                NavigationLink {
-                    MegaTranscriptDeveloperSettingsView()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Mega Transcript")
-                            Text(KeychainMegaTranscriptCredentialStore.shared.hasAPIKey ? "API key configured" : "Developer key not configured")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(megaVoiceName)
-                            .foregroundStyle(PremiumUI.secondaryText)
-                    }
-                }
-            } header: {
-                Text("First Cloud Fallback")
-            } footer: {
-                Text("If offline Kokoro is unavailable, Mega Transcript is tried next. Configure its key, choose another narrator, generate a paid preview, or clear its narration cache here.")
-            }
 
             Section {
                 HStack {
@@ -1017,7 +990,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Playback & Final Fallback")
             } footer: {
-                Text("The fixed route is offline Kokoro with \(selectedKokoroVoice.name), Mega Transcript with \(megaVoiceName), then Liam as the final fallback.")
+                Text("The fixed route is on-device Kokoro with \(selectedKokoroVoice.name), then Liam as the fallback.")
             }
 
             Section {

@@ -1325,9 +1325,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // Fixed order: offline Kokoro, Mega Transcript, then Liam.
+        // Fixed order: offline Kokoro, then hosted Liam.
         guard KokoroModelStore.isInstalled
-                || KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
                 || KokoroTTSClient.currentAPIKey() != nil else {
             audioLog("⚠️ No installed Kokoro model or configured cloud narrator found - skipping audio generation")
             return nil

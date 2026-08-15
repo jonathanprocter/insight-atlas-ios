@@ -281,7 +281,6 @@ struct GenerationView: View {
                 .accessibilityIdentifier("generation_voice_liam_label")
 
                 if !KokoroModelStore.isInstalled,
-                   !KeychainMegaTranscriptCredentialStore.shared.hasAPIKey,
                    KokoroTTSClient.currentAPIKey() == nil {
                     Text("⚠️ Download Kokoro or configure a cloud narrator in Settings → Audio & Narration")
                         .font(.analysisUISmall())
@@ -624,9 +623,8 @@ struct GenerationView: View {
 
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
-                    // has auto-narration on and Kokoro, Mega Transcript, or Liam is ready.
+                    // has auto-narration on and Kokoro or Liam is ready.
                     let hasNarrationProvider = KokoroModelStore.isInstalled
-                        || KeychainMegaTranscriptCredentialStore.shared.hasAPIKey
                         || KokoroTTSClient.currentAPIKey() != nil
                     let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
                     if willNarrate {

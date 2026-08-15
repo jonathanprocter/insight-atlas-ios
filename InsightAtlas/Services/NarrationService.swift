@@ -4,17 +4,13 @@
 //
 //  Narration orchestration with an offline-first provider policy:
 //    1. Kokoro — premium on-device narration with no per-use fee.
-//    2. Mega Transcript — Arthur preferred from the live English catalog.
-//    3. Liam — the last and final fallback.
+//    2. Liam — the hosted Kokoro voice, used as the final fallback.
 //
 //  All providers converge on the app's standard `NarrationAsset` contract: a file
 //  written into Documents as `audio_<itemId>.<ext>` plus a duration and voice
 //  id. Because the output shape is identical to `KokoroNarrationService`, every
 //  existing caller (GuideView, GenerationView) and the playback/persistence
 //  layer keep working unchanged — only the source of the audio differs.
-//
-//  Mega Transcript is isolated behind `MegaTranscriptServicing` so a future
-//  distributed build can move the vendor request behind an app-owned backend.
 //
 
 import Foundation
@@ -24,19 +20,16 @@ private let narrationLog = Logger(subsystem: "com.insightatlas", category: "Narr
 
 enum NarrationProviderRoute: String, Equatable, Sendable {
     case kokoro
-    case megaTranscript
     case liam
 }
 
 enum NarrationFallbackPolicy {
     static func orderedRoutes(
         kokoroConfigured: Bool,
-        megaTranscriptConfigured: Bool,
         liamConfigured: Bool
     ) -> [NarrationProviderRoute] {
         var routes: [NarrationProviderRoute] = []
         if kokoroConfigured { routes.append(.kokoro) }
-        if megaTranscriptConfigured { routes.append(.megaTranscript) }
         if liamConfigured { routes.append(.liam) }
         return routes
     }
@@ -47,7 +40,7 @@ actor NarrationService {
     static let shared = NarrationService()
 
     /// Synthesize narration for `itemId` using the fixed provider order:
-    /// Kokoro -> Mega Transcript -> Liam.
+    /// on-device Kokoro -> hosted Liam.
     /// Cancellation never triggers another provider request.
     func synthesize(
         text: String,
@@ -67,7 +60,6 @@ actor NarrationService {
 
         let routes = NarrationFallbackPolicy.orderedRoutes(
             kokoroConfigured: KokoroModelStore.isInstalled,
-            megaTranscriptConfigured: MegaTranscriptNarrationCoordinator.shared.isConfigured,
             liamConfigured: KokoroTTSClient.currentAPIKey() != nil
         )
         guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
@@ -80,14 +72,18 @@ actor NarrationService {
             switch route {
             case .kokoro:
                 let voice = Self.selectedKokoroVoice()
-                progress(.generating(narrator: "Kokoro · \(voice.name)"))
+                let narrator = "Kokoro · \(voice.name)"
+                progress(.generating(narrator: narrator))
                 do {
                     let audio = try await KokoroAudioService.shared.generateAudio(
                         text: spokenText,
-                        voiceID: voice.voiceID
+                        voiceID: voice.voiceID,
+                        onProgress: { fraction in
+                            progress(.synthesizing(narrator: narrator, fraction: fraction))
+                        }
                     )
                     let asset = try persist(audio: audio, itemId: itemId)
-                    progress(.ready(narrator: "Kokoro · \(voice.name)"))
+                    progress(.ready(narrator: narrator))
                     narrationLog.info(
                         "Narration via on-device Kokoro (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
                     )
@@ -98,30 +94,6 @@ actor NarrationService {
                     lastFailure = error
                     narrationLog.error(
                         "On-device Kokoro failed [\(error.localizedDescription, privacy: .public)] — moving to the next configured narration provider"
-                    )
-                }
-
-            case .megaTranscript:
-                do {
-                    let result = try await MegaTranscriptNarrationCoordinator.shared.synthesize(
-                        text: narrationSource,
-                        itemID: itemId,
-                        progress: progress
-                    )
-                    narrationLog.info(
-                        "Narration via Mega Transcript (\(result.voice.name, privacy: .public), cache: \(result.cacheHit)) for \(itemId.uuidString)"
-                    )
-                    return result.asset
-                } catch MegaTranscriptError.cancelled {
-                    throw MegaTranscriptError.cancelled
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch {
-                    lastFailure = error
-                    let detail = (error as? MegaTranscriptError).map { String(describing: $0) }
-                        ?? error.localizedDescription
-                    narrationLog.error(
-                        "Mega Transcript failed [\(detail, privacy: .public)] — moving to the next configured narration provider"
                     )
                 }
 

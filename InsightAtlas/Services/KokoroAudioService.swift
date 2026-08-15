@@ -46,10 +46,13 @@ enum KokoroAudioError: LocalizedError {
 }
 
 protocol KokoroSynthesizing: Sendable {
+    /// - Parameter onProgress: Fraction of text chunks rendered so far (0...1),
+    ///   called after each chunk so callers can show real synthesis progress.
     func generate(
         text: String,
         speakerID: Int,
-        modelDirectory: URL
+        modelDirectory: URL,
+        onProgress: (@Sendable (Double) -> Void)?
     ) async throws -> KokoroSynthesisResult
 
     func reset() async
@@ -78,9 +81,19 @@ final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
         self.modelDirectoryProvider = modelDirectoryProvider
     }
 
+    /// `AudioServiceProtocol` conformance. Prefer `generateAudio(text:voiceID:onProgress:)`
+    /// when the caller can show synthesis progress.
     func generateAudio(
         text: String,
         voiceID: String
+    ) async throws -> GeneratedAudio {
+        try await generateAudio(text: text, voiceID: voiceID, onProgress: nil)
+    }
+
+    func generateAudio(
+        text: String,
+        voiceID: String,
+        onProgress: (@Sendable (Double) -> Void)?
     ) async throws -> GeneratedAudio {
         try Task.checkCancellation()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -96,7 +109,8 @@ final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
         let result = try await engine.generate(
             text: trimmed,
             speakerID: voice.speakerID,
-            modelDirectory: modelDirectoryProvider()
+            modelDirectory: modelDirectoryProvider(),
+            onProgress: onProgress
         )
         return GeneratedAudio(
             data: result.data,
@@ -145,7 +159,8 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
     func generate(
         text: String,
         speakerID: Int,
-        modelDirectory: URL
+        modelDirectory: URL,
+        onProgress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> KokoroSynthesisResult {
         let chunks = chunker.chunks(for: text)
         guard !chunks.isEmpty else { throw KokoroAudioError.emptyText }
@@ -160,8 +175,11 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         var sampleRate: Int32 = 0
         var totalFrames: Int64 = 0
 
-        for chunk in chunks {
+        for (chunkIndex, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
+            // Report before rendering so the first chunk shows 0% rather than
+            // the UI sitting blank until the first one lands.
+            onProgress?(Double(chunkIndex) / Double(chunks.count))
             let config = SherpaOnnxGenerationConfigSwift(
                 silenceScale: 0.2,
                 speed: 0.96,
@@ -196,6 +214,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
                 to: audioFile
             )
             totalFrames += Int64(samples.count)
+            onProgress?(Double(chunkIndex + 1) / Double(chunks.count))
         }
 
         guard sampleRate > 0, totalFrames > 0 else {

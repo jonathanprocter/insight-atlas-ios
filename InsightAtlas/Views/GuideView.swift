@@ -83,7 +83,7 @@ struct GuideView: View {
             }
             .background(PremiumUI.background)
             
-            // Shared narration control: Mega Transcript, then on-device Kokoro (Liam).
+            // Shared narration control: on-device Kokoro, then hosted Liam.
             if item.summaryContent != nil {
                 NarrationControlsView(item: item)
                 .padding(.horizontal)

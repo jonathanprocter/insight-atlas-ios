@@ -33,9 +33,6 @@
 		A11C0C0A0000000000005002 /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004002 /* SWCompression */; };
 		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
-		A70D1002302A000100000002 /* MegaTranscriptNarration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D1001302A000100000001 /* MegaTranscriptNarration.swift */; };
-		A70D1004302A000100000004 /* MegaTranscriptNarrationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D1003302A000100000003 /* MegaTranscriptNarrationViews.swift */; };
-		A70D1006302A000100000006 /* MegaTranscriptNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70D1005302A000100000005 /* MegaTranscriptNarrationTests.swift */; };
 		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
 		C207E5DF30261B3000843994 /* CitationBudgetEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5DE30261B3000843994 /* CitationBudgetEngine.swift */; };
 		C207E5E130261B6A00843994 /* PDFDiagramGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5E030261B6A00843994 /* PDFDiagramGeometry.swift */; };
@@ -53,6 +50,7 @@
 		C207E5F93026B37B00843994 /* KokoroTTSClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F83026B37A00843994 /* KokoroTTSClient.swift */; };
 		C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */; };
 		C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */; };
+		E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */; };
 		C207E6023026CAB600843994 /* PremiumTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6013026CAB600843994 /* PremiumTabBar.swift */; };
 		C207E6043026CAC900843994 /* AtlasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6033026CAC900843994 /* AtlasView.swift */; };
 		C207E6063026D40500843994 /* ListenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E6053026D40500843994 /* ListenView.swift */; };
@@ -95,6 +93,7 @@
 		C2D8DF1B302BFB3E00F782C0 /* MiniMaxOAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */; };
 		C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = C2E9A9242F0A4D1200480055 /* ZIPFoundation */; };
 		C2ED8EEB3029478F003096F3 /* NarrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8EEA3029478F003096F3 /* NarrationService.swift */; };
+		E81AFFF22D00000B007AAAAA /* NarrationSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF12D00000A007AAAAA /* NarrationSupport.swift */; };
 		C2ED8F11302A1214003096F3 /* InsightNoteFragmentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8F10302A1214003096F3 /* InsightNoteFragmentationTests.swift */; };
 		C2ED8F13302A1E13003096F3 /* TableFragmentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */; };
 		C2ED8F15302A2A98003096F3 /* DiagramScaleToFitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2ED8F14302A2A98003096F3 /* DiagramScaleToFitTests.swift */; };
@@ -110,6 +109,7 @@
 		E81A00162D000005007AAAAA /* GuideModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00172D000005007AAAAA /* GuideModels.swift */; };
 		E81A00182D000006007AAAAA /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00192D000006007AAAAA /* LibraryView.swift */; };
 		E81A001A2D000007007AAAAA /* GuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A001B2D000007007AAAAA /* GuideView.swift */; };
+		E81AFFF42D00000D007AAAAA /* NarrationControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF32D00000C007AAAAA /* NarrationControlsView.swift */; };
 		E81A001C2D000008007AAAAA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A001D2D000008007AAAAA /* SettingsView.swift */; };
 		E81A001E2D000009007AAAAA /* GenerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A001F2D000009007AAAAA /* GenerationView.swift */; };
 		E81A00202D000010007AAAAA /* DataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81A00212D000010007AAAAA /* DataManager.swift */; };
@@ -196,9 +196,6 @@
 		A11C0C0A0000000000001004 /* KokoroAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroAudioService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = PDFTextFixerPatterns.json; sourceTree = "<group>"; };
-		A70D1001302A000100000001 /* MegaTranscriptNarration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MegaTranscriptNarration.swift; sourceTree = "<group>"; };
-		A70D1003302A000100000003 /* MegaTranscriptNarrationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MegaTranscriptNarrationViews.swift; sourceTree = "<group>"; };
-		A70D1005302A000100000005 /* MegaTranscriptNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MegaTranscriptNarrationTests.swift; sourceTree = "<group>"; };
 		A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/EditorialBlockViews.swift; sourceTree = SOURCE_ROOT; };
 		AD8476B1624840E6A0B87AD9 /* PDFContentBlockRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFContentBlockRenderer.swift; sourceTree = "<group>"; };
 		C207E5DE30261B3000843994 /* CitationBudgetEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationBudgetEngine.swift; sourceTree = "<group>"; };
@@ -217,6 +214,7 @@
 		C207E5F83026B37A00843994 /* KokoroTTSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTTSClient.swift; sourceTree = "<group>"; };
 		C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationService.swift; sourceTree = "<group>"; };
 		C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationTests.swift; sourceTree = "<group>"; };
+		E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialHeadingParsingTests.swift; sourceTree = "<group>"; };
 		C207E6013026CAB600843994 /* PremiumTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumTabBar.swift; sourceTree = "<group>"; };
 		C207E6033026CAC900843994 /* AtlasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtlasView.swift; sourceTree = "<group>"; };
 		C207E6053026D40500843994 /* ListenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenView.swift; sourceTree = "<group>"; };
@@ -263,6 +261,7 @@
 		C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeActionsRow.swift; sourceTree = "<group>"; };
 		C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxOAuthService.swift; sourceTree = "<group>"; };
 		C2ED8EEA3029478F003096F3 /* NarrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationService.swift; sourceTree = "<group>"; };
+		E81AFFF12D00000A007AAAAA /* NarrationSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationSupport.swift; sourceTree = "<group>"; };
 		C2ED8F10302A1214003096F3 /* InsightNoteFragmentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightNoteFragmentationTests.swift; sourceTree = "<group>"; };
 		C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableFragmentationTests.swift; sourceTree = "<group>"; };
 		C2ED8F14302A2A98003096F3 /* DiagramScaleToFitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagramScaleToFitTests.swift; sourceTree = "<group>"; };
@@ -278,6 +277,7 @@
 		E81A00172D000005007AAAAA /* GuideModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideModels.swift; sourceTree = "<group>"; };
 		E81A00192D000006007AAAAA /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		E81A001B2D000007007AAAAA /* GuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideView.swift; sourceTree = "<group>"; };
+		E81AFFF32D00000C007AAAAA /* NarrationControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationControlsView.swift; sourceTree = "<group>"; };
 		E81A001D2D000008007AAAAA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		E81A001F2D000009007AAAAA /* GenerationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerationView.swift; sourceTree = "<group>"; };
 		E81A00212D000010007AAAAA /* DataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataManager.swift; sourceTree = "<group>"; };
@@ -352,7 +352,6 @@
 		7A1B2C3D4E5F67890123456F /* InsightAtlasTests */ = {
 			isa = PBXGroup;
 			children = (
-				A70D1005302A000100000005 /* MegaTranscriptNarrationTests.swift */,
 				7A1B2C3D4E5F678901234590 /* AIServiceTests.swift */,
 				7A1B2C3D4E5F678901234591 /* BookProcessorTests.swift */,
 				7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */,
@@ -369,6 +368,7 @@
 				C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */,
 				C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */,
 				C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */,
+				E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */,
 				C207E6073026E11900843994 /* ContentTruncationTests.swift */,
 				C2ED8F10302A1214003096F3 /* InsightNoteFragmentationTests.swift */,
 				C2ED8F12302A1E13003096F3 /* TableFragmentationTests.swift */,
@@ -475,10 +475,10 @@
 		E81A00302D000020007AAAAA /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				A70D1003302A000100000003 /* MegaTranscriptNarrationViews.swift */,
 				IABULK0007AAAAAAAAAA007 /* Library */,
 				E81A00192D000006007AAAAA /* LibraryView.swift */,
 				E81A001B2D000007007AAAAA /* GuideView.swift */,
+				E81AFFF32D00000C007AAAAA /* NarrationControlsView.swift */,
 				E81A001D2D000008007AAAAA /* SettingsView.swift */,
 				E81A001F2D000009007AAAAA /* GenerationView.swift */,
 				E81A00232D000011007AAAAA /* QuickGlanceView.swift */,
@@ -509,7 +509,6 @@
 		E81A00312D000021007AAAAA /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				A70D1001302A000100000001 /* MegaTranscriptNarration.swift */,
 				C092D0231E3E4446B1B094E3 /* PDFRenderer */,
 				E81A00112D000002007AAAAA /* InsightAtlasPrompt.swift */,
 				E8THEMAT02F00000100ABCDE /* InsightAtlasThematicPrompt.swift */,
@@ -537,6 +536,7 @@
 				C2C8335D30291D5800305D9E /* OnDeviceInsightService.swift */,
 				C2C8335F30291D6200305D9E /* OfflineNarrator.swift */,
 				C2ED8EEA3029478F003096F3 /* NarrationService.swift */,
+				E81AFFF12D00000A007AAAAA /* NarrationSupport.swift */,
 				A11C0C0A0000000000001002 /* KokoroModelManager.swift */,
 				A11C0C0A0000000000001003 /* KokoroTextChunker.swift */,
 				A11C0C0A0000000000001004 /* KokoroAudioService.swift */,
@@ -792,7 +792,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A70D1006302A000100000006 /* MegaTranscriptNarrationTests.swift in Sources */,
 				C2ED8F17302A2EC0003096F3 /* ConceptMapGeometryTests.swift in Sources */,
 				C207E6083026E11900843994 /* ContentTruncationTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A0 /* AIServiceTests.swift in Sources */,
@@ -809,6 +808,7 @@
 				C207E5F7302624D300843994 /* PDFRedesignPhase6StructureTests.swift in Sources */,
 				C2ED8F11302A1214003096F3 /* InsightNoteFragmentationTests.swift in Sources */,
 				C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */,
+				E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */,
 				IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */,
 				A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */,
 				A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */,
@@ -821,8 +821,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A70D1002302A000100000002 /* MegaTranscriptNarration.swift in Sources */,
-				A70D1004302A000100000004 /* MegaTranscriptNarrationViews.swift in Sources */,
 				47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */,
 				C2D0D341302D98DE00ABACC9 /* NarrationScriptService.swift in Sources */,
 				82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */,
@@ -845,6 +843,7 @@
 				E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */,
 				E81A00032D000001007AAAAA /* ContentView.swift in Sources */,
 				C2ED8EEB3029478F003096F3 /* NarrationService.swift in Sources */,
+				E81AFFF22D00000B007AAAAA /* NarrationSupport.swift in Sources */,
 				E81A00102D000002007AAAAA /* InsightAtlasPrompt.swift in Sources */,
 				C207E5E730261D0A00843994 /* PDFDocumentProcessor.swift in Sources */,
 				C2D8DF1B302BFB3E00F782C0 /* MiniMaxOAuthService.swift in Sources */,
@@ -858,6 +857,7 @@
 				C22353FF30250AEA0022D852 /* UIDriver.swift in Sources */,
 				E81A00182D000006007AAAAA /* LibraryView.swift in Sources */,
 				E81A001A2D000007007AAAAA /* GuideView.swift in Sources */,
+				E81AFFF42D00000D007AAAAA /* NarrationControlsView.swift in Sources */,
 				E81A001C2D000008007AAAAA /* SettingsView.swift in Sources */,
 				E81A001E2D000009007AAAAA /* GenerationView.swift in Sources */,
 				E81A00202D000010007AAAAA /* DataManager.swift in Sources */,
@@ -1100,7 +1100,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081508;
+				CURRENT_PROJECT_VERSION = 2026081509;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1133,7 +1133,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081508;
+				CURRENT_PROJECT_VERSION = 2026081509;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;

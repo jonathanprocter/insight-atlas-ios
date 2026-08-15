@@ -12,6 +12,56 @@ import SwiftUI
 
 /// Main view that parses and renders editorial content with premium styling
 struct EditorialContentRenderer: View {
+
+    // MARK: - Heading and stray-tag normalization
+
+    /// A markdown ATX heading, if `line` is one.
+    ///
+    /// The space after the hashes is optional: generated guides frequently
+    /// contain "##Heading", which a `hasPrefix("## ")` check misses, leaving the
+    /// hashes visible in the rendered guide. Surrounding bold markers are also
+    /// trimmed so "## **Title**" renders as a heading titled "Title".
+    static func markdownHeading(in line: String) -> (level: Int, text: String)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("#") else { return nil }
+
+        let hashes = trimmed.prefix { $0 == "#" }
+        let level = hashes.count
+        guard (1...6).contains(level) else { return nil }
+
+        var text = String(trimmed.dropFirst(level))
+            .trimmingCharacters(in: .whitespaces)
+        // A bare "###" divider is not a heading.
+        guard !text.isEmpty else { return nil }
+
+        while text.hasPrefix("**"), text.hasSuffix("**"), text.count > 4 {
+            text = String(text.dropFirst(2).dropLast(2)).trimmingCharacters(in: .whitespaces)
+        }
+        text = text.trimmingCharacters(in: CharacterSet(charactersIn: "#")).trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+
+        return (min(level, 3), text)
+    }
+
+    /// Remove editorial markup that escaped block parsing so it is never shown
+    /// to the reader as literal text.
+    ///
+    /// Block tags are only recognized at the start of a line, so a tag emitted
+    /// mid-line -- or an opening tag whose partner never arrived -- would
+    /// otherwise land in a paragraph verbatim.
+    static func strippedOrphanEditorialTags(_ text: String) -> String {
+        var result = text.replacingOccurrences(
+            of: #"\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]"#,
+            with: "",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"[ \t]{2,}"#,
+            with: " ",
+            options: .regularExpression
+        )
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     let content: String
     let searchQuery: String
     let title: String
@@ -231,7 +281,10 @@ struct ContentBlockParser {
         var currentParagraph: [String] = []
 
         func flushParagraph() {
-            let text = currentParagraph.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let joined = currentParagraph.joined(separator: " ")
+            // An unmatched or mid-line [PREMIUM_H2]/[/VISUAL_*]-style tag used to
+            // reach the reader verbatim. Strip anything that survived parsing.
+            let text = EditorialContentRenderer.strippedOrphanEditorialTags(joined)
             if !text.isEmpty {
                 blocks.append(ParsedContentBlock(type: .paragraph, content: text))
             }
@@ -618,32 +671,25 @@ struct ContentBlockParser {
             if inProcessTimeline { processTimelineContent.append(line); i += 1; continue }
 
             // Handle headers
-            if trimmed.hasPrefix("# ") {
+            // Markdown headings. The space after the hashes is optional because
+            // models regularly emit "##Title"; without this those lines fell
+            // through to the paragraph branch and rendered the hashes literally.
+            if let heading = EditorialContentRenderer.markdownHeading(in: trimmed) {
                 flushParagraph()
                 let thisSectionIndex = currentSectionIndex
                 currentSectionIndex += 1
-                let headerText = String(trimmed.dropFirst(2))
-                if headerText.uppercased().hasPrefix("PART ") {
-                    blocks.append(ParsedContentBlock(type: .partHeader, content: headerText, sectionIndex: thisSectionIndex))
-                } else {
-                    blocks.append(ParsedContentBlock(type: .sectionHeader, content: headerText, sectionIndex: thisSectionIndex))
+                switch heading.level {
+                case 1:
+                    if heading.text.uppercased().hasPrefix("PART ") {
+                        blocks.append(ParsedContentBlock(type: .partHeader, content: heading.text, sectionIndex: thisSectionIndex))
+                    } else {
+                        blocks.append(ParsedContentBlock(type: .sectionHeader, content: heading.text, sectionIndex: thisSectionIndex))
+                    }
+                case 2:
+                    blocks.append(ParsedContentBlock(type: .subsectionHeader, content: heading.text, sectionIndex: thisSectionIndex))
+                default:
+                    blocks.append(ParsedContentBlock(type: .minorHeader, content: heading.text))
                 }
-                i += 1
-                continue
-            }
-
-            if trimmed.hasPrefix("## ") {
-                flushParagraph()
-                let thisSectionIndex = currentSectionIndex
-                currentSectionIndex += 1
-                blocks.append(ParsedContentBlock(type: .subsectionHeader, content: String(trimmed.dropFirst(3)), sectionIndex: thisSectionIndex))
-                i += 1
-                continue
-            }
-
-            if trimmed.hasPrefix("### ") {
-                flushParagraph()
-                blocks.append(ParsedContentBlock(type: .minorHeader, content: String(trimmed.dropFirst(4))))
                 i += 1
                 continue
             }

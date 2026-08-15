@@ -149,6 +149,8 @@ private actor KokoroSynthesisSpy: KokoroSynthesizing {
 
     private(set) var calls: [Call] = []
     private(set) var resetCount = 0
+    /// Progress fractions the service forwarded, in order.
+    private(set) var reportedProgress: [Double] = []
     private let result: KokoroSynthesisResult
 
     init(
@@ -166,8 +168,14 @@ private actor KokoroSynthesisSpy: KokoroSynthesizing {
     func generate(
         text: String,
         speakerID: Int,
-        modelDirectory: URL
+        modelDirectory: URL,
+        onProgress: (@Sendable (Double) -> Void)?
     ) async throws -> KokoroSynthesisResult {
+        // Mimic a two-chunk render so callers can assert on forwarded progress.
+        for fraction in [0.0, 0.5, 1.0] {
+            reportedProgress.append(fraction)
+            onProgress?(fraction)
+        }
         calls.append(
             Call(
                 text: text,
