@@ -941,33 +941,92 @@ struct ContentBlockParser {
 
     // MARK: - Helper Functions
 
-    private static func parseListItems(_ lines: [String]) -> [String] {
-        lines.compactMap { line in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty { return nil }
+    /// A line that is nothing but a list number: "7", "7.", "7)".
+    ///
+    /// Generated lists frequently put the number on its own line. Treating it
+    /// as an item produced a bare "7" followed by its text as a separate item.
+    static func isBareListNumber(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+        return trimmed.range(of: #"^\d{1,3}[\.\)]?$"#, options: .regularExpression) != nil
+    }
 
-            // Remove list markers
-            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-                return String(trimmed.dropFirst(2))
-            }
-            if let match = trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) {
-                return String(trimmed[match.upperBound...])
-            }
-            return trimmed
+    /// Strip a leading list marker: "- ", "* ", "3. ", "3) ", or "3." with no
+    /// trailing space.
+    static func strippedListMarker(_ line: String) -> String {
+        var trimmed = line.trimmingCharacters(in: .whitespaces)
+        for marker in ["- ", "* ", "• "] where trimmed.hasPrefix(marker) {
+            return String(trimmed.dropFirst(marker.count)).trimmingCharacters(in: .whitespaces)
         }
+        if let match = trimmed.range(of: #"^\d{1,3}[\.\)]\s*"#, options: .regularExpression) {
+            trimmed = String(trimmed[match.upperBound...]).trimmingCharacters(in: .whitespaces)
+        }
+        return trimmed
+    }
+
+    private static func parseListItems(_ lines: [String]) -> [String] {
+        var items: [String] = []
+        var index = 0
+
+        while index < lines.count {
+            let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+            index += 1
+
+            if trimmed.isEmpty { continue }
+            // A "---" separator inside a list rendered as an item whose text was
+            // a dash -- the phantom step in a numbered sequence.
+            if isDecorativeRule(trimmed) { continue }
+            if isBracketResidueLine(trimmed) { continue }
+
+            // A number alone on a line belongs to the text that follows it.
+            if isBareListNumber(trimmed) {
+                while index < lines.count {
+                    let next = lines[index].trimmingCharacters(in: .whitespaces)
+                    index += 1
+                    if next.isEmpty || isDecorativeRule(next) { continue }
+                    items.append(strippedListMarker(next))
+                    break
+                }
+                continue
+            }
+
+            let item = strippedListMarker(trimmed)
+            if !item.isEmpty { items.append(item) }
+        }
+
+        return items
     }
 
     private static func parseExerciseContent(_ lines: [String]) -> (String, [String]) {
         var description: [String] = []
         var steps: [String] = []
 
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-                steps.append(String(trimmed.dropFirst(2)))
-            } else if let match = trimmed.range(of: #"^\d+\.\s+"#, options: .regularExpression) {
-                steps.append(String(trimmed[match.upperBound...]))
-            } else if !trimmed.isEmpty {
+        var index = 0
+        while index < lines.count {
+            let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+            index += 1
+
+            if trimmed.isEmpty || isDecorativeRule(trimmed) || isBracketResidueLine(trimmed) {
+                continue
+            }
+
+            // A number on its own line introduces the step on the next line.
+            if isBareListNumber(trimmed) {
+                while index < lines.count {
+                    let next = lines[index].trimmingCharacters(in: .whitespaces)
+                    index += 1
+                    if next.isEmpty || isDecorativeRule(next) { continue }
+                    steps.append(strippedListMarker(next))
+                    break
+                }
+                continue
+            }
+
+            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("• ")
+                || trimmed.range(of: #"^\d{1,3}[\.\)]\s*"#, options: .regularExpression) != nil {
+                let step = strippedListMarker(trimmed)
+                if !step.isEmpty { steps.append(step) }
+            } else {
                 description.append(trimmed)
             }
         }

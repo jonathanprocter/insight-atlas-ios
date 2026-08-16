@@ -120,7 +120,11 @@ func parseMarkdownBold(_ text: String) -> AttributedString {
     var result = AttributedString(text)
 
     // 1. Process citations: "[Book Title]" by [Author Name]
-    let citationPattern = #"\"([^\"]+)\"\s+by\s+([A-Z][A-Za-z\.\-\']+(?:\s+[A-Z][A-Za-z\.\-\']+){0,3})"#
+    // \p{Lu}/\p{L} rather than [A-Z]/[A-Za-z]: an ASCII-only class stops at the
+    // first accented letter, so "Brené Brown" matched only "Bren", which was
+    // then uppercased to "BREN" while "é Brown" stayed outside the match --
+    // rendering the author as "BRENé Brown".
+    let citationPattern = #"\"([^\"]+)\"\s+by\s+(\p{Lu}[\p{L}\.\-\']+(?:\s+\p{Lu}[\p{L}\.\-\']+){0,3})"#
     if let citationRegex = try? NSRegularExpression(pattern: citationPattern) {
         let matches = citationRegex.matches(in: text, range: NSRange(text.startIndex..., in: text))
         for match in matches.reversed() {
