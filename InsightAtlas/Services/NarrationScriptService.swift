@@ -87,11 +87,13 @@ actor NarrationScriptService {
                 try Task.checkCancellation()
                 progress?(.generating(narrator: "Writing audio script · \(scriptGenerator)"))
                 let start = Date()
-                let script = try await aiService.generateNarrationScript(
-                    from: trimmed,
-                    title: title,
-                    author: author
-                )
+                let script = try await Self.withRewriteDeadline {
+                    try await aiService.generateNarrationScript(
+                        from: trimmed,
+                        title: title,
+                        author: author
+                    )
+                }
                 let elapsed = Date().timeIntervalSince(start)
                 print(String(
                     format: "[Timing] narration script: %.1fs (%d → %d chars) for %@",
@@ -99,6 +101,11 @@ actor NarrationScriptService {
                 ))
                 return script
             } catch is CancellationError {
+                return guideContent
+            } catch is NarrationScriptTimeout {
+                scriptLog.error(
+                    "Narration-script rewrite exceeded \(Self.rewriteDeadline, privacy: .public) — narrating raw guide content"
+                )
                 return guideContent
             } catch {
                 scriptLog.error(
@@ -116,6 +123,38 @@ actor NarrationScriptService {
             try? result.write(to: cacheURL, atomically: true, encoding: .utf8)
         }
         return result
+    }
+
+
+    // MARK: - Deadline
+
+    /// Longest the optional rewrite may delay audio.
+    ///
+    /// AIService allows 300s per request for guide generation, where a long
+    /// wait is expected. Narration is different: this pass only improves how
+    /// visuals are spoken, and audio cannot start until it returns. Inheriting
+    /// the 300s budget meant a stalled rewrite blocked playback for five
+    /// minutes with no visible progress before falling back.
+    static let rewriteDeadline: Duration = .seconds(75)
+
+    /// Run `work`, giving up after `rewriteDeadline` so a stalled rewrite
+    /// cannot hold up synthesis.
+    static func withRewriteDeadline<T: Sendable>(
+        _ work: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T?.self) { group in
+            group.addTask { try await work() }
+            group.addTask {
+                try await Task.sleep(for: rewriteDeadline)
+                return nil
+            }
+            defer { group.cancelAll() }
+            while let result = try await group.next() {
+                if let result { return result }
+                throw NarrationScriptTimeout()
+            }
+            throw NarrationScriptTimeout()
+        }
     }
 
     // MARK: - Cache
@@ -141,3 +180,7 @@ actor NarrationScriptService {
         return String(hash, radix: 16)
     }
 }
+
+/// The optional narration rewrite ran past its deadline; the caller narrates
+/// the raw guide instead of waiting.
+struct NarrationScriptTimeout: Error {}
