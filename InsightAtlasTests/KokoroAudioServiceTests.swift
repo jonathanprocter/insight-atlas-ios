@@ -149,8 +149,9 @@ private actor KokoroSynthesisSpy: KokoroSynthesizing {
 
     private(set) var calls: [Call] = []
     private(set) var resetCount = 0
-    /// Progress fractions the service forwarded, in order.
-    private(set) var reportedProgress: [Double] = []
+    /// Progress (completed, total) pairs the service forwarded, in order.
+    private(set) var reportedProgress: [(completed: Int, total: Int)] = []
+    private(set) var modelLoadSignals = 0
     private let result: KokoroSynthesisResult
 
     init(
@@ -169,12 +170,15 @@ private actor KokoroSynthesisSpy: KokoroSynthesizing {
         text: String,
         speakerID: Int,
         modelDirectory: URL,
-        onProgress: (@Sendable (Double) -> Void)?
+        onModelLoadStart: (@Sendable () -> Void)?,
+        onProgress: (@Sendable (Int, Int) -> Void)?
     ) async throws -> KokoroSynthesisResult {
+        modelLoadSignals += 1
+        onModelLoadStart?()
         // Mimic a two-chunk render so callers can assert on forwarded progress.
-        for fraction in [0.0, 0.5, 1.0] {
-            reportedProgress.append(fraction)
-            onProgress?(fraction)
+        for completed in 0...2 {
+            reportedProgress.append((completed, 2))
+            onProgress?(completed, 2)
         }
         calls.append(
             Call(

@@ -136,4 +136,68 @@ final class MarkdownRenderingTests: XCTestCase {
         let blocks = ContentBlockParser.parse("Cost | benefit thinking dominates here.")
         XCTAssertTrue(blocks.filter { $0.type == .table }.isEmpty)
     }
+
+    // MARK: - Bracket residue
+
+    /// The reported artifact: a lone "[" and "]" separated by a blank line,
+    /// printed above a heading.
+    func testStrayBracketLinesAreNotRendered() {
+        let content = """
+        [
+
+        ]
+
+        # The Failure Mode of Control
+
+        Body prose follows.
+        """
+        let blocks = ContentBlockParser.parse(content)
+        let text = blocks.map { $0.content }.joined(separator: " ")
+        XCTAssertFalse(text.contains("["), "a stray opening bracket reached the reader")
+        XCTAssertFalse(text.contains("]"), "a stray closing bracket reached the reader")
+        XCTAssertTrue(
+            blocks.contains { $0.content == "The Failure Mode of Control" },
+            "the heading after the residue must still render"
+        )
+    }
+
+    func testBracketResidueLineDetection() {
+        XCTAssertTrue(ContentBlockParser.isBracketResidueLine("["))
+        XCTAssertTrue(ContentBlockParser.isBracketResidueLine("]"))
+        XCTAssertTrue(ContentBlockParser.isBracketResidueLine("  [ ]  "))
+        XCTAssertTrue(ContentBlockParser.isBracketResidueLine("![]()"))
+        XCTAssertFalse(ContentBlockParser.isBracketResidueLine("[sic]"))
+        XCTAssertFalse(ContentBlockParser.isBracketResidueLine("Ordinary prose."))
+        XCTAssertFalse(ContentBlockParser.isBracketResidueLine(""))
+    }
+
+    func testEmptyBracketPairIsStrippedFromProse() {
+        XCTAssertEqual(
+            ContentBlockParser.strippedOrphanEditorialTags("Before [] after"),
+            "Before after"
+        )
+        XCTAssertEqual(
+            ContentBlockParser.strippedOrphanEditorialTags("Before [  ] after"),
+            "Before after"
+        )
+    }
+
+    func testEmptyMarkdownLinksAndImagesAreStripped() {
+        XCTAssertEqual(
+            ContentBlockParser.strippedOrphanEditorialTags("Cover ![](cover.jpg) here"),
+            "Cover here"
+        )
+        XCTAssertEqual(
+            ContentBlockParser.strippedOrphanEditorialTags("Link []() here"),
+            "Link here"
+        )
+    }
+
+    /// Real citations and bracketed asides must survive all of the above.
+    func testMeaningfulBracketsSurvive() {
+        XCTAssertEqual(
+            ContentBlockParser.strippedOrphanEditorialTags("The author [sic] argues [1]."),
+            "The author [sic] argues [1]."
+        )
+    }
 }

@@ -46,13 +46,17 @@ enum KokoroAudioError: LocalizedError {
 }
 
 protocol KokoroSynthesizing: Sendable {
-    /// - Parameter onProgress: Fraction of text chunks rendered so far (0...1),
-    ///   called after each chunk so callers can show real synthesis progress.
+    /// - Parameters:
+    ///   - onModelLoadStart: Called before a cold model load, which is slow and
+    ///     otherwise indistinguishable from a stalled first chunk.
+    ///   - onProgress: `(completed, total)` chunks, called before the first
+    ///     chunk and after each one completes.
     func generate(
         text: String,
         speakerID: Int,
         modelDirectory: URL,
-        onProgress: (@Sendable (Double) -> Void)?
+        onModelLoadStart: (@Sendable () -> Void)?,
+        onProgress: (@Sendable (Int, Int) -> Void)?
     ) async throws -> KokoroSynthesisResult
 
     func reset() async
@@ -87,13 +91,14 @@ final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
         text: String,
         voiceID: String
     ) async throws -> GeneratedAudio {
-        try await generateAudio(text: text, voiceID: voiceID, onProgress: nil)
+        try await generateAudio(text: text, voiceID: voiceID, onModelLoadStart: nil, onProgress: nil)
     }
 
     func generateAudio(
         text: String,
         voiceID: String,
-        onProgress: (@Sendable (Double) -> Void)?
+        onModelLoadStart: (@Sendable () -> Void)?,
+        onProgress: (@Sendable (Int, Int) -> Void)?
     ) async throws -> GeneratedAudio {
         try Task.checkCancellation()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -110,6 +115,7 @@ final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
             text: trimmed,
             speakerID: voice.speakerID,
             modelDirectory: modelDirectoryProvider(),
+            onModelLoadStart: onModelLoadStart,
             onProgress: onProgress
         )
         return GeneratedAudio(
@@ -160,13 +166,23 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         text: String,
         speakerID: Int,
         modelDirectory: URL,
-        onProgress: (@Sendable (Double) -> Void)? = nil
+        onModelLoadStart: (@Sendable () -> Void)? = nil,
+        onProgress: (@Sendable (Int, Int) -> Void)? = nil
     ) async throws -> KokoroSynthesisResult {
         let chunks = chunker.chunks(for: text)
         guard !chunks.isEmpty else { throw KokoroAudioError.emptyText }
 
         let synthesisStart = Date()
+        if tts == nil || loadedDirectory != modelDirectory.standardizedFileURL {
+            onModelLoadStart?()
+        }
+        let loadStart = Date()
         let tts = try loadModelIfNeeded(from: modelDirectory)
+        let loadElapsed = Date().timeIntervalSince(loadStart)
+        if loadElapsed > 0.1 {
+            print(String(format: "[Timing] Kokoro model load: %.1fs", loadElapsed))
+        }
+        print("[Timing] Kokoro synthesis starting: \(chunks.count) chunk(s), \(text.count) chars")
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-\(UUID().uuidString).wav")
         defer { try? FileManager.default.removeItem(at: outputURL) }
@@ -177,9 +193,10 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
 
         for (chunkIndex, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
-            // Report before rendering so the first chunk shows 0% rather than
-            // the UI sitting blank until the first one lands.
-            onProgress?(Double(chunkIndex) / Double(chunks.count))
+            // Report before rendering so the UI shows "0 of N" immediately
+            // rather than sitting blank until the first chunk lands.
+            onProgress?(chunkIndex, chunks.count)
+            let chunkStart = Date()
             let config = SherpaOnnxGenerationConfigSwift(
                 silenceScale: 0.2,
                 speed: 0.96,
@@ -214,7 +231,12 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
                 to: audioFile
             )
             totalFrames += Int64(samples.count)
-            onProgress?(Double(chunkIndex + 1) / Double(chunks.count))
+            onProgress?(chunkIndex + 1, chunks.count)
+            print(String(
+                format: "[Timing] Kokoro chunk %d/%d: %.1fs for %d chars",
+                chunkIndex + 1, chunks.count,
+                Date().timeIntervalSince(chunkStart), chunk.count
+            ))
         }
 
         guard sampleRate > 0, totalFrames > 0 else {

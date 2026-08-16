@@ -24,10 +24,14 @@ import UIKit
 enum NarrationPreparationProgress: Sendable, Equatable {
     case checkingCache
     case generating(narrator: String)
-    /// Real synthesis progress. `fraction` is 0...1 across the text chunks
-    /// Kokoro renders, so the UI can show an honest percentage rather than an
-    /// indeterminate spinner.
-    case synthesizing(narrator: String, fraction: Double)
+    /// Loading the on-device model. Distinct from synthesis because a cold
+    /// model load is slow and silent, and conflating the two made a stall
+    /// impossible to place.
+    case loadingModel(narrator: String)
+    /// Real synthesis progress across the text chunks Kokoro renders.
+    /// `completed`/`total` are carried so the UI can say "3 of 41" -- a large
+    /// guide can sit on 0% for a while purely from rounding.
+    case synthesizing(narrator: String, completed: Int, total: Int)
     case downloading
     case usingCache
     case fallingBackToLiam(reason: String)
@@ -36,13 +40,22 @@ enum NarrationPreparationProgress: Sendable, Equatable {
     /// Completion as a percentage when the stage knows it, otherwise nil.
     var percentComplete: Int? {
         switch self {
-        case .synthesizing(_, let fraction):
+        case .synthesizing(_, let completed, let total):
+            guard total > 0 else { return 0 }
+            let fraction = Double(completed) / Double(total)
             return Int((max(0, min(1, fraction)) * 100).rounded())
         case .ready:
             return 100
-        case .checkingCache, .generating, .downloading, .usingCache, .fallingBackToLiam:
+        case .checkingCache, .generating, .loadingModel, .downloading, .usingCache, .fallingBackToLiam:
             return nil
         }
+    }
+
+    /// "3 of 41" while synthesizing, so slow progress is still visibly moving
+    /// even when the percentage has not ticked over yet.
+    var chunkProgressDescription: String? {
+        guard case .synthesizing(_, let completed, let total) = self, total > 0 else { return nil }
+        return "\(completed) of \(total)"
     }
 
     /// Human-readable stage label for the narration UI.
@@ -50,7 +63,8 @@ enum NarrationPreparationProgress: Sendable, Equatable {
         switch self {
         case .checkingCache: return "Checking narration cache…"
         case .generating(let narrator): return "Preparing narration with \(narrator)…"
-        case .synthesizing(let narrator, _): return "Generating audio with \(narrator)…"
+        case .loadingModel(let narrator): return "Loading the \(narrator) voice model…"
+        case .synthesizing(let narrator, _, _): return "Generating audio with \(narrator)…"
         case .downloading: return "Downloading narration…"
         case .usingCache: return "Opening cached narration…"
         case .fallingBackToLiam: return "Switching to the Liam voice…"

@@ -325,8 +325,17 @@ struct NarrationControlsView: View {
                 if model.percentComplete == nil {
                     ProgressView()
                 }
-                Text(model.progressLabel)
-                    .font(.subheadline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.progressLabel)
+                        .font(.subheadline)
+                    // A long guide can sit on the same percentage for a while;
+                    // the chunk count makes it obvious work is still happening.
+                    if let chunks = model.progress?.chunkProgressDescription {
+                        Text(chunks)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Spacer()
                 if let percent = model.percentComplete {
                     Text("\(percent)%")

@@ -78,8 +78,11 @@ actor NarrationService {
                     let audio = try await KokoroAudioService.shared.generateAudio(
                         text: spokenText,
                         voiceID: voice.voiceID,
-                        onProgress: { fraction in
-                            progress(.synthesizing(narrator: narrator, fraction: fraction))
+                        onModelLoadStart: {
+                            progress(.loadingModel(narrator: narrator))
+                        },
+                        onProgress: { completed, total in
+                            progress(.synthesizing(narrator: narrator, completed: completed, total: total))
                         }
                     )
                     let asset = try persist(audio: audio, itemId: itemId)

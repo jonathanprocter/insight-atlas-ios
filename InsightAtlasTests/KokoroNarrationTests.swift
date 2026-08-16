@@ -187,24 +187,45 @@ final class KokoroNarrationTests: XCTestCase {
 
     func testSynthesizingProgressReportsWholePercentages() {
         XCTAssertEqual(
-            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 0).percentComplete, 0
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", completed: 0, total: 10).percentComplete, 0
         )
         XCTAssertEqual(
-            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 0.5).percentComplete, 50
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", completed: 5, total: 10).percentComplete, 50
         )
         XCTAssertEqual(
-            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 1).percentComplete, 100
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", completed: 10, total: 10).percentComplete, 100
         )
         XCTAssertEqual(NarrationPreparationProgress.ready(narrator: "Kokoro").percentComplete, 100)
     }
 
-    func testSynthesizingProgressClampsOutOfRangeFractions() {
+    func testSynthesizingProgressHandlesDegenerateTotals() {
         XCTAssertEqual(
-            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: -2).percentComplete, 0
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", completed: 3, total: 0).percentComplete, 0
         )
         XCTAssertEqual(
-            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", fraction: 7).percentComplete, 100
+            NarrationPreparationProgress.synthesizing(narrator: "Kokoro", completed: 99, total: 10).percentComplete, 100
         )
+    }
+
+    /// A long guide rounds to 0% for the first several chunks, which reads as a
+    /// stall. The chunk counter is what shows the work is moving.
+    func testChunkCountIsReportedEvenWhenPercentageHasNotMoved() {
+        let early = NarrationPreparationProgress.synthesizing(narrator: "Kokoro", completed: 1, total: 400)
+        XCTAssertEqual(early.percentComplete, 0)
+        XCTAssertEqual(early.chunkProgressDescription, "1 of 400")
+    }
+
+    func testNonSynthesisStagesHaveNoChunkCount() {
+        XCTAssertNil(NarrationPreparationProgress.loadingModel(narrator: "Kokoro").chunkProgressDescription)
+        XCTAssertNil(NarrationPreparationProgress.checkingCache.chunkProgressDescription)
+    }
+
+    /// A cold model load is slow and silent; it must be distinguishable from a
+    /// stalled first chunk.
+    func testModelLoadingIsItsOwnStage() {
+        let stage = NarrationPreparationProgress.loadingModel(narrator: "Kokoro · Heart")
+        XCTAssertNil(stage.percentComplete)
+        XCTAssertEqual(stage.statusDescription, "Loading the Kokoro · Heart voice model…")
     }
 
     func testIndeterminateStagesHaveNoPercentage() {

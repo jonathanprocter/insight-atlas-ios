@@ -13,55 +13,6 @@ import SwiftUI
 /// Main view that parses and renders editorial content with premium styling
 struct EditorialContentRenderer: View {
 
-    // MARK: - Heading and stray-tag normalization
-
-    /// A markdown ATX heading, if `line` is one.
-    ///
-    /// The space after the hashes is optional: generated guides frequently
-    /// contain "##Heading", which a `hasPrefix("## ")` check misses, leaving the
-    /// hashes visible in the rendered guide. Surrounding bold markers are also
-    /// trimmed so "## **Title**" renders as a heading titled "Title".
-    static func markdownHeading(in line: String) -> (level: Int, text: String)? {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        guard trimmed.hasPrefix("#") else { return nil }
-
-        let hashes = trimmed.prefix { $0 == "#" }
-        let level = hashes.count
-        guard (1...6).contains(level) else { return nil }
-
-        var text = String(trimmed.dropFirst(level))
-            .trimmingCharacters(in: .whitespaces)
-        // A bare "###" divider is not a heading.
-        guard !text.isEmpty else { return nil }
-
-        while text.hasPrefix("**"), text.hasSuffix("**"), text.count > 4 {
-            text = String(text.dropFirst(2).dropLast(2)).trimmingCharacters(in: .whitespaces)
-        }
-        text = text.trimmingCharacters(in: CharacterSet(charactersIn: "#")).trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty else { return nil }
-
-        return (min(level, 3), text)
-    }
-
-    /// Remove editorial markup that escaped block parsing so it is never shown
-    /// to the reader as literal text.
-    ///
-    /// Block tags are only recognized at the start of a line, so a tag emitted
-    /// mid-line -- or an opening tag whose partner never arrived -- would
-    /// otherwise land in a paragraph verbatim.
-    static func strippedOrphanEditorialTags(_ text: String) -> String {
-        var result = text.replacingOccurrences(
-            of: #"\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]"#,
-            with: "",
-            options: .regularExpression
-        )
-        result = result.replacingOccurrences(
-            of: #"[ \t]{2,}"#,
-            with: " ",
-            options: .regularExpression
-        )
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
     let content: String
     let searchQuery: String
     let title: String
@@ -237,6 +188,84 @@ struct ParsedContentBlock: Identifiable {
 
 struct ContentBlockParser {
 
+    // MARK: - Heading and stray-tag normalization
+
+    /// A markdown ATX heading, if `line` is one.
+    ///
+    /// The space after the hashes is optional: generated guides frequently
+    /// contain "##Heading", which a `hasPrefix("## ")` check misses, leaving the
+    /// hashes visible in the rendered guide. Surrounding bold markers are also
+    /// trimmed so "## **Title**" renders as a heading titled "Title".
+    static func markdownHeading(in line: String) -> (level: Int, text: String)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("#") else { return nil }
+
+        let hashes = trimmed.prefix { $0 == "#" }
+        let level = hashes.count
+        guard (1...6).contains(level) else { return nil }
+
+        var text = String(trimmed.dropFirst(level))
+            .trimmingCharacters(in: .whitespaces)
+        // A bare "###" divider is not a heading.
+        guard !text.isEmpty else { return nil }
+
+        while text.hasPrefix("**"), text.hasSuffix("**"), text.count > 4 {
+            text = String(text.dropFirst(2).dropLast(2)).trimmingCharacters(in: .whitespaces)
+        }
+        text = text.trimmingCharacters(in: CharacterSet(charactersIn: "#")).trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+
+        return (min(level, 3), text)
+    }
+
+    /// Remove editorial markup that escaped block parsing so it is never shown
+    /// to the reader as literal text.
+    ///
+    /// Block tags are only recognized at the start of a line, so a tag emitted
+    /// mid-line -- or an opening tag whose partner never arrived -- would
+    /// otherwise land in a paragraph verbatim.
+    static func strippedOrphanEditorialTags(_ text: String) -> String {
+        var result = text.replacingOccurrences(
+            of: #"\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]"#,
+            with: "",
+            options: .regularExpression
+        )
+        // Empty markdown links and images: "[]()", "![](path)", "[](url)".
+        // These carry nothing for the reader and otherwise print literally.
+        result = result.replacingOccurrences(
+            of: #"!?\[\s*\]\([^)]*\)"#,
+            with: "",
+            options: .regularExpression
+        )
+        // A bracket pair with nothing but whitespace inside is markup residue,
+        // not prose. This is what surfaced as a stray "[ ]" above a heading.
+        result = result.replacingOccurrences(
+            of: #"\[\s*\]"#,
+            with: "",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"[ \t]{2,}"#,
+            with: " ",
+            options: .regularExpression
+        )
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Whether a line is leftover markup punctuation rather than content.
+    ///
+    /// A lone "[" or "]" on its own line is the remains of a bracket construct
+    /// whose body was consumed elsewhere; rendered as prose it appears as a
+    /// stray bracket floating above a heading.
+    static func isBracketResidueLine(_ line: String) -> Bool {
+        // Ignore whitespace anywhere in the line, so "[ ]" counts as residue
+        // just as "[]" does.
+        let symbols = line.filter { !$0.isWhitespace }
+        guard !symbols.isEmpty else { return false }
+        return symbols.allSatisfy { $0 == "[" || $0 == "]" || $0 == "(" || $0 == ")" || $0 == "!" }
+    }
+
+
     static func parse(_ content: String) -> [ParsedContentBlock] {
         var blocks: [ParsedContentBlock] = []
         let lines = content.components(separatedBy: "\n")
@@ -284,7 +313,7 @@ struct ContentBlockParser {
             let joined = currentParagraph.joined(separator: " ")
             // An unmatched or mid-line [PREMIUM_H2]/[/VISUAL_*]-style tag used to
             // reach the reader verbatim. Strip anything that survived parsing.
-            let text = EditorialContentRenderer.strippedOrphanEditorialTags(joined)
+            let text = strippedOrphanEditorialTags(joined)
             if !text.isEmpty {
                 blocks.append(ParsedContentBlock(type: .paragraph, content: text))
             }
@@ -674,7 +703,7 @@ struct ContentBlockParser {
             // Markdown headings. The space after the hashes is optional because
             // models regularly emit "##Title"; without this those lines fell
             // through to the paragraph branch and rendered the hashes literally.
-            if let heading = EditorialContentRenderer.markdownHeading(in: trimmed) {
+            if let heading = markdownHeading(in: trimmed) {
                 flushParagraph()
                 let thisSectionIndex = currentSectionIndex
                 currentSectionIndex += 1
@@ -863,6 +892,12 @@ struct ContentBlockParser {
             // Handle empty lines
             if trimmed.isEmpty {
                 flushParagraph()
+                i += 1
+                continue
+            }
+
+            // Leftover bracket punctuation is markup residue, never content.
+            if isBracketResidueLine(trimmed) {
                 i += 1
                 continue
             }
