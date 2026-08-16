@@ -494,242 +494,259 @@ struct InsightAtlasPromptGenerator {
         box, which reads to the user as a broken visual. Titles go in the opening
         tag, never in the payload.
 
+        The payload lines below are ILLUSTRATIONS OF SHAPE, not content. Never
+        reproduce their wording. Write payloads about the book being analysed.
+
         [VISUAL_SPECTRUM: Title]
-        Left pole → Right pole
-        Item nearer the left
-        Item in the middle
-        Item nearer the right
+        Rigid control → Open willingness
+        White-knuckling through fear
+        Tolerating discomfort
+        Acting alongside fear
         [/VISUAL_SPECTRUM]
 
         [VISUAL_TIMELINE: Title]
-        1945: Event name — what happened
-        1962: Event name — what happened
+        1952: Existential therapy emerges — May publishes on anxiety
+        1979: Cognitive turn — Beck formalises schema work
         [/VISUAL_TIMELINE]
 
         [VISUAL_TABLE: Title]
-        Column A | Column B | Column C
-        Row 1 cell | Row 1 cell | Row 1 cell
+        Dimension | Cognitive therapy | Narrative therapy
+        Unit of change | Distorted thought | Dominant story
+        Therapist stance | Expert guide | Curious collaborator
         [/VISUAL_TABLE]
 
         [VISUAL_MATRIX: Title]
-        Dimension | Option A | Option B
-        Cost | Low | High
+        Dimension | Short-term work | Long-term work
+        Focus | Symptom relief | Identity revision
+        Typical length | 8 sessions | 18 months
         [/VISUAL_MATRIX]
 
         [VISUAL_COMPARISON: Title]
-        Aspect | First concept | Second concept
-        Focus | Present moment | Past causes
+        Aspect | Acceptance | Avoidance
+        Stance toward fear | Makes room for it | Pushes it away
+        Long-term cost | Short discomfort | Narrowing life
         [/VISUAL_COMPARISON]
 
         [VISUAL_COMPARISON_TABLE: Title]
-        Aspect | Option A | Option B
-        Duration | 8 weeks | 12 weeks
+        Aspect | Group format | Individual format
+        Pace | Set by cohort | Set by client
         [/VISUAL_COMPARISON_TABLE]
 
         [VISUAL_BEFORE_AFTER: Title]
         Aspect | Before | After
-        Response to anxiety | Avoidance | Willingness
+        Response to criticism | Immediate defence | Pause and consider
         [/VISUAL_BEFORE_AFTER]
 
         [VISUAL_FLOWCHART: Title]
-        First step
-        Second step
-        Third step
+        Trigger event occurs
+        Automatic thought arises
+        Thought taken as literal truth
+        Behaviour narrows
         [/VISUAL_FLOWCHART]
 
         [VISUAL_PROCESS: Title]
-        First step
-        Second step
+        Notice the sensation
+        Name what it is
+        Allow it to be present
         [/VISUAL_PROCESS]
 
         [VISUAL_FLOW_DIAGRAM: Title]
-        First step
-        Second step
+        Client reports symptom
+        Clinician maps the pattern
+        Pattern tested against evidence
         [/VISUAL_FLOW_DIAGRAM]
 
         [VISUAL_BRIDGE: Title]
-        Current state
-        Intervening move
-        Desired state
+        Avoiding difficult conversations
+        Practising one small disclosure
+        Speaking candidly under pressure
         [/VISUAL_BRIDGE]
 
         [VISUAL_CONCEPT_MAP: Title]
-        Central: The core idea
-        First related concept
-        Second related concept
+        Central: Psychological flexibility
+        Contact with the present moment
+        Values-guided action
+        Cognitive defusion
         [/VISUAL_CONCEPT_MAP]
 
         [VISUAL_MINDMAP: Title]
-        Central: The core idea
-        First branch
-        Second branch
+        Central: The inner critic
+        Inherited family voices
+        Cultural standards
+        Protective intent
         [/VISUAL_MINDMAP]
 
         [VISUAL_ORBIT: Title]
-        Central: The core idea
-        First orbiting element
-        Second orbiting element
+        Central: The observing self
+        Thoughts passing through
+        Emotions rising and falling
+        Bodily sensation
         [/VISUAL_ORBIT]
 
         [VISUAL_BAR_CHART: Title]
-        First label: 42
-        Second label: 71
+        Sessions completed: 42
+        Sessions cancelled: 9
         [/VISUAL_BAR_CHART]
 
         [VISUAL_BAR_CHART_STACKED: Title]
         Week 1, Week 2, Week 3
-        Practice: 3, 5, 8
-        Avoidance: 6, 4, 1
+        Practice minutes: 30, 55, 80
+        Avoidance episodes: 6, 4, 1
         [/VISUAL_BAR_CHART_STACKED]
 
         [VISUAL_BAR_CHART_GROUPED: Title]
         Week 1, Week 2, Week 3
-        Practice: 3, 5, 8
-        Avoidance: 6, 4, 1
+        Practice minutes: 30, 55, 80
+        Avoidance episodes: 6, 4, 1
         [/VISUAL_BAR_CHART_GROUPED]
 
         [VISUAL_PIE_CHART: Title]
-        First segment: 45
-        Second segment: 30
-        Third segment: 25
+        Therapy alliance: 45
+        Client factors: 30
+        Technique: 25
         [/VISUAL_PIE_CHART]
 
         [VISUAL_LINE_CHART: Title]
         2020: 12
         2021: 19
+        2022: 27
         [/VISUAL_LINE_CHART]
 
         [VISUAL_AREA_CHART: Title]
         2020: 12
         2021: 19
+        2022: 27
         [/VISUAL_AREA_CHART]
 
         [VISUAL_FUNNEL: Title]
-        Awareness: 1000
-        Consideration: 400
-        Commitment: 120
+        Referred: 1000
+        Assessed: 400
+        Completed treatment: 120
         [/VISUAL_FUNNEL]
 
         [VISUAL_GAUGE: Title]
-        Current reading: 72
-        Healthy range: 60
+        Current distress rating: 72
+        Target range: 40
         [/VISUAL_GAUGE]
 
         [VISUAL_TREEMAP: Title]
-        First item: 40
-        Second item: 25
+        Rumination: 40
+        Avoidance: 25
+        Self-criticism: 18
         [/VISUAL_TREEMAP]
 
         [VISUAL_BUBBLE: Title]
-        First bubble, 2, 3, 40
-        Second bubble, 5, 1, 15
+        Perfectionism, 2, 3, 40
+        People-pleasing, 5, 1, 15
         [/VISUAL_BUBBLE]
 
         [VISUAL_INFOGRAPHIC: Title]
-        First statistic: 62
-        Second statistic: 75
+        Adults reporting impostor feelings: 62
+        Who never disclose it: 75
         [/VISUAL_INFOGRAPHIC]
 
         [VISUAL_SCATTER_PLOT: Title]
-        3.2, 4.5, First point label
-        5.1, 2.8, Second point label
+        3.2, 4.5, High practice and high change
+        5.1, 2.8, High practice and low change
         [/VISUAL_SCATTER_PLOT]
 
         [VISUAL_QUADRANT: Title]
-        Quadrant: High urgency, high importance
-        Do it now
-        Quadrant: Low urgency, high importance
-        Schedule it
+        Quadrant: Urgent and important
+        Crisis contact with a client
+        Quadrant: Important, not urgent
+        Weekly supervision
         [/VISUAL_QUADRANT]
 
         [VISUAL_VENN: Title]
-        First set: item one, item two
-        Second set: item three, item four
-        Intersection: shared item
+        Shame: hiding, self-attack
+        Guilt: repair, apology
+        Intersection: painful self-evaluation
         [/VISUAL_VENN]
 
         [VISUAL_GANTT: Title]
-        Task name | 0 | 3
-        Second task | 2 | 4
+        Assessment phase | 0 | 3
+        Skills practice | 2 | 8
         [/VISUAL_GANTT]
 
         [VISUAL_NETWORK: Title]
-        Node: First concept | group A
-        Node: Second concept | group B
-        Link: First concept -> Second concept
+        Node: Avoidance | maintaining
+        Node: Anxiety | presenting
+        Link: Avoidance -> Anxiety
         [/VISUAL_NETWORK]
 
         [VISUAL_FISHBONE: Title]
-        Effect: The outcome being explained
-        Category one: cause A, cause B
-        Category two: cause C, cause D
+        Effect: Treatment dropout
+        Practical barriers: cost, travel, scheduling
+        Relational barriers: weak alliance, mismatch of goals
         [/VISUAL_FISHBONE]
 
         [VISUAL_SWOT: Title]
-        Strengths: first strength, second strength
-        Weaknesses: first weakness
-        Opportunities: first opportunity
-        Threats: first threat
+        Strengths: strong alliance, client motivation
+        Weaknesses: limited session count
+        Opportunities: group follow-up
+        Threats: relapse without support
         [/VISUAL_SWOT]
 
         [VISUAL_SANKEY: Title]
-        Source -> Destination: 40
-        Source -> Other destination: 60
+        Referrals -> Assessment: 400
+        Assessment -> Treatment: 260
         [/VISUAL_SANKEY]
 
         [VISUAL_HEATMAP: Title]
-        Column A, Column B, Column C
-        Row label: 3, 7, 1
-        Second row: 5, 2, 8
+        Morning, Afternoon, Evening
+        Rumination: 3, 7, 9
+        Avoidance: 5, 2, 8
         [/VISUAL_HEATMAP]
 
         [VISUAL_PYRAMID: Title]
-        Base layer
-        Middle layer
-        Top layer
+        Daily practice
+        Weekly reflection
+        Values clarification
         [/VISUAL_PYRAMID]
 
         [VISUAL_ICEBERG: Title]
-        Visible behaviour
-        Underlying belief
-        Core assumption
+        Snapping at a colleague
+        Belief that rest must be earned
+        Fear of being seen as lazy
         [/VISUAL_ICEBERG]
 
         [VISUAL_LADDER: Title]
-        First level
-        Second level
-        Third level
+        Naming the feeling
+        Sitting with it briefly
+        Acting while it is present
         [/VISUAL_LADDER]
 
         [VISUAL_CYCLE: Title]
-        First stage
-        Second stage
-        Third stage
+        Worry rises
+        Reassurance sought
+        Relief is brief
+        Worry returns stronger
         [/VISUAL_CYCLE]
 
         [VISUAL_HIERARCHY: Title]
-        Root concept
-        First child
-        Second child
+        Dominant personal narrative
+        Societal narratives about productivity
+        Family narratives about loyalty
+        Individual remembered events
         [/VISUAL_HIERARCHY]
 
         [VISUAL_RADAR: Title]
-        First dimension
-        Second dimension
-        Third dimension
+        Emotional awareness
+        Distress tolerance
+        Values clarity
         [/VISUAL_RADAR]
 
         [VISUAL_STORYBOARD: Title]
-        First scene: what happens
-        Second scene: what happens next
+        Noticing the urge: the moment avoidance begins
+        Choosing differently: acting on the value instead
         [/VISUAL_STORYBOARD]
 
         [VISUAL_JOURNEY_MAP: Title]
-        Stage: Awareness | curious
-        First touchpoint
-        Second touchpoint
-        Stage: Commitment | resolved
-        Third touchpoint
+        Stage: First contact | apprehensive
+        Intake call
+        First session
+        Stage: Consolidation | steadier
+        Relapse-prevention planning
         [/VISUAL_JOURNEY_MAP]
 
         [VISUAL_GENERIC: Title]

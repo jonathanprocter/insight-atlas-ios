@@ -948,7 +948,7 @@ struct FlowchartBlockView: View {
                         .font(.title3)
                         .foregroundColor(AnalysisTheme.accentBlue)
 
-                    Text(title)
+                    Text(parseMarkdownBold(title))
                         .font(.headline)
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
@@ -1139,7 +1139,7 @@ struct ProcessTimelineBlockView: View {
                         .font(.title3)
                         .foregroundColor(AnalysisTheme.accentTeal)
 
-                    Text(title)
+                    Text(parseMarkdownBold(title))
                         .font(.headline)
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
@@ -1250,7 +1250,9 @@ private struct TableCellView: View {
     let isAlternate: Bool
 
     var body: some View {
-        Text(cell)
+        // Cells hold model-authored prose, so inline emphasis must be parsed
+        // here too; otherwise "**Core fear**" prints its asterisks.
+        Text(parseMarkdownBold(cell))
             .font(isHeader ? .headline : .body)
             .foregroundColor(isHeader ? AnalysisTheme.textHeading : AnalysisTheme.textBody)
             .padding(10)
@@ -1328,7 +1330,7 @@ struct TextDiagramBlockView: View {
                         .font(.title3)
                         .foregroundColor(AnalysisTheme.accentBlue)
 
-                    Text(title)
+                    Text(parseMarkdownBold(title))
                         .font(.headline)
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
