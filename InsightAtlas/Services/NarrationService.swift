@@ -35,9 +35,59 @@ enum NarrationFallbackPolicy {
     }
 }
 
+
+/// Tracks when narration last made observable progress.
+///
+/// A long guide legitimately takes minutes, so a fixed total timeout would
+/// abort healthy work. What is never acceptable is silence: no model load, no
+/// chunk completing, nothing, indefinitely.
+private actor ProgressHeartbeat {
+    private var last = ContinuousClock.now
+    func beat() { last = ContinuousClock.now }
+    func idleFor() -> Duration { ContinuousClock.now - last }
+}
+
+/// Narration stalled with no progress for `NarrationService.stallTimeout`.
+struct NarrationStalled: LocalizedError {
+    let stage: String
+    var errorDescription: String? {
+        "Narration stopped responding while \(stage). Trying the next voice."
+    }
+}
+
 actor NarrationService {
 
     static let shared = NarrationService()
+
+    /// Longest narration may go without any observable progress before the
+    /// route is abandoned. On-device synthesis reports per chunk, so healthy
+    /// work never approaches this.
+    static let stallTimeout: Duration = .seconds(120)
+
+    /// Run `work`, failing if `heartbeat` reports no progress for
+    /// `stallTimeout`. The heartbeat is beaten by the progress callbacks the
+    /// caller wires into `work`.
+    private func withStallDetection<T: Sendable>(
+        stage: String,
+        heartbeat: ProgressHeartbeat,
+        _ work: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T?.self) { group in
+            group.addTask { try await work() }
+            group.addTask {
+                while true {
+                    try await Task.sleep(for: .seconds(5))
+                    if await heartbeat.idleFor() > Self.stallTimeout { return nil }
+                }
+            }
+            defer { group.cancelAll() }
+            while let result = try await group.next() {
+                if let result { return result }
+                throw NarrationStalled(stage: stage)
+            }
+            throw NarrationStalled(stage: stage)
+        }
+    }
 
     /// Synthesize narration for `itemId` using the fixed provider order:
     /// on-device Kokoro -> hosted Liam.
@@ -74,17 +124,25 @@ actor NarrationService {
                 let voice = Self.selectedKokoroVoice()
                 let narrator = "Kokoro · \(voice.name)"
                 progress(.generating(narrator: narrator))
+                let heartbeat = ProgressHeartbeat()
                 do {
-                    let audio = try await KokoroAudioService.shared.generateAudio(
-                        text: spokenText,
-                        voiceID: voice.voiceID,
-                        onModelLoadStart: {
-                            progress(.loadingModel(narrator: narrator))
-                        },
-                        onProgress: { completed, total in
-                            progress(.synthesizing(narrator: narrator, completed: completed, total: total))
-                        }
-                    )
+                    let audio = try await withStallDetection(
+                        stage: "generating audio on this device",
+                        heartbeat: heartbeat
+                    ) {
+                        try await KokoroAudioService.shared.generateAudio(
+                            text: spokenText,
+                            voiceID: voice.voiceID,
+                            onModelLoadStart: {
+                                progress(.loadingModel(narrator: narrator))
+                                Task { await heartbeat.beat() }
+                            },
+                            onProgress: { completed, total in
+                                progress(.synthesizing(narrator: narrator, completed: completed, total: total))
+                                Task { await heartbeat.beat() }
+                            }
+                        )
+                    }
                     let asset = try persist(audio: audio, itemId: itemId)
                     progress(.ready(narrator: narrator))
                     narrationLog.info(

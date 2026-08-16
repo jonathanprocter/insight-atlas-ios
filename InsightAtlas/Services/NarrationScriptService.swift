@@ -115,8 +115,12 @@ actor NarrationScriptService {
             }
         }
         inFlight[key] = task
+        // Clear on every exit path. Leaving a finished-or-abandoned task in the
+        // map would make every later request for this guide await it forever,
+        // turning one stalled rewrite into a permanent spinner that only an app
+        // relaunch could clear.
+        defer { inFlight[key] = nil }
         let result = await task.value
-        inFlight[key] = nil
 
         // Cache only a genuine rewrite (not the raw-content fallback).
         if let cacheURL, result != guideContent {
