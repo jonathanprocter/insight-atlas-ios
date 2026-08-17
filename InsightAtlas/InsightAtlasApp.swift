@@ -17,6 +17,11 @@ struct InsightAtlasApp: App {
 
         // Configure app-wide appearance
         configureAppearance()
+
+        // Release the voice model and parsed-markdown cache under memory
+        // pressure so a large resident footprint does not get the app killed
+        // while it is backgrounded.
+        Task { @MainActor in MemoryPressureCoordinator.shared.start() }
     }
 
     // MARK: - Scene

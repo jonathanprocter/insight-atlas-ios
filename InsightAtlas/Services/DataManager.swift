@@ -285,6 +285,7 @@ class DataManager: ObservableObject {
             UserDefaults.standard.set(data, forKey: backupKey)
             UserDefaults.standard.removeObject(forKey: libraryKey)
             logger.warning("Corrupted library data backed up to '\(backupKey)' and cleared")
+            pruneLibraryBackups(keeping: 2)
 
             // Post notification so UI can inform user
             NotificationCenter.default.post(
@@ -293,6 +294,28 @@ class DataManager: ObservableObject {
                 userInfo: ["error": error.localizedDescription]
             )
         }
+    }
+
+
+    /// Keep only the newest `keeping` corrupted-library backups.
+    ///
+    /// Each backup is a full copy of the library blob, which carries the guide
+    /// text. They were written on every decode failure and never removed, so
+    /// repeated corruption grew UserDefaults without bound and none of the
+    /// older copies were ever read.
+    private func pruneLibraryBackups(keeping: Int) {
+        let defaults = UserDefaults.standard
+        let prefix = "\(libraryKey)_backup_"
+        let backups = defaults.dictionaryRepresentation().keys
+            .filter { $0.hasPrefix(prefix) }
+            .sorted { lhs, rhs in
+                (Int(lhs.dropFirst(prefix.count)) ?? 0) > (Int(rhs.dropFirst(prefix.count)) ?? 0)
+            }
+        guard backups.count > keeping else { return }
+        for stale in backups.dropFirst(keeping) {
+            defaults.removeObject(forKey: stale)
+        }
+        logger.info("Pruned \(backups.count - keeping) stale library backup(s)")
     }
 
     private func saveLibrary() {

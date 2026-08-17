@@ -14,3 +14,15 @@ extracted_project/
 # Temporary files
 .tmp/
 *.lock
+
+# Credentials — never commit
+AuthKey_*.p8
+*.p8
+*.mobileprovision
+*.cer
+*.certSigningRequest
+.env
+.env.*
+ExportOptions.plist
+secrets.json
+*.secret

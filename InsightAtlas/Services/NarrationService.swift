@@ -131,7 +131,13 @@ actor NarrationService {
         // does not suspend an in-flight render.
         let assertion = await NarrationBackgroundAssertion()
         await assertion.begin()
-        defer { Task { @MainActor in assertion.end() } }
+        await MemoryPressureCoordinator.shared.beginSynthesis()
+        defer {
+            Task { @MainActor in
+                assertion.end()
+                MemoryPressureCoordinator.shared.endSynthesis()
+            }
+        }
 
         let narrationSource = await NarrationScriptService.shared.spokenScript(
             for: itemId,

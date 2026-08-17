@@ -883,9 +883,13 @@ struct AnalysisDetailView: View {
         }
 
         // Cache the result (limit cache size to prevent memory issues)
-        if Self.markdownCache.count < 500 {
-            Self.markdownCache[text] = result
+        // Previously this simply stopped caching at 500 entries, so a reader
+        // with many guides ran uncached for the rest of the session. Clearing
+        // and refilling keeps recent content fast.
+        if Self.markdownCache.count >= 500 {
+            Self.markdownCache.removeAll(keepingCapacity: true)
         }
+        Self.markdownCache[text] = result
 
         return result
     }
