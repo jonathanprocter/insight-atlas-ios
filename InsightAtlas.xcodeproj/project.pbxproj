@@ -18,6 +18,7 @@
 		7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */; };
 		7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */; };
 		7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */; };
+		E81AF0062D00001F007AAAAA /* PDFOutputHygieneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF0052D00001E007AAAAA /* PDFOutputHygieneTests.swift */; };
 		7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */; };
 		82E29C53323BCC8A79E0DF58 /* InsightAtlas/Views/EditorialBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7504ACD02AE48FB4B91A9AE /* InsightAtlas/Views/EditorialBlockViews.swift */; };
 		9EFF521F70C471CF39DD4588 /* InsightAtlas/Views/EditorialContentRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A77D72C5EAC28A38E529C7 /* InsightAtlas/Views/EditorialContentRenderer.swift */; };
@@ -188,6 +189,7 @@
 		7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderHierarchyTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainServiceTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixerTests.swift; sourceTree = "<group>"; };
+		E81AF0052D00001E007AAAAA /* PDFOutputHygieneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFOutputHygieneTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryGovernorTests.swift; sourceTree = "<group>"; };
 		7A1B2C3D4E5F678901234596 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFDiagramRenderer.swift; sourceTree = "<group>"; };
@@ -371,6 +373,7 @@
 				7A1B2C3D4E5F678901234592 /* HeaderHierarchyTests.swift */,
 				7A1B2C3D4E5F678901234593 /* KeychainServiceTests.swift */,
 				7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */,
+				E81AF0052D00001E007AAAAA /* PDFOutputHygieneTests.swift */,
 				7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */,
 				IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */,
 				A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */,
@@ -823,6 +826,7 @@
 				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A3 /* KeychainServiceTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A4 /* PDFTextFixerTests.swift in Sources */,
+				E81AF0062D00001F007AAAAA /* PDFOutputHygieneTests.swift in Sources */,
 				C207E5E930261DD100843994 /* PDFRedesignPhase123Tests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A5 /* SummaryGovernorTests.swift in Sources */,
 				C207E5F33026236A00843994 /* PDFRedesignPhase456Tests.swift in Sources */,
