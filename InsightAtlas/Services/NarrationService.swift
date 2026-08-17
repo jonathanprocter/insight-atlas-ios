@@ -14,6 +14,7 @@
 //
 
 import Foundation
+import UIKit
 import os.log
 
 private let narrationLog = Logger(subsystem: "com.insightatlas", category: "NarrationService")
@@ -35,6 +36,32 @@ enum NarrationFallbackPolicy {
     }
 }
 
+
+
+/// Keeps the app running briefly after it is backgrounded so narration in
+/// flight is not suspended the moment the user leaves.
+///
+/// Guide generation already did this; narration never did, so leaving the app
+/// mid-render simply killed it and the audio never appeared. iOS grants only a
+/// short window, so this rescues shorter renders rather than guaranteeing long
+/// ones -- server-side synthesis is the durable answer for a full guide.
+@MainActor
+final class NarrationBackgroundAssertion {
+    private var identifier: UIBackgroundTaskIdentifier = .invalid
+
+    func begin() {
+        guard identifier == .invalid else { return }
+        identifier = UIApplication.shared.beginBackgroundTask(withName: "NarrationSynthesis") { [weak self] in
+            self?.end()
+        }
+    }
+
+    func end() {
+        guard identifier != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(identifier)
+        identifier = .invalid
+    }
+}
 
 /// Tracks when narration last made observable progress.
 ///
@@ -100,6 +127,12 @@ actor NarrationService {
         // Rewrite the written guide into an audio-first script (describing every
         // visual in words) when MiniMax is available. Safe pass-through otherwise:
         // `spokenScript` returns `text` unchanged on any failure.
+        // Hold a background assertion for the whole attempt so leaving the app
+        // does not suspend an in-flight render.
+        let assertion = await NarrationBackgroundAssertion()
+        await assertion.begin()
+        defer { Task { @MainActor in assertion.end() } }
+
         let narrationSource = await NarrationScriptService.shared.spokenScript(
             for: itemId,
             guideContent: text,
