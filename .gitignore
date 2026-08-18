@@ -26,3 +26,13 @@ AuthKey_*.p8
 ExportOptions.plist
 secrets.json
 *.secret
+
+# Design mockups, archives and vendored templates — kept locally, not in the
+# public repository. None are build inputs; the Xcode project references none.
+*.zip
+mockup_*.png
+mockup_*.PNG
+mockup_*.JPG
+InsightAtlas-Master-Template-FINAL.html
+full-font-embed.css
+*.ttf.base64

@@ -486,6 +486,96 @@ struct InsightAtlasPromptGenerator {
         - Use **double asterisks** for bold and *single asterisks* for italics.
           Do not use underscores, backticks, or HTML tags for emphasis.
 
+        ───
+        COMPONENT SELECTION, VARIETY & OUTPUT HYGIENE (HARD RULES)
+        ───
+
+        Every rule here exists because breaking it produced a visible defect in
+        shipped output. Treat all of them as hard constraints.
+
+        FUNCTION → COMPONENT. Before emitting any non-prose element, decide what
+        the insight is DOING, then use only the component for that function.
+        Never default to the same component repeatedly.
+
+        - corroboration (a second source strengthens a claim) → [INSIGHT_NOTE], max 3 sentences
+        - contrast, caveat, limitation, contraindication → [ALTERNATIVE_PERSPECTIVE], never [INSIGHT_NOTE]
+        - mechanism (how something works, a causal chain) → [VISUAL_FLOWCHART] or [VISUAL_PROCESS]
+        - taxonomy (a classification with 3+ members) → ONE [VISUAL_TABLE] or [VISUAL_COMPARISON], never several
+        - comparison across shared dimensions → [VISUAL_COMPARISON]
+        - lineage (who influenced whom) → [VISUAL_TIMELINE] or [VISUAL_HIERARCHY]
+        - application (something the reader performs) → [ACTION_BOX] or [EXERCISE_*]
+        - person (background on an author) → [AUTHOR_SPOTLIGHT], max 1 per person per guide
+        - data (study results, real numbers) → [RESEARCH_INSIGHT] or the matching chart visual
+        - a source worth naming but not worth a component → a Go Deeper line, never its own block
+
+        If you cannot state in one sentence why THIS component fits THIS
+        insight's function, the material belongs in body text. "It adds
+        supporting context" is not a reason.
+
+        VARIETY (violations are visible as repetition):
+        - No two consecutive components may share a type. Separate them with body
+          text or a different type. Two adjacent corroborations merge into ONE
+          [INSIGHT_NOTE] citing both sources.
+        - Per thematic section: max 1 [INSIGHT_NOTE], max 1 visual, max 1
+          exercise, max 1 [ALTERNATIVE_PERSPECTIVE], and no more than 4
+          non-prose components in total.
+        - Across the guide, [INSIGHT_NOTE] must not exceed 40% of all callout
+          components. Overflow notes are usually contrast or further reading in
+          disguise — reclassify them.
+        - The same component type may not appear in more than 3 consecutive
+          sections.
+        - Go Deeper recommendations: at most 3 in the whole guide, reserved for
+          works load-bearing to the central argument.
+
+        MOBILE LAYOUT (the guide is read on a 390pt-wide phone):
+        - Never emit a table wider than 3 columns. Prefer 2.
+        - No table cell longer than 120 characters. Longer content belongs in
+          body text, not a cell.
+        - Every list item must carry at least 3 words of real content. NEVER emit
+          an empty item, a lone dash, an ellipsis, or a placeholder to pad a
+          count. Five real steps beat seven with two fillers.
+        - Key-insight bullets: at most 2 sentences each, at most 8 total.
+        - Component titles must NOT repeat the component's own label — the
+          renderer prints that automatically.
+            WRONG: [ACTION_BOX: Apply It — The Unblending Sequence]
+            RIGHT: [ACTION_BOX: The Unblending Sequence]
+          Forbidden title prefixes: "Apply It", "Reflect", "Exercise", "Insight
+          Atlas Note", "Go Deeper", "Quick Glance", "Note", "Tip".
+        - Section headings carry no boilerplate prefix such as "Thematic Section
+          3:". Emit the bare title.
+        - Every component title must be unique within the guide, and no title may
+          be restated elsewhere in different wording.
+
+        OUTPUT HYGIENE (these reach the reader verbatim when broken):
+        - ZERO meta-text. When you condense, condense silently. Never emit
+          "[Additional supporting material condensed]", "[Content truncated]",
+          "Core argument preserved", "(condensed for space)", or any bracketed
+          aside describing what you did rather than what the source says.
+        - Never refer to the machinery: no "this Insight Note explains", no
+          mention of budgets, token limits, prompts, or your own process.
+        - Complete or absent. If a component cannot be finished within these
+          constraints, omit it entirely rather than emitting a stub, a trailing
+          dash, or a half-filled structure.
+        - Never fabricate attribution. Every named source must be a real work by
+          a real author that genuinely supports the claim as stated. If unsure,
+          soften the claim or drop the citation — never force-fit.
+        - Caveats must be visible. Limitations, contraindications and scope
+          boundaries go in [ALTERNATIVE_PERSPECTIVE], never buried inside an
+          [INSIGHT_NOTE] where they read as endorsement.
+
+        BEFORE YOU FINISH, VERIFY:
+        1. No bracketed meta-commentary anywhere in the output.
+        2. No two adjacent components share a type.
+        3. No section exceeds its quotas. Count them.
+        4. [INSIGHT_NOTE] is at most 40% of callouts.
+        5. At most 3 Go Deeper recommendations.
+        6. No table over 3 columns; no cell over 120 characters.
+        7. Every list item has 3+ words; zero empty, dash, or placeholder items.
+        8. No title begins with its own component label.
+        9. Every component title is unique.
+        10. Every caveat uses [ALTERNATIVE_PERSPECTIVE].
+        11. Every opened tag has a matching closing tag.
+
         Available visual types — PAYLOAD FORMAT IS MANDATORY:
 
         Each entry below shows the EXACT line format its renderer parses. Emit the

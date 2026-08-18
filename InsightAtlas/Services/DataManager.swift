@@ -99,6 +99,7 @@ class DataManager: ObservableObject {
         // Clean up associated audio file if it exists
         cleanupAudioFile(for: item)
         cleanupCoverImage(for: item)
+        GuideBodyStore.delete(item.id)
         libraryItems.removeAll { $0.id == item.id }
         saveLibrary()
     }
@@ -110,6 +111,7 @@ class DataManager: ObservableObject {
             if index < libraryItems.count {
                 cleanupAudioFile(for: libraryItems[index])
                 cleanupCoverImage(for: libraryItems[index])
+                GuideBodyStore.delete(libraryItems[index].id)
             }
         }
         libraryItems.remove(atOffsets: offsets)
@@ -272,9 +274,29 @@ class DataManager: ObservableObject {
         }
 
         do {
-            let items = try JSONDecoder().decode([LibraryItem].self, from: data)
+            var items = try JSONDecoder().decode([LibraryItem].self, from: data)
+
+            // Rehydrate bodies from disk. Libraries written before the split
+            // still carry their text inline; migrate those to files on first
+            // load so the blob shrinks exactly once.
+            var migrated = 0
+            for index in items.indices {
+                if let inline = items[index].summaryContent, !inline.isEmpty {
+                    GuideBodyStore.save(inline, for: items[index].id)
+                    migrated += 1
+                } else {
+                    items[index].summaryContent = GuideBodyStore.load(items[index].id)
+                }
+            }
+
             libraryItems = items.sorted { $0.updatedAt > $1.updatedAt }
             logger.info("Loaded \(items.count) library items")
+
+            if migrated > 0 {
+                logger.info("Migrated \(migrated) guide body/bodies out of UserDefaults")
+                saveLibrary()
+            }
+            GuideBodyStore.pruneOrphans(keeping: Set(items.map(\.id)))
         } catch {
             logger.error("Failed to decode library: \(error.localizedDescription)")
 
@@ -319,8 +341,19 @@ class DataManager: ObservableObject {
     }
 
     private func saveLibrary() {
+        // Guide bodies live in files; UserDefaults holds metadata only. Encoding
+        // the bodies here meant every narration-state change rewrote the whole
+        // library, and kept all guide text resident from launch.
+        var metadataOnly = libraryItems
+        for index in metadataOnly.indices {
+            if let body = metadataOnly[index].summaryContent, !body.isEmpty {
+                GuideBodyStore.save(body, for: metadataOnly[index].id)
+                metadataOnly[index].summaryContent = nil
+            }
+        }
+
         do {
-            let data = try JSONEncoder().encode(libraryItems)
+            let data = try JSONEncoder().encode(metadataOnly)
             UserDefaults.standard.set(data, forKey: libraryKey)
         } catch {
             logger.error("Failed to encode library: \(error.localizedDescription)")
