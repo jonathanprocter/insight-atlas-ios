@@ -48,10 +48,24 @@ enum GuideBodyStore {
         return text
     }
 
+    /// Fingerprints of bodies already on disk, so an unchanged body is not
+    /// rewritten. Without this, saving the library rewrote every guide's file
+    /// on every call — from twelve call sites, synchronously, during
+    /// generation. That is enough main-thread file I/O to trip the watchdog,
+    /// which the user sees as a crash.
+    private static var writtenFingerprints: [UUID: Int] = [:]
+    private static let fingerprintLock = NSLock()
+
     /// Write a guide body, staging then replacing so an interrupted write
-    /// cannot leave a half-written guide behind.
+    /// cannot leave a half-written guide behind. Unchanged bodies are skipped.
     @discardableResult
     static func save(_ body: String, for id: UUID, fileManager: FileManager = .default) -> Bool {
+        let fingerprint = body.hashValue
+        fingerprintLock.lock()
+        let unchanged = writtenFingerprints[id] == fingerprint
+        fingerprintLock.unlock()
+        if unchanged { return true }
+
         guard let url = url(for: id, fileManager: fileManager) else { return false }
         let staging = url.deletingLastPathComponent()
             .appendingPathComponent(".\(id.uuidString).\(UUID().uuidString).partial")
@@ -62,6 +76,9 @@ enum GuideBodyStore {
             } else {
                 try fileManager.moveItem(at: staging, to: url)
             }
+            fingerprintLock.lock()
+            writtenFingerprints[id] = fingerprint
+            fingerprintLock.unlock()
             return true
         } catch {
             try? fileManager.removeItem(at: staging)
@@ -71,6 +88,9 @@ enum GuideBodyStore {
     }
 
     static func delete(_ id: UUID, fileManager: FileManager = .default) {
+        fingerprintLock.lock()
+        writtenFingerprints[id] = nil
+        fingerprintLock.unlock()
         guard let url = url(for: id, fileManager: fileManager) else { return }
         try? fileManager.removeItem(at: url)
     }
@@ -84,6 +104,9 @@ enum GuideBodyStore {
         for name in names where name.hasSuffix(".md") {
             let stem = String(name.dropLast(3))
             guard let id = UUID(uuidString: stem), !ids.contains(id) else { continue }
+            fingerprintLock.lock()
+            writtenFingerprints[id] = nil
+            fingerprintLock.unlock()
             try? fileManager.removeItem(at: dir.appendingPathComponent(name))
             removed += 1
         }

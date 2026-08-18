@@ -97,6 +97,7 @@
 		C2D0D345302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */; };
 		E81AF0082D000021007AAAAA /* TruncationRepairTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */; };
 		E81AF00C2D000025007AAAAA /* GuideBodyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */; };
+		E81AF00E2D000027007AAAAA /* ParserRobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */; };
 		C2D8DF17302BF51200F782C0 /* OverflowMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF16302BF51200F782C0 /* OverflowMenuView.swift */; };
 		C2D8DF19302BF62000F782C0 /* SwipeActionsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */; };
 		C2D8DF1B302BFB3E00F782C0 /* MiniMaxOAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */; };
@@ -277,6 +278,7 @@
 		C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptIntegrityTests.swift; sourceTree = "<group>"; };
 		E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TruncationRepairTests.swift; sourceTree = "<group>"; };
 		E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideBodyStoreTests.swift; sourceTree = "<group>"; };
+		E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserRobustnessTests.swift; sourceTree = "<group>"; };
 		C2D8DF16302BF51200F782C0 /* OverflowMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverflowMenuView.swift; sourceTree = "<group>"; };
 		C2D8DF18302BF62000F782C0 /* SwipeActionsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeActionsRow.swift; sourceTree = "<group>"; };
 		C2D8DF1A302BFB3E00F782C0 /* MiniMaxOAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxOAuthService.swift; sourceTree = "<group>"; };
@@ -406,6 +408,7 @@
 				C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */,
 				E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */,
 				E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */,
+				E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */,
 			);
 			path = InsightAtlasTests;
 			sourceTree = "<group>";
@@ -832,6 +835,7 @@
 				C2D0D345302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift in Sources */,
 				E81AF0082D000021007AAAAA /* TruncationRepairTests.swift in Sources */,
 				E81AF00C2D000025007AAAAA /* GuideBodyStoreTests.swift in Sources */,
+				E81AF00E2D000027007AAAAA /* ParserRobustnessTests.swift in Sources */,
 				C2ED8F13302A1E13003096F3 /* TableFragmentationTests.swift in Sources */,
 				C2ED8F15302A2A98003096F3 /* DiagramScaleToFitTests.swift in Sources */,
 				7A1B2C3D4E5F6789012345A2 /* HeaderHierarchyTests.swift in Sources */,
@@ -1144,7 +1148,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081803;
+				CURRENT_PROJECT_VERSION = 2026081804;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1177,7 +1181,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026081803;
+				CURRENT_PROJECT_VERSION = 2026081804;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;

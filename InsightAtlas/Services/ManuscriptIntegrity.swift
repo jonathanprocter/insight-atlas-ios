@@ -282,12 +282,16 @@ enum ManuscriptPreflight {
     static func repairTruncatedTail(_ content: String) -> String {
         var result = content
 
-        // 1. A dangling partial tag: an unmatched "[" after the last "]".
-        if let openIndex = result.lastIndex(of: "[") {
-            let afterOpen = result[openIndex...]
-            if !afterOpen.contains("]") {
-                result = String(result[..<openIndex])
-            }
+        // 1. A dangling partial tag: an unclosed "[" followed by tag-shaped
+        //    characters, e.g. "[INSIGHT_NO". Requiring the tag shape keeps the
+        //    operation idempotent — a run of stray brackets is left to the
+        //    renderer's bracket-residue handling rather than being eaten one
+        //    character per pass.
+        if let match = result.range(
+            of: #"\[[A-Z][A-Z0-9_]*$"#,
+            options: [.regularExpression]
+        ) {
+            result = String(result[..<match.lowerBound])
         }
 
         let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)

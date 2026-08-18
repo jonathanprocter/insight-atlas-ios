@@ -277,13 +277,11 @@ class DataManager: ObservableObject {
             var items = try JSONDecoder().decode([LibraryItem].self, from: data)
 
             // Rehydrate bodies from disk. Libraries written before the split
-            // still carry their text inline; migrate those to files on first
-            // load so the blob shrinks exactly once.
-            var migrated = 0
+            // still carry their text inline and need migrating to files once.
+            var pendingMigration: [(UUID, String)] = []
             for index in items.indices {
                 if let inline = items[index].summaryContent, !inline.isEmpty {
-                    GuideBodyStore.save(inline, for: items[index].id)
-                    migrated += 1
+                    pendingMigration.append((items[index].id, inline))
                 } else {
                     items[index].summaryContent = GuideBodyStore.load(items[index].id)
                 }
@@ -292,11 +290,24 @@ class DataManager: ObservableObject {
             libraryItems = items.sorted { $0.updatedAt > $1.updatedAt }
             logger.info("Loaded \(items.count) library items")
 
-            if migrated > 0 {
-                logger.info("Migrated \(migrated) guide body/bodies out of UserDefaults")
-                saveLibrary()
+            let ids = Set(items.map(\.id))
+            if pendingMigration.isEmpty {
+                Task.detached(priority: .utility) {
+                    GuideBodyStore.pruneOrphans(keeping: ids)
+                }
+            } else {
+                // Writing every body inline blocked launch on a large library,
+                // which iOS terminates as an unresponsive start. Migrate off the
+                // main actor, then persist the shrunken metadata blob.
+                logger.info("Migrating \(pendingMigration.count) guide body/bodies out of UserDefaults")
+                Task.detached(priority: .utility) { [pendingMigration] in
+                    for (id, body) in pendingMigration {
+                        GuideBodyStore.save(body, for: id)
+                    }
+                    GuideBodyStore.pruneOrphans(keeping: ids)
+                    await MainActor.run { DataManager.shared.persistLibraryMetadata() }
+                }
             }
-            GuideBodyStore.pruneOrphans(keeping: Set(items.map(\.id)))
         } catch {
             logger.error("Failed to decode library: \(error.localizedDescription)")
 
@@ -338,6 +349,11 @@ class DataManager: ObservableObject {
             defaults.removeObject(forKey: stale)
         }
         logger.info("Pruned \(backups.count - keeping) stale library backup(s)")
+    }
+
+    /// Persist metadata after an out-of-band body migration completes.
+    func persistLibraryMetadata() {
+        saveLibrary()
     }
 
     private func saveLibrary() {
