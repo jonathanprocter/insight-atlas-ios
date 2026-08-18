@@ -126,4 +126,70 @@ final class PDFOutputHygieneTests: XCTestCase {
             )
         }
     }
+
+    // MARK: - Text layer extractability
+
+    /// Cormorant Garamond substitutes ligature glyphs for fi, fl, ff, ct and st.
+    /// Those glyphs carry a broken ToUnicode mapping, so with ligatures enabled
+    /// the page renders perfectly while the extractable text layer loses
+    /// letters: "filed" came out "iled", "act" as "ac", "understanding" as
+    /// "unders anding". That breaks PDF search, copy-paste, VoiceOver, and any
+    /// downstream text analysis of the exported document.
+    func testLigatureProneWordsSurviveTextExtraction() throws {
+        let prone = [
+            "filed", "office", "different", "affect", "fluent",
+            "act", "fact", "perfect", "understanding", "still", "first"
+        ]
+        let sentence = prone.joined(separator: " ") + "."
+
+        let document = PDFAnalysisDocument(
+            book: .init(title: "Ligature Check", author: "Author"),
+            sections: [
+                .init(
+                    heading: "Extraction",
+                    headingLevel: 1,
+                    blocks: [PDFContentBlock(type: .paragraph, content: sentence)]
+                )
+            ]
+        )
+
+        let text = try renderText(document)
+        var missing: [String] = []
+        for word in prone where !text.contains(word) {
+            missing.append(word)
+        }
+        XCTAssertTrue(
+            missing.isEmpty,
+            "these words lost letters in the PDF text layer: \(missing.joined(separator: ", "))"
+        )
+    }
+
+    /// A stray single letter on its own is the signature of a ligature glyph
+    /// whose components were split apart during extraction.
+    func testNoOrphanedSingleLettersInExtractedText() throws {
+        let document = PDFAnalysisDocument(
+            book: .init(title: "Ligature Check", author: "Author"),
+            sections: [
+                .init(
+                    heading: "Extraction",
+                    headingLevel: 1,
+                    blocks: [
+                        PDFContentBlock(
+                            type: .paragraph,
+                            content: "The difficult fact is that perfect understanding still acts first."
+                        )
+                    ]
+                )
+            ]
+        )
+
+        let text = try renderText(document)
+        let orphans = text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { $0.count == 1 && "ftisl".contains($0) }
+        XCTAssertTrue(
+            orphans.isEmpty,
+            "orphaned letters found in the text layer: \(orphans.joined(separator: " "))"
+        )
+    }
 }

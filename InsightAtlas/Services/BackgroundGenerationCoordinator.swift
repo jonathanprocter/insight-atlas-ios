@@ -415,6 +415,20 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             // The body stopped at ~90% of the ceiling. If it has no closing
             // element, spend the reserved remainder composing a real synthesis +
             // takeaways so the guide ends deliberately rather than mid-thought.
+            // Repair a body that stopped mid-thought before deciding whether it
+            // needs a conclusion. Appending onto an unrepaired tail shipped
+            // guides that read "...treat each advers" followed by a synthesis.
+            let repairedBody = ManuscriptPreflight.repairTruncatedTail(finalResult.content)
+            if repairedBody != finalResult.content {
+                governorLog("Repaired a truncated tail before the conclusion pass")
+                finalResult = GovernorEnforcementResult(
+                    content: repairedBody,
+                    wordCount: repairedBody.split(separator: " ").count,
+                    cutPolicyActivated: finalResult.cutPolicyActivated,
+                    cutEventCount: finalResult.cutEventCount
+                )
+            }
+
             if !ManuscriptPreflight.hasClosingElement(finalResult.content) {
                 let reserve = max(300, governor.maxWordCeiling - Int(Double(governor.maxWordCeiling) * 0.9))
                 progress = GenerationProgress(

@@ -101,6 +101,7 @@ final class PDFDiagramRenderer {
         // Draw header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
@@ -196,6 +197,7 @@ final class PDFDiagramRenderer {
         // Draw text
         let textAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.body(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: centeredParagraphStyle()
         ]
@@ -293,6 +295,7 @@ final class PDFDiagramRenderer {
         // Draw block header
         let blockHeaderAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         let blockHeaderText = NSAttributedString(string: "📋 \(title.uppercased())", attributes: blockHeaderAttributes)
@@ -318,6 +321,7 @@ final class PDFDiagramRenderer {
             for (index, header) in headers.enumerated() {
                 let headerAttributes: [NSAttributedString.Key: Any] = [
                     .font: PDFStyleConfiguration.Typography.bodyBold(),
+                    .ligature: 0,
                     .foregroundColor: PDFStyleConfiguration.Colors.textHeading
                 ]
                 let headerText = NSAttributedString(string: header, attributes: headerAttributes)
@@ -345,6 +349,7 @@ final class PDFDiagramRenderer {
             for (colIndex, cell) in row.enumerated() {
                 let cellAttributes: [NSAttributedString.Key: Any] = [
                     .font: PDFStyleConfiguration.Typography.body(),
+                    .ligature: 0,
                     .foregroundColor: PDFStyleConfiguration.Colors.textBody
                 ]
                 let cellText = NSAttributedString(string: cell, attributes: cellAttributes)
@@ -455,6 +460,7 @@ final class PDFDiagramRenderer {
         // Draw header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
@@ -553,6 +559,7 @@ final class PDFDiagramRenderer {
 
         let attributedText = NSAttributedString(string: text, attributes: [
             .font: nodeFont(chosenSize),
+            .ligature: 0,
             .foregroundColor: textColor,
             .paragraphStyle: nodePara(truncate ? .byTruncatingTail : .byWordWrapping)
         ])
@@ -619,6 +626,7 @@ final class PDFDiagramRenderer {
         // Header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
@@ -669,6 +677,7 @@ final class PDFDiagramRenderer {
         }
         let attr = NSAttributedString(string: text, attributes: [
             .font: labelFont(chosen),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textHeading,
             .paragraphStyle: labelPara(truncate ? .byTruncatingTail : .byWordWrapping)
         ])
@@ -820,6 +829,7 @@ final class PDFDiagramRenderer {
         context.strokePath()
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
@@ -885,6 +895,7 @@ final class PDFDiagramRenderer {
         // Header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
@@ -982,6 +993,7 @@ final class PDFDiagramRenderer {
         // Header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
@@ -1085,6 +1097,7 @@ final class PDFDiagramRenderer {
         // Draw header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         let headerText = NSAttributedString(string: title.uppercased(), attributes: headerAttributes)
@@ -1127,6 +1140,7 @@ final class PDFDiagramRenderer {
             // Draw phase number
             let numberAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.bodyBold(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.primaryGold,
                 .paragraphStyle: centeredParagraphStyle()
             ]
@@ -1137,6 +1151,7 @@ final class PDFDiagramRenderer {
             // Draw phase name below
             let nameAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.bodySmall(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textBody,
                 .paragraphStyle: centeredParagraphStyle()
             ]
@@ -1226,6 +1241,7 @@ final class PDFDiagramRenderer {
         // Header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         NSAttributedString(string: "↻ \(title.uppercased())", attributes: headerAttributes)
@@ -1278,6 +1294,7 @@ final class PDFDiagramRenderer {
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: emphasized ? PDFStyleConfiguration.Typography.bodyBold() : PDFStyleConfiguration.Typography.bodySmall(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: centeredParagraphStyle()
         ]
@@ -1377,6 +1394,7 @@ final class PDFDiagramRenderer {
         // Header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark
         ]
         NSAttributedString(string: "◄ ► \(title.uppercased())", attributes: headerAttributes)
@@ -1422,6 +1440,7 @@ final class PDFDiagramRenderer {
         // Zone label above the pill.
         let zoneAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.captionBold(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.accentTeal,
             .paragraphStyle: centeredParagraphStyle()
         ]
@@ -1431,6 +1450,7 @@ final class PDFDiagramRenderer {
         // Pole labels.
         let leftAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.bodySmall(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textMuted
         ]
         let rightStyle = NSMutableParagraphStyle()

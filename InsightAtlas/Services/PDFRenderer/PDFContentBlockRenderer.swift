@@ -33,6 +33,7 @@ final class PDFContentBlockRenderer {
             // PART header has: padding (20) + ornament (24) + text spacing (8+4) + heading + text spacing (8+4) + ornament (24) + padding (20)
             let headingAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.displayH1(),
+                .ligature: 0,
                 .kern: 4.0
             ]
             let headingAttrString = NSAttributedString(string: text.uppercased(), attributes: headingAttributes)
@@ -73,6 +74,7 @@ final class PDFContentBlockRenderer {
     private func renderFigureCaption(_ text: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
         ]
         NSAttributedString(string: text.uppercased(), attributes: attrs)
@@ -538,6 +540,7 @@ final class PDFContentBlockRenderer {
         let ornamentText = "◇  ◆  ◇"
         let ornamentAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.body(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
         ]
         let ornamentAttrString = NSAttributedString(string: ornamentText, attributes: ornamentAttributes)
@@ -559,6 +562,7 @@ final class PDFContentBlockRenderer {
         // Draw PART header text
         let headingAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.displayH1(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textHeading,
             .kern: 4.0
         ]
@@ -669,6 +673,7 @@ final class PDFContentBlockRenderer {
         // Calculate text height with proper quote styling
         let attributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.bodyItalic(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
         ]
@@ -698,6 +703,7 @@ final class PDFContentBlockRenderer {
         // Draw decorative opening quote mark
         let quoteMarkAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "CormorantGaramond-Bold", size: 36) ?? UIFont.boldSystemFont(ofSize: 36),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.4)
         ]
         let quoteMark = NSAttributedString(string: "\u{201C}", attributes: quoteMarkAttributes)
@@ -713,6 +719,7 @@ final class PDFContentBlockRenderer {
         if let cite = cite, !cite.isEmpty {
             let citeAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.caption(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.BlockStyles.blockquoteBorderColor,
                 .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 12, alignment: .right, paragraphSpacing: 0)
             ]
@@ -797,6 +804,7 @@ final class PDFContentBlockRenderer {
     private func buildInsightFooter(label: String, body: String) -> NSAttributedString {
         let labelAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "Inter-Semibold", size: 9) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 0.8
         ]
@@ -858,6 +866,7 @@ final class PDFContentBlockRenderer {
         // Draw header with enhanced label weight, colored by note type.
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .ligature: 0,
             .foregroundColor: accentColor,
             .kern: 1.2
         ]
@@ -906,6 +915,7 @@ final class PDFContentBlockRenderer {
             // Enhanced label weight
             let labelAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let labelText = NSAttributedString(string: "KEY DISTINCTION", attributes: labelAttributes)
@@ -938,6 +948,7 @@ final class PDFContentBlockRenderer {
 
             let labelAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let labelText = NSAttributedString(string: "PRACTICAL IMPLICATION", attributes: labelAttributes)
@@ -1246,6 +1257,7 @@ final class PDFContentBlockRenderer {
         // Draw header label (small terracotta text)
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 1.1
         ]
@@ -1259,6 +1271,7 @@ final class PDFContentBlockRenderer {
             // Bold orange number
             let numberAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont(name: "Inter-Bold", size: 17) ?? PDFStyleConfiguration.Typography.bodyBold(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
             ]
             let numberText = NSAttributedString(string: "\(index + 1).", attributes: numberAttributes)
@@ -1312,6 +1325,7 @@ final class PDFContentBlockRenderer {
         // Draw header
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 1.1
         ]
@@ -1333,6 +1347,7 @@ final class PDFContentBlockRenderer {
             // Draw star bullet
             let bulletAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.body(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let bulletText = NSAttributedString(string: "•", attributes: bulletAttributes)
@@ -1372,6 +1387,7 @@ final class PDFContentBlockRenderer {
     /// wrapped-height measure and the draw so they can't drift.
     private static let exerciseHeaderAttributes: [NSAttributedString.Key: Any] = [
         .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+        .ligature: 0,
         .kern: 1.1
     ]
 
@@ -1485,6 +1501,7 @@ final class PDFContentBlockRenderer {
         for (index, step) in steps.enumerated() {
             let numberAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont(name: "Inter-Bold", size: 17) ?? PDFStyleConfiguration.Typography.bodyBold(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.BlockStyles.exerciseIconColor
             ]
             // startNumber offsets continuation fragments so a split exercise keeps
@@ -1508,6 +1525,7 @@ final class PDFContentBlockRenderer {
         if let time = estimatedTime, !time.isEmpty {
             let timeAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.caption(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted
             ]
             let timeText = NSAttributedString(string: time, attributes: timeAttributes)
@@ -1533,6 +1551,7 @@ final class PDFContentBlockRenderer {
         let hasCore = !coreMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let coreMessageHeight = hasCore ? calculateTextHeight(coreMessage, attributes: [
             .font: PDFStyleConfiguration.Typography.bodyLarge(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
         ], maxWidth: insetWidth) : 0
@@ -1575,6 +1594,7 @@ final class PDFContentBlockRenderer {
         // Draw header text and reading time badge
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 1.1
         ]
@@ -1588,6 +1608,7 @@ final class PDFContentBlockRenderer {
             let badgeText = "\(time) min guide"
             let badgeAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.captionBold(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
             let badgeAttributed = NSAttributedString(string: badgeText, attributes: badgeAttributes)
@@ -1614,6 +1635,7 @@ final class PDFContentBlockRenderer {
         if hasCore {
             let coreAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.bodyLarge(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textBody,
                 .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
             ]
@@ -1627,6 +1649,7 @@ final class PDFContentBlockRenderer {
             // Bullet
             let bulletAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.body(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
             ]
             let bulletText = NSAttributedString(string: "•", attributes: bulletAttributes)
@@ -1668,6 +1691,7 @@ final class PDFContentBlockRenderer {
         }
         let coreHeight = calculateTextHeight(coreMessage, attributes: [
             .font: PDFStyleConfiguration.Typography.bodyLarge(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
         ], maxWidth: insetWidth)
@@ -1805,6 +1829,7 @@ final class PDFContentBlockRenderer {
             if numbered {
                 let numberAttributes: [NSAttributedString.Key: Any] = [
                     .font: PDFStyleConfiguration.Typography.bodyBold(),
+                    .ligature: 0,
                     .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
                 ]
                 let numberText = NSAttributedString(string: "\(index + 1).", attributes: numberAttributes)
@@ -1813,6 +1838,7 @@ final class PDFContentBlockRenderer {
             } else {
                 let bulletAttributes: [NSAttributedString.Key: Any] = [
                     .font: PDFStyleConfiguration.Typography.body(),
+                    .ligature: 0,
                     .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
                 ]
                 let bulletText = NSAttributedString(string: "•", attributes: bulletAttributes)
@@ -1933,6 +1959,7 @@ final class PDFContentBlockRenderer {
                 let cellText = stripMarkdownSyntax(cell)
                 let attributes: [NSAttributedString.Key: Any] = isHeader ? [
                     .font: PDFStyleConfiguration.Typography.bodyBold(),
+                    .ligature: 0,
                     .foregroundColor: PDFStyleConfiguration.Colors.textHeading
                 ] : PDFStyleConfiguration.bodyAttributes()
 
@@ -2181,6 +2208,7 @@ final class PDFContentBlockRenderer {
         // Draw header with icon + uppercase label
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .ligature: 0,
             .foregroundColor: headerBgColor
         ]
         let headerString = icon.isEmpty ? title.uppercased() : "\(icon) \(title.uppercased())"
@@ -2251,6 +2279,7 @@ final class PDFContentBlockRenderer {
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.bodyItalic(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
         ]
@@ -2315,6 +2344,7 @@ final class PDFContentBlockRenderer {
 
         let coreMessageHeight = calculateTextHeight(coreMessage, attributes: [
             .font: PDFStyleConfiguration.Typography.bodyLarge(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .left, paragraphSpacing: 8)
         ], maxWidth: insetWidth)
@@ -2768,10 +2798,12 @@ final class PDFContentBlockRenderer {
             let placeholderText = "Visual not available"
             let iconAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 28),
+                .ligature: 0,
                 .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 32, alignment: .center, paragraphSpacing: 0)
             ]
             let textAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.caption(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
                 .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 14, alignment: .center, paragraphSpacing: 0)
             ]
@@ -2798,6 +2830,7 @@ final class PDFContentBlockRenderer {
         if !labelParts.isEmpty {
             let labelAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 10, weight: .medium),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
             ]
             let labelString = NSAttributedString(string: labelParts.joined(separator: " · "), attributes: labelAttributes)
@@ -2855,6 +2888,7 @@ final class PDFContentBlockRenderer {
         if !level.isEmpty {
             let pillText = NSAttributedString(string: level.uppercased(), attributes: [
                 .font: PDFStyleConfiguration.Typography.caption(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted
             ])
             let tw = pillText.size().width
@@ -2872,11 +2906,13 @@ final class PDFContentBlockRenderer {
         let titleWidth = maxWidth - 18 - (pillWidth > 0 ? pillWidth + 10 : 0)
         let titleAttr = NSMutableAttributedString(string: title, attributes: [
             .font: PDFStyleConfiguration.Typography.bodyBold(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textHeading
         ])
         if !authors.isEmpty {
             titleAttr.append(NSAttributedString(string: " · \(authors)", attributes: [
                 .font: PDFStyleConfiguration.Typography.bodySmall(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted
             ]))
         }
@@ -2890,6 +2926,7 @@ final class PDFContentBlockRenderer {
         if !why.isEmpty {
             let whyAttr = NSAttributedString(string: why, attributes: [
                 .font: PDFStyleConfiguration.Typography.caption(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted
             ])
             let whyH = whyAttr.boundingRect(with: CGSize(width: maxWidth - 18, height: .greatestFiniteMagnitude),
@@ -2928,6 +2965,7 @@ final class PDFContentBlockRenderer {
         style.alignment = .left
         let attributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.caption(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
             .kern: 1.2,
             .paragraphStyle: style

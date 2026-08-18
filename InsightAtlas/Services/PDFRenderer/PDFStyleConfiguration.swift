@@ -459,9 +459,15 @@ fileprivate extension UIFont {
     /// faces is broken) aren't substituted — keeping the extractable/searchable
     /// text layer intact. Visual rendering is unaffected apart from the ligatures.
     func ligaturesDisabled() -> UIFont {
+        // Common and rare alone left Cormorant's historical ct/st ligatures on,
+        // so extracted text still lost letters: "act" came out "ac" and
+        // "understanding" as "unders anding". Turn off every discretionary
+        // class the face may carry.
         let settings: [[UIFontDescriptor.FeatureKey: Int]] = [
             [.type: kLigaturesType, .selector: kCommonLigaturesOffSelector],
-            [.type: kLigaturesType, .selector: kRareLigaturesOffSelector]
+            [.type: kLigaturesType, .selector: kRareLigaturesOffSelector],
+            [.type: kLigaturesType, .selector: kHistoricalLigaturesOffSelector],
+            [.type: kLigaturesType, .selector: kContextualLigaturesOffSelector]
         ]
         let descriptor = fontDescriptor.addingAttributes([.featureSettings: settings])
         return UIFont(descriptor: descriptor, size: pointSize)

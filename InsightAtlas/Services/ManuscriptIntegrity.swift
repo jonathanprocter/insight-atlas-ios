@@ -258,6 +258,106 @@ enum ManuscriptPreflight {
     /// Whether the manuscript already ends with a recognizable closing element
     /// (synthesis / takeaways / coda). Used to decide whether to run a
     /// conclusion pass before finalizing.
+
+    // MARK: - Truncation repair
+
+    /// Repair a generation that stopped mid-thought.
+    ///
+    /// Truncation was detected but never repaired: the conclusion pass appended
+    /// a closing section onto a body still ending mid-word, so guides shipped
+    /// reading "...rather than treat each advers". Three things are cleaned up,
+    /// in order:
+    ///
+    /// 1. A partial editorial tag at the very end (`[INSIGHT_NO`). No parser
+    ///    branch matches it and orphan-tag stripping needs a closing bracket, so
+    ///    it renders to the reader verbatim.
+    /// 2. A trailing incomplete sentence, dropped back to the last terminal
+    ///    punctuation.
+    /// 3. Any editorial block the cut left open, closed so the structure stays
+    ///    balanced for the parser.
+    ///
+    /// Conservative by design: if the trim would discard more than a quarter of
+    /// the content the tail is probably not a fragment, and the content is
+    /// returned untouched rather than risk deleting real material.
+    static func repairTruncatedTail(_ content: String) -> String {
+        var result = content
+
+        // 1. A dangling partial tag: an unmatched "[" after the last "]".
+        if let openIndex = result.lastIndex(of: "[") {
+            let afterOpen = result[openIndex...]
+            if !afterOpen.contains("]") {
+                result = String(result[..<openIndex])
+            }
+        }
+
+        let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return content }
+
+        // Already ends deliberately — a closing tag, or terminal punctuation.
+        if trimmed.hasSuffix("]") { return trimmed }
+        if let last = trimmed.last, ".!?\"'\u{201D}\u{2019}".contains(last) { return trimmed }
+
+        // 2. Cut back to the last sentence terminator.
+        let terminators: Set<Character> = [".", "!", "?"]
+        guard let cut = trimmed.lastIndex(where: { terminators.contains($0) }) else {
+            return trimmed
+        }
+
+        var candidate = String(trimmed[...cut])
+        // Keep a closing quote or bracket that follows the terminator.
+        var after = trimmed.index(after: cut)
+        while after < trimmed.endIndex, "\")]\u{201D}\u{2019}".contains(trimmed[after]) {
+            candidate.append(trimmed[after])
+            after = trimmed.index(after: after)
+        }
+
+        // Refuse to discard a large amount of material. A cap on what is thrown
+        // away, not a ratio of what is kept: a short passage whose final
+        // sentence runs long is still a fragment worth trimming, whereas a very
+        // long unpunctuated tail is more likely real prose than a fragment.
+        guard trimmed.count - candidate.count <= Self.maximumDiscardedTailCharacters else {
+            return trimmed
+        }
+
+        // 3. Close any editorial block the cut left open.
+        return candidate + closingTagsNeeded(for: candidate)
+    }
+
+    /// Closing tags for any editorial block opened but not closed in `content`.
+    static func closingTagsNeeded(for content: String) -> String {
+        var stack: [String] = []
+        let pattern = #"\[(/?)([A-Z][A-Z0-9_]*)(?::[^\]]*)?\]"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return "" }
+
+        let range = NSRange(content.startIndex..., in: content)
+        for match in regex.matches(in: content, range: range) {
+            guard let slashRange = Range(match.range(at: 1), in: content),
+                  let nameRange = Range(match.range(at: 2), in: content) else { continue }
+            let name = String(content[nameRange])
+            if content[slashRange] == "/" {
+                if stack.last == name { stack.removeLast() }
+            } else if Self.closableEditorialTags.contains(name) {
+                stack.append(name)
+            }
+        }
+
+        guard !stack.isEmpty else { return "" }
+        return "\n" + stack.reversed().map { "[/\($0)]" }.joined(separator: "\n")
+    }
+
+    /// Longest tail `repairTruncatedTail` will drop. Roughly a long paragraph:
+    /// beyond this the tail is more plausibly unpunctuated prose than a
+    /// generation fragment, and deleting it would be worse than the defect.
+    static let maximumDiscardedTailCharacters = 600
+
+    /// Editorial tags that wrap a block and require a closing partner.
+    static let closableEditorialTags: Set<String> = [
+        "INSIGHT_NOTE", "FOUNDATIONAL_NARRATIVE", "PREMIUM_H1", "PREMIUM_H2",
+        "QUICK_GLANCE", "TAKEAWAYS", "PREMIUM_QUOTE", "AUTHOR_SPOTLIGHT",
+        "ALTERNATIVE_PERSPECTIVE", "RESEARCH_INSIGHT", "ACTION_BOX",
+        "STRUCTURE_MAP"
+    ]
+
     static func hasClosingElement(_ content: String) -> Bool {
         let scalars = content
         let tailStart = scalars.index(

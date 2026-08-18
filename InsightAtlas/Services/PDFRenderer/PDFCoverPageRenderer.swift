@@ -85,6 +85,7 @@ final class PDFCoverPageRenderer {
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.bodySmall(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.accentCrimson,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
                 lineHeight: 14,
@@ -184,6 +185,7 @@ final class PDFCoverPageRenderer {
         // Draw "IA" monogram in center
         let monogramAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.displayTitle(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
         ]
         let monogram = NSAttributedString(string: "IA", attributes: monogramAttributes)
@@ -210,6 +212,7 @@ final class PDFCoverPageRenderer {
         // Draw title
         let titleAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.displayTitle(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textHeading,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
                 lineHeight: 38,
@@ -235,6 +238,7 @@ final class PDFCoverPageRenderer {
         // Draw "by" label
         let byAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.bodyItalic(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
                 lineHeight: 16,
@@ -256,6 +260,7 @@ final class PDFCoverPageRenderer {
         // Draw author name
         let authorAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.displayH3(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textBody,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
                 lineHeight: 24,
@@ -291,6 +296,7 @@ final class PDFCoverPageRenderer {
         // Draw "Insight Atlas" brand name
         let brandAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.displayH2(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGold,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
                 lineHeight: 28,
@@ -311,6 +317,7 @@ final class PDFCoverPageRenderer {
         // Draw subtitle
         let subtitleAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.bodySmall(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
                 lineHeight: 14,
@@ -430,6 +437,7 @@ extension PDFCoverPageRenderer {
             // Draw "Contents" header
             let headerAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.displayH1(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textHeading,
                 .paragraphStyle: PDFStyleConfiguration.paragraphStyle(
                     lineHeight: 32,
@@ -469,6 +477,7 @@ extension PDFCoverPageRenderer {
             titleParagraph.lineBreakMode = .byWordWrapping
             let titleAttributes: [NSAttributedString.Key: Any] = [
                 .font: font,
+                .ligature: 0,
                 .foregroundColor: color,
                 .paragraphStyle: titleParagraph
             ]
@@ -476,6 +485,7 @@ extension PDFCoverPageRenderer {
 
             let pageText = NSAttributedString(string: "\(page)", attributes: [
                 .font: PDFStyleConfiguration.Typography.body(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted
             ])
             let lineHeight = pageText.size().height
@@ -522,6 +532,7 @@ extension PDFCoverPageRenderer {
             rightAlignedPageStyle.alignment = .right
             let rightAlignedPageText = NSAttributedString(string: "\(page)", attributes: [
                 .font: PDFStyleConfiguration.Typography.body(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
                 .paragraphStyle: rightAlignedPageStyle
             ])

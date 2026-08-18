@@ -693,6 +693,7 @@ final class InsightAtlasPDFRenderer {
         // Draw closing quote
         let quoteAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.bodyItalic(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 20, alignment: .center, paragraphSpacing: 8)
         ]
@@ -707,6 +708,7 @@ final class InsightAtlasPDFRenderer {
         // Draw brand name
         let brandAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.displayH2(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.primaryGold,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 28, alignment: .center, paragraphSpacing: 4)
         ]
@@ -719,6 +721,7 @@ final class InsightAtlasPDFRenderer {
         // Draw tagline
         let taglineAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.caption(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.accentCrimson,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 12, alignment: .center, paragraphSpacing: 0),
             .kern: 2.0
@@ -730,6 +733,7 @@ final class InsightAtlasPDFRenderer {
         // Draw generation info at bottom
         let infoAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.caption(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textSubtle,
             .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 12, alignment: .center, paragraphSpacing: 4)
         ]
@@ -761,6 +765,7 @@ final class InsightAtlasPDFRenderer {
         // Draw "Insight Atlas" text
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.caption(),
+            .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textSubtle,
             .kern: 1.0
         ]
@@ -789,6 +794,7 @@ final class InsightAtlasPDFRenderer {
             // Draw page number centered
             let pageAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.pageNumber(),
+                .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
                 .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 14, alignment: .center, paragraphSpacing: 0)
             ]
