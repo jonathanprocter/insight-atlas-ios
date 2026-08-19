@@ -301,6 +301,26 @@ enum ManuscriptPreflight {
         if trimmed.hasSuffix("]") { return trimmed }
         if let last = trimmed.last, ".!?\"'\u{201D}\u{2019}".contains(last) { return trimmed }
 
+        // A trailing list item is a complete thought, not a fragment, and bullets
+        // routinely carry no full stop. OutputQualityValidator.detectTruncation
+        // already exempts them; trimming here dropped the final takeaway from
+        // every guide that ended in a list.
+        if let lastLine = trimmed
+            .components(separatedBy: .newlines)
+            .last(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
+           lastLine.trimmingCharacters(in: .whitespaces)
+            .range(of: #"^([-*•]\s+|\d+[.)]\s+)"#, options: .regularExpression) != nil {
+            return trimmed
+        }
+
+        // A heading is likewise deliberate, not a severed sentence.
+        if let lastLine = trimmed
+            .components(separatedBy: .newlines)
+            .last(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
+           lastLine.trimmingCharacters(in: .whitespaces).hasPrefix("#") {
+            return trimmed
+        }
+
         // 2. Cut back to the last sentence terminator.
         let terminators: Set<Character> = [".", "!", "?"]
         guard let cut = trimmed.lastIndex(where: { terminators.contains($0) }) else {

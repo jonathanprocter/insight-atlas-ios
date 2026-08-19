@@ -72,3 +72,51 @@ final class TruncationRepairTests: XCTestCase {
         XCTAssertEqual(ManuscriptPreflight.closingTagsNeeded(for: "[ACTION_BOX: Steps]\nfirst"), "\n[/ACTION_BOX]")
     }
 }
+
+extension TruncationRepairTests {
+
+    /// Bullets routinely carry no full stop. Trimming them dropped the final
+    /// takeaway from every guide ending in a list.
+    func testTrailingBulletIsNotTrimmed() {
+        let content = """
+        The six processes map onto their counterparts.
+
+        - Experiential avoidance becomes acceptance
+        - Cognitive fusion becomes defusion
+        - Values confusion becomes values clarification
+        """
+        let repaired = ManuscriptPreflight.repairTruncatedTail(content)
+        XCTAssertTrue(
+            repaired.contains("values clarification"),
+            "the final bullet was trimmed away"
+        )
+    }
+
+    func testTrailingNumberedItemIsNotTrimmed() {
+        let content = "Steps to follow.\n\n1. Notice the critic\n2. Locate it in the body"
+        let repaired = ManuscriptPreflight.repairTruncatedTail(content)
+        XCTAssertTrue(repaired.contains("Locate it in the body"), "the final step was trimmed")
+    }
+
+    func testTrailingHeadingIsNotTrimmed() {
+        let content = "Some prose ends here.\n\n## A Closing Section"
+        let repaired = ManuscriptPreflight.repairTruncatedTail(content)
+        XCTAssertTrue(repaired.contains("A Closing Section"), "the trailing heading was trimmed")
+    }
+
+    /// The genuine fragment case must still be repaired when there is a sentence
+    /// boundary to fall back to.
+    func testGenuineFragmentAfterAListIsStillTrimmed() {
+        let content = "- A complete bullet.\n\nAnd then prose that stops mid advers"
+        let repaired = ManuscriptPreflight.repairTruncatedTail(content)
+        XCTAssertFalse(repaired.hasSuffix("advers"), "a real fragment survived")
+        XCTAssertTrue(repaired.contains("A complete bullet"), "the bullet was lost")
+    }
+
+    /// With no sentence terminator anywhere there is no safe boundary, so the
+    /// content is returned untouched rather than guessing where to cut.
+    func testFragmentWithNoSentenceBoundaryIsLeftAlone() {
+        let content = "prose with no terminator at all that just stops mid advers"
+        XCTAssertEqual(ManuscriptPreflight.repairTruncatedTail(content), content)
+    }
+}

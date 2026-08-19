@@ -284,6 +284,13 @@ class DataManager: ObservableObject {
                     pendingMigration.append((items[index].id, inline))
                 } else {
                     items[index].summaryContent = GuideBodyStore.load(items[index].id)
+                    if items[index].summaryContent == nil {
+                        // Metadata says this guide was generated but its body is
+                        // missing. Surface it rather than showing a blank guide.
+                        logger.error(
+                            "Guide body missing for \(items[index].title, privacy: .public) — the guide will need regenerating"
+                        )
+                    }
                 }
             }
 
@@ -362,9 +369,14 @@ class DataManager: ObservableObject {
         // library, and kept all guide text resident from launch.
         var metadataOnly = libraryItems
         for index in metadataOnly.indices {
-            if let body = metadataOnly[index].summaryContent, !body.isEmpty {
-                GuideBodyStore.save(body, for: metadataOnly[index].id)
+            guard let body = metadataOnly[index].summaryContent, !body.isEmpty else { continue }
+            // Drop the inline copy ONLY once the file is safely written. Ignoring
+            // the result erased the body from UserDefaults while it was absent
+            // from disk, so the guide came back empty on the next launch.
+            if GuideBodyStore.save(body, for: metadataOnly[index].id) {
                 metadataOnly[index].summaryContent = nil
+            } else {
+                logger.error("Guide body write failed; keeping it inline so nothing is lost")
             }
         }
 
