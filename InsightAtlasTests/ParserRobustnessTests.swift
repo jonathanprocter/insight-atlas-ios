@@ -42,7 +42,16 @@ final class ParserRobustnessTests: XCTestCase {
             "3.5 times",
             "a | b",
             "| a | b |\n|---|---|",
-            String(repeating: "word ", count: 20_000)
+            String(repeating: "word ", count: 20_000),
+            // A closing bracket BEFORE a colon: the title parser computes
+            // titleStart after the colon and titleEnd at the bracket, then
+            // builds a reversed range.
+            "[ACTION_BOX] Notice this: the pattern repeats",
+            "[CONCEPT_MAP] Central idea: the through-line",
+            "[PROCESS_TIMELINE] Phase one: beginning",
+            "[ACTION_BOX]: leading colon after the bracket",
+            "[ACTION_BOX] no colon at all",
+            "[CONCEPT_MAP]x:y"
         ]
     }
 
@@ -95,6 +104,45 @@ final class ParserRobustnessTests: XCTestCase {
             let once = ManuscriptPreflight.repairTruncatedTail(input)
             let twice = ManuscriptPreflight.repairTruncatedTail(once)
             XCTAssertEqual(once, twice, "repair is not stable for: \(input.prefix(40))")
+        }
+    }
+}
+
+extension ParserRobustnessTests {
+
+    /// The reproduced crash: a bare tag followed by prose containing a colon.
+    /// The title parser took the first ":" and the first "]" without ordering
+    /// them, producing a reversed range that traps.
+    func testBareTagFollowedByProseWithAColonDoesNotTrap() {
+        for line in [
+            "[ACTION_BOX] Notice this: the pattern repeats",
+            "[CONCEPT_MAP] Central idea: the through-line",
+            "[PROCESS_TIMELINE] Phase one: beginning",
+            "[ACTION_BOX] a: b: c: many colons",
+            "[CONCEPT_MAP]x:y"
+        ] {
+            _ = ContentBlockParser.parse(line)
+        }
+    }
+
+    func testTagTitleOnlyReadsAColonInsideTheBrackets() {
+        XCTAssertEqual(ContentBlockParser.tagTitle(in: "[ACTION_BOX: Steps]"), "Steps")
+        XCTAssertEqual(ContentBlockParser.tagTitle(in: "[CONCEPT_MAP: A Title] body"), "A Title")
+        // Colon outside the brackets is prose, not a title.
+        XCTAssertNil(ContentBlockParser.tagTitle(in: "[ACTION_BOX] Notice this: the pattern"))
+        XCTAssertNil(ContentBlockParser.tagTitle(in: "[ACTION_BOX]"))
+        XCTAssertNil(ContentBlockParser.tagTitle(in: "[ACTION_BOX:]"))
+        XCTAssertNil(ContentBlockParser.tagTitle(in: "no brackets: at all"))
+    }
+
+    /// A closing tag preceding its opening tag on one line also reversed a range.
+    func testClosingTagBeforeOpeningTagDoesNotTrap() {
+        for line in [
+            "[/INSIGHT_NOTE] stray text [INSIGHT_NOTE]",
+            "[/EXERCISE_PRACTICE] and [EXERCISE_PRACTICE: T]",
+            "[/ACTION_BOX][ACTION_BOX]"
+        ] {
+            _ = ContentBlockParser.parse(line)
         }
     }
 }

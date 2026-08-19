@@ -2032,6 +2032,10 @@ class DataManager: ObservableObject {
                 guard let openEnd = trimmed[openRange.lowerBound...].firstIndex(of: "]") else {
                     continue
                 }
+                // A closing tag can precede the opening tag on the same line, which
+                // reverses this range and traps with "Range requires lowerBound <=
+                // upperBound". Treat that as malformed rather than crashing.
+                guard closeRange.lowerBound > openEnd else { return nil }
                 let contentRange = trimmed.index(after: openEnd)..<closeRange.lowerBound
                 let content = String(trimmed[contentRange]).trimmingCharacters(in: .whitespacesAndNewlines)
                 let lines = content.components(separatedBy: "\n")
@@ -2043,6 +2047,10 @@ class DataManager: ObservableObject {
                       let openEnd = trimmed[openStart.lowerBound...].firstIndex(of: "]") else {
                     return nil
                 }
+                // A closing tag can precede the opening tag on the same line, which
+                // reverses this range and traps with "Range requires lowerBound <=
+                // upperBound". Treat that as malformed rather than crashing.
+                guard closeRange.lowerBound > openEnd else { return nil }
                 let contentRange = trimmed.index(after: openEnd)..<closeRange.lowerBound
                 let content = String(trimmed[contentRange]).trimmingCharacters(in: .whitespacesAndNewlines)
                 return (type: "exercise", content: content.components(separatedBy: "\n"))

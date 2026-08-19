@@ -1058,6 +1058,10 @@ struct ParsedAnalysisContent {
             if let colonIndex = header.firstIndex(of: ":") {
                 title = String(header[header.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
             }
+            // A closing tag can precede the opening tag on the same line, which
+            // reverses this range and traps with "Range requires lowerBound <=
+            // upperBound". Treat that as malformed rather than crashing.
+            guard closeRange.lowerBound > openEnd else { return nil }
             let contentRange = line.index(after: openEnd)..<closeRange.lowerBound
             let content = String(line[contentRange]).trimmingCharacters(in: .whitespacesAndNewlines)
             return (content: content, title: title)
@@ -1071,6 +1075,10 @@ struct ParsedAnalysisContent {
             }
             let typeStart = line.index(openStart.lowerBound, offsetBy: "[EXERCISE_".count)
             let type = String(line[typeStart..<openEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
+            // A closing tag can precede the opening tag on the same line, which
+            // reverses this range and traps with "Range requires lowerBound <=
+            // upperBound". Treat that as malformed rather than crashing.
+            guard closeRange.lowerBound > openEnd else { return nil }
             let contentRange = line.index(after: openEnd)..<closeRange.lowerBound
             let content = String(line[contentRange]).trimmingCharacters(in: .whitespacesAndNewlines)
             return (type: type.isEmpty ? nil : type, content: content)

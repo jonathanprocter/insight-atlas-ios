@@ -483,11 +483,7 @@ struct ContentBlockParser {
                 flushParagraph()
                 flushOpenBlocks()
                 inActionBox = true
-                if let colonIndex = trimmed.firstIndex(of: ":") {
-                    let titleStart = trimmed.index(after: colonIndex)
-                    let titleEnd = trimmed.firstIndex(of: "]") ?? trimmed.endIndex
-                    actionBoxTitle = String(trimmed[titleStart..<titleEnd]).trimmingCharacters(in: .whitespaces)
-                }
+                actionBoxTitle = Self.tagTitle(in: trimmed)
                 i += 1
                 continue
             }
@@ -578,11 +574,7 @@ struct ContentBlockParser {
                 flushParagraph()
                 flushOpenBlocks()
                 inConceptMap = true
-                if let colonIndex = trimmed.firstIndex(of: ":") {
-                    let titleStart = trimmed.index(after: colonIndex)
-                    let titleEnd = trimmed.firstIndex(of: "]") ?? trimmed.endIndex
-                    conceptMapTitle = String(trimmed[titleStart..<titleEnd]).trimmingCharacters(in: .whitespaces)
-                }
+                conceptMapTitle = Self.tagTitle(in: trimmed)
                 i += 1
                 continue
             }
@@ -591,11 +583,7 @@ struct ContentBlockParser {
                 flushParagraph()
                 flushOpenBlocks()
                 inProcessTimeline = true
-                if let colonIndex = trimmed.firstIndex(of: ":") {
-                    let titleStart = trimmed.index(after: colonIndex)
-                    let titleEnd = trimmed.firstIndex(of: "]") ?? trimmed.endIndex
-                    processTimelineTitle = String(trimmed[titleStart..<titleEnd]).trimmingCharacters(in: .whitespaces)
-                }
+                processTimelineTitle = Self.tagTitle(in: trimmed)
                 i += 1
                 continue
             }
@@ -940,6 +928,25 @@ struct ContentBlockParser {
     }
 
     // MARK: - Helper Functions
+
+
+    /// Title from an opening tag such as "[ACTION_BOX: Steps]".
+    ///
+    /// The previous inline version took the first ":" and the first "]" and
+    /// built a range from them without ordering the two. A bare tag followed by
+    /// prose containing a colon — "[ACTION_BOX] Notice this: the pattern" — put
+    /// the bracket before the colon and produced a reversed range, which traps
+    /// with "Range requires lowerBound <= upperBound" and crashes the app.
+    ///
+    /// The colon must fall inside the brackets to be a title separator.
+    static func tagTitle(in line: String) -> String? {
+        guard let close = line.firstIndex(of: "]") else { return nil }
+        guard let colon = line.firstIndex(of: ":"), colon < close else { return nil }
+        let start = line.index(after: colon)
+        guard start <= close else { return nil }
+        let title = String(line[start..<close]).trimmingCharacters(in: .whitespaces)
+        return title.isEmpty ? nil : title
+    }
 
     /// A line that is nothing but a list number: "7", "7.", "7)".
     ///
