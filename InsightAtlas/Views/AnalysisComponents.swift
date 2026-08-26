@@ -117,7 +117,8 @@ struct BookReferenceLink: View {
 
 /// Parses markdown bold syntax (**text**) into AttributedString
 func parseMarkdownBold(_ text: String) -> AttributedString {
-    var result = AttributedString(text)
+    let presentationText = PresentationTextSanitizer.attributedMarkupSource(text)
+    var result = AttributedString(presentationText)
 
     // 1. Process citations: "[Book Title]" by [Author Name]
     // \p{Lu}/\p{L} rather than [A-Z]/[A-Za-z]: an ASCII-only class stops at the
@@ -126,17 +127,20 @@ func parseMarkdownBold(_ text: String) -> AttributedString {
     // rendering the author as "BRENé Brown".
     let citationPattern = #"\"([^\"]+)\"\s+by\s+(\p{Lu}[\p{L}\.\-\']+(?:\s+\p{Lu}[\p{L}\.\-\']+){0,3})"#
     if let citationRegex = try? NSRegularExpression(pattern: citationPattern) {
-        let matches = citationRegex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        let matches = citationRegex.matches(
+            in: presentationText,
+            range: NSRange(presentationText.startIndex..., in: presentationText)
+        )
         for match in matches.reversed() {
-            guard let fullRange = Range(match.range, in: text),
-                  let titleRange = Range(match.range(at: 1), in: text),
-                  let authorRange = Range(match.range(at: 2), in: text) else {
+            guard let fullRange = Range(match.range, in: presentationText),
+                  let titleRange = Range(match.range(at: 1), in: presentationText),
+                  let authorRange = Range(match.range(at: 2), in: presentationText) else {
                 continue
             }
             
-            let fullText = String(text[fullRange])
-            let bookTitle = String(text[titleRange])
-            let authorName = String(text[authorRange])
+            let fullText = String(presentationText[fullRange])
+            let bookTitle = String(presentationText[titleRange])
+            let authorName = String(presentationText[authorRange])
             
             if let attrRange = result.range(of: fullText) {
                 var styledCitation = AttributedString("")

@@ -85,6 +85,29 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertEqual(chunks.joined().count, giant.count)
     }
 
+    // MARK: - Spoken-text hygiene
+
+    func testNarrationSanitizerRemovesPresentationSyntaxWithoutLosingMeaning() {
+        let source = """
+        # **Practice**
+        > Read [acceptance](https://example.com) and ![cover](cover.png).
+        1. Try `noticing` instead of ~~control~~.
+        [INSIGHT_NOTE]Stay present.[/INSIGHT_NOTE]
+        | Process | Response |
+        |---|---|
+        | Fusion | Defusion |
+        """
+
+        let spoken = NarrationTextSanitizer.prepare(source)
+
+        for expected in ["Practice", "acceptance", "cover", "noticing", "control", "Stay present", "Fusion", "Defusion"] {
+            XCTAssertTrue(spoken.contains(expected), "lost semantic narration text: \(expected)")
+        }
+        for syntax in ["#", "**", "[", "]", "(", ")", "`", "~~", "|---|", "| Process |"] {
+            XCTAssertFalse(spoken.contains(syntax), "narration retained presentation syntax: \(syntax)")
+        }
+    }
+
     // MARK: - NarrationState on LibraryItem
 
     func testNarrationStateRoundTrips() throws {

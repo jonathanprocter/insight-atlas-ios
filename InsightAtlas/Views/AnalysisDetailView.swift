@@ -135,49 +135,8 @@ struct AnalysisDetailView: View {
         .navigationTitle(item.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // Audio button in toolbar (if audio available)
-            if hasPlayableAudio {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { toggleAudioPlayback() }) {
-                        Image(systemName: isPlayingAudio ? "pause.circle.fill" : "headphones.circle.fill")
-                            .font(.title3)
-                            .foregroundColor(AnalysisTheme.primaryGold)
-                    }
-                }
-            }
-
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    // Audio controls in menu
-                    if hasPlayableAudio {
-                        Button(action: { toggleAudioPlayback() }) {
-                            Label(isPlayingAudio ? "Pause Audio" : "Listen to Guide", systemImage: isPlayingAudio ? "pause.fill" : "headphones")
-                        }
-
-                        // Audio management submenu (narration provider order is fixed)
-                        Menu {
-                            Button(action: { regenerateAudioWithCurrentVoice() }) {
-                                Label("Regenerate Narration", systemImage: "arrow.clockwise")
-                            }
-                            .disabled(isGeneratingAudio)
-
-                            Button(role: .destructive, action: { deleteAudio() }) {
-                                Label("Delete Narration", systemImage: "trash")
-                            }
-                        } label: {
-                            Label("Audio Options", systemImage: "speaker.wave.2")
-                        }
-
-                        Divider()
-                    }
-                    if !hasPlayableAudio, item.summaryContent != nil {
-                        Button(action: { generateAudioOnly() }) {
-                            Label(isGeneratingAudio ? "Generating Narration..." : "Generate Narration", systemImage: "waveform")
-                        }
-                        .disabled(isGeneratingAudio)
-                        Divider()
-                    }
-
                     Button(action: { showingExportSheet = true }) {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
@@ -207,17 +166,10 @@ struct AnalysisDetailView: View {
                         Label("Delete Guide", systemImage: "trash")
                     }
                 } label: {
-                    if isGeneratingAudio {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "ellipsis.circle")
-                            .foregroundColor(AnalysisTheme.primaryGold)
-                    }
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundColor(AnalysisTheme.primaryGold)
                 }
             }
-        }
-        .onDisappear {
-            stopAudio()
         }
         .sheet(isPresented: $showingExportSheet) {
             AnalysisExportOptionsView(item: item, parsedContent: parsedContent, layoutScore: layoutScore)

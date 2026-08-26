@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import ZIPFoundation
 @testable import InsightAtlas
 
 /// Inline markdown and bare markdown tables reached readers with their syntax
@@ -51,6 +52,17 @@ final class MarkdownRenderingTests: XCTestCase {
     func testMultiplicationAsteriskIsNotEmphasis() {
         let result = plainText(parseMarkdownBold("Rows * columns = cells"))
         XCTAssertEqual(result, "Rows * columns = cells")
+    }
+
+    func testLinksCodeImagesAndStrikethroughRenderWithoutSyntax() {
+        let result = plainText(parseMarkdownBold(
+            "Use [acceptance](https://example.com), `noticing`, ![a compass](compass.png), and ~~control~~."
+        ))
+
+        XCTAssertEqual(result, "Use acceptance, noticing, a compass, and control.")
+        for syntax in ["[", "](", "`", "![", "~~"] {
+            XCTAssertFalse(result.contains(syntax), "reader retained presentation syntax: \(syntax)")
+        }
     }
 
     // MARK: - Table row detection
@@ -199,5 +211,101 @@ final class MarkdownRenderingTests: XCTestCase {
             ContentBlockParser.strippedOrphanEditorialTags("The author [sic] argues [1]."),
             "The author [sic] argues [1]."
         )
+    }
+}
+
+final class ExportContentHygieneTests: XCTestCase {
+    private let source = """
+    # Practice Guide
+
+    Use **core** skills, *acceptance*, _willingness_, `noticing`, and ~~control~~.
+    Read [the source](https://example.com) and inspect ![a compass](compass.png).
+    Before [RESEARCH_INSIGHT]the evidence[/RESEARCH_INSIGHT] after.
+
+    | Process | Response |
+    |---|---|
+    | Fusion | Defusion |
+
+    - First step
+    - Second step
+
+    ## Final Takeaway
+
+    Carry the insight forward.
+    """
+
+    private var item: InsightAtlas.LibraryItem {
+        InsightAtlas.LibraryItem(
+            title: "Export Hygiene",
+            author: "Test Author",
+            fileType: .pdf,
+            summaryContent: source
+        )
+    }
+
+    private let forbiddenSyntax = [
+        "**core**", "*acceptance*", "_willingness_", "`noticing`", "~~control~~",
+        "[the source](", "![a compass](", "[RESEARCH_INSIGHT]", "[/RESEARCH_INSIGHT]",
+        "|---|---|", "| Process | Response |"
+    ]
+
+    private func assertSemanticTextSurvives(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        for expected in ["Practice Guide", "core", "acceptance", "willingness", "noticing", "control", "the source", "a compass", "the evidence", "Fusion", "Defusion", "Final Takeaway"] {
+            XCTAssertTrue(text.contains(expected), "lost semantic export text: \(expected)", file: file, line: line)
+        }
+    }
+
+    private func assertNoPresentationSyntax(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        for syntax in forbiddenSyntax {
+            XCTAssertFalse(text.contains(syntax), "export retained presentation syntax: \(syntax)", file: file, line: line)
+        }
+    }
+
+    func testMarkdownNamedExportContainsReadableTextNotMarkdownSyntax() throws {
+        let url = try DataManager.shared.exportGuide(item, format: .markdown)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let text = try String(contentsOf: url, encoding: .utf8)
+        assertSemanticTextSurvives(text)
+        assertNoPresentationSyntax(text)
+    }
+
+    func testPlainTextExportContainsNoMarkdownSyntax() throws {
+        let url = try DataManager.shared.exportGuide(item, format: .plainText)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let text = try String(contentsOf: url, encoding: .utf8)
+        assertSemanticTextSurvives(text)
+        assertNoPresentationSyntax(text)
+    }
+
+    func testHTMLExportConvertsSyntaxWithoutDisplayingMarkers() throws {
+        let url = try DataManager.shared.exportGuide(item, format: .html)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let html = try String(contentsOf: url, encoding: .utf8)
+        assertSemanticTextSurvives(html)
+        assertNoPresentationSyntax(html)
+        XCTAssertTrue(html.contains("<strong>core</strong>"))
+        XCTAssertTrue(html.contains("<code>noticing</code>"))
+    }
+
+    func testDOCXExportDocumentXMLContainsNoMarkdownSyntax() throws {
+        let url = try DataManager.shared.exportGuide(item, format: .docx)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        guard let archive = try? Archive(url: url, accessMode: .read),
+              let entry = archive.first(where: { $0.path.hasSuffix("word/document.xml") }) else {
+            return XCTFail("DOCX did not contain word/document.xml")
+        }
+
+        var data = Data()
+        _ = try archive.extract(entry) { data.append($0) }
+        guard let xml = String(data: data, encoding: .utf8) else {
+            return XCTFail("word/document.xml was not UTF-8")
+        }
+
+        assertSemanticTextSurvives(xml)
+        assertNoPresentationSyntax(xml)
     }
 }

@@ -469,16 +469,19 @@ class DataManager: ObservableObject {
         do {
             switch format {
             case .markdown:
+                // Keep the historical extension for compatibility while making
+                // the user-facing payload syntax-free like every other export.
+                let readableContent = PresentationTextSanitizer.plainText(content)
                 let fileURL = tempDir.appendingPathComponent("\(fileName).md")
                 do {
-                    try content.write(to: fileURL, atomically: true, encoding: .utf8)
+                    try readableContent.write(to: fileURL, atomically: true, encoding: .utf8)
                 } catch {
                     throw DataManagerError.fileWriteFailed(path: fileURL.path)
                 }
                 return fileURL
 
             case .plainText:
-                let plainContent = stripMarkdown(from: content)
+                let plainContent = PresentationTextSanitizer.plainText(content)
                 let fileURL = tempDir.appendingPathComponent("\(fileName).txt")
                 do {
                     try plainContent.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -530,46 +533,7 @@ class DataManager: ObservableObject {
     }
 
     nonisolated private func stripMarkdown(from content: String) -> String {
-        var result = content
-
-        // Remove all block markers using regex
-        result = result.replacingOccurrences(of: "\\[/?[A-Z_]+:?[^\\]]*\\]", with: "", options: .regularExpression)
-
-        // Remove headers
-        result = result.replacingOccurrences(of: "#{1,6}\\s+", with: "", options: .regularExpression)
-
-        // Remove bold/italic
-        result = result.replacingOccurrences(of: "\\*{1,2}([^*]+)\\*{1,2}", with: "$1", options: .regularExpression)
-        result = result.replacingOccurrences(of: "_{1,2}([^_]+)_{1,2}", with: "$1", options: .regularExpression)
-
-        // Remove links
-        result = result.replacingOccurrences(of: "\\[([^\\]]+)\\]\\([^)]+\\)", with: "$1", options: .regularExpression)
-
-        // Remove code blocks
-        result = result.replacingOccurrences(of: "```[^`]*```", with: "", options: .regularExpression)
-        result = result.replacingOccurrences(of: "`([^`]+)`", with: "$1", options: .regularExpression)
-
-        // Remove box drawing characters
-        result = result.replacingOccurrences(of: "┌", with: "")
-        result = result.replacingOccurrences(of: "├", with: "")
-        result = result.replacingOccurrences(of: "└", with: "")
-        result = result.replacingOccurrences(of: "│", with: "")
-        result = result.replacingOccurrences(of: "─", with: "")
-        result = result.replacingOccurrences(of: "┐", with: "")
-        result = result.replacingOccurrences(of: "┤", with: "")
-        result = result.replacingOccurrences(of: "┘", with: "")
-        result = result.replacingOccurrences(of: "↓", with: "")
-        result = result.replacingOccurrences(of: "→", with: "")
-        result = result.replacingOccurrences(of: "←", with: "")
-        result = result.replacingOccurrences(of: "↑", with: "")
-
-        // Remove double-line box drawing dividers (═══)
-        result = result.replacingOccurrences(of: "═", with: "")
-
-        // Clean up any resulting multiple blank lines
-        result = result.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
-
-        return result
+        PresentationTextSanitizer.plainText(content)
     }
 
     // MARK: - Filename Helpers
@@ -1897,13 +1861,25 @@ class DataManager: ObservableObject {
     }
 
     nonisolated private func convertInlineMarkdown(_ text: String) -> String {
-        // First escape HTML to prevent XSS, then apply markdown formatting
-        var result = escapeHTML(text)
+        // Remove editorial control tags and convert image syntax to its semantic
+        // alt text before escaping. Links remain intact for the native HTML pass.
+        var source = PresentationTextSanitizer.withoutEditorialMarkup(text)
+        source = source.replacingOccurrences(
+            of: #"!\[([^\]]*)\]\([^)]*\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        var result = escapeHTML(source)
 
         // Convert bold (must come before italic)
         // Use a more robust pattern that handles multi-word bold text
         result = result.replacingOccurrences(of: "\\*\\*(.+?)\\*\\*",
                                               with: "<strong>$1</strong>",
+                                              options: .regularExpression)
+
+        // Convert strikethrough before the single-character emphasis passes.
+        result = result.replacingOccurrences(of: "~~(.+?)~~",
+                                              with: "<del>$1</del>",
                                               options: .regularExpression)
 
         // Convert italic (non-greedy to handle multiple italics on same line)
@@ -6382,7 +6358,19 @@ class DataManager: ObservableObject {
     }
 
     /// Parse markdown bold/italic and convert to DOCX runs with proper formatting
-    nonisolated private func parseMarkdownToDocxRuns(_ text: String) -> String {
+    nonisolated private func parseMarkdownToDocxRuns(_ rawText: String) -> String {
+        var text = PresentationTextSanitizer.attributedMarkupSource(rawText)
+        text = text.replacingOccurrences(
+            of: #"__([^_\n]+)__"#,
+            with: "**$1**",
+            options: .regularExpression
+        )
+        text = text.replacingOccurrences(
+            of: #"(?<![_\w])_([^_\n]+)_(?![_\w])"#,
+            with: "*$1*",
+            options: .regularExpression
+        )
+
         var result = ""
         var currentIndex = text.startIndex
         let endIndex = text.endIndex

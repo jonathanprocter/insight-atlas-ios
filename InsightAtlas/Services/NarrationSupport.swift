@@ -18,6 +18,184 @@ import Foundation
 import MediaPlayer
 import UIKit
 
+// MARK: - Presentation text hygiene
+
+/// Converts generated guide markup into reader-facing text without exposing the
+/// Markdown or editorial control syntax used by the generation pipeline.
+///
+/// The raw manuscript remains unchanged for structural parsers. Presentation
+/// boundaries call one of these pure helpers immediately before rendering,
+/// speaking, or writing an exported artifact.
+enum PresentationTextSanitizer {
+    static func withoutEditorialMarkup(_ content: String) -> String {
+        var result = content
+        result = result.replacingOccurrences(
+            of: #"\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]"#,
+            with: "",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"!?\[\s*\]\([^)]*\)"#,
+            with: "",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"\[\s*\]"#,
+            with: "",
+            options: .regularExpression
+        )
+        return result
+    }
+
+    /// Removes inline Markdown delimiters while preserving their semantic text.
+    /// Rich renderers that retain bold/italic styles should instead call
+    /// `attributedMarkupSource(_:)`.
+    static func inlinePlainText(_ content: String) -> String {
+        var result = withoutEditorialMarkup(content)
+        result = result.replacingOccurrences(
+            of: #"!\[([^\]]*)\]\([^)]*\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"\[([^\]]+)\]\([^)]*\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"~~([^~\n]+)~~"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"`([^`\n]+)`"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"\*\*([^*\n]+)\*\*"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"__([^_\n]+)__"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"(?<![\*\w])\*([^*\n]+)\*(?![\*\w])"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"(?<![_\w])_([^_\n]+)_(?![_\w])"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"[ \t]{2,}"#,
+            with: " ",
+            options: .regularExpression
+        )
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Cleans unsupported inline constructs but retains bold/italic delimiters
+    /// for native SwiftUI or DOCX styling passes.
+    static func attributedMarkupSource(_ content: String) -> String {
+        var result = withoutEditorialMarkup(content)
+        result = result.replacingOccurrences(
+            of: #"!\[([^\]]*)\]\([^)]*\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"\[([^\]]+)\]\([^)]*\)"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"~~([^~\n]+)~~"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        result = result.replacingOccurrences(
+            of: #"`([^`\n]+)`"#,
+            with: "$1",
+            options: .regularExpression
+        )
+        return result
+    }
+
+    static func plainText(_ content: String, preserveListMarkers: Bool = true) -> String {
+        let normalized = content.replacingOccurrences(of: "\r\n", with: "\n")
+        var output: [String] = []
+        var inCodeFence = false
+
+        for rawLine in normalized.components(separatedBy: "\n") {
+            var line = rawLine.trimmingCharacters(in: .whitespaces)
+
+            if line.range(of: #"^```"#, options: .regularExpression) != nil {
+                inCodeFence.toggle()
+                continue
+            }
+
+            if !inCodeFence,
+               line.range(of: #"^\s*(?:-{3,}|\*{3,}|_{3,})\s*$"#, options: .regularExpression) != nil {
+                continue
+            }
+
+            let pipeCount = line.filter { $0 == "|" }.count
+            if !inCodeFence, pipeCount >= 2 {
+                let cells = line
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "|"))
+                    .split(separator: "|", omittingEmptySubsequences: false)
+                    .map { inlinePlainText(String($0).trimmingCharacters(in: .whitespaces)) }
+                let isSeparator = !cells.isEmpty && cells.allSatisfy {
+                    !$0.isEmpty && $0.allSatisfy { $0 == "-" || $0 == ":" || $0.isWhitespace }
+                }
+                if isSeparator { continue }
+                line = cells.filter { !$0.isEmpty }.joined(separator: " — ")
+            } else {
+                line = line.replacingOccurrences(
+                    of: #"^\s{0,3}#{1,6}\s*"#,
+                    with: "",
+                    options: .regularExpression
+                )
+                line = line.replacingOccurrences(
+                    of: #"^\s*>\s?"#,
+                    with: "",
+                    options: .regularExpression
+                )
+                if preserveListMarkers {
+                    line = line.replacingOccurrences(
+                        of: #"^\s*[-*+•]\s+"#,
+                        with: "• ",
+                        options: .regularExpression
+                    )
+                    line = line.replacingOccurrences(
+                        of: #"^\s*(\d+)[.)]\s+"#,
+                        with: "$1 — ",
+                        options: .regularExpression
+                    )
+                } else {
+                    line = line.replacingOccurrences(
+                        of: #"^\s*(?:[-*+•]|\d+[.)])\s+"#,
+                        with: "",
+                        options: .regularExpression
+                    )
+                }
+            }
+
+            output.append(inlinePlainText(line))
+        }
+
+        return output.joined(separator: "\n")
+            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 // MARK: - Preparation progress
 
 /// Stages a narration request passes through, surfaced to the UI.
@@ -75,40 +253,7 @@ enum NarrationPreparationProgress: Sendable, Equatable {
 
 enum NarrationTextSanitizer {
     static func prepare(_ content: String) -> String {
-        var result = content
-        result = result.replacingOccurrences(
-            of: "\\[/?[A-Z_]+:?[^\\]]*\\]",
-            with: "",
-            options: .regularExpression
-        )
-        result = result.replacingOccurrences(
-            of: "#{1,6}\\s+",
-            with: "",
-            options: .regularExpression
-        )
-        result = result.replacingOccurrences(
-            of: "\\*{1,2}([^*]+)\\*{1,2}",
-            with: "$1",
-            options: .regularExpression
-        )
-        result = result.replacingOccurrences(
-            of: "_{1,2}([^_]+)_{1,2}",
-            with: "$1",
-            options: .regularExpression
-        )
-        result = result.replacingOccurrences(
-            of: "\\[([^\\]]+)\\]\\([^)]+\\)",
-            with: "$1",
-            options: .regularExpression
-        )
-        result = result.replacingOccurrences(
-            of: "^\\s*[-*•]\\s+",
-            with: "",
-            options: [.regularExpression, .anchored]
-        )
-        result = result.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
-        result = result.replacingOccurrences(of: "[ \\t]+", with: " ", options: .regularExpression)
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+        PresentationTextSanitizer.plainText(content, preserveListMarkers: false)
     }
 }
 

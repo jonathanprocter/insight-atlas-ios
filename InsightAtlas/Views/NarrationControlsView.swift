@@ -90,6 +90,11 @@ final class NarrationControlViewModel: ObservableObject {
         generationTask?.cancel()
     }
 
+    func regenerate(item: LibraryItem) {
+        NarrationPlaybackController.shared.stop()
+        generate(item: item)
+    }
+
     func deleteNarration(item: LibraryItem) {
         NarrationPlaybackController.shared.stop()
         if let filename = item.audioFileURL, let url = Self.audioURL(for: filename) {
@@ -242,6 +247,9 @@ struct NarrationControlsView: View {
 
                 if hasAudio {
                     Menu {
+                        Button("Regenerate Narration", systemImage: "arrow.clockwise") {
+                            model.regenerate(item: currentItem)
+                        }
                         Button("Delete Narration", systemImage: "trash", role: .destructive) {
                             model.deleteNarration(item: currentItem)
                         }

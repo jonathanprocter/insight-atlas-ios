@@ -206,9 +206,6 @@ struct GuideView: View {
         Menu {
             exportSubmenu
             Divider()
-            if item.summaryContent != nil {
-                audioSubmenu
-            }
             regenerateSubmenu
             if item.summaryContent != nil {
                 Divider()
@@ -284,39 +281,6 @@ struct GuideView: View {
     }
 
     @ViewBuilder
-    private var audioSubmenu: some View {
-        Menu {
-            if item.audioFileURL != nil {
-                Button {
-                    regenerateAudioWithCurrentVoice()
-                } label: {
-                    Label("Regenerate Narration", systemImage: "arrow.clockwise")
-                }
-                .disabled(isGeneratingAudio)
-                .accessibilityIdentifier("guide_regenerate_audio_button")
-
-                Button(role: .destructive) {
-                    deleteAudio()
-                } label: {
-                    Label("Delete Narration", systemImage: "trash")
-                }
-                .accessibilityIdentifier("guide_delete_audio_button")
-            } else {
-                // Narration uses a single fixed voice (Liam) — no voice picker.
-                Button {
-                    generateAudioOnly()
-                } label: {
-                    Label("Generate Narration", systemImage: "waveform")
-                }
-                .disabled(isGeneratingAudio)
-                .accessibilityIdentifier("guide_generate_with_default_button")
-            }
-        } label: {
-            Label("Audio", systemImage: "speaker.wave.2")
-        }
-    }
-
-    @ViewBuilder
     private var regenerateSubmenu: some View {
         Menu {
             Button {
@@ -326,16 +290,6 @@ struct GuideView: View {
             }
             .disabled(isRegeneratingContent)
             .accessibilityIdentifier("guide_regenerate_content_button")
-
-            if item.audioFileURL != nil {
-                Button {
-                    regenerateAudioWithCurrentVoice()
-                } label: {
-                    Label("Regenerate Audio Only", systemImage: "waveform.badge.plus")
-                }
-                .disabled(isGeneratingAudio)
-                .accessibilityIdentifier("guide_regenerate_audio_only_button")
-            }
         } label: {
             Label("Regenerate", systemImage: "arrow.clockwise")
         }
