@@ -92,6 +92,11 @@ enum PresentationTextSanitizer {
             with: "$1",
             options: .regularExpression
         )
+        // Malformed generation output can contain an opening delimiter with
+        // no closing partner. Preserve the words, never the control glyphs.
+        result = result.replacingOccurrences(of: "**", with: "")
+        result = result.replacingOccurrences(of: "~~", with: "")
+        result = result.replacingOccurrences(of: "`", with: "")
         result = result.replacingOccurrences(
             of: #"[ \t]{2,}"#,
             with: " ",
@@ -124,6 +129,26 @@ enum PresentationTextSanitizer {
             with: "$1",
             options: .regularExpression
         )
+        result = result.replacingOccurrences(of: "~~", with: "")
+        result = result.replacingOccurrences(of: "`", with: "")
+        result = removingUnpairedDelimiter("**", from: result)
+        result = removingUnpairedDelimiter("__", from: result)
+        return result
+    }
+
+    private static func removingUnpairedDelimiter(_ delimiter: String, from text: String) -> String {
+        var ranges: [Range<String.Index>] = []
+        var searchStart = text.startIndex
+        while searchStart < text.endIndex,
+              let range = text.range(of: delimiter, range: searchStart..<text.endIndex) {
+            ranges.append(range)
+            searchStart = range.upperBound
+        }
+        guard ranges.count.isMultiple(of: 2) == false, let unmatched = ranges.last else {
+            return text
+        }
+        var result = text
+        result.removeSubrange(unmatched)
         return result
     }
 

@@ -221,6 +221,7 @@ final class ExportContentHygieneTests: XCTestCase {
     Use **core** skills, *acceptance*, _willingness_, `noticing`, and ~~control~~.
     Read [the source](https://example.com) and inspect ![a compass](compass.png).
     Before [RESEARCH_INSIGHT]the evidence[/RESEARCH_INSIGHT] after.
+    Malformed **unfinished emphasis, ~~revised language, and `noticing remain readable.
 
     | Process | Response |
     |---|---|
@@ -246,11 +247,11 @@ final class ExportContentHygieneTests: XCTestCase {
     private let forbiddenSyntax = [
         "**core**", "*acceptance*", "_willingness_", "`noticing`", "~~control~~",
         "[the source](", "![a compass](", "[RESEARCH_INSIGHT]", "[/RESEARCH_INSIGHT]",
-        "|---|---|", "| Process | Response |"
+        "|---|---|", "| Process | Response |", "**unfinished", "~~revised", "`noticing"
     ]
 
     private func assertSemanticTextSurvives(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
-        for expected in ["Practice Guide", "core", "acceptance", "willingness", "noticing", "control", "the source", "a compass", "the evidence", "Fusion", "Defusion", "Final Takeaway"] {
+        for expected in ["Practice Guide", "core", "acceptance", "willingness", "noticing", "control", "the source", "a compass", "the evidence", "unfinished emphasis", "revised language", "Fusion", "Defusion", "Final Takeaway"] {
             XCTAssertTrue(text.contains(expected), "lost semantic export text: \(expected)", file: file, line: line)
         }
     }
@@ -288,6 +289,8 @@ final class ExportContentHygieneTests: XCTestCase {
         assertNoPresentationSyntax(html)
         XCTAssertTrue(html.contains("<strong>core</strong>"))
         XCTAssertTrue(html.contains("<code>noticing</code>"))
+        XCTAssertTrue(html.contains("<a href=\"https://example.com\">the source</a>"))
+        XCTAssertTrue(html.contains("a compass"), "image alt text should remain accessible")
     }
 
     func testDOCXExportDocumentXMLContainsNoMarkdownSyntax() throws {

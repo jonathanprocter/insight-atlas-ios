@@ -87,6 +87,35 @@ final class KokoroNarrationTests: XCTestCase {
 
     // MARK: - Spoken-text hygiene
 
+    func testSanitizerHandlesLongUnbalancedMarkupInBoundedTime() {
+        let source = String(repeating: "ordinary_word * value _ ", count: 5_000)
+            + String(repeating: "**unfinished ~~revised `code ", count: 1_000)
+        let started = CFAbsoluteTimeGetCurrent()
+
+        let spoken = NarrationTextSanitizer.prepare(source)
+
+        let elapsed = CFAbsoluteTimeGetCurrent() - started
+        XCTAssertLessThan(elapsed, 2.0, "sanitizer took too long on adversarial unbalanced input")
+        XCTAssertTrue(spoken.contains("ordinary_word"))
+        XCTAssertTrue(spoken.contains("unfinished"))
+        XCTAssertFalse(spoken.contains("**"))
+        XCTAssertFalse(spoken.contains("~~"))
+        XCTAssertFalse(spoken.contains("`"))
+    }
+
+    func testUnbalancedRepeatedDelimitersAreRemovedWithoutLosingWords() {
+        let spoken = NarrationTextSanitizer.prepare(
+            "An **unfinished emphasis, a ~~revised phrase, and `noticing remain readable."
+        )
+
+        XCTAssertTrue(spoken.contains("unfinished emphasis"))
+        XCTAssertTrue(spoken.contains("revised phrase"))
+        XCTAssertTrue(spoken.contains("noticing"))
+        XCTAssertFalse(spoken.contains("**"))
+        XCTAssertFalse(spoken.contains("~~"))
+        XCTAssertFalse(spoken.contains("`"))
+    }
+
     func testNarrationSanitizerRemovesPresentationSyntaxWithoutLosingMeaning() {
         let source = """
         # **Practice**

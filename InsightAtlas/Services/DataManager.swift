@@ -532,10 +532,6 @@ class DataManager: ObservableObject {
         }
     }
 
-    nonisolated private func stripMarkdown(from content: String) -> String {
-        PresentationTextSanitizer.plainText(content)
-    }
-
     // MARK: - Filename Helpers
 
     /// Sanitize filename to be clean and readable with proper Title Case
@@ -1904,6 +1900,12 @@ class DataManager: ObservableObject {
         result = result.replacingOccurrences(of: "href=\"javascript:[^\"]*\"",
                                               with: "href=\"#\"",
                                               options: [.regularExpression, .caseInsensitive])
+
+        // Never expose malformed generation delimiters as visible content.
+        // Valid pairs have already become native HTML elements above.
+        result = result.replacingOccurrences(of: "**", with: "")
+        result = result.replacingOccurrences(of: "~~", with: "")
+        result = result.replacingOccurrences(of: "`", with: "")
 
         return result
     }
@@ -6413,6 +6415,13 @@ class DataManager: ObservableObject {
                     }
                     continue
                 }
+            }
+
+            // An unmatched asterisk is malformed presentation syntax. Drop it
+            // and advance so the serializer can never spin at the same index.
+            if text[currentIndex] == "*" {
+                currentIndex = text.index(after: currentIndex)
+                continue
             }
 
             // Regular text - collect until next formatting marker
