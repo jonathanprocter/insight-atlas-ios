@@ -6,6 +6,7 @@
 *.xcuserdatad
 DerivedData/
 build/
+.worktrees/
 node_modules/
 dist/
 archive_output/
