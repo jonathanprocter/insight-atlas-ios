@@ -460,10 +460,11 @@ struct AnalysisDetailView: View {
 
         Task {
             do {
-                // Mega Transcript is preferred; on-device Kokoro (Liam) is the fallback.
+                // Generate a bounded listening edition with the installed on-device Kokoro voice.
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
-                    itemId: itemId
+                    itemId: itemId,
+                    summaryType: item.summaryType
                 )
 
                 await MainActor.run {
@@ -518,7 +519,8 @@ struct AnalysisDetailView: View {
                 // promoted atomically, and cleans up stale .mp3/.m4a siblings.
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
-                    itemId: itemId
+                    itemId: itemId,
+                    summaryType: item.summaryType
                 )
 
                 await MainActor.run {

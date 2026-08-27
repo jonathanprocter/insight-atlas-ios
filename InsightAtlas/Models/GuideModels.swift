@@ -311,6 +311,10 @@ enum AIProvider: String, Codable, CaseIterable {
         case .openRouter: return "OpenRouter"
         }
     }
+
+    /// These providers generate the written guide. Narration is synthesized by
+    /// a separate audio provider after guide generation completes.
+    var supportsDirectAudioGeneration: Bool { false }
 }
 
 // MARK: - Parsed Guide Models

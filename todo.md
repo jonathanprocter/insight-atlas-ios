@@ -48,16 +48,16 @@
 - [x] Trace Daniel startup latency, Kokoro synthesis, persistence, and OSStatus -50 playback
 - [x] Trace adjacent editorial tags and malformed header absorption in the reader
 - [x] Document the release design and implementation plan
-- [ ] Add and verify failing editorial canonicalization and legacy-reader tests
-- [ ] Add and verify failing narration critical-path and provider-route tests
-- [ ] Add and verify failing audio-session, staged-asset, and error-mapping tests
-- [ ] Implement canonical editorial normalization before persistence and at render time
-- [ ] Remove optional full-guide LLM rewriting from first-time narration startup
-- [ ] Remove the unavailable hosted Liam route from automatic fallback
-- [ ] Validate staged audio before replacing a prior asset
-- [ ] Configure playback without incompatible Bluetooth options and map raw OSStatus errors
-- [ ] Benchmark and implement an evidence-supported Kokoro chunk-size improvement
-- [ ] Verify every guide-generation setting family against reader syntax leakage
+- [x] Add and verify failing editorial canonicalization and legacy-reader tests
+- [x] Add and verify failing narration critical-path and provider-route tests
+- [x] Add and verify failing audio-session, staged-asset, and error-mapping tests
+- [x] Implement canonical editorial normalization before persistence and at render time
+- [x] Remove optional full-guide LLM rewriting from first-time narration startup
+- [x] Remove the unavailable hosted Liam route from automatic fallback
+- [x] Validate staged audio before replacing a prior asset
+- [x] Configure playback without incompatible Bluetooth options and map raw OSStatus errors
+- [x] Benchmark and implement an evidence-supported Kokoro chunk-size improvement
+- [x] Verify every guide-generation setting family against reader syntax leakage
 - [ ] Run targeted, full-suite, live-production-model, Release, analyzer, and strict-concurrency checks
 - [ ] Complete iPhone and iPad visual verification
 - [ ] Complete independent code review

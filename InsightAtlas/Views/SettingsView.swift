@@ -140,7 +140,7 @@ struct SettingsView: View {
 
                     if matchesSection(
                         title: "Audio & Narration",
-                        keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "free", "mega transcript", "arthur", "liam"],
+                        keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "private", "on-device"],
                         dynamicValues: [audioStatus]
                     ) {
                         PremiumSettingsCard(
@@ -352,7 +352,7 @@ struct SettingsView: View {
         ) &&
         !matchesSection(
             title: "Audio & Narration",
-            keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "liam"],
+            keywords: ["audio", "voice", "narration", "playback", "kokoro", "offline", "private", "on-device"],
             dynamicValues: [audioStatus]
         ) &&
         !matchesSection(
@@ -389,8 +389,8 @@ struct SettingsView: View {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults — provider order is fixed, so only playback speed and
-        // the auto-generate toggle are user-configurable.
+        // Audio defaults — the installed Kokoro voice, playback speed, and
+        // auto-generation setting are user-configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
 
@@ -916,31 +916,6 @@ struct AudioSettingsView: View {
     @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
     private var kokoroVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
 
-    // Local mirror of the Keychain-backed narration token so edits redraw the row.
-    @State private var narrationToken: String = KokoroTTSClient.currentAPIKey() ?? ""
-
-    // Liam narration self-test state.
-    @State private var isTestingNarration = false
-    @State private var narrationDiagnostics: NarrationDiagnostics?
-
-    private func savedSuffix(for key: String) -> String? {
-        guard key.count >= 4 else { return nil }
-        return "Saved \u{2022}\u{2022}\u{2022}\u{2022}" + key.suffix(4)
-    }
-
-    private func diagnosticRow(_ label: String, _ ok: Bool, _ detail: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                .foregroundStyle(ok ? Color.green : Color.red)
-            Text(label)
-            Spacer()
-            Text(detail)
-                .font(.footnote)
-                .foregroundStyle(PremiumUI.secondaryText)
-                .multilineTextAlignment(.trailing)
-        }
-    }
-
     private var selectedKokoroVoice: KokoroVoice {
         KokoroVoiceRegistry.voice(byVoiceID: kokoroVoiceID)
             ?? KokoroVoiceRegistry.defaultVoice
@@ -972,13 +947,6 @@ struct AudioSettingsView: View {
 
 
             Section {
-                HStack {
-                    Text("Fallback Voice")
-                    Spacer()
-                    Text("Liam")
-                        .foregroundStyle(PremiumUI.secondaryText)
-                }
-
                 Picker("Playback Speed", selection: $environment.userSettings.playbackSpeed) {
                     ForEach(PlaybackSpeed.allCases, id: \.self) { speed in
                         Text(speed.displayName).tag(speed)
@@ -988,35 +956,9 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } header: {
-                Text("Playback & Final Fallback")
+                Text("Playback")
             } footer: {
-                Text("The fixed route is on-device Kokoro with \(selectedKokoroVoice.name), then Liam as the fallback.")
-            }
-
-            Section {
-                SecureFieldRow(
-                    label: "Narration Token",
-                    placeholder: "Liam narration token",
-                    text: Binding(
-                        get: { narrationToken },
-                        set: { newValue in
-                            narrationToken = newValue
-                            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if trimmed.isEmpty {
-                                try? KokoroTTSClient.removeAPIKey()
-                            } else {
-                                try? KokoroTTSClient.storeAPIKey(trimmed)
-                            }
-                        }
-                    ),
-                    hasValue: !narrationToken.isEmpty,
-                    savedSuffix: savedSuffix(for: narrationToken)
-                )
-                .listRowBackground(PremiumUI.card)
-            } header: {
-                Text("Liam Narration")
-            } footer: {
-                Text("Required only when Liam is used as the final fallback. Stored securely in the iOS Keychain on this device only.")
+                Text("New narration is generated privately on this device with the selected Kokoro voice, \(selectedKokoroVoice.name).")
             }
 
             Section {
@@ -1029,41 +971,7 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration is generated after a guide finishes using offline Kokoro first, then Mega Transcript and Liam. Kokoro needs no credential after its one-time model download.")
-            }
-
-            Section {
-                Button {
-                    Task {
-                        isTestingNarration = true
-                        narrationDiagnostics = nil
-                        narrationDiagnostics = await KokoroNarrationService.shared.runDiagnostics()
-                        isTestingNarration = false
-                    }
-                } label: {
-                    HStack {
-                        Text(isTestingNarration ? "Testing…" : "Test Liam Fallback")
-                        Spacer()
-                        if isTestingNarration { ProgressView() }
-                    }
-                }
-                .disabled(isTestingNarration)
-                .listRowBackground(PremiumUI.card)
-
-                if let diag = narrationDiagnostics {
-                    diagnosticRow("Liam Token", diag.tokenPresent, diag.tokenPresent ? "Present" : "Missing")
-                        .listRowBackground(PremiumUI.card)
-                    diagnosticRow("Liam Gateway", diag.healthOK, diag.healthDetail)
-                        .listRowBackground(PremiumUI.card)
-                    diagnosticRow("Liam Synthesis", diag.singleChunkOK, diag.singleChunkDetail)
-                        .listRowBackground(PremiumUI.card)
-                    diagnosticRow("Liam Assembly", diag.assemblyOK, diag.assemblyDetail)
-                        .listRowBackground(PremiumUI.card)
-                }
-            } header: {
-                Text("Diagnostics")
-            } footer: {
-                Text("Tests the Liam cloud fallback. Kokoro readiness and voice selection are shown at the top; Mega Transcript status appears in First Cloud Fallback.")
+                Text("When on, narration starts after a guide finishes using the installed on-device Kokoro model. MiniMax M3 generates written guides and is not an audio provider.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")

@@ -36,6 +36,16 @@ final class KokoroTextChunkerTests: XCTestCase {
         XCTAssertEqual(normalized(chunks.joined(separator: " ")), normalized(text))
     }
 
+    func testDefaultChunkingReducesSerialCallsForLongDanielNarration() {
+        let sentence = "Daniel explains one complete idea at a time so the listening edition remains natural, accurate, and easy to follow."
+        let text = Array(repeating: sentence, count: 36).joined(separator: " ")
+        let legacy = KokoroTextChunker(maximumCharacters: 1_200).chunks(for: text)
+        let optimized = KokoroTextChunker().chunks(for: text)
+
+        XCTAssertLessThan(optimized.count, legacy.count)
+        XCTAssertEqual(normalized(optimized.joined(separator: " ")), normalized(text))
+    }
+
     private func normalized(_ text: String) -> String {
         text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }

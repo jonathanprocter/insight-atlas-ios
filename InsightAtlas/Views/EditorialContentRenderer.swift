@@ -184,6 +184,170 @@ struct ParsedContentBlock: Identifiable {
     }
 }
 
+// MARK: - Editorial Markup Canonicalization
+
+/// Repairs formatting mistakes in generated editorial markup without inventing,
+/// deleting, or reordering semantic prose. The reader parser is line-oriented,
+/// so each control tag is normalized onto its own structural line.
+enum EditorialMarkupCanonicalizer {
+    private static let tagPattern = #"\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]"#
+    private static let fullTagPattern = #"^\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]$"#
+
+    static func canonicalize(_ content: String) -> String {
+        let normalized = content
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        guard let regex = try? NSRegularExpression(pattern: tagPattern) else {
+            return normalized
+        }
+
+        let separated = regex.stringByReplacingMatches(
+            in: normalized,
+            range: NSRange(normalized.startIndex..., in: normalized),
+            withTemplate: "\n$0\n"
+        )
+        let lines = separated.components(separatedBy: "\n").map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }
+
+        var output: [String] = []
+        var previousWasEmpty = false
+        for line in lines {
+            if line.isEmpty {
+                if !previousWasEmpty, !output.isEmpty { output.append("") }
+                previousWasEmpty = true
+            } else {
+                if isEditorialTagLine(line),
+                   output.last?.isEmpty == true,
+                   output.count >= 2,
+                   isEditorialTagLine(output[output.count - 2]) {
+                    output.removeLast()
+                }
+                output.append(line)
+                previousWasEmpty = false
+            }
+        }
+        while output.last?.isEmpty == true { output.removeLast() }
+        return output.joined(separator: "\n")
+    }
+
+    static func isEditorialTagLine(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.range(of: fullTagPattern, options: .regularExpression) != nil
+    }
+
+    static func isClosingTagLine(_ line: String, named name: String) -> Bool {
+        line.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare("[/\(name)]") == .orderedSame
+    }
+}
+
+// MARK: - Reader Content Adaptation
+
+enum GuideReaderContentAdapter {
+    static func prepare(_ content: String) -> String {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first, first == "{" || first == "[",
+              let data = trimmed.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) else {
+            return EditorialMarkupCanonicalizer.canonicalize(content)
+        }
+
+        var lines: [String] = []
+        render(object, label: nil, headingLevel: 1, into: &lines)
+        let readable = lines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+        return EditorialMarkupCanonicalizer.canonicalize(readable)
+    }
+
+    private static func render(
+        _ value: Any,
+        label: String?,
+        headingLevel: Int,
+        into lines: inout [String]
+    ) {
+        if let dictionary = value as? [String: Any] {
+            let titleKeys = ["title", "name", "theme", "heading"]
+            let title = titleKeys.compactMap { dictionary[$0] as? String }.first
+            if let title, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                appendHeading(title, level: headingLevel, into: &lines)
+            } else if let label {
+                appendHeading(humanized(label), level: headingLevel, into: &lines)
+            }
+
+            let keys = dictionary.keys
+                .filter { !titleKeys.contains($0) }
+                .sorted { keyPriority($0) < keyPriority($1) }
+            for key in keys {
+                render(
+                    dictionary[key] as Any,
+                    label: key,
+                    headingLevel: min(2, headingLevel + 1),
+                    into: &lines
+                )
+            }
+            return
+        }
+
+        if let array = value as? [Any] {
+            if let label { appendHeading(humanized(label), level: headingLevel, into: &lines) }
+            for element in array {
+                if let scalar = scalarText(element) {
+                    lines.append("- \(scalar)")
+                } else {
+                    render(element, label: nil, headingLevel: min(2, headingLevel + 1), into: &lines)
+                }
+            }
+            return
+        }
+
+        guard let scalar = scalarText(value), !scalar.isEmpty else { return }
+        if let label, !["summary", "description", "content", "text"].contains(label.lowercased()) {
+            lines.append("\(humanized(label)): \(scalar)")
+        } else {
+            lines.append(scalar)
+        }
+    }
+
+    private static func appendHeading(_ title: String, level: Int, into lines: inout [String]) {
+        let tag = level <= 1 ? "PREMIUM_H1" : "PREMIUM_H2"
+        lines.append("[\(tag)]\(title)[/\(tag)]")
+    }
+
+    private static func scalarText(_ value: Any) -> String? {
+        switch value {
+        case let string as String:
+            return string.trimmingCharacters(in: .whitespacesAndNewlines)
+        case let number as NSNumber:
+            return number.stringValue
+        default:
+            return nil
+        }
+    }
+
+    private static func keyPriority(_ key: String) -> String {
+        let priority: [String: String] = [
+            "summary": "00", "description": "01", "content": "02", "text": "03"
+        ]
+        return (priority[key.lowercased()] ?? "10") + key.lowercased()
+    }
+
+    private static func humanized(_ key: String) -> String {
+        let underscored = key.replacingOccurrences(of: "_", with: " ")
+        let camelCase = underscored.replacingOccurrences(
+            of: #"([a-z0-9])([A-Z])"#,
+            with: "$1 $2",
+            options: .regularExpression
+        )
+        return camelCase
+            .split(whereSeparator: { $0.isWhitespace })
+            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            .joined(separator: " ")
+    }
+}
+
 // MARK: - Content Block Parser
 
 struct ContentBlockParser {
@@ -268,7 +432,8 @@ struct ContentBlockParser {
 
     static func parse(_ content: String) -> [ParsedContentBlock] {
         var blocks: [ParsedContentBlock] = []
-        let lines = content.components(separatedBy: "\n")
+        let canonicalContent = GuideReaderContentAdapter.prepare(content)
+        let lines = canonicalContent.components(separatedBy: "\n")
         var i = 0
 
         // Section index counter for TOC navigation
@@ -619,7 +784,8 @@ struct ContentBlockParser {
                     i += 1
                     while i < lines.count {
                         let nextLine = lines[i].trimmingCharacters(in: .whitespaces)
-                        if nextLine.uppercased().contains("[/PREMIUM_H1]") {
+                        if EditorialMarkupCanonicalizer.isClosingTagLine(nextLine, named: "PREMIUM_H1")
+                            || EditorialMarkupCanonicalizer.isEditorialTagLine(nextLine) {
                             break
                         }
                         headerLines.append(nextLine)
@@ -633,6 +799,11 @@ struct ContentBlockParser {
                     } else {
                         blocks.append(ParsedContentBlock(type: .sectionHeader, content: headerText, sectionIndex: thisSectionIndex))
                     }
+                    if i < lines.count,
+                       EditorialMarkupCanonicalizer.isClosingTagLine(lines[i], named: "PREMIUM_H1") {
+                        i += 1
+                    }
+                    continue
                 }
                 i += 1
                 continue
@@ -657,7 +828,8 @@ struct ContentBlockParser {
                     i += 1
                     while i < lines.count {
                         let nextLine = lines[i].trimmingCharacters(in: .whitespaces)
-                        if nextLine.uppercased().contains("[/PREMIUM_H2]") {
+                        if EditorialMarkupCanonicalizer.isClosingTagLine(nextLine, named: "PREMIUM_H2")
+                            || EditorialMarkupCanonicalizer.isEditorialTagLine(nextLine) {
                             break
                         }
                         headerLines.append(nextLine)
@@ -667,6 +839,11 @@ struct ContentBlockParser {
                     if !headerText.isEmpty {
                         blocks.append(ParsedContentBlock(type: .subsectionHeader, content: headerText, sectionIndex: thisSectionIndex))
                     }
+                    if i < lines.count,
+                       EditorialMarkupCanonicalizer.isClosingTagLine(lines[i], named: "PREMIUM_H2") {
+                        i += 1
+                    }
+                    continue
                 }
                 i += 1
                 continue

@@ -52,11 +52,10 @@ public enum LLMUIRegistry {
             LLMControl(id: "navrow_manage_api_keys", title: "Manage API Keys", kind: "navigation"),
             LLMControl(id: "securefield_claude", title: "Claude API Key", kind: "field"),
             LLMControl(id: "securefield_openrouter", title: "OpenRouter API Key", kind: "field"),
-            LLMControl(id: "securefield_liam_token", title: "Liam Narration Token", kind: "field"),
             LLMControl(id: "openrouter_model_field", title: "OpenRouter model slug", kind: "field"),
             LLMControl(id: "openrouter_model_menu", title: "OpenRouter model suggestions", kind: "menu"),
 
-            // Audio (narration provider order is fixed)
+            // Audio (on-device Kokoro voice and playback settings)
             LLMControl(id: "navrow_audio_settings", title: "Audio Settings", kind: "navigation"),
             LLMControl(id: "playback_speed_picker", title: "Playback Speed", kind: "picker"),
             LLMControl(id: "toggle_auto_generate_audio", title: "Auto-generate Audio", kind: "toggle"),

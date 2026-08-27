@@ -674,7 +674,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                     title: state.title,
                     generationId: state.id,
                     libraryItemId: state.existingItemId,
-                    readerProfile: settings.preferredReaderProfile
+                    readerProfile: settings.preferredReaderProfile,
+                    summaryType: state.summaryType
                 )
 
                 metadata = GenerationMetadata(
@@ -851,7 +852,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
     }
 
     private func sanitizeGeneratedContent(_ content: String) -> String {
-        let lines = content.components(separatedBy: "\n")
+        let canonicalContent = EditorialMarkupCanonicalizer.canonicalize(content)
+        let lines = canonicalContent.components(separatedBy: "\n")
         var output: [String] = []
         var openTagStack: [String] = []
         let closableTags: Set<String> = [
@@ -1000,7 +1002,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         // A1 · manufacturing-integrity normalization: repair corrupted-hyphen
         // glyphs, missing sentence spaces, and non-canonical names before layout.
         sanitized = ManuscriptNormalizer.normalize(sanitized)
-        return sanitized
+        return EditorialMarkupCanonicalizer.canonicalize(sanitized)
     }
 
     /// Begin a UIKit background task for extended execution
@@ -1323,7 +1325,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         title: String,
         generationId: UUID,
         libraryItemId: UUID? = nil,
-        readerProfile: ReaderProfile = .practitioner
+        readerProfile: ReaderProfile = .practitioner,
+        summaryType: SummaryType = .professional
     ) async -> AudioGenerationResult? {
 
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1339,10 +1342,10 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // Fixed order: offline Kokoro, then hosted Liam.
-        guard KokoroModelStore.isInstalled
-                || KokoroTTSClient.currentAPIKey() != nil else {
-            audioLog("⚠️ No installed Kokoro model or configured cloud narrator found - skipping audio generation")
+        // New narration is generated only with the installed on-device model.
+        // A stale hosted-token entry must not trigger the unavailable Liam route.
+        guard KokoroModelStore.isInstalled else {
+            audioLog("⚠️ No installed Kokoro model found - skipping audio generation")
             return nil
         }
 
@@ -1354,7 +1357,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         do {
             let asset = try await NarrationService.shared.synthesize(
                 text: content,
-                itemId: audioOwnerId
+                itemId: audioOwnerId,
+                summaryType: summaryType
             )
 
             audioLog("✅ Narration generated successfully")

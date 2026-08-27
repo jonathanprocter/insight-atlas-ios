@@ -10,7 +10,7 @@ import Foundation
 struct KokoroTextChunker: Sendable {
     let maximumCharacters: Int
 
-    init(maximumCharacters: Int = 1_200) {
+    init(maximumCharacters: Int = 1_500) {
         self.maximumCharacters = max(1, maximumCharacters)
     }
 

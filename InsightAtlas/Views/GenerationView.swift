@@ -168,7 +168,7 @@ struct GenerationView: View {
                 .foregroundColor(AnalysisTheme.textHeading)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("AI Provider")
+                Text("Written Guide Provider")
                     .font(.analysisUISmall())
                     .foregroundColor(AnalysisTheme.textMuted)
                 Picker("Provider", selection: $environment.userSettings.preferredProvider) {
@@ -253,7 +253,7 @@ struct GenerationView: View {
             Divider()
                 .padding(.vertical, 8)
 
-            // Audio narration with fixed stable fallback order.
+            // Audio narration is a separate, on-device step after the written guide.
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: "waveform")
@@ -263,15 +263,17 @@ struct GenerationView: View {
                         .foregroundColor(AnalysisTheme.textHeading)
                 }
 
-                // Fixed provider order — not selectable during generation.
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Provider order")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Audio provider")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
-                        Text("Kokoro → Mega Transcript → Liam")
+                        Text("Kokoro on-device · selected voice")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
+                        Text("MiniMax M3 writes the guide; it does not synthesize audio.")
+                            .font(.analysisUISmall())
+                            .foregroundColor(AnalysisTheme.textMuted)
                     }
                     Spacer()
                 }
@@ -280,9 +282,8 @@ struct GenerationView: View {
                 .cornerRadius(AnalysisTheme.Radius.md)
                 .accessibilityIdentifier("generation_voice_liam_label")
 
-                if !KokoroModelStore.isInstalled,
-                   KokoroTTSClient.currentAPIKey() == nil {
-                    Text("⚠️ Download Kokoro or configure a cloud narrator in Settings → Audio & Narration")
+                if !KokoroModelStore.isInstalled {
+                    Text("Download Kokoro in Settings → Audio & Narration before listening.")
                         .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.accentHighlight)
                 }
@@ -623,9 +624,8 @@ struct GenerationView: View {
 
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
-                    // has auto-narration on and Kokoro or Liam is ready.
+                    // has auto-narration on and the on-device model is installed.
                     let hasNarrationProvider = KokoroModelStore.isInstalled
-                        || KokoroTTSClient.currentAPIKey() != nil
                     let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
                     if willNarrate {
                         item.narrationState = .generating
@@ -667,7 +667,8 @@ struct GenerationView: View {
             do {
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
-                    itemId: itemId
+                    itemId: itemId,
+                    summaryType: item.summaryType
                 )
                 await MainActor.run {
                     // Re-fetch in case the item changed while narration ran.
@@ -788,4 +789,4 @@ struct GuidePreviewCard: View {
     }
 }
 
-// Voice selection was removed: narration uses the fixed provider order in AudioSettingsView.
+// Voice selection lives in Audio Settings and applies to on-device Kokoro narration.

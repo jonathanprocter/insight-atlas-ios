@@ -46,6 +46,7 @@ enum NarrationServiceError: LocalizedError {
     case missingToken
     case emptyText
     case documentsDirectoryUnavailable
+    case invalidAudio
     case assemblyFailed
     case network(String)
     case underlying(KokoroTTSError)
@@ -55,13 +56,15 @@ enum NarrationServiceError: LocalizedError {
         case .alreadyInProgress:
             return "Narration is already being generated for this guide."
         case .noConfiguredProvider:
-            return "Download the Kokoro model or configure Mega Transcript in Settings → Audio & Narration."
+            return "Download the Kokoro on-device voice model in Settings → Audio & Narration before listening."
         case .missingToken:
             return "Add your Liam narration token in Settings → Audio & Narration."
         case .emptyText:
             return "There is no summary text to narrate."
         case .documentsDirectoryUnavailable:
             return "The app's Documents directory is unavailable."
+        case .invalidAudio:
+            return "The generated narration was not playable. Retry or choose another installed Kokoro voice."
         case .assemblyFailed:
             return "Failed to assemble the narration audio segments."
         case let .network(detail):

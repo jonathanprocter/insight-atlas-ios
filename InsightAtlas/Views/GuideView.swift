@@ -587,11 +587,11 @@ struct GuideView: View {
 
         Task {
             do {
-                // Mega Transcript is preferred; on-device Kokoro (Liam) is the fallback. The
-                // service sanitizes the spoken copy while caching by exact text.
+                // Generate a bounded, syntax-free listening edition with on-device Kokoro.
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
-                    itemId: itemId
+                    itemId: itemId,
+                    summaryType: item.summaryType
                 )
 
                 await MainActor.run {
@@ -649,7 +649,8 @@ struct GuideView: View {
             do {
                 let asset = try await NarrationService.shared.synthesize(
                     text: content,
-                    itemId: itemId
+                    itemId: itemId,
+                    summaryType: item.summaryType
                 )
 
                 await MainActor.run {

@@ -2,8 +2,8 @@
 //  NarrationControlsView.swift
 //  InsightAtlas
 //
-//  The Listen panel shown over a guide. Narration is on-device Kokoro first,
-//  with the hosted Kokoro voice ("Liam") as the fallback.
+//  The Listen panel shown over a guide. New narration is generated entirely
+//  on-device with the installed Kokoro model and selected voice.
 //
 //  The panel floats above the guide text, so it can be collapsed to a small
 //  pill when it gets in the way of reading. Collapsing never interrupts
@@ -19,7 +19,6 @@ import SwiftUI
 final class NarrationControlViewModel: ObservableObject {
     @Published private(set) var progress: NarrationPreparationProgress?
     @Published private(set) var isPreparing = false
-    @Published private(set) var fallbackMessage: String?
     @Published var errorMessage: String?
     @Published private(set) var canRetry = false
 
@@ -38,7 +37,6 @@ final class NarrationControlViewModel: ObservableObject {
         guard generationTask == nil, let summary = item.summaryContent, !summary.isEmpty else { return }
         isPreparing = true
         errorMessage = nil
-        fallbackMessage = nil
         canRetry = false
         DataManager.shared.setNarrationState(.generating, for: item.id)
 
@@ -47,13 +45,11 @@ final class NarrationControlViewModel: ObservableObject {
             do {
                 let asset = try await NarrationService.shared.synthesize(
                     text: summary,
-                    itemId: item.id
+                    itemId: item.id,
+                    summaryType: item.summaryType
                 ) { [weak self] update in
                     Task { @MainActor in
                         self?.progress = update
-                        if case .fallingBackToLiam(let reason) = update {
-                            self?.fallbackMessage = reason
-                        }
                     }
                 }
                 if Task.isCancelled { throw CancellationError() }
@@ -63,12 +59,17 @@ final class NarrationControlViewModel: ObservableObject {
                 generationTask = nil
                 progress = .ready(narrator: narratorName(for: asset.voiceID))
                 if let url = Self.audioURL(for: asset.relativeFileName) {
-                    try NarrationPlaybackController.shared.play(
-                        url: url,
-                        title: item.title,
-                        author: item.author,
-                        coverImagePath: item.coverImagePath
-                    )
+                    do {
+                        try NarrationPlaybackController.shared.play(
+                            url: url,
+                            title: item.title,
+                            author: item.author,
+                            coverImagePath: item.coverImagePath
+                        )
+                    } catch {
+                        errorMessage = NarrationPlaybackFailureMessage.message(for: error)
+                        canRetry = KokoroModelStore.isInstalled
+                    }
                 }
             } catch is CancellationError {
                 isPreparing = false
@@ -81,7 +82,6 @@ final class NarrationControlViewModel: ObservableObject {
                 DataManager.shared.markNarrationFailed(for: item.id)
                 errorMessage = error.localizedDescription
                 canRetry = KokoroModelStore.isInstalled
-                    || KokoroTTSClient.currentAPIKey() != nil
             }
         }
     }
@@ -127,7 +127,8 @@ final class NarrationControlViewModel: ObservableObject {
                 )
             }
         } catch {
-            errorMessage = "Audio playback failed: \(error.localizedDescription)"
+            errorMessage = NarrationPlaybackFailureMessage.message(for: error)
+            canRetry = KokoroModelStore.isInstalled
         }
     }
 
@@ -169,7 +170,16 @@ struct NarrationControlsView: View {
     }
 
     private var kokoroConfigured: Bool { KokoroModelStore.isInstalled }
-    private var liamConfigured: Bool { KokoroTTSClient.currentAPIKey() != nil }
+
+    private var selectedKokoroVoiceName: String {
+        guard let voiceID = UserDefaults.standard.string(
+            forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
+        ) else {
+            return KokoroVoiceRegistry.defaultVoice.name
+        }
+        return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name
+            ?? KokoroVoiceRegistry.defaultVoice.name
+    }
 
     var body: some View {
         Group {
@@ -277,7 +287,7 @@ struct NarrationControlsView: View {
                 preparingRow
             } else if hasAudio {
                 playbackControls
-            } else if !kokoroConfigured && !liamConfigured {
+            } else if !kokoroConfigured {
                 HStack {
                     Text("Download Kokoro in Settings → Audio & Narration before listening.")
                         .font(.subheadline)
@@ -294,12 +304,6 @@ struct NarrationControlsView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(PremiumUI.slate)
                 .accessibilityLabel(listenButtonTitle)
-            }
-
-            if let fallbackMessage = model.fallbackMessage {
-                Text(fallbackMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             if let error = model.errorMessage {
@@ -364,11 +368,13 @@ struct NarrationControlsView: View {
     }
 
     private var readySubtitle: String {
-        kokoroConfigured ? "Kokoro on-device · Liam fallback" : "Liam"
+        kokoroConfigured
+            ? "Kokoro on-device · \(selectedKokoroVoiceName)"
+            : "Download the Kokoro voice model"
     }
 
     private var listenButtonTitle: String {
-        kokoroConfigured ? "Listen with Kokoro" : "Listen with Liam"
+        "Listen with \(selectedKokoroVoiceName)"
     }
 
     private var playbackControls: some View {

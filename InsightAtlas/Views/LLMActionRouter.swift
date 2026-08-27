@@ -124,16 +124,6 @@ public enum LLMActionRouter {
             KeychainService.shared.openRouterApiKey = v.isEmpty ? nil : v
             return .success("Updated OpenRouter key")
 
-        case "securefield_liam_token":
-            guard let v = value else { return .failure("Provide a narration token value.") }
-            let trimmed = v.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                try? KokoroTTSClient.removeAPIKey()
-                return .success("Cleared Liam narration token")
-            }
-            try? KokoroTTSClient.storeAPIKey(trimmed)
-            return .success("Updated Liam narration token")
-
         default:
             // Navigation rows require UI interaction in this architecture.
             if identifier.hasPrefix("navrow_") {

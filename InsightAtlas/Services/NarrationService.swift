@@ -2,18 +2,15 @@
 //  NarrationService.swift
 //  InsightAtlas
 //
-//  Narration orchestration with an offline-first provider policy:
-//    1. Kokoro — premium on-device narration with no per-use fee.
-//    2. Liam — the hosted Kokoro voice, used as the final fallback.
+//  Narration orchestration for private on-device Kokoro synthesis.
 //
-//  All providers converge on the app's standard `NarrationAsset` contract: a file
-//  written into Documents as `audio_<itemId>.<ext>` plus a duration and voice
-//  id. Because the output shape is identical to `KokoroNarrationService`, every
-//  existing caller (GuideView, GenerationView) and the playback/persistence
-//  layer keep working unchanged — only the source of the audio differs.
+//  Successful output conforms to the app's standard `NarrationAsset` contract:
+//  a validated file in Documents plus duration and voice metadata shared by the
+//  reader, library, and export paths.
 //
 
 import Foundation
+import AVFoundation
 import UIKit
 import os.log
 
@@ -21,22 +18,113 @@ private let narrationLog = Logger(subsystem: "com.insightatlas", category: "Narr
 
 enum NarrationProviderRoute: String, Equatable, Sendable {
     case kokoro
-    case liam
 }
 
 enum NarrationFallbackPolicy {
-    static func orderedRoutes(
-        kokoroConfigured: Bool,
-        liamConfigured: Bool
-    ) -> [NarrationProviderRoute] {
-        var routes: [NarrationProviderRoute] = []
-        if kokoroConfigured { routes.append(.kokoro) }
-        if liamConfigured { routes.append(.liam) }
-        return routes
+    static func orderedRoutes(kokoroConfigured: Bool) -> [NarrationProviderRoute] {
+        kokoroConfigured ? [.kokoro] : []
     }
 }
 
+enum NarrationPreparationPolicy {
+    /// First-time narration starts from deterministic sanitized guide prose.
+    /// Optional LLM rewriting must never block local synthesis startup.
+    static let rewritesBeforeInitialSynthesis = false
+}
 
+enum NarrationListeningEdition {
+    static func maximumWords(for summaryType: SummaryType?) -> Int {
+        switch summaryType {
+        case .quickReference: return 900
+        case .professional, .none: return 2_400
+        case .accessible: return 3_000
+        case .deepResearch: return 3_600
+        }
+    }
+
+    static func prepare(
+        _ content: String,
+        summaryType: SummaryType?,
+        maximumWordsOverride: Int? = nil
+    ) -> String {
+        let sanitized = NarrationTextSanitizer.prepare(content)
+        let budget = max(1, maximumWordsOverride ?? maximumWords(for: summaryType))
+        let words = sanitized.split(whereSeparator: { $0.isWhitespace })
+        guard words.count > budget else { return sanitized }
+
+        let paragraphs = sanitized
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard paragraphs.count > 1 else {
+            return words.prefix(budget).joined(separator: " ")
+        }
+
+        let averageWords = max(1, words.count / paragraphs.count)
+        let selectionCount = min(paragraphs.count, max(2, budget / averageWords))
+        let rawIndices = (0..<selectionCount).map { position -> Int in
+            guard selectionCount > 1 else { return 0 }
+            return Int(
+                (Double(position) * Double(paragraphs.count - 1)
+                    / Double(selectionCount - 1)).rounded()
+            )
+        }
+        let indices = Array(Set(rawIndices)).sorted()
+        let perSectionBudget = max(1, budget / max(1, indices.count))
+
+        return indices.map { index in
+            boundedParagraph(paragraphs[index], wordLimit: perSectionBudget)
+        }
+        .joined(separator: "\n\n")
+    }
+
+    private static func boundedParagraph(_ paragraph: String, wordLimit: Int) -> String {
+        let words = paragraph.split(whereSeparator: { $0.isWhitespace })
+        guard words.count > wordLimit else { return paragraph }
+
+        let prefix = words.prefix(wordLimit).joined(separator: " ")
+        if let punctuationIndex = prefix.lastIndex(where: { ".!?".contains($0) }) {
+            let complete = String(prefix[...punctuationIndex])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if complete.split(whereSeparator: { $0.isWhitespace }).count >= min(5, wordLimit) {
+                return complete
+            }
+        }
+
+        return prefix.trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
+}
+
+enum NarrationAudioValidation {
+    static func hasSupportedContainer(_ data: Data) -> Bool {
+        if data.count >= 4, data.prefix(4) == Data("RIFF".utf8) { return true }
+        if data.count >= 8, data.subdata(in: 4..<8) == Data("ftyp".utf8) { return true }
+        if data.count >= 3, data.prefix(3) == Data("ID3".utf8) { return true }
+        if data.count >= 2 {
+            let bytes = [UInt8](data.prefix(2))
+            if bytes[0] == 0xFF, bytes[1] & 0xE0 == 0xE0 { return true }
+        }
+        return false
+    }
+
+    static func validatedDuration(
+        at url: URL,
+        declaredDuration: TimeInterval
+    ) async throws -> TimeInterval {
+        guard declaredDuration.isFinite, declaredDuration > 0 else {
+            throw NarrationServiceError.invalidAudio
+        }
+
+        let asset = AVURLAsset(url: url)
+        let isPlayable = try await asset.load(.isPlayable)
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        let duration = try await asset.load(.duration).seconds
+        guard isPlayable, !tracks.isEmpty, duration.isFinite, duration > 0 else {
+            throw NarrationServiceError.invalidAudio
+        }
+        return duration
+    }
+}
 
 /// Keeps the app running briefly after it is backgrounded so narration in
 /// flight is not suspended the moment the user leaves.
@@ -78,7 +166,7 @@ private actor ProgressHeartbeat {
 struct NarrationStalled: LocalizedError {
     let stage: String
     var errorDescription: String? {
-        "Narration stopped responding while \(stage). Trying the next voice."
+        "Narration stopped responding while \(stage). Retry or choose another installed Kokoro voice."
     }
 }
 
@@ -116,17 +204,17 @@ actor NarrationService {
         }
     }
 
-    /// Synthesize narration for `itemId` using the fixed provider order:
-    /// on-device Kokoro -> hosted Liam.
-    /// Cancellation never triggers another provider request.
+    /// Synthesize narration for `itemId` using installed on-device Kokoro.
+    /// MiniMax M3 generates written guides; it is not an audio provider.
     func synthesize(
         text: String,
         itemId: UUID,
+        summaryType: SummaryType? = nil,
         progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in }
     ) async throws -> NarrationAsset {
-        // Rewrite the written guide into an audio-first script (describing every
-        // visual in words) when MiniMax is available. Safe pass-through otherwise:
-        // `spokenScript` returns `text` unchanged on any failure.
+        // Start local synthesis immediately. The previous path waited as long as
+        // 75 seconds for an optional MiniMax rewrite that preserved roughly the
+        // full source length and therefore did not reduce Kokoro synthesis work.
         // Hold a background assertion for the whole attempt so leaving the app
         // does not suspend an in-flight render.
         let assertion = await NarrationBackgroundAssertion()
@@ -139,17 +227,14 @@ actor NarrationService {
             }
         }
 
-        let narrationSource = await NarrationScriptService.shared.spokenScript(
-            for: itemId,
-            guideContent: text,
-            progress: progress
+        let spokenText = NarrationListeningEdition.prepare(
+            text,
+            summaryType: summaryType
         )
-        let spokenText = NarrationTextSanitizer.prepare(narrationSource)
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
         let routes = NarrationFallbackPolicy.orderedRoutes(
-            kokoroConfigured: KokoroModelStore.isInstalled,
-            liamConfigured: KokoroTTSClient.currentAPIKey() != nil
+            kokoroConfigured: KokoroModelStore.isInstalled
         )
         guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
 
@@ -182,7 +267,7 @@ actor NarrationService {
                             }
                         )
                     }
-                    let asset = try persist(audio: audio, itemId: itemId)
+                    let asset = try await persist(audio: audio, itemId: itemId)
                     progress(.ready(narrator: narrator))
                     narrationLog.info(
                         "Narration via on-device Kokoro (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
@@ -193,26 +278,8 @@ actor NarrationService {
                 } catch {
                     lastFailure = error
                     narrationLog.error(
-                        "On-device Kokoro failed [\(error.localizedDescription, privacy: .public)] — moving to the next configured narration provider"
+                        "On-device Kokoro could not complete narration [\(error.localizedDescription, privacy: .public)]"
                     )
-                }
-
-            case .liam:
-                let reason = lastFailure?.localizedDescription
-                    ?? "Using Liam as the final configured narration provider."
-                progress(.fallingBackToLiam(reason: reason))
-                do {
-                    let asset = try await KokoroNarrationService.shared.synthesizeAsset(
-                        text: spokenText,
-                        itemId: itemId
-                    )
-                    progress(.ready(narrator: "Liam"))
-                    narrationLog.info("Narration via Liam final fallback for \(itemId.uuidString)")
-                    return asset
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch {
-                    lastFailure = error
                 }
             }
         }
@@ -220,15 +287,19 @@ actor NarrationService {
         throw lastFailure ?? NarrationServiceError.noConfiguredProvider
     }
 
-    private func persist(audio: GeneratedAudio, itemId: UUID) throws -> NarrationAsset {
+    private func persist(audio: GeneratedAudio, itemId: UUID) async throws -> NarrationAsset {
         guard let documents = FileManager.default.urls(
             for: .documentDirectory, in: .userDomainMask
         ).first else {
             throw NarrationServiceError.documentsDirectoryUnavailable
         }
 
-        // Single-chunk output is MP3; multi-chunk is assembled to M4A. Pick the
-        // extension from the container so playback/type detection stays correct.
+        // Reject HTML/error payloads and other unsupported bytes before they can
+        // replace a previously playable narration.
+        guard NarrationAudioValidation.hasSupportedContainer(audio.data) else {
+            throw NarrationServiceError.invalidAudio
+        }
+
         let ext = Self.fileExtension(for: audio.data)
         let relativeName = "audio_\(itemId.uuidString).\(ext)"
         let finalURL = documents.appendingPathComponent(relativeName)
@@ -236,10 +307,22 @@ actor NarrationService {
 
         // Stage then promote atomically so prior audio survives until success.
         let staging = documents.appendingPathComponent(
-            ".\(relativeName).\(UUID().uuidString).partial"
+            ".audio_\(itemId.uuidString).\(UUID().uuidString).partial.\(ext)"
         )
         try? fm.removeItem(at: staging)
         try audio.data.write(to: staging, options: .atomic)
+
+        let validatedDuration: TimeInterval
+        do {
+            validatedDuration = try await NarrationAudioValidation.validatedDuration(
+                at: staging,
+                declaredDuration: audio.duration
+            )
+        } catch {
+            try? fm.removeItem(at: staging)
+            throw NarrationServiceError.invalidAudio
+        }
+
         if fm.fileExists(atPath: finalURL.path) {
             _ = try fm.replaceItemAt(finalURL, withItemAt: staging)
         } else {
@@ -256,7 +339,7 @@ actor NarrationService {
         return NarrationAsset(
             relativeFileName: relativeName,
             voiceID: audio.voiceID,
-            duration: audio.duration
+            duration: validatedDuration
         )
     }
 

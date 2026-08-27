@@ -48,7 +48,7 @@ struct VoicePickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Select a \(provider.displayName) voice for manual previews. Full-guide narration uses offline Kokoro first, then Mega Transcript and Liam when configured.")
+                    Text("Choose an installed Kokoro voice for private on-device previews and full-guide narration.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)

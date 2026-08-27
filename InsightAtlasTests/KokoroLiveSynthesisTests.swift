@@ -74,6 +74,43 @@ final class KokoroLiveSynthesisTests: XCTestCase {
         )
     }
 
+    func testDanielLongFormChunkBenchmarkProducesPlayableAudio() async throws {
+        guard let directory = modelDirectory else {
+            throw XCTSkip("Set KOKORO_MODEL_DIR to run live synthesis tests")
+        }
+        let sentence = "Daniel explains one complete idea at a time so the listening edition remains natural, accurate, and easy to follow."
+        let text = Array(repeating: sentence, count: 24).joined(separator: " ")
+        guard let voice = KokoroVoiceRegistry.voice(byVoiceID: "bm_daniel") else {
+            return XCTFail("Daniel must remain registered in the production Kokoro model")
+        }
+        XCTAssertEqual(voice.speakerID, 24)
+
+        var timings: [(label: String, chunks: Int, wall: TimeInterval)] = []
+        for (label, ceiling) in [("legacy", 1_200), ("optimized", 1_500)] {
+            let chunker = KokoroTextChunker(maximumCharacters: ceiling)
+            let engine = KokoroSynthesisEngine(chunker: chunker)
+            let started = Date()
+            let result = try await engine.generate(
+                text: text,
+                speakerID: voice.speakerID,
+                modelDirectory: directory,
+                onModelLoadStart: nil,
+                onProgress: nil
+            )
+            let player = try AVAudioPlayer(data: result.data)
+            XCTAssertTrue(player.prepareToPlay(), "\(label) Daniel output was not playable")
+            XCTAssertGreaterThan(player.duration, 0)
+            timings.append((label, chunker.chunks(for: text).count, Date().timeIntervalSince(started)))
+        }
+
+        XCTAssertLessThan(timings[1].chunks, timings[0].chunks)
+        print(String(
+            format: "[Benchmark] Daniel legacy: %d chunks, %.2fs; optimized: %d chunks, %.2fs",
+            timings[0].chunks, timings[0].wall,
+            timings[1].chunks, timings[1].wall
+        ))
+    }
+
     /// Every registered voice must exist in the model. A speaker id beyond the
     /// model's range yields empty samples, which surfaces as a generation
     /// failure rather than anything diagnosable.

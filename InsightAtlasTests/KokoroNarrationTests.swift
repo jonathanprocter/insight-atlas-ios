@@ -10,6 +10,7 @@
 //
 
 import XCTest
+import AVFoundation
 @testable import InsightAtlas
 
 final class KokoroNarrationTests: XCTestCase {
@@ -202,37 +203,150 @@ final class KokoroNarrationTests: XCTestCase {
 
     // MARK: - Stable provider fallback policy
 
-    func testNarrationFallbackPolicyUsesKokoroThenLiam() {
+    func testNarrationFallbackPolicyUsesOnlyInstalledOnDeviceKokoro() {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: true,
-                liamConfigured: true
+                kokoroConfigured: true
             ),
-            [.kokoro, .liam]
+            [.kokoro]
         )
     }
 
-    func testNarrationFallbackPolicySkipsOnlyUnconfiguredProvidersWithoutReordering() {
-        XCTAssertEqual(
+    func testNarrationFallbackPolicyNeverRoutesToUnavailableHostedLiam() {
+        XCTAssertTrue(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: false,
-                liamConfigured: true
-            ),
-            [.liam]
+                kokoroConfigured: false
+            ).isEmpty
         )
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: true,
-                liamConfigured: false
+                kokoroConfigured: true
             ),
             [.kokoro]
         )
         XCTAssertTrue(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: false,
-                liamConfigured: false
+                kokoroConfigured: false
             ).isEmpty
         )
+    }
+
+    func testMiniMaxM3IsAWrittenGuideProviderNotAnAudioSynthesizer() {
+        XCTAssertFalse(AIProvider.minimax.supportsDirectAudioGeneration)
+    }
+
+    func testFirstNarrationDoesNotWaitForOptionalLLMRewrite() {
+        XCTAssertFalse(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
+    }
+
+    func testProfessionalListeningEditionHasPracticalSpokenWordBudget() {
+        XCTAssertEqual(
+            NarrationListeningEdition.maximumWords(for: .professional),
+            2_400
+        )
+    }
+
+    func testListeningEditionIsBoundedSyntaxFreeAndCoversTheWholeGuide() {
+        let paragraphs = (0..<12).map { index in
+            let marker = index == 0 ? "OpeningAnchor" : (index == 11 ? "ClosingAnchor" : "Section\(index)")
+            return "[PREMIUM_H2]\(marker)[/PREMIUM_H2]\n" +
+                Array(repeating: "Meaningful sentence \(index) supports reflective application.", count: 10)
+                    .joined(separator: " ")
+        }
+        let guide = paragraphs.joined(separator: "\n\n")
+
+        let edition = NarrationListeningEdition.prepare(
+            guide,
+            summaryType: .professional,
+            maximumWordsOverride: 120
+        )
+
+        XCTAssertLessThanOrEqual(edition.split(whereSeparator: { $0.isWhitespace }).count, 120)
+        XCTAssertTrue(edition.contains("OpeningAnchor"))
+        XCTAssertTrue(edition.contains("ClosingAnchor"))
+        XCTAssertFalse(edition.contains("[PREMIUM_H2]"))
+        XCTAssertFalse(edition.contains("**"))
+    }
+
+    func testListeningEditionStopsSampledSectionsOnSentenceBoundaries() {
+        let guide = [
+            "Opening context establishes the premise. A second sentence expands the premise with detail.",
+            "Middle context develops the argument. Another complete sentence adds an important qualification.",
+            "Closing context integrates the lesson. The final sentence names a practical next step."
+        ].joined(separator: "\n\n")
+
+        let edition = NarrationListeningEdition.prepare(
+            guide,
+            summaryType: .professional,
+            maximumWordsOverride: 14
+        )
+
+        for paragraph in edition.components(separatedBy: "\n\n") {
+            XCTAssertTrue(paragraph.hasSuffix("."), "Narration must not end mid-sentence: \(paragraph)")
+        }
+    }
+
+    func testPlaybackSessionPolicyAvoidsDeviceInvalidBluetoothOption() {
+        XCTAssertEqual(NarrationPlaybackPolicy.mode, .default)
+        XCTAssertFalse(NarrationPlaybackPolicy.options.contains(.allowBluetoothHFP))
+        XCTAssertFalse(NarrationPlaybackPolicy.options.contains(.allowBluetoothA2DP))
+    }
+
+    func testUnsupportedAudioContainerCannotBePromoted() {
+        XCTAssertFalse(NarrationAudioValidation.hasSupportedContainer(Data("not audio".utf8)))
+        XCTAssertFalse(NarrationAudioValidation.hasSupportedContainer(Data()))
+        XCTAssertTrue(NarrationAudioValidation.hasSupportedContainer(Data("RIFFvalid".utf8)))
+    }
+
+    func testDeceptiveRiffHeaderFailsStagedPlayabilityValidation() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("invalid-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("RIFFnot-a-wave".utf8).write(to: url)
+
+        do {
+            _ = try await NarrationAudioValidation.validatedDuration(
+                at: url,
+                declaredDuration: 1
+            )
+            XCTFail("header-only bytes must not be promoted as playable narration")
+        } catch {
+            XCTAssertNotNil(error)
+        }
+    }
+
+    func testPlayableStagedWavePassesValidation() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("valid-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let format = try XCTUnwrap(AVAudioFormat(
+            standardFormatWithSampleRate: 22_050,
+            channels: 1
+        ))
+        var file: AVAudioFile? = try AVAudioFile(forWriting: url, settings: format.settings)
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(
+            pcmFormat: format,
+            frameCapacity: 2_205
+        ))
+        buffer.frameLength = 2_205
+        try file?.write(from: buffer)
+        file = nil
+
+        let duration = try await NarrationAudioValidation.validatedDuration(
+            at: url,
+            declaredDuration: 0.1
+        )
+        XCTAssertGreaterThan(duration, 0)
+    }
+
+    func testRawOSStatusFailureMapsToActionableRegenerationMessage() {
+        let message = NarrationPlaybackFailureMessage.message(
+            for: NSError(domain: NSOSStatusErrorDomain, code: -50)
+        )
+        XCTAssertFalse(message.contains("OSStatus"))
+        XCTAssertFalse(message.contains("-50"))
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("regenerate"))
     }
 
     // MARK: - Synthesis progress

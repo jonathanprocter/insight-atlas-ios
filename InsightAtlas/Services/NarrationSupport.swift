@@ -284,6 +284,25 @@ enum NarrationTextSanitizer {
 
 // MARK: - Shared local playback
 
+enum NarrationPlaybackPolicy {
+    /// `.default` is the playback-compatible mode for locally generated files.
+    /// Bluetooth routing is managed by iOS; recording-only Bluetooth options are
+    /// deliberately omitted to avoid `paramErr` on physical devices.
+    static let mode: AVAudioSession.Mode = .default
+    static let options: AVAudioSession.CategoryOptions = []
+}
+
+enum NarrationPlaybackFailureMessage {
+    static func message(for error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == NSOSStatusErrorDomain
+            || nsError.domain == AVFoundationErrorDomain {
+            return "This narration file could not be played. Regenerate the audio and try again."
+        }
+        return "Narration playback failed. Regenerate the audio and try again."
+    }
+}
+
 @MainActor
 final class NarrationPlaybackController: NSObject, ObservableObject {
     static let shared = NarrationPlaybackController()
@@ -373,7 +392,11 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
 
     private func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .spokenAudio, options: [.allowBluetoothA2DP])
+        try session.setCategory(
+            .playback,
+            mode: NarrationPlaybackPolicy.mode,
+            options: NarrationPlaybackPolicy.options
+        )
         try session.setActive(true)
     }
 
