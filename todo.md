@@ -38,3 +38,30 @@
 - [x] Add third-party notices, setup documentation, and troubleshooting guidance.
 - [x] Run static checks, independent review, and the full macOS CI build/test suite (201 tests, 0 failures).
 - [ ] Validate install, generation, playback, deletion, and airplane-mode use on a physical iPhone.
+
+## Audio and Content Reliability Release
+
+- [x] Reconcile local, GitHub, archive, and TestFlight baseline
+- [x] Preserve the user-reported screenshot evidence without reopening attachments
+- [x] Verify MiniMax M3 is text-only and MiniMax Speech is a separate product
+- [x] Reproduce the hosted Liam HTTP 530 / Cloudflare 1033 outage
+- [x] Trace Daniel startup latency, Kokoro synthesis, persistence, and OSStatus -50 playback
+- [x] Trace adjacent editorial tags and malformed header absorption in the reader
+- [x] Document the release design and implementation plan
+- [ ] Add and verify failing editorial canonicalization and legacy-reader tests
+- [ ] Add and verify failing narration critical-path and provider-route tests
+- [ ] Add and verify failing audio-session, staged-asset, and error-mapping tests
+- [ ] Implement canonical editorial normalization before persistence and at render time
+- [ ] Remove optional full-guide LLM rewriting from first-time narration startup
+- [ ] Remove the unavailable hosted Liam route from automatic fallback
+- [ ] Validate staged audio before replacing a prior asset
+- [ ] Configure playback without incompatible Bluetooth options and map raw OSStatus errors
+- [ ] Benchmark and implement an evidence-supported Kokoro chunk-size improvement
+- [ ] Verify every guide-generation setting family against reader syntax leakage
+- [ ] Run targeted, full-suite, live-production-model, Release, analyzer, and strict-concurrency checks
+- [ ] Complete iPhone and iPad visual verification
+- [ ] Complete independent code review
+- [ ] Integrate and synchronize local and GitHub branches
+- [ ] Assign the next unique TestFlight build number
+- [ ] Archive, upload, and verify internal TestFlight availability
+- [ ] Tag the accepted build and deliver release evidence
