@@ -58,8 +58,8 @@
 - [x] Configure playback without incompatible Bluetooth options and map raw OSStatus errors
 - [x] Benchmark and implement an evidence-supported Kokoro chunk-size improvement
 - [x] Verify every guide-generation setting family against reader syntax leakage
-- [ ] Run targeted, full-suite, live-production-model, Release, analyzer, and strict-concurrency checks
-- [ ] Complete iPhone and iPad visual verification
+- [x] Run targeted, full-suite, live-production-model, Release, analyzer, and strict-concurrency checks
+- [x] Complete iPhone and iPad visual verification
 - [ ] Complete independent code review
 - [ ] Integrate and synchronize local and GitHub branches
 - [ ] Assign the next unique TestFlight build number
