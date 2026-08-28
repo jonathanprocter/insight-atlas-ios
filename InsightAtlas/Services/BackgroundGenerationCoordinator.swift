@@ -362,17 +362,16 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 let improvementHints = generateImprovementHints(from: qualityIssues)
                 governorLog("Starting improvement pass with hints: \(improvementHints.prefix(200))...")
 
-                // Create new governor context for improvement pass (remaining budget)
-                let remainingBudget = max(governor.maxWordCeiling - finalResult.wordCount, 1000)
+                // The model returns one complete revised guide, so govern this as
+                // a replacement pass. Preloading the first guide caused the new
+                // guide to be appended, double-counted, and cut off early.
                 let improvementGovernor = StreamingGovernorContext(
                     governor: governor,
                     engine: engine,
-                    totalBudget: remainingBudget,
+                    totalBudget: totalBudget,
                     sourceType: sourceTypeResult.detectedType
                 )
-
-                // Pre-populate with existing content
-                _ = improvementGovernor.processChunk(finalResult.content)
+                improvementGovernor.reserveConclusionBudget = true
 
                 let (improvedResult, improvedGovernorResult) = try await performGeneration(
                     bookText: bookText,
@@ -773,6 +772,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 title: state.title,
                 author: state.author,
                 settings: settings,
+                targetWordCount: governorContext?.totalBudget,
                 previousContent: resumeFromContent,
                 improvementHints: effectiveHints,
                 onChunk: { [weak self, weak streamState] chunk in

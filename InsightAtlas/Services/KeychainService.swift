@@ -101,7 +101,7 @@ final class KeychainService {
         openRouterApiKey?.isEmpty == false
     }
 
-    // MARK: - MiniMax M3 OAuth tokens
+    // MARK: - MiniMax OAuth tokens
 
     var minimaxAccessToken: String? {
         get { retrieve(key: Keys.minimaxAccessToken) }

@@ -49,7 +49,7 @@ final class ProviderConfigurationTests: XCTestCase {
 
         let decoded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
 
-        // A retired "openai" selection lands on MiniMax M3, the current default.
+        // A retired "openai" selection lands on MiniMax, the current default.
         XCTAssertEqual(decoded.preferredProvider, .minimax)
         XCTAssertEqual(decoded.voiceProvider, .kokoro)
         XCTAssertEqual(decoded.preferredReaderProfile, .academic)

@@ -555,6 +555,7 @@ struct RegenerateView: View {
             title: item.title,
             author: item.author,
             settings: settings,
+            targetWordCount: SummaryTypeGovernor.governor(for: selectedSummaryType).baseWordCount,
             previousContent: previousContentForImprovement,
             improvementHints: improvementHints,
             onChunk: { chunk in

@@ -297,7 +297,7 @@ enum BookmarkColor: String, Codable, CaseIterable {
 
 // MARK: - AI Provider
 
-/// Generation providers. MiniMax M3 is the primary generator and leads the
+/// Generation providers. MiniMax M2.7 is the primary generator and leads the
 /// list so it is the first choice everywhere providers are offered.
 enum AIProvider: String, Codable, CaseIterable {
     case minimax = "minimax"
@@ -306,7 +306,7 @@ enum AIProvider: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .minimax: return "MiniMax M3"
+        case .minimax: return "MiniMax M2.7"
         case .claude: return "Claude"
         case .openRouter: return "OpenRouter"
         }
@@ -689,7 +689,7 @@ struct UserSettings: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let preferredProviderRawValue = try container.decodeIfPresent(String.self, forKey: .preferredProvider)
         // Unknown values include the retired "openai" selection, which lands on
-        // MiniMax M3 rather than being carried forward.
+        // MiniMax rather than being carried forward.
         preferredProvider = preferredProviderRawValue.flatMap(AIProvider.init(rawValue:)) ?? .minimax
         preferredMode = try container.decode(GenerationMode.self, forKey: .preferredMode)
         preferredTone = try container.decode(ToneMode.self, forKey: .preferredTone)
@@ -765,10 +765,16 @@ struct ClaudeRequest: Codable {
 struct ClaudeStreamEvent: Codable {
     let type: String
     let delta: ClaudeDelta?
+    let error: ClaudeStreamError?
 }
 
 struct ClaudeDelta: Codable {
     let text: String?
+}
+
+struct ClaudeStreamError: Codable {
+    let type: String?
+    let message: String?
 }
 
 struct OpenAIMessage: Codable {

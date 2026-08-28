@@ -87,7 +87,9 @@ struct InsightAtlasPromptGenerator {
         author: String,
         mode: GenerationMode = .standard,
         tone: ToneMode = .professional,
-        format: OutputFormat = .fullGuide
+        format: OutputFormat = .fullGuide,
+        summaryType: SummaryType = .professional,
+        targetWordCount: Int? = nil
     ) -> String {
 
         // Route to thematic synthesis prompt for JSON output format
@@ -987,6 +989,21 @@ struct InsightAtlasPromptGenerator {
             The goal is intellectual depth and honest positioning within the broader conversation — not citation counting for its own sake.
             """
         }
+
+        let governor = SummaryTypeGovernor.governor(for: summaryType)
+        let requestedWordCount = min(
+            max(targetWordCount ?? governor.baseWordCount, 1),
+            governor.maxWordCeiling
+        )
+        finalPrompt += """
+
+
+            ───
+            LENGTH CONTRACT
+            ───
+
+            Write approximately \(requestedWordCount) words. Complete the full editorial structure within that target and never exceed \(governor.maxWordCeiling) words. Do not stop after an outline or abbreviated summary. Prioritize complete prose, source-grounded analysis, and a finished conclusion over optional decorative elements.
+            """
 
         // Add format-specific instructions
         finalPrompt += generateFormatInstructions(format: format)

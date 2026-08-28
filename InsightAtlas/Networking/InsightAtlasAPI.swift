@@ -5,7 +5,7 @@
 //  API client for Insight Atlas backend services.
 //
 //  NOTE: This is an optional backend integration that is not required for
-//  the main app functionality. The app uses direct AI provider APIs (MiniMax M3, Claude)
+//  the main app functionality. The app uses direct AI provider APIs (MiniMax, Claude)
 //  via AIService for summary generation. This backend API is only used for
 //  the optional "Generate via Backend" feature in AnalysisDetailView.
 //

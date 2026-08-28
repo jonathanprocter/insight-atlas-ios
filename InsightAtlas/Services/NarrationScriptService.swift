@@ -4,7 +4,7 @@
 //
 //  Turns a finished guide into a spoken-word narration script before it reaches
 //  text-to-speech. The written guide is built for the eye — headings, citations,
-//  and 30+ visual types a listener cannot see. This service asks MiniMax M3 to
+//  and 30+ visual types a listener cannot see. This service asks MiniMax M2.7 to
 //  rewrite that content into audio-first prose that describes every visual in
 //  words, so the narration is exactly as informative as the page.
 //
@@ -39,7 +39,7 @@ actor NarrationScriptService {
         KeychainService.shared.minimaxAccessToken != nil
     }
 
-    /// Whether any generator can produce a script. MiniMax M3 is primary;
+    /// Whether any generator can produce a script. MiniMax M2.7 is primary;
     /// OpenRouter backs it up. When neither is configured the service is a
     /// pass-through and narration uses the raw guide content.
     private var isRewriteAvailable: Bool {
@@ -47,7 +47,7 @@ actor NarrationScriptService {
     }
 
     /// Return a spoken narration script for `guideContent`, generating it via
-    /// MiniMax M3 (and caching) when possible. On any failure — or when MiniMax
+    /// MiniMax M2.7 (and caching) when possible. On any failure — or when MiniMax
     /// is unavailable — returns `guideContent` unchanged so the caller can fall
     /// back to the existing sanitize-and-speak path.
     func spokenScript(
@@ -81,7 +81,7 @@ actor NarrationScriptService {
             return await existing.value
         }
 
-        let scriptGenerator = isMiniMaxAvailable ? "MiniMax M3" : "OpenRouter"
+        let scriptGenerator = isMiniMaxAvailable ? AIProvider.minimax.displayName : "OpenRouter"
         let task = Task { [aiService] () -> String in
             do {
                 try Task.checkCancellation()
