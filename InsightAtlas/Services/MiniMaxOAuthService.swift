@@ -30,7 +30,24 @@ enum MiniMaxOAuthConfig {
     static let grantType     = "urn:ietf:params:oauth:grant-type:user_code"
 
     /// Primary model served through this OAuth (Anthropic Messages endpoint).
-    static let defaultModel  = "MiniMax-M3"
+    static let defaultModel = "MiniMax-M2.7"
+
+    /// MiniMax M2.7 has a 204,800-token context window. Deep Research needs a
+    /// larger output allowance because reasoning tokens share `max_tokens` with
+    /// the visible answer on the Anthropic-compatible endpoint.
+    static let contextWindowTokens = 204_800
+    static let standardOutputTokenLimit = 16_000
+    static let deepResearchOutputTokenLimit = 64_000
+
+    static func outputTokenLimit(mode: GenerationMode, summaryType: SummaryType) -> Int {
+        mode == .deepResearch || summaryType == .deepResearch
+            ? deepResearchOutputTokenLimit
+            : standardOutputTokenLimit
+    }
+
+    static func inputTokenLimit(mode: GenerationMode, summaryType: SummaryType) -> Int {
+        contextWindowTokens - outputTokenLimit(mode: mode, summaryType: summaryType)
+    }
 
     /// The client_id is a production value, so sign-in is always available.
     static var isConfigured: Bool { true }

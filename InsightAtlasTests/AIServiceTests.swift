@@ -157,11 +157,56 @@ final class AIServiceTests: XCTestCase {
     func testProviderDisplayNames() {
         XCTAssertEqual(AIProvider.claude.displayName, "Claude")
         XCTAssertEqual(AIProvider.openRouter.displayName, "OpenRouter")
-        XCTAssertEqual(AIProvider.minimax.displayName, "MiniMax M3")
+        XCTAssertEqual(AIProvider.minimax.displayName, "MiniMax M2.7")
     }
 
     func testAllProvidersEnumerated() {
         XCTAssertEqual(AIProvider.allCases, [.minimax, .claude, .openRouter])
+    }
+
+    func testMiniMaxUsesSupportedModelAndDeepResearchBudget() {
+        XCTAssertEqual(MiniMaxOAuthConfig.defaultModel, "MiniMax-M2.7")
+        XCTAssertEqual(
+            MiniMaxOAuthConfig.outputTokenLimit(mode: .standard, summaryType: .professional),
+            16_000
+        )
+        XCTAssertEqual(
+            MiniMaxOAuthConfig.outputTokenLimit(mode: .deepResearch, summaryType: .deepResearch),
+            64_000
+        )
+        XCTAssertEqual(
+            MiniMaxOAuthConfig.inputTokenLimit(mode: .deepResearch, summaryType: .deepResearch),
+            140_800
+        )
+    }
+
+    func testMiniMaxTokenEstimateReservesDeepResearchOutputWindow() async {
+        let settings = UserSettings(
+            preferredProvider: .minimax,
+            preferredMode: .deepResearch,
+            preferredSummaryType: .deepResearch
+        )
+        let estimate = await aiService.estimateInputTokens(
+            bookText: "A short source.",
+            title: "Test",
+            author: "Author",
+            settings: settings
+        )
+
+        XCTAssertEqual(estimate.contextLimit, 140_800)
+    }
+
+    func testDeepResearchPromptIncludesRequestedLengthContract() {
+        let prompt = InsightAtlasPromptGenerator.generatePrompt(
+            title: "Test",
+            author: "Author",
+            mode: .deepResearch,
+            summaryType: .deepResearch,
+            targetWordCount: 9_000
+        )
+
+        XCTAssertTrue(prompt.contains("Write approximately 9000 words"))
+        XCTAssertTrue(prompt.contains("never exceed 12000 words"))
     }
 
     // MARK: - MiniMax -> OpenRouter Fallback Policy
@@ -279,6 +324,29 @@ final class AIServiceTests: XCTestCase {
 
         XCTAssertEqual(event.type, "message_start")
         XCTAssertNil(event.delta)
+    }
+
+    func testProviderStreamErrorIsNotSwallowed() throws {
+        let json = """
+        {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": "model is not supported"
+            }
+        }
+        """
+
+        let event = try JSONDecoder().decode(
+            ClaudeStreamEvent.self,
+            from: XCTUnwrap(json.data(using: .utf8))
+        )
+        let error = AIService.providerStreamError(from: event, providerLabel: "MiniMax")
+
+        guard case .streamError(let message) = error else {
+            return XCTFail("Expected a provider stream error")
+        }
+        XCTAssertTrue(message.contains("model is not supported"))
     }
 }
 

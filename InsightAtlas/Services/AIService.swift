@@ -78,7 +78,7 @@ actor AIService {
     /// Context window limits (approximate, leaving room for output)
     /// Claude Sonnet 4: 200K context, we reserve 20K for output (max_tokens)
     private let claudeContextLimit = 180_000
-    /// OpenRouter: generous limit to accommodate various models
+    /// OpenRouter: generous limit to accommodate various models.
     private let openRouterContextLimit = 500_000
 
     // MARK: - Token Estimation
@@ -119,7 +119,8 @@ actor AIService {
             author: author,
             mode: settings.preferredMode,
             tone: settings.preferredTone,
-            format: settings.preferredFormat
+            format: settings.preferredFormat,
+            summaryType: settings.preferredSummaryType
         )
 
         let userMessage = InsightAtlasPromptGenerator.generateUserMessage(
@@ -135,8 +136,13 @@ actor AIService {
 
         let contextLimit: Int
         switch settings.preferredProvider {
-        case .openRouter, .minimax:
+        case .openRouter:
             contextLimit = openRouterContextLimit
+        case .minimax:
+            contextLimit = MiniMaxOAuthConfig.inputTokenLimit(
+                mode: settings.preferredMode,
+                summaryType: settings.preferredSummaryType
+            )
         case .claude:
             contextLimit = claudeContextLimit
         }
@@ -174,7 +180,7 @@ actor AIService {
             case .openRouter:
                 providerName = "OpenRouter"
             case .minimax:
-                providerName = "MiniMax M3"
+                providerName = AIProvider.minimax.displayName
             }
             throw AIServiceError.inputTooLarge(
                 estimatedTokens: estimate.totalInputTokens,
@@ -197,6 +203,7 @@ actor AIService {
         title: String,
         author: String,
         settings: UserSettings,
+        targetWordCount: Int? = nil,
         previousContent: String? = nil,
         improvementHints: String? = nil,
         onChunk: @escaping (String) -> Void,
@@ -224,6 +231,8 @@ actor AIService {
                 mode: settings.preferredMode,
                 tone: settings.preferredTone,
                 format: settings.preferredFormat,
+                summaryType: settings.preferredSummaryType,
+                targetWordCount: targetWordCount,
                 apiKey: settings.claudeApiKey ?? "",
                 previousContent: previousContent,
                 improvementHints: improvementHints,
@@ -240,6 +249,8 @@ actor AIService {
                 mode: settings.preferredMode,
                 tone: settings.preferredTone,
                 format: settings.preferredFormat,
+                summaryType: settings.preferredSummaryType,
+                targetWordCount: targetWordCount,
                 apiKey: settings.openRouterApiKey ?? "",
                 endpoint: openRouterEndpoint,
                 model: OpenRouterConfig.resolvedModel,
@@ -262,10 +273,15 @@ actor AIService {
                     mode: settings.preferredMode,
                     tone: settings.preferredTone,
                     format: settings.preferredFormat,
+                    summaryType: settings.preferredSummaryType,
+                    targetWordCount: targetWordCount,
                     apiKey: token,
                     endpoint: MiniMaxOAuthConfig.inferenceURL,
                     model: MiniMaxOAuthConfig.defaultModel,
-                    maxTokens: 16000,
+                    maxTokens: MiniMaxOAuthConfig.outputTokenLimit(
+                        mode: settings.preferredMode,
+                        summaryType: settings.preferredSummaryType
+                    ),
                     useBearerAuth: true,
                     providerLabel: "MiniMax",
                     previousContent: previousContent,
@@ -283,7 +299,7 @@ actor AIService {
                 }
 
                 Self.logger.warning(
-                    "MiniMax M3 generation failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
+                    "\(AIProvider.minimax.displayName) generation failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
                 )
 
                 // Discard whatever MiniMax streamed before failing so the
@@ -293,7 +309,7 @@ actor AIService {
                     phase: .analyzing,
                     progress: 0.0,
                     wordCount: 0,
-                    model: "OpenRouter (MiniMax M3 fallback)"
+                    model: "OpenRouter (MiniMax fallback)"
                 ))
 
                 return try await streamWithCompatibleAPI(
@@ -303,6 +319,8 @@ actor AIService {
                     mode: settings.preferredMode,
                     tone: settings.preferredTone,
                     format: settings.preferredFormat,
+                    summaryType: settings.preferredSummaryType,
+                    targetWordCount: targetWordCount,
                     apiKey: openRouterKey,
                     endpoint: openRouterEndpoint,
                     model: OpenRouterConfig.resolvedModel,
@@ -318,7 +336,7 @@ actor AIService {
         }
     }
 
-    /// Whether a failed MiniMax M3 attempt is worth retrying on OpenRouter.
+    /// Whether a failed MiniMax attempt is worth retrying on OpenRouter.
     ///
     /// Availability failures (auth, network, rate limits, server errors) are
     /// retried. Failures that describe the *request* rather than the provider —
@@ -350,7 +368,7 @@ actor AIService {
     ///
     /// The written guide is optimized for the eye — headings, citations, tables,
     /// and 30+ visual types that a listener cannot see. This pass, run on MiniMax
-    /// M3, translates all of that into natural spoken prose so an audio listener
+    /// M2.7, translates all of that into natural spoken prose so an audio listener
     /// loses no information: every visual is described in words, references are
     /// spoken naturally, and sentences are shaped for the ear. Requires a valid
     /// MiniMax session; callers should gate on `MiniMaxOAuthService.isSignedIn`.
@@ -398,7 +416,7 @@ actor AIService {
                 throw error
             }
             Self.logger.warning(
-                "MiniMax M3 narration script failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
+                "\(AIProvider.minimax.displayName) narration script failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
             )
             script = try await openAIOneShot(
                 apiKey: openRouterKey,
@@ -528,7 +546,7 @@ actor AIService {
                     throw error
                 }
                 Self.logger.warning(
-                    "MiniMax M3 one-shot failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
+                    "\(AIProvider.minimax.displayName) one-shot failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
                 )
                 return try await openAIOneShot(
                     apiKey: openRouterKey,
@@ -571,7 +589,11 @@ actor AIService {
         )
         request.httpBody = try JSONEncoder().encode(body)
         return try await performClaudeStream(
-            request: request, onChunk: { _ in }, onStatus: { _ in }, shouldTerminate: nil
+            request: request,
+            providerLabel: providerLabel,
+            onChunk: { _ in },
+            onStatus: { _ in },
+            shouldTerminate: nil
         )
     }
 
@@ -613,6 +635,8 @@ actor AIService {
         mode: GenerationMode,
         tone: ToneMode,
         format: OutputFormat,
+        summaryType: SummaryType,
+        targetWordCount: Int?,
         apiKey: String,
         endpoint: String? = nil,
         model: String? = nil,
@@ -644,7 +668,9 @@ actor AIService {
             author: author,
             mode: mode,
             tone: tone,
-            format: format
+            format: format,
+            summaryType: summaryType,
+            targetWordCount: targetWordCount
         )
 
         // Build the user message - either fresh generation or improvement iteration
@@ -747,6 +773,7 @@ actor AIService {
                 }
                 let streamed = try await performClaudeStream(
                     request: request,
+                    providerLabel: providerLabel,
                     onChunk: trackingOnChunk,
                     onStatus: onStatus,
                     shouldTerminate: shouldTerminate
@@ -793,6 +820,7 @@ actor AIService {
     /// Performs the actual Claude streaming request
     private func performClaudeStream(
         request: URLRequest,
+        providerLabel: String,
         onChunk: @escaping (String) -> Void,
         onStatus: @escaping (GenerationStatus) -> Void,
         shouldTerminate: (() -> Bool)? = nil
@@ -834,54 +862,78 @@ actor AIService {
                     continue
                 }
 
+                let event: ClaudeStreamEvent
                 do {
-                    let event = try JSONDecoder().decode(ClaudeStreamEvent.self, from: jsonData)
-
-                    // Handle different event types
-                    guard let text = event.delta?.text else {
-                        // Not all events have delta text (e.g., message_start, content_block_start)
-                        // This is normal, not an error
-                        continue
-                    }
-
-                    if shouldTerminate?() == true {
-                        asyncBytes.task.cancel()
-                        return chunks.joined()
-                    }
-
-                    chunks.append(text)
-                    onChunk(text)
-
-                    updateWordCount(for: text, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
-
-                    if wordCount > lastPhaseUpdate + 1000 {
-                        lastPhaseUpdate = wordCount
-                        let phase = determinePhase(wordCount: wordCount)
-                        let progress = min(Double(wordCount) / 15000.0, 0.95)
-
-                        onStatus(GenerationStatus(
-                            phase: phase,
-                            progress: progress,
-                            wordCount: wordCount,
-                            model: "Claude"
-                        ))
-                    }
+                    event = try JSONDecoder().decode(ClaudeStreamEvent.self, from: jsonData)
                 } catch {
-                    // Log the decode error with context for debugging
-                    Self.logger.error("Claude stream: JSON decode failed - \(error.localizedDescription). Data: \(data.prefix(200))")
-                    // Continue processing - don't fail the entire stream for one bad event
+                    Self.logger.error("\(providerLabel) stream: JSON decode failed - \(error.localizedDescription). Data: \(data.prefix(200))")
+                    continue
+                }
+
+                if let streamError = Self.providerStreamError(from: event, providerLabel: providerLabel) {
+                    asyncBytes.task.cancel()
+                    throw streamError
+                }
+
+                // Not all events have delta text (e.g. message_start and
+                // content_block_start), and MiniMax also emits thinking blocks.
+                guard let text = event.delta?.text else { continue }
+
+                if shouldTerminate?() == true {
+                    asyncBytes.task.cancel()
+                    return chunks.joined()
+                }
+
+                chunks.append(text)
+                onChunk(text)
+
+                updateWordCount(for: text, currentCount: &wordCount, lastCharWasWhitespace: &lastCharWasWhitespace)
+
+                if wordCount > lastPhaseUpdate + 1000 {
+                    lastPhaseUpdate = wordCount
+                    let phase = determinePhase(wordCount: wordCount)
+                    let progress = min(Double(wordCount) / 15000.0, 0.95)
+
+                    onStatus(GenerationStatus(
+                        phase: phase,
+                        progress: progress,
+                        wordCount: wordCount,
+                        model: providerLabel
+                    ))
                 }
             }
+        }
+
+        let result = chunks.joined()
+        guard !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AIServiceError.invalidResponse
         }
 
         onStatus(GenerationStatus(
             phase: .complete,
             progress: 1.0,
             wordCount: wordCount,
-            model: "Claude"
+            model: providerLabel
         ))
 
-        return chunks.joined()
+        return result
+    }
+
+    static func providerStreamError(
+        from event: ClaudeStreamEvent,
+        providerLabel: String
+    ) -> AIServiceError? {
+        guard event.type == "error" else { return nil }
+        let detail = event.error?.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let message: String
+        if let detail, !detail.isEmpty {
+            message = "\(providerLabel): \(detail)"
+        } else {
+            message = "\(providerLabel) returned an unknown streaming error."
+        }
+        return .streamError(
+            message: message
+        )
     }
 
     // MARK: - OpenRouter Integration
@@ -893,6 +945,8 @@ actor AIService {
         mode: GenerationMode,
         tone: ToneMode,
         format: OutputFormat,
+        summaryType: SummaryType,
+        targetWordCount: Int?,
         apiKey: String,
         endpoint: String? = nil,
         model: String? = nil,
@@ -927,7 +981,9 @@ actor AIService {
             author: author,
             mode: mode,
             tone: tone,
-            format: format
+            format: format,
+            summaryType: summaryType,
+            targetWordCount: targetWordCount
         )
 
         // Build the user message - either fresh generation or improvement iteration
