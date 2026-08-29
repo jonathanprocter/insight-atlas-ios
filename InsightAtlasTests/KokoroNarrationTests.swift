@@ -235,8 +235,8 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertFalse(AIProvider.minimax.supportsDirectAudioGeneration)
     }
 
-    func testFirstNarrationDoesNotWaitForOptionalLLMRewrite() {
-        XCTAssertFalse(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
+    func testFirstNarrationUsesMiniMaxAudioSummaryStage() {
+        XCTAssertTrue(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
     }
 
     func testProfessionalListeningEditionHasPracticalSpokenWordBudget() {

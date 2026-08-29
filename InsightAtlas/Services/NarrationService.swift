@@ -27,9 +27,8 @@ enum NarrationFallbackPolicy {
 }
 
 enum NarrationPreparationPolicy {
-    /// First-time narration starts from deterministic sanitized guide prose.
-    /// Optional LLM rewriting must never block local synthesis startup.
-    static let rewritesBeforeInitialSynthesis = false
+    /// MiniMax writes the bounded, audio-first summary before Kokoro speaks it.
+    static let rewritesBeforeInitialSynthesis = true
 }
 
 enum NarrationListeningEdition {
@@ -204,17 +203,16 @@ actor NarrationService {
         }
     }
 
-    /// Synthesize narration for `itemId` using installed on-device Kokoro.
-    /// MiniMax M3 generates written guides; it is not an audio provider.
+    /// Synthesize narration for `itemId`: MiniMax M2.7 writes the bounded
+    /// audio-summary script, then installed on-device Kokoro speaks it.
     func synthesize(
         text: String,
         itemId: UUID,
         summaryType: SummaryType? = nil,
         progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in }
     ) async throws -> NarrationAsset {
-        // Start local synthesis immediately. The previous path waited as long as
-        // 75 seconds for an optional MiniMax rewrite that preserved roughly the
-        // full source length and therefore did not reduce Kokoro synthesis work.
+        // Keep a deterministic bounded edition as the safe fallback, but let
+        // MiniMax create the actual audio-first summary when it is configured.
         // Hold a background assertion for the whole attempt so leaving the app
         // does not suspend an in-flight render.
         let assertion = await NarrationBackgroundAssertion()
@@ -227,9 +225,16 @@ actor NarrationService {
             }
         }
 
-        let spokenText = NarrationListeningEdition.prepare(
+        let fallbackText = NarrationListeningEdition.prepare(
             text,
             summaryType: summaryType
+        )
+        let spokenText = await NarrationScriptService.shared.spokenScript(
+            for: itemId,
+            guideContent: text,
+            summaryType: summaryType,
+            fallbackContent: fallbackText,
+            progress: progress
         )
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 

@@ -376,6 +376,7 @@ actor AIService {
         from guideContent: String,
         title: String?,
         author: String?,
+        targetWordCount: Int,
         openRouterApiKey: String? = nil
     ) async throws -> String {
         let trimmed = guideContent.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -389,7 +390,8 @@ actor AIService {
         ].compactMap { $0 }.joined(separator: "\n")
 
         let userMessage = """
-        \(bookLine.isEmpty ? "" : bookLine + "\n\n")Convert the Insight Atlas guide below into a spoken-word narration script. \
+        \(bookLine.isEmpty ? "" : bookLine + "\n\n")Create a comprehensive spoken-word audio summary of the Insight Atlas guide below. \
+        Target approximately \(targetWordCount) words and never exceed \(targetWordCount) words. \
         Return ONLY the narration text — no preamble, no headings, no markdown, no stage directions.
 
         ---GUIDE START---
@@ -408,7 +410,7 @@ actor AIService {
                 providerLabel: "MiniMax",
                 system: Self.narrationScriptSystemPrompt,
                 user: userMessage,
-                maxTokens: 16000
+                maxTokens: min(8_192, max(2_048, targetWordCount * 2))
             )
         } catch {
             let openRouterKey = (openRouterApiKey ?? KeychainService.shared.openRouterApiKey) ?? ""
@@ -422,7 +424,7 @@ actor AIService {
                 apiKey: openRouterKey,
                 system: Self.narrationScriptSystemPrompt,
                 user: userMessage,
-                maxTokens: 16000
+                maxTokens: min(8_192, max(2_048, targetWordCount * 2))
             )
         }
 
@@ -439,7 +441,7 @@ actor AIService {
     You are a narration writer for Insight Atlas. You turn a written study guide into a script that will be read aloud by a text-to-speech voice. The listener CANNOT see the page, so anything visual must be spoken.
 
     NON-NEGOTIABLE GOALS
-    1. Be exactly as informative as the written guide. Preserve every idea, claim, example, and takeaway. Do NOT summarize, abridge, or drop sections. The spoken script should carry the same substance and roughly the same length as the source.
+    1. Create a comprehensive but bounded audio summary. Preserve the central argument, every major section, the most useful examples, practical applications, and final takeaways. Compress repetition and minor detail so the requested word ceiling is never exceeded.
     2. Sound natural when spoken. Prefer shorter sentences, plain connectives, and spoken transitions ("Let's start with…", "The key point here is…", "That brings us to…"). Never leave a heading as a bare fragment — fold it into a spoken transition.
     3. Output plain spoken text only. No markdown, no "#", no "*", no bullet characters, no bracket tags, no emoji, no "Figure 1", no URLs.
 

@@ -136,6 +136,35 @@ final class EditorialHeadingParsingTests: XCTestCase {
         XCTAssertFalse(header?.content.contains("FOUNDATIONAL_NARRATIVE") ?? true)
     }
 
+    func testPDFParserDoesNotPutBodyParagraphInTableOfContentsHeading() {
+        let source = """
+        [PREMIUM_H1]
+        The Anatomy of a Model
+        This paragraph explains why models are question-generators rather than answers.
+        [PREMIUM_H1]
+        Self-Management
+        The next section begins here.
+        """
+
+        let document = PDFAnalysisDocument.parse(from: source, title: "Test", author: "Author")
+        XCTAssertEqual(document.sections.compactMap(\.heading), ["The Anatomy of a Model", "Self-Management"])
+        XCTAssertFalse(document.sections.compactMap(\.heading).joined().contains("question-generators"))
+    }
+
+    func testPDFExerciseRemovesMismatchedMarkdownMarkers() {
+        let source = """
+        [EXERCISE_REFLECT]
+        1. *Part 1: Recognition**
+        2. *Part 2: Analysis**
+        3. *Part 3: Commitment**
+        [/EXERCISE_REFLECT]
+        """
+
+        let document = PDFAnalysisDocument.parse(from: source, title: "Test", author: "Author")
+        let exercise = document.sections.flatMap(\.blocks).first { $0.type == .exercise }
+        XCTAssertEqual(exercise?.listItems, ["Part 1: Recognition", "Part 2: Analysis", "Part 3: Commitment"])
+    }
+
     func testThematicSynthesisJSONBecomesReadableEditorialContent() {
         let source = """
         {

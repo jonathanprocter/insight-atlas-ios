@@ -199,7 +199,10 @@ extension PDFAnalysisDocument {
 
     /// Parse markdown content into a structured PDF document
     static func parse(from content: String, title: String, author: String) -> PDFAnalysisDocument {
-        var content = content
+        // The PDF parser is independently line-oriented. Canonicalize here as
+        // well as at persistence/reader boundaries so legacy guides with an
+        // unclosed heading cannot absorb paragraphs into the TOC.
+        var content = EditorialMarkupCanonicalizer.canonicalize(content)
 
         // Authors: the AI emits a machine-readable byline (e.g.
         // "[[AUTHORS: Mark Changizi and Tim Barber]]") as the single source of
@@ -1800,7 +1803,11 @@ extension PDFAnalysisDocument {
             }
         }
 
-        return (stripMarkdownFromLine(text), steps)
+        func cleanExerciseText(_ value: String) -> String {
+            PresentationTextSanitizer.inlinePlainText(stripMarkdownFromLine(value))
+                .trimmingCharacters(in: CharacterSet(charactersIn: "*_~ "))
+        }
+        return (cleanExerciseText(text), steps.map(cleanExerciseText))
     }
 
     /// Strip markdown syntax from a single line of text

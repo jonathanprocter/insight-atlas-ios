@@ -228,7 +228,42 @@ enum EditorialMarkupCanonicalizer {
             }
         }
         while output.last?.isEmpty == true { output.removeLast() }
-        return output.joined(separator: "\n")
+
+        // Generated headings are semantically one line. If the model omits the
+        // closing tag, terminate the heading after its first non-empty text line
+        // so following prose cannot become a multi-paragraph TOC entry.
+        var repaired: [String] = []
+        var index = 0
+        while index < output.count {
+            let line = output[index]
+            let upper = line.uppercased()
+            let headerName: String? = upper == "[PREMIUM_H1]" ? "PREMIUM_H1"
+                : (upper == "[PREMIUM_H2]" ? "PREMIUM_H2" : nil)
+            guard let headerName else {
+                repaired.append(line)
+                index += 1
+                continue
+            }
+
+            repaired.append(line)
+            index += 1
+            while index < output.count, output[index].isEmpty {
+                repaired.append(output[index])
+                index += 1
+            }
+            if index < output.count, !isEditorialTagLine(output[index]) {
+                repaired.append(output[index])
+                index += 1
+            }
+            if index < output.count, isClosingTagLine(output[index], named: headerName) {
+                repaired.append(output[index])
+                index += 1
+            } else {
+                repaired.append("[/\(headerName)]")
+            }
+        }
+        while repaired.last?.isEmpty == true { repaired.removeLast() }
+        return repaired.joined(separator: "\n")
     }
 
     static func isEditorialTagLine(_ line: String) -> Bool {

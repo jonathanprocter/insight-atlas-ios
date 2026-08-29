@@ -55,12 +55,19 @@ actor NarrationScriptService {
         guideContent: String,
         title: String? = nil,
         author: String? = nil,
+        summaryType: SummaryType? = nil,
+        fallbackContent: String? = nil,
         progress: (@Sendable (NarrationPreparationProgress) -> Void)? = nil
     ) async -> String {
         let trimmed = guideContent.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return guideContent }
+        let safeFallback = fallbackContent ?? NarrationListeningEdition.prepare(
+            trimmed,
+            summaryType: summaryType
+        )
+        let targetWords = NarrationListeningEdition.maximumWords(for: summaryType)
 
-        let cacheURL = Self.cacheURL(for: itemId, content: trimmed)
+        let cacheURL = Self.cacheURL(for: itemId, content: trimmed, targetWords: targetWords)
 
         // Reuse a previously generated script for identical content.
         if let cacheURL, let cached = try? String(contentsOf: cacheURL, encoding: .utf8),
@@ -72,11 +79,11 @@ actor NarrationScriptService {
             scriptLog.info(
                 "Neither MiniMax nor OpenRouter configured — narrating raw guide content for \(itemId.uuidString)"
             )
-            return guideContent
+            return safeFallback
         }
 
         // Coalesce concurrent requests for the same item+content onto one call.
-        let key = "\(itemId.uuidString)-\(Self.stableHash(trimmed))"
+        let key = "\(itemId.uuidString)-\(Self.stableHash(trimmed))-\(targetWords)"
         if let existing = inFlight[key] {
             return await existing.value
         }
@@ -91,7 +98,8 @@ actor NarrationScriptService {
                     try await aiService.generateNarrationScript(
                         from: trimmed,
                         title: title,
-                        author: author
+                        author: author,
+                        targetWordCount: targetWords
                     )
                 }
                 let elapsed = Date().timeIntervalSince(start)
@@ -101,17 +109,17 @@ actor NarrationScriptService {
                 ))
                 return script
             } catch is CancellationError {
-                return guideContent
+                return safeFallback
             } catch is NarrationScriptTimeout {
                 scriptLog.error(
                     "Narration-script rewrite exceeded \(Self.rewriteDeadline, privacy: .public) — narrating raw guide content"
                 )
-                return guideContent
+                return safeFallback
             } catch {
                 scriptLog.error(
                     "Narration-script rewrite failed [\(error.localizedDescription, privacy: .public)] — narrating raw guide content"
                 )
-                return guideContent
+                return safeFallback
             }
         }
         inFlight[key] = task
@@ -123,7 +131,7 @@ actor NarrationScriptService {
         let result = await task.value
 
         // Cache only a genuine rewrite (not the raw-content fallback).
-        if let cacheURL, result != guideContent {
+        if let cacheURL, result != safeFallback {
             try? result.write(to: cacheURL, atomically: true, encoding: .utf8)
         }
         return result
@@ -163,14 +171,14 @@ actor NarrationScriptService {
 
     // MARK: - Cache
 
-    private static func cacheURL(for itemId: UUID, content: String) -> URL? {
+    private static func cacheURL(for itemId: UUID, content: String, targetWords: Int) -> URL? {
         guard let caches = FileManager.default.urls(
             for: .cachesDirectory, in: .userDomainMask
         ).first else { return nil }
         let dir = caches.appendingPathComponent("narration-scripts", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let hash = Self.stableHash(content)
-        return dir.appendingPathComponent("\(itemId.uuidString)-\(hash).txt")
+        return dir.appendingPathComponent("\(itemId.uuidString)-\(hash)-\(targetWords).txt")
     }
 
     /// Stable (seed-independent) FNV-1a hash so cache keys survive app restarts,
