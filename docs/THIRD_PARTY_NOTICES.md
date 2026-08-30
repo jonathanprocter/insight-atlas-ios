@@ -5,10 +5,7 @@ Insight Atlas includes or downloads the following third-party components. This n
 | Component | Use | License | Source |
 |---|---|---|---|
 | Kokoro-82M | On-device text-to-speech model | Apache License 2.0 | [Hugging Face](https://huggingface.co/hexgrad/Kokoro-82M) |
-| sherpa-onnx | Native Swift/ONNX speech runtime | Apache License 2.0 | [GitHub](https://github.com/k2-fsa/sherpa-onnx) |
-| ONNX Runtime | Neural-network execution dependency | MIT License | [GitHub](https://github.com/microsoft/onnxruntime) |
-| SWCompression | BZip2 decompression and TAR parsing | MIT License | [GitHub](https://github.com/tsolomko/SWCompression) |
-| BitByteData | Binary data utility used by SWCompression | MIT License | [GitHub](https://github.com/tsolomko/BitByteData) |
+| FluidAudio | Swift/Core ML speech runtime and Kokoro ANE pipeline | Apache License 2.0 | [GitHub](https://github.com/FluidInference/FluidAudio) |
 | ZIPFoundation | EPUB ZIP processing | MIT License | [GitHub](https://github.com/weichsel/ZIPFoundation) |
 
-The downloaded Kokoro package retains its upstream `LICENSE` file inside the versioned model directory. Binary framework and source-package licenses remain available from the linked upstream repositories and their package artifacts.
+Binary framework, model, and source-package licenses remain available from the linked upstream repositories and their package artifacts.

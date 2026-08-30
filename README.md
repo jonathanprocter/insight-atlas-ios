@@ -51,7 +51,7 @@ Configure your API keys in the app's Settings > Manage API Keys section.
 
 ### Offline Narration
 
-Kokoro is the default narration provider. In the app, open **Settings → Audio & Narration**, then download the verified on-device model once. The download is approximately 126 MiB and uses approximately 182 MiB after installation; subsequent narration works without a network connection or speech API credentials. See [Kokoro Offline Narration](docs/KOKORO_OFFLINE_NARRATION.md) for model integrity, privacy, fallbacks, and troubleshooting.
+Kokoro is the default narration provider. In the app, open **Settings → Audio & Narration**, then download the Core ML model once. FluidAudio runs the seven-stage speech pipeline primarily on Apple's Neural Engine; subsequent narration works without a network connection or speech API credentials. See [Kokoro Offline Narration](docs/KOKORO_OFFLINE_NARRATION.md) for privacy, fallbacks, and troubleshooting.
 
 ## Architecture
 
@@ -72,7 +72,7 @@ InsightAtlas/
 │   ├── BookProcessor.swift     # PDF/EPUB processing
 │   ├── DataManager.swift       # Main data management
 │   ├── KeychainService.swift   # Secure key storage
-│   ├── KokoroModelManager.swift # Verified model download and lifecycle
+│   ├── KokoroModelManager.swift # Core ML model download and lifecycle
 │   ├── KokoroAudioService.swift # On-device neural speech synthesis
 │   ├── LibraryService.swift    # Library management
 │   ├── SettingsService.swift   # Settings management
@@ -94,8 +94,8 @@ InsightAtlas/
 | `BookProcessor` | Extracts text from PDF and EPUB files |
 | `DataManager` | Main coordinator for data persistence |
 | `KeychainService` | Secure storage for API keys |
-| `KokoroModelManager` | Downloads, verifies, installs, and removes the offline voice model |
-| `KokoroAudioService` | Generates 24 kHz narration locally through sherpa-onnx |
+| `KokoroModelManager` | Downloads, loads, and removes the offline Core ML voice model |
+| `KokoroAudioService` | Generates 24 kHz narration locally through FluidAudio and the Neural Engine |
 | `LibraryService` | CRUD operations for library items |
 | `ExportService` | Export guides to various formats |
 | `PDFTextFixer` | Fixes ligatures and encoding issues from PDFs |
@@ -113,7 +113,7 @@ Test files:
 - `AIServiceTests.swift` - AI service tests
 - `BookProcessorTests.swift` - Book processing tests
 - `KeychainServiceTests.swift` - Keychain storage tests
-- `KokoroModelManagerTests.swift` - Manifest, installation, and archive-path safety tests
+- `KokoroModelManagerTests.swift` - Model version and completed-installation marker tests
 - `KokoroTextChunkerTests.swift` - Long-narration chunking tests
 - `KokoroVoiceRegistryTests.swift` - Official voice mapping and default tests
 - `LibraryServiceTests.swift` - Library management tests
@@ -148,8 +148,7 @@ The app includes comprehensive accessibility support:
 | Dependency | Purpose |
 |---|---|
 | [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) | EPUB extraction |
-| [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) | Native on-device Kokoro inference |
-| [SWCompression](https://github.com/tsolomko/SWCompression) | Verified model archive extraction |
+| [FluidAudio](https://github.com/FluidInference/FluidAudio) | Core ML and Neural Engine Kokoro inference |
 
 See [Third-Party Notices](docs/THIRD_PARTY_NOTICES.md) for attribution and licenses.
 

@@ -76,7 +76,7 @@ final class KokoroAudioServiceTests: XCTestCase {
         }
     }
 
-    func testGenerateRoutesHeartToSpeakerThreeAndPreservesMetadata() async throws {
+    func testGenerateRoutesHeartVoiceIDAndPreservesMetadata() async throws {
         let expectedData = Data([0x52, 0x49, 0x46, 0x46])
         let modelDirectory = URL(fileURLWithPath: "/tmp/kokoro-test-model", isDirectory: true)
         let engine = KokoroSynthesisSpy(
@@ -100,7 +100,7 @@ final class KokoroAudioServiceTests: XCTestCase {
 
         let call = await engine.lastCall
         XCTAssertEqual(call?.text, "Hello world")
-        XCTAssertEqual(call?.speakerID, 3)
+        XCTAssertEqual(call?.voiceID, "af_heart")
         XCTAssertEqual(call?.modelDirectory, modelDirectory)
     }
 
@@ -143,7 +143,7 @@ final class KokoroAudioServiceTests: XCTestCase {
 private actor KokoroSynthesisSpy: KokoroSynthesizing {
     struct Call: Equatable {
         let text: String
-        let speakerID: Int
+        let voiceID: String
         let modelDirectory: URL
     }
 
@@ -165,13 +165,13 @@ private actor KokoroSynthesisSpy: KokoroSynthesizing {
 
     func generate(
         text: String,
-        speakerID: Int,
+        voiceID: String,
         modelDirectory: URL
     ) async throws -> KokoroSynthesisResult {
         calls.append(
             Call(
                 text: text,
-                speakerID: speakerID,
+                voiceID: voiceID,
                 modelDirectory: modelDirectory
             )
         )

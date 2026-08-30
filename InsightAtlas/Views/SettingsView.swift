@@ -971,7 +971,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("On-Device Voice Model")
             } footer: {
-                Text("The verified Kokoro model is downloaded once, stored only on this device, and uses about 182 MB after installation.")
+                Text("The Kokoro Core ML model is downloaded once, stored only on this device, and uses the Apple Neural Engine for substantially faster private narration.")
             }
 
             Section {
@@ -1049,15 +1049,15 @@ struct AudioSettingsView: View {
             }
 
         case .verifying:
-            Label("Verifying model integrity…", systemImage: "checkmark.shield")
+            Label("Verifying model files…", systemImage: "checkmark.shield")
             ProgressView()
 
         case .extracting:
-            Label("Installing model…", systemImage: "archivebox")
+            Label("Loading Neural Engine models…", systemImage: "cpu")
             ProgressView()
 
         case .installed:
-            Label("Ready for offline narration", systemImage: "checkmark.circle.fill")
+            Label("Neural Engine narration ready", systemImage: "checkmark.circle.fill")
                 .foregroundStyle(PremiumUI.forest)
             Button("Remove Downloaded Model", role: .destructive) {
                 try? kokoroModelManager.deleteModel()
