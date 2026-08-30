@@ -30,8 +30,7 @@
 		A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001002 /* KokoroModelManager.swift */; };
 		A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001003 /* KokoroTextChunker.swift */; };
 		A11C0C0A0000000000002004 /* KokoroAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001004 /* KokoroAudioService.swift */; };
-		A11C0C0A0000000000005001 /* sherpa-onnx in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004001 /* sherpa-onnx */; };
-		A11C0C0A0000000000005002 /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004002 /* SWCompression */; };
+		A11C0C0A0000000000005003 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004003 /* FluidAudio */; };
 		A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */; };
 		A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */; };
 		B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829961B7F5474D41B8F95ABB /* PDFDiagramRenderer.swift */; };
@@ -367,8 +366,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2E9A9252F0A4D1200480055 /* ZIPFoundation in Frameworks */,
-				A11C0C0A0000000000005001 /* sherpa-onnx in Frameworks */,
-				A11C0C0A0000000000005002 /* SWCompression in Frameworks */,
+				A11C0C0A0000000000005003 /* FluidAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -737,8 +735,7 @@
 			name = InsightAtlas;
 			packageProductDependencies = (
 				C2E9A9242F0A4D1200480055 /* ZIPFoundation */,
-				A11C0C0A0000000000004001 /* sherpa-onnx */,
-				A11C0C0A0000000000004002 /* SWCompression */,
+				A11C0C0A0000000000004003 /* FluidAudio */,
 			);
 			productName = InsightAtlas;
 			productReference = E81A00092D000001007AAAAA /* InsightAtlas.app */;
@@ -773,8 +770,7 @@
 			mainGroup = E81AFFF72D000001007AAAAA;
 			packageReferences = (
 				C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
-				A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */,
-				A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */,
+				A11C0C0A0000000000003003 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 			);
 			productRefGroup = E81AFFFE2D000001007AAAAA /* Products */;
 			projectDirPath = "";
@@ -1244,20 +1240,12 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */ = {
+		A11C0C0A0000000000003003 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/k2-fsa/sherpa-onnx";
-			requirement = {
-				kind = revision;
-				revision = 634265c9b57642fdd158120148785c89aa281c4b;
-			};
-		};
-		A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/tsolomko/SWCompression.git";
+			repositoryURL = "https://github.com/FluidInference/FluidAudio";
 			requirement = {
 				kind = exactVersion;
-				version = 4.9.1;
+				version = 0.15.6;
 			};
 		};
 		C2E9A9232F0A4D1200480055 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
@@ -1271,15 +1259,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A11C0C0A0000000000004001 /* sherpa-onnx */ = {
+		A11C0C0A0000000000004003 /* FluidAudio */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A11C0C0A0000000000003001 /* XCRemoteSwiftPackageReference "sherpa-onnx" */;
-			productName = "sherpa-onnx";
-		};
-		A11C0C0A0000000000004002 /* SWCompression */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A11C0C0A0000000000003002 /* XCRemoteSwiftPackageReference "SWCompression" */;
-			productName = SWCompression;
+			package = A11C0C0A0000000000003003 /* XCRemoteSwiftPackageReference "FluidAudio" */;
+			productName = FluidAudio;
 		};
 		C2E9A9242F0A4D1200480055 /* ZIPFoundation */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -2,12 +2,12 @@
 //  KokoroAudioService.swift
 //  InsightAtlas
 //
-//  On-device Kokoro text-to-speech powered by sherpa-onnx.
+//  On-device Kokoro text-to-speech accelerated by Core ML and the Neural Engine.
 //
 
 import AVFoundation
+import FluidAudio
 import Foundation
-import SherpaOnnx
 
 /// Generated narration bytes plus the metadata needed by persistence and playback.
 struct GeneratedAudio: Sendable {
@@ -16,8 +16,6 @@ struct GeneratedAudio: Sendable {
     let characterCount: Int
     let voiceID: String
 }
-
-private typealias KokoroNativeTTS = SherpaOnnxOfflineTtsWrapper
 
 enum KokoroAudioError: LocalizedError {
     case modelNotInstalled
@@ -53,7 +51,7 @@ protocol KokoroSynthesizing: Sendable {
     ///     chunk and after each one completes.
     func generate(
         text: String,
-        speakerID: Int,
+        voiceID: String,
         modelDirectory: URL,
         onModelLoadStart: (@Sendable () -> Void)?,
         onProgress: (@Sendable (Int, Int) -> Void)?
@@ -113,7 +111,7 @@ final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
         try Task.checkCancellation()
         let result = try await engine.generate(
             text: trimmed,
-            speakerID: voice.speakerID,
+            voiceID: voice.voiceID,
             modelDirectory: modelDirectoryProvider(),
             onModelLoadStart: onModelLoadStart,
             onProgress: onProgress
@@ -141,30 +139,23 @@ struct KokoroSynthesisResult: Sendable {
 }
 
 actor KokoroSynthesisEngine: KokoroSynthesizing {
-    private var tts: KokoroNativeTTS?
+    private var tts: KokoroAneManager?
     private var loadedDirectory: URL?
     private let chunker: KokoroTextChunker
-
-    /// ONNX inference threads for synthesis. Scales with the device but leaves a
-    /// core for the main/audio threads, so faster hardware finishes sooner while
-    /// smaller devices are not oversubscribed. Previously hardcoded to 2.
-    static let synthesisThreadCount: Int32 = {
-        let cores = ProcessInfo.processInfo.activeProcessorCount
-        return Int32(min(6, max(2, cores - 1)))
-    }()
 
     init(chunker: KokoroTextChunker = KokoroTextChunker()) {
         self.chunker = chunker
     }
 
     func reset() async {
+        await tts?.cleanup()
         tts = nil
         loadedDirectory = nil
     }
 
     func generate(
         text: String,
-        speakerID: Int,
+        voiceID: String,
         modelDirectory: URL,
         onModelLoadStart: (@Sendable () -> Void)? = nil,
         onProgress: (@Sendable (Int, Int) -> Void)? = nil
@@ -177,7 +168,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             onModelLoadStart?()
         }
         let loadStart = Date()
-        let tts = try loadModelIfNeeded(from: modelDirectory)
+        let tts = try await loadModelIfNeeded(from: modelDirectory)
         let loadElapsed = Date().timeIntervalSince(loadStart)
         if loadElapsed > 0.1 {
             print(String(format: "[Timing] Kokoro model load: %.1fs", loadElapsed))
@@ -197,16 +188,10 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             // rather than sitting blank until the first chunk lands.
             onProgress?(chunkIndex, chunks.count)
             let chunkStart = Date()
-            let config = SherpaOnnxGenerationConfigSwift(
-                silenceScale: 0.2,
-                speed: 0.96,
-                sid: speakerID
-            )
-            let generated = tts.generateWithConfig(
+            let generated = try await tts.synthesizeDetailed(
                 text: chunk,
-                config: config,
-                callback: nil,
-                arg: nil
+                voice: voiceID,
+                speed: 0.96
             )
             let samples = generated.samples
             guard generated.sampleRate > 0, !samples.isEmpty else {
@@ -214,13 +199,13 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             }
 
             if audioFile == nil {
-                sampleRate = generated.sampleRate
+                sampleRate = Int32(generated.sampleRate)
                 audioFile = try makeAudioFile(
                     at: outputURL,
                     sampleRate: Double(sampleRate)
                 )
             }
-            guard generated.sampleRate == sampleRate,
+            guard generated.sampleRate == Int(sampleRate),
                   let audioFile else {
                 throw KokoroAudioError.audioWritingFailed
             }
@@ -251,8 +236,8 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         let elapsed = Date().timeIntervalSince(synthesisStart)
         let rtf = audioDuration > 0 ? elapsed / audioDuration : 0
         print(String(
-            format: "[Timing] Kokoro synthesis: %.1fs wall for %.1fs audio across %d chunk(s) — RTF %.2f (threads: %d)",
-            elapsed, audioDuration, chunks.count, rtf, Self.synthesisThreadCount
+            format: "[Timing] Kokoro ANE synthesis: %.1fs wall for %.1fs audio across %d chunk(s) — RTF %.2f",
+            elapsed, audioDuration, chunks.count, rtf
         ))
 
         return KokoroSynthesisResult(
@@ -261,44 +246,24 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         )
     }
 
-    private func loadModelIfNeeded(from directory: URL) throws -> KokoroNativeTTS {
+    private func loadModelIfNeeded(from directory: URL) async throws -> KokoroAneManager {
         let standardizedDirectory = directory.standardizedFileURL
         if let tts, loadedDirectory == standardizedDirectory {
             return tts
         }
 
-        guard KokoroModelInstallationValidator.isInstalled(at: standardizedDirectory) else {
-            throw KokoroAudioError.modelNotInstalled
-        }
-
-        let kokoro = sherpaOnnxOfflineTtsKokoroModelConfig(
-            model: standardizedDirectory
-                .appendingPathComponent("model.int8.onnx").path,
-            voices: standardizedDirectory
-                .appendingPathComponent("voices.bin").path,
-            tokens: standardizedDirectory
-                .appendingPathComponent("tokens.txt").path,
-            dataDir: standardizedDirectory
-                .appendingPathComponent("espeak-ng-data", isDirectory: true).path,
-            lexicon: standardizedDirectory
-                .appendingPathComponent("lexicon-us-en.txt").path
-        )
-        let modelConfig = sherpaOnnxOfflineTtsModelConfig(
-            kokoro: kokoro,
-            numThreads: Int(Self.synthesisThreadCount),
-            debug: 0,
-            provider: "cpu"
-        )
-        var config = sherpaOnnxOfflineTtsConfig(model: modelConfig)
-        let wrapper = KokoroNativeTTS(config: &config)
-        guard wrapper.tts != nil,
-              wrapper.numSpeakers >= Int32(KokoroVoiceRegistry.allVoices.count) else {
+        let manager = KokoroAneManager(directory: standardizedDirectory)
+        do {
+            try await manager.initialize(
+                preloadVoices: Set(KokoroVoiceRegistry.allVoices.map(\.voiceID))
+            )
+        } catch {
             throw KokoroAudioError.invalidModel
         }
 
-        tts = wrapper
+        tts = manager
         loadedDirectory = standardizedDirectory
-        return wrapper
+        return manager
     }
 
     private func makeAudioFile(

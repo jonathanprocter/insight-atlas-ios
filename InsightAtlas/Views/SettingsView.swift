@@ -942,7 +942,7 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Kokoro On-Device Voice (Primary)")
             } footer: {
-                Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The installed model uses about 182 MB.")
+				Text("The Kokoro Core ML model is downloaded once, stored only on this device, and uses the Apple Neural Engine for substantially faster private narration.")
             }
 
 
