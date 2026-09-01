@@ -1314,7 +1314,8 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     // MARK: - Audio Generation
 
-    /// Generate audio if the on-device Kokoro voice model is installed
+    /// Generate audio with the always-available system voice. Kokoro and Liam
+    /// remain optional fallback routes.
     /// - Parameters:
     ///   - content: The text content to convert to audio
     ///   - title: Title for logging purposes
@@ -1339,13 +1340,6 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         let wordCount = audioContent.split(whereSeparator: { $0.isWhitespace }).count
         if wordCount < 200 {
             audioLog("⚠️ Skipping audio generation: content too short (\(wordCount) words)")
-            return nil
-        }
-
-        // New narration is generated only with the installed on-device model.
-        // A stale hosted-token entry must not trigger the unavailable Liam route.
-        guard KokoroModelStore.isInstalled else {
-            audioLog("⚠️ No installed Kokoro model found - skipping audio generation")
             return nil
         }
 

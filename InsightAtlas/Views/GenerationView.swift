@@ -268,7 +268,7 @@ struct GenerationView: View {
                         Text("Audio provider")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
-                        Text("Kokoro on-device · selected voice")
+                        Text("Apple on-device voice · no download required")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
                         Text("MiniMax M3 writes the guide; it does not synthesize audio.")
@@ -281,12 +281,6 @@ struct GenerationView: View {
                 .background(AnalysisTheme.bgSecondary)
                 .cornerRadius(AnalysisTheme.Radius.md)
                 .accessibilityIdentifier("generation_voice_liam_label")
-
-                if !KokoroModelStore.isInstalled {
-                    Text("Download Kokoro in Settings → Audio & Narration before listening.")
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.accentHighlight)
-                }
 
                 // Audio Speed
                 VStack(alignment: .leading, spacing: 4) {
@@ -624,9 +618,8 @@ struct GenerationView: View {
 
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
-                    // has auto-narration on and the on-device model is installed.
-                    let hasNarrationProvider = KokoroModelStore.isInstalled
-                    let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
+                    // has auto-narration on. Apple's system voice requires no download.
+                    let willNarrate = environment.userSettings.autoGenerateAudio
                     if willNarrate {
                         item.narrationState = .generating
                     }

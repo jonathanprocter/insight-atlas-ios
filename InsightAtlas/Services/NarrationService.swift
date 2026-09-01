@@ -2,8 +2,8 @@
 //  NarrationService.swift
 //  InsightAtlas
 //
-//  Narration orchestration with on-device Kokoro first and configured hosted
-//  Liam as a resilient fallback.
+//  Narration orchestration with a zero-download Apple system voice first,
+//  optional Kokoro second, and configured hosted Liam as a final fallback.
 //
 //  Successful output conforms to the app's standard `NarrationAsset` contract:
 //  a validated file in Documents plus duration and voice metadata shared by the
@@ -18,6 +18,7 @@ import os.log
 private let narrationLog = Logger(subsystem: "com.insightatlas", category: "NarrationService")
 
 enum NarrationProviderRoute: String, Equatable, Sendable {
+    case system
     case kokoro
     case liam
 }
@@ -27,7 +28,7 @@ enum NarrationFallbackPolicy {
         kokoroConfigured: Bool,
         liamConfigured: Bool
     ) -> [NarrationProviderRoute] {
-        var routes: [NarrationProviderRoute] = []
+        var routes: [NarrationProviderRoute] = [.system]
         if kokoroConfigured { routes.append(.kokoro) }
         if liamConfigured { routes.append(.liam) }
         return routes
@@ -211,8 +212,9 @@ actor NarrationService {
         }
     }
 
-    /// Synthesize narration for `itemId`: MiniMax M2.7 writes the bounded
-    /// audio-summary script, then installed on-device Kokoro speaks it.
+    /// Synthesize narration for `itemId`: MiniMax writes the bounded
+    /// audio-summary script, then the built-in system voice speaks it without
+    /// requiring a model download.
     func synthesize(
         text: String,
         itemId: UUID,
@@ -258,6 +260,24 @@ actor NarrationService {
             try Task.checkCancellation()
 
             switch route {
+            case .system:
+                let narrator = SystemNarrationRenderer.displayName
+                progress(.generating(narrator: narrator))
+                do {
+                    let audio = try await SystemNarrationRenderer.shared.generateAudio(text: spokenText)
+                    let asset = try await persist(audio: audio, itemId: itemId)
+                    progress(.ready(narrator: narrator))
+                    narrationLog.info("Narration via Apple system voice for \(itemId.uuidString)")
+                    return asset
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
+                    narrationLog.error(
+                        "Apple system narration failed [\(error.localizedDescription, privacy: .public)] — moving to the next configured narration provider"
+                    )
+                }
+
             case .kokoro:
                 let voice = Self.selectedKokoroVoice()
                 let narrator = "Kokoro · \(voice.name)"

@@ -3,7 +3,7 @@
 //  InsightAtlas
 //
 //  The Listen panel shown over a guide. New narration is generated entirely
-//  on-device with the installed Kokoro model and selected voice.
+//  on-device with Apple's built-in voice; Kokoro is an optional upgrade.
 //
 //  The panel floats above the guide text, so it can be collapsed to a small
 //  pill when it gets in the way of reading. Collapsing never interrupts
@@ -68,7 +68,7 @@ final class NarrationControlViewModel: ObservableObject {
                         )
                     } catch {
                         errorMessage = NarrationPlaybackFailureMessage.message(for: error)
-                        canRetry = KokoroModelStore.isInstalled
+                        canRetry = true
                     }
                 }
             } catch is CancellationError {
@@ -81,7 +81,7 @@ final class NarrationControlViewModel: ObservableObject {
                 generationTask = nil
                 DataManager.shared.markNarrationFailed(for: item.id)
                 errorMessage = error.localizedDescription
-                canRetry = KokoroModelStore.isInstalled
+                canRetry = true
             }
         }
     }
@@ -128,12 +128,15 @@ final class NarrationControlViewModel: ObservableObject {
             }
         } catch {
             errorMessage = NarrationPlaybackFailureMessage.message(for: error)
-            canRetry = KokoroModelStore.isInstalled
+            canRetry = true
         }
     }
 
     func narratorName(for voiceID: String?) -> String {
         guard let voiceID else { return "Narrator" }
+        if voiceID == SystemNarrationRenderer.voiceID {
+            return SystemNarrationRenderer.displayName
+        }
         if voiceID == KokoroTTSClient.voice { return "Liam" }
         return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
     }
@@ -287,13 +290,6 @@ struct NarrationControlsView: View {
                 preparingRow
             } else if hasAudio {
                 playbackControls
-            } else if !kokoroConfigured {
-                HStack {
-                    Text("Download Kokoro in Settings → Audio & Narration before listening.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
             } else {
                 Button {
                     model.generate(item: currentItem)
@@ -369,12 +365,12 @@ struct NarrationControlsView: View {
 
     private var readySubtitle: String {
         kokoroConfigured
-            ? "Kokoro on-device · \(selectedKokoroVoiceName)"
-            : "Download the Kokoro voice model"
+            ? "Apple voice · Kokoro optional (\(selectedKokoroVoiceName))"
+            : "Apple on-device voice · no download required"
     }
 
     private var listenButtonTitle: String {
-        "Listen with \(selectedKokoroVoiceName)"
+        "Create On-Device Narration"
     }
 
     private var playbackControls: some View {

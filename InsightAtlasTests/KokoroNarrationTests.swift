@@ -209,7 +209,7 @@ final class KokoroNarrationTests: XCTestCase {
                 kokoroConfigured: true,
                 liamConfigured: true
             ),
-            [.kokoro, .liam]
+            [.system, .kokoro, .liam]
         )
     }
 
@@ -219,21 +219,48 @@ final class KokoroNarrationTests: XCTestCase {
                 kokoroConfigured: false,
                 liamConfigured: true
             ),
-            [.liam]
+            [.system, .liam]
         )
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: true,
                 liamConfigured: false
             ),
-            [.kokoro]
+            [.system, .kokoro]
         )
-        XCTAssertTrue(
+        XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
                 kokoroConfigured: false,
                 liamConfigured: false
-            ).isEmpty
+            ),
+            [.system]
         )
+    }
+
+    @MainActor
+    func testSystemNarrationRendererProducesPlayableAudioWithoutKokoro() async throws {
+#if targetEnvironment(simulator)
+        throw XCTSkip("AVSpeechSynthesizer does not deliver offline render buffers in the iOS simulator")
+#else
+        let audio = try await SystemNarrationRenderer.shared.generateAudio(
+            text: "Insight Atlas can narrate this guide without downloading a voice model."
+        )
+
+        XCTAssertEqual(audio.voiceID, SystemNarrationRenderer.voiceID)
+        XCTAssertTrue(NarrationAudioValidation.hasSupportedContainer(audio.data))
+        XCTAssertGreaterThan(audio.duration, 0)
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("system-narration-test-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try audio.data.write(to: url)
+
+        let duration = try await NarrationAudioValidation.validatedDuration(
+            at: url,
+            declaredDuration: audio.duration
+        )
+        XCTAssertGreaterThan(duration, 0)
+#endif
     }
 
     func testMiniMaxM3IsAWrittenGuideProviderNotAnAudioSynthesizer() {
