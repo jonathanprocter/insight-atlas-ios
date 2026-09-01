@@ -51,7 +51,7 @@ final class KokoroLiveSynthesisTests: XCTestCase {
 
         let result = try await engine.generate(
             text: "Willingness is not resignation. It is a choice made in the presence of discomfort.",
-            speakerID: KokoroVoiceRegistry.defaultVoice.speakerID,
+            voiceID: KokoroVoiceRegistry.defaultVoice.voiceID,
             modelDirectory: directory,
             onModelLoadStart: nil,
             onProgress: { completed, total in
@@ -92,7 +92,7 @@ final class KokoroLiveSynthesisTests: XCTestCase {
             let started = Date()
             let result = try await engine.generate(
                 text: text,
-                speakerID: voice.speakerID,
+                voiceID: voice.voiceID,
                 modelDirectory: directory,
                 onModelLoadStart: nil,
                 onProgress: nil
@@ -126,7 +126,7 @@ final class KokoroLiveSynthesisTests: XCTestCase {
             do {
                 let result = try await engine.generate(
                     text: "Testing one two three.",
-                    speakerID: voice.speakerID,
+                    voiceID: voice.voiceID,
                     modelDirectory: directory,
                     onModelLoadStart: nil,
                     onProgress: nil
