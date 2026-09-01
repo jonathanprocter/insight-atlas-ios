@@ -203,30 +203,35 @@ final class KokoroNarrationTests: XCTestCase {
 
     // MARK: - Stable provider fallback policy
 
-    func testNarrationFallbackPolicyUsesOnlyInstalledOnDeviceKokoro() {
+    func testNarrationFallbackPolicyPrefersInstalledOnDeviceKokoro() {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: true
+                kokoroConfigured: true,
+                liamConfigured: true
             ),
-            [.kokoro]
+            [.kokoro, .liam]
         )
     }
 
-    func testNarrationFallbackPolicyNeverRoutesToUnavailableHostedLiam() {
-        XCTAssertTrue(
+    func testNarrationFallbackPolicyUsesOnlyConfiguredRoutes() {
+        XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: false
-            ).isEmpty
+                kokoroConfigured: false,
+                liamConfigured: true
+            ),
+            [.liam]
         )
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: true
+                kokoroConfigured: true,
+                liamConfigured: false
             ),
             [.kokoro]
         )
         XCTAssertTrue(
             NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: false
+                kokoroConfigured: false,
+                liamConfigured: false
             ).isEmpty
         )
     }

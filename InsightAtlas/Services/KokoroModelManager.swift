@@ -189,8 +189,9 @@ final class KokoroModelManager: ObservableObject {
 
                 self?.state = .extracting
                 let manager = KokoroAneManager(directory: directory)
+                let selectedVoiceID = Self.selectedVoiceID()
                 try await manager.initialize(
-                    preloadVoices: Set(KokoroVoiceRegistry.allVoices.map(\.voiceID))
+                    preloadVoices: [selectedVoiceID]
                 )
                 await manager.cleanup()
                 try Task.checkCancellation()
@@ -216,6 +217,15 @@ final class KokoroModelManager: ObservableObject {
             }
             self?.installTask = nil
         }
+    }
+
+    private static func selectedVoiceID() -> String {
+        guard let voiceID = UserDefaults.standard.string(
+            forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
+        ), KokoroVoiceRegistry.voice(byVoiceID: voiceID) != nil else {
+            return KokoroVoiceRegistry.defaultVoice.voiceID
+        }
+        return voiceID
     }
 
     func cancelInstall() {

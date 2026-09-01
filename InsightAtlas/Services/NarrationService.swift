@@ -2,7 +2,8 @@
 //  NarrationService.swift
 //  InsightAtlas
 //
-//  Narration orchestration for private on-device Kokoro synthesis.
+//  Narration orchestration with on-device Kokoro first and configured hosted
+//  Liam as a resilient fallback.
 //
 //  Successful output conforms to the app's standard `NarrationAsset` contract:
 //  a validated file in Documents plus duration and voice metadata shared by the
@@ -18,11 +19,18 @@ private let narrationLog = Logger(subsystem: "com.insightatlas", category: "Narr
 
 enum NarrationProviderRoute: String, Equatable, Sendable {
     case kokoro
+    case liam
 }
 
 enum NarrationFallbackPolicy {
-    static func orderedRoutes(kokoroConfigured: Bool) -> [NarrationProviderRoute] {
-        kokoroConfigured ? [.kokoro] : []
+    static func orderedRoutes(
+        kokoroConfigured: Bool,
+        liamConfigured: Bool
+    ) -> [NarrationProviderRoute] {
+        var routes: [NarrationProviderRoute] = []
+        if kokoroConfigured { routes.append(.kokoro) }
+        if liamConfigured { routes.append(.liam) }
+        return routes
     }
 }
 
@@ -239,7 +247,8 @@ actor NarrationService {
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
         let routes = NarrationFallbackPolicy.orderedRoutes(
-            kokoroConfigured: KokoroModelStore.isInstalled
+            kokoroConfigured: KokoroModelStore.isInstalled,
+            liamConfigured: KokoroNarrationService.shared.isTokenConfigured
         )
         guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
 
@@ -283,8 +292,26 @@ actor NarrationService {
                 } catch {
                     lastFailure = error
                     narrationLog.error(
-                        "On-device Kokoro could not complete narration [\(error.localizedDescription, privacy: .public)]"
+                        "On-device Kokoro failed [\(error.localizedDescription, privacy: .public)] — moving to the next configured narration provider"
                     )
+                }
+
+            case .liam:
+                let reason = lastFailure?.localizedDescription
+                    ?? "Using Liam because the on-device model is not installed."
+                progress(.fallingBackToLiam(reason: reason))
+                do {
+                    let asset = try await KokoroNarrationService.shared.synthesizeAsset(
+                        text: spokenText,
+                        itemId: itemId
+                    )
+                    progress(.ready(narrator: "Liam"))
+                    narrationLog.info("Narration via hosted Liam fallback for \(itemId.uuidString)")
+                    return asset
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
                 }
             }
         }

@@ -168,7 +168,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             onModelLoadStart?()
         }
         let loadStart = Date()
-        let tts = try await loadModelIfNeeded(from: modelDirectory)
+        let tts = try await loadModelIfNeeded(from: modelDirectory, voiceID: voiceID)
         let loadElapsed = Date().timeIntervalSince(loadStart)
         if loadElapsed > 0.1 {
             print(String(format: "[Timing] Kokoro model load: %.1fs", loadElapsed))
@@ -246,7 +246,10 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         )
     }
 
-    private func loadModelIfNeeded(from directory: URL) async throws -> KokoroAneManager {
+    private func loadModelIfNeeded(
+        from directory: URL,
+        voiceID: String
+    ) async throws -> KokoroAneManager {
         let standardizedDirectory = directory.standardizedFileURL
         if let tts, loadedDirectory == standardizedDirectory {
             return tts
@@ -255,7 +258,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         let manager = KokoroAneManager(directory: standardizedDirectory)
         do {
             try await manager.initialize(
-                preloadVoices: Set(KokoroVoiceRegistry.allVoices.map(\.voiceID))
+                preloadVoices: [voiceID]
             )
         } catch {
             throw KokoroAudioError.invalidModel
