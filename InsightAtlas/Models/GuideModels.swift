@@ -37,7 +37,7 @@ struct LibraryItem: Identifiable, Codable {
     /// URL to the generated audio file (relative to app documents)
     var audioFileURL: String?
 
-    /// ElevenLabs voice ID used for generation
+    /// Voice ID of the engine (Kokoro or Apple) that generated the audio
     var audioVoiceID: String?
 
     /// Audio duration in seconds
@@ -189,6 +189,15 @@ struct LibraryItem: Identifiable, Codable {
         } else {
             audioGenerationAttempts = nil
         }
+
+        // One-time amnesty: items with no audio that exhausted their retries
+        // did so against the broken Kokoro install manifest (fixed 2026-10-09)
+        // and could never have succeeded. Reopen retry for them.
+        if audioFileURL == nil,
+           let attempts = audioGenerationAttempts,
+           attempts >= Self.maxAudioGenerationAttempts {
+            audioGenerationAttempts = 0
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -297,7 +306,7 @@ enum BookmarkColor: String, Codable, CaseIterable {
 
 // MARK: - AI Provider
 
-/// Generation providers. MiniMax M2.7 is the primary generator and leads the
+/// Generation providers. MiniMax is the primary generator and leads the
 /// list so it is the first choice everywhere providers are offered.
 enum AIProvider: String, Codable, CaseIterable {
     case minimax = "minimax"
@@ -306,10 +315,17 @@ enum AIProvider: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .minimax: return "MiniMax M2.7"
+        // Tracks the model chosen in Settings (M3 by default) so status text
+        // and logs name the model that actually ran.
+        case .minimax: return Self.friendlyMiniMaxName(MiniMaxOAuthConfig.resolvedModel)
         case .claude: return "Claude"
         case .openRouter: return "OpenRouter"
         }
+    }
+
+    /// Renders a MiniMax model identifier for display: `MiniMax-M3` -> `MiniMax M3`.
+    static func friendlyMiniMaxName(_ model: String) -> String {
+        model.replacingOccurrences(of: "-", with: " ")
     }
 
     /// These providers generate the written guide. Narration is synthesized by
@@ -774,6 +790,14 @@ struct ClaudeStreamEvent: Codable {
 
 struct ClaudeDelta: Codable {
     let text: String?
+    /// Carried by `message_delta` events; "max_tokens" means the reply was
+    /// truncated by the output budget rather than finishing naturally.
+    let stopReason: String?
+
+    enum CodingKeys: String, CodingKey {
+        case text
+        case stopReason = "stop_reason"
+    }
 }
 
 struct ClaudeStreamError: Codable {

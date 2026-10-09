@@ -18,11 +18,23 @@ private let narrationLog = Logger(subsystem: "com.insightatlas", category: "Narr
 
 enum NarrationProviderRoute: String, Equatable, Sendable {
     case kokoro
+    case appleVoice
 }
 
 enum NarrationFallbackPolicy {
-    static func orderedRoutes(kokoroConfigured: Bool) -> [NarrationProviderRoute] {
-        kokoroConfigured ? [.kokoro] : []
+    /// The preferred engine first, the other as fallback. Apple system voices
+    /// are always installed, so narration can no longer hard-fail for lack of
+    /// a provider — at worst it falls back to the default system voice.
+    static func orderedRoutes(
+        preferred: VoiceProvider,
+        kokoroConfigured: Bool
+    ) -> [NarrationProviderRoute] {
+        switch preferred {
+        case .apple:
+            return [.appleVoice] + (kokoroConfigured ? [.kokoro] : [])
+        case .kokoro:
+            return (kokoroConfigured ? [.kokoro] : []) + [.appleVoice]
+        }
     }
 }
 
@@ -165,7 +177,7 @@ private actor ProgressHeartbeat {
 struct NarrationStalled: LocalizedError {
     let stage: String
     var errorDescription: String? {
-        "Narration stopped responding while \(stage). Retry or choose another installed Kokoro voice."
+        "Narration stopped responding while \(stage). Retry, or choose a different voice in Settings → Audio & Narration."
     }
 }
 
@@ -203,7 +215,7 @@ actor NarrationService {
         }
     }
 
-    /// Synthesize narration for `itemId`: MiniMax M2.7 writes the bounded
+    /// Synthesize narration for `itemId`: MiniMax writes the bounded
     /// audio-summary script, then installed on-device Kokoro speaks it.
     func synthesize(
         text: String,
@@ -238,7 +250,11 @@ actor NarrationService {
         )
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
+        let preferredProvider = VoiceProvider(
+            rawValue: UserDefaults.standard.string(forKey: VoiceProvider.storageKey) ?? ""
+        ) ?? .kokoro
         let routes = NarrationFallbackPolicy.orderedRoutes(
+            preferred: preferredProvider,
             kokoroConfigured: KokoroModelStore.isInstalled
         )
         guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
@@ -284,6 +300,43 @@ actor NarrationService {
                     lastFailure = error
                     narrationLog.error(
                         "On-device Kokoro could not complete narration [\(error.localizedDescription, privacy: .public)]"
+                    )
+                }
+
+            case .appleVoice:
+                guard let voice = AppleVoiceCatalog.selectedVoice() else {
+                    lastFailure = AppleSpeechAudioError.noVoiceAvailable
+                    continue
+                }
+                let narrator = "Apple · \(voice.name)"
+                progress(.generating(narrator: narrator))
+                let heartbeat = ProgressHeartbeat()
+                do {
+                    let audio = try await withStallDetection(
+                        stage: "generating audio with the system voice",
+                        heartbeat: heartbeat
+                    ) {
+                        try await AppleSpeechAudioService.shared.generateAudio(
+                            text: spokenText,
+                            voiceID: voice.identifier,
+                            onProgress: { completed, total in
+                                progress(.synthesizing(narrator: narrator, completed: completed, total: total))
+                                Task { await heartbeat.beat() }
+                            }
+                        )
+                    }
+                    let asset = try await persist(audio: audio, itemId: itemId)
+                    progress(.ready(narrator: narrator))
+                    narrationLog.info(
+                        "Narration via Apple system voice (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
+                    )
+                    return asset
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
+                    narrationLog.error(
+                        "Apple system voice could not complete narration [\(error.localizedDescription, privacy: .public)]"
                     )
                 }
             }

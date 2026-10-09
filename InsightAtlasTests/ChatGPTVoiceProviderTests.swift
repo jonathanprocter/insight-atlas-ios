@@ -3,12 +3,17 @@ import XCTest
 
 final class ProviderConfigurationTests: XCTestCase {
 
-    func testKokoroIsTheOnlyNarrationProvider() {
-        XCTAssertEqual(VoiceProvider.allCases, [.kokoro])
+    func testNarrationProvidersAreOnDeviceOnly() {
+        // Kokoro plus the Apple system voice — both fully on-device; no hosted
+        // provider ever returns to this list.
+        XCTAssertEqual(VoiceProvider.allCases, [.kokoro, .apple])
         XCTAssertEqual(VoiceProvider.kokoro.displayName, "Kokoro (On-Device)")
         XCTAssertEqual(VoiceProvider.kokoro.defaultVoiceID, "af_heart")
         XCTAssertEqual(VoiceProvider.kokoro.audioFileExtension, "wav")
         XCTAssertFalse(VoiceProvider.kokoro.requiresSeparateApiKey)
+        XCTAssertEqual(VoiceProvider.apple.displayName, "Apple Voice (On-Device)")
+        XCTAssertEqual(VoiceProvider.apple.audioFileExtension, "wav")
+        XCTAssertFalse(VoiceProvider.apple.requiresSeparateApiKey)
     }
 
     func testSupportedGenerationProvidersExcludeRetiredOpenAIModesAndIncludeMiniMax() {
@@ -65,16 +70,68 @@ final class ProviderConfigurationTests: XCTestCase {
         XCTAssertEqual(
             VoiceProviderFallbackPlanner.orderedProviders(
                 preferred: .kokoro,
-                availability: VoiceProviderAvailability(kokoro: true)
+                availability: VoiceProviderAvailability(kokoro: true, apple: false)
             ),
             [.kokoro]
         )
         XCTAssertEqual(
             VoiceProviderFallbackPlanner.orderedProviders(
                 preferred: .kokoro,
-                availability: VoiceProviderAvailability(kokoro: false)
+                availability: VoiceProviderAvailability(kokoro: false, apple: false)
             ),
             []
+        )
+    }
+
+    func testFallbackPlannerOffersAppleVoiceWhenPreferred() {
+        XCTAssertEqual(
+            VoiceProviderFallbackPlanner.orderedProviders(
+                preferred: .apple,
+                availability: VoiceProviderAvailability(kokoro: false, apple: true)
+            ),
+            [.apple]
+        )
+    }
+
+    /// The planner used to return only the preferred provider, so a missing
+    /// Kokoro install produced an empty route list and narration hard-failed
+    /// even though an Apple voice was ready.
+    func testFallbackPlannerDegradesToAppleWhenKokoroIsMissing() {
+        XCTAssertEqual(
+            VoiceProviderFallbackPlanner.orderedProviders(
+                preferred: .kokoro,
+                availability: VoiceProviderAvailability(kokoro: false, apple: true)
+            ),
+            [.apple]
+        )
+        XCTAssertEqual(
+            VoiceProviderFallbackPlanner.orderedProviders(
+                preferred: .kokoro,
+                availability: VoiceProviderAvailability(kokoro: true, apple: true)
+            ),
+            [.kokoro, .apple]
+        )
+        XCTAssertEqual(
+            VoiceProviderFallbackPlanner.orderedProviders(
+                preferred: .apple,
+                availability: VoiceProviderAvailability(kokoro: true, apple: true)
+            ),
+            [.apple, .kokoro]
+        )
+    }
+
+    func testNarrationRoutesFallBackAcrossEngines() {
+        XCTAssertEqual(
+            NarrationFallbackPolicy.orderedRoutes(preferred: .apple, kokoroConfigured: true),
+            [.appleVoice, .kokoro]
+        )
+        XCTAssertEqual(
+            NarrationFallbackPolicy.orderedRoutes(preferred: .kokoro, kokoroConfigured: false),
+            [.appleVoice]
+        )
+        XCTAssertEqual(
+            NarrationFallbackPolicy.orderedRoutes(preferred: .kokoro, kokoroConfigured: true),
+            [.kokoro, .appleVoice]
         )
     }
 }

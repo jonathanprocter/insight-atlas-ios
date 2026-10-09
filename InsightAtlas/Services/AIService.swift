@@ -277,7 +277,7 @@ actor AIService {
                     targetWordCount: targetWordCount,
                     apiKey: token,
                     endpoint: MiniMaxOAuthConfig.inferenceURL,
-                    model: MiniMaxOAuthConfig.defaultModel,
+                    model: MiniMaxOAuthConfig.resolvedModel,
                     maxTokens: MiniMaxOAuthConfig.outputTokenLimit(
                         mode: settings.preferredMode,
                         summaryType: settings.preferredSummaryType
@@ -367,8 +367,8 @@ actor AIService {
     /// blocks) into a spoken-word narration script suitable for text-to-speech.
     ///
     /// The written guide is optimized for the eye — headings, citations, tables,
-    /// and 30+ visual types that a listener cannot see. This pass, run on MiniMax
-    /// M2.7, translates all of that into natural spoken prose so an audio listener
+    /// and 30+ visual types that a listener cannot see. This pass, run on MiniMax,
+    /// translates all of that into natural spoken prose so an audio listener
     /// loses no information: every visual is described in words, references are
     /// spoken naturally, and sentences are shaped for the ear. Requires a valid
     /// MiniMax session; callers should gate on `MiniMaxOAuthService.isSignedIn`.
@@ -405,12 +405,13 @@ actor AIService {
             script = try await anthropicOneShot(
                 endpoint: MiniMaxOAuthConfig.inferenceURL,
                 apiKey: token,
-                model: MiniMaxOAuthConfig.defaultModel,
+                model: MiniMaxOAuthConfig.resolvedModel,
                 useBearerAuth: true,
                 providerLabel: "MiniMax",
                 system: Self.narrationScriptSystemPrompt,
                 user: userMessage,
                 maxTokens: min(8_192, max(2_048, targetWordCount * 2))
+                    + MiniMaxOAuthConfig.reasoningHeadroom()
             )
         } catch {
             let openRouterKey = (openRouterApiKey ?? KeychainService.shared.openRouterApiKey) ?? ""
@@ -537,10 +538,11 @@ actor AIService {
                 return try await anthropicOneShot(
                     endpoint: MiniMaxOAuthConfig.inferenceURL,
                     apiKey: token,
-                    model: MiniMaxOAuthConfig.defaultModel,
+                    model: MiniMaxOAuthConfig.resolvedModel,
                     useBearerAuth: true,
                     providerLabel: "MiniMax",
-                    system: system, user: user, maxTokens: maxTokens
+                    system: system, user: user,
+                    maxTokens: maxTokens + MiniMaxOAuthConfig.reasoningHeadroom()
                 )
             } catch {
                 let openRouterKey = settings.openRouterApiKey ?? ""
@@ -875,6 +877,10 @@ actor AIService {
                 if let streamError = Self.providerStreamError(from: event, providerLabel: providerLabel) {
                     asyncBytes.task.cancel()
                     throw streamError
+                }
+
+                if event.delta?.stopReason == "max_tokens" {
+                    Self.logger.warning("\(providerLabel) stream stopped at max_tokens after \(wordCount) words — output was truncated by the token budget (reasoning tokens share it).")
                 }
 
                 // Not all events have delta text (e.g. message_start and

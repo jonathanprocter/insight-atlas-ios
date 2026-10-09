@@ -68,7 +68,7 @@ struct OnDeviceInsightPreviewView: View {
     private var availabilityRow: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(status == .available ? Color.green : Color.orange)
+                .fill(status == .available ? PremiumUI.celadon : PremiumUI.emberDeep)
                 .frame(width: 8, height: 8)
             Text(status.userMessage)
                 .font(.footnote)

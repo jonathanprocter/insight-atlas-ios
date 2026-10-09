@@ -38,9 +38,9 @@ struct InsightAtlasApp: App {
 
     private func configureAppearance() {
         // Use adaptive colors from asset catalog for proper dark mode support
-        let bgSecondary = UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#111111") : UIColor(hex: "#FAF9F6") }
-        let bgCard = UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#242424") : UIColor(hex: "#FFFFFF") }
-        let textHeading = UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#FAF9F6") : UIColor(hex: "#111111") }
+        let bgSecondary = PremiumUI.UI.background
+        let bgCard = PremiumUI.UI.card
+        let textHeading = PremiumUI.UI.ink
 
         // Navigation Bar
         let navAppearance = UINavigationBarAppearance()
@@ -56,7 +56,7 @@ struct InsightAtlasApp: App {
         UINavigationBar.appearance().standardAppearance = navAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
         UINavigationBar.appearance().compactAppearance = navAppearance
-        UINavigationBar.appearance().tintColor = UIColor(hex: "#2C3E50")
+        UINavigationBar.appearance().tintColor = PremiumUI.UI.indigo
 
         // Tab Bar
         let tabAppearance = UITabBarAppearance()

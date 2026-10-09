@@ -1,28 +1,27 @@
 import SwiftUI
 
 // MARK: - Insight Atlas Analysis Theme
-// Modern Minimalistic Color System - Based on OE Brand Identity
 //
-// Design Philosophy:
-// - Burnt Orange (#D35F2E) as primary action/accent color - warm, energetic, distinctive
-// - Deep Steel Blue (#3B5E7A) as secondary accent - professional, trustworthy, balanced
-// - Deep Burgundy (#7B2D3E) for premium/emphasis - sophisticated, rich
-// - Warm cream surfaces for comfortable reading
-// - High contrast (>10:1) for extended reading comfort
-// - Complementary color theory: Orange ↔ Blue creates visual interest
-// - Analogous warmth: Orange → Burgundy creates cohesive premium feel
+// Semantic names for the reading and analysis surfaces. This file holds NO
+// colour values of its own — every token resolves to the "Ember Forward"
+// palette in `PremiumUI`, which is the single source of truth.
+//
+// Palette: ember leads (identity and action), indigo structures, celadon is
+// the quiet third; Sepia and High Contrast are reader modes that deliberately
+// depart from the triad. The many names below are kept because ~21 files call
+// them; prefer `PremiumUI.ember` / `.indigo` / `.celadon` in new code.
 //
 
 struct AnalysisTheme {
 
     // MARK: - Brand Primary Colors (From OE Logo)
 
-    static let brandOrange = Color(hex: "#D3AF37")           // Primary Orange - Primary brand
-    static let brandOrangeLight = Color(hex: "#E0C04A")      // Orange 400
-    static let brandOrangeDark = Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#D4AF37") : UIColor(hex: "#B8962E") })       // Orange 700
-    static let brandNavy = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
-    static let brandNavyLight = Color(hex: "#4A7A9D")        // Navy 400
-    static let brandNavyDark = Color(hex: "#1E3D54")         // Navy 700
+    static let brandOrange = PremiumUI.emberMark
+    static let brandOrangeLight = PremiumUI.emberTint
+    static let brandOrangeDark = PremiumUI.ember
+    static let brandNavy = PremiumUI.indigo
+    static let brandNavyLight = PremiumUI.indigoTint
+    static let brandNavyDark = PremiumUI.indigoDeep
 
     // MARK: - Mockup Palette (Terracotta + Warm Neutrals)
     // Adaptive so the warm editorial reading surface has a legible dark-mode
@@ -49,238 +48,258 @@ struct AnalysisTheme {
         UserDefaults.standard.bool(forKey: AppearanceKeys.sepiaMode)
     }
 
-    static let terracotta = adaptivePalette(light: "#CC9966", dark: "#D9A876")
-    static let warmCream = adaptivePalette(light: "#FAFCFD", dark: "#24262A")
-    static let lightTan = adaptivePalette(light: "#E7EAEE", dark: "#2E3237")
-    static let warmGray = adaptivePalette(light: "#F2F4F1", dark: "#1E2022")
+    static let terracotta = PremiumUI.ember
+    static let warmCream = PremiumUI.background
+    static let lightTan = PremiumUI.chipFill
+    static let warmGray = PremiumUI.card
 
     // Legacy aliases (deprecated - use brandNavy)
-    static let brandBlue = Color(hex: "#2E5A7D")             // Navy Blue - Secondary brand
-    static let brandBlueLight = Color(hex: "#4A7A9D")        // Lighter Navy
-    static let brandBlueDark = Color(hex: "#1E3D54")         // Darker Navy
+    static let brandBlue = PremiumUI.indigo
+    static let brandBlueLight = PremiumUI.indigoTint
+    static let brandBlueDark = PremiumUI.indigoDeep
 
     // MARK: - Reading Surfaces (Modern Clean)
 
-    static let readingBgPrimary = Color(hex: "#FAF9F6")      // Pure White - Modern & Clean
-    static let readingBgSecondary = Color(hex: "#F2F1ED")    // Gray 50
-    static let readingBgTertiary = Color(hex: "#F3F4F6")     // Gray 100
-    static let readingBgAccent = Color(hex: "#E5E7EB")       // Gray 200
+    static let readingBgPrimary = PremiumUI.background
+    static let readingBgSecondary = PremiumUI.card
+    static let readingBgTertiary = PremiumUI.chipFill
+    static let readingBgAccent = PremiumUI.divider
 
     // MARK: - Legacy Names (Deprecated - use reading surfaces above)
 
-    static let brandSepia = Color(hex: "#4B5563")            // Gray 600
-    static let brandSepiaLight = Color(hex: "#6B7280")       // Gray 500
-    static let brandParchment = Color(hex: "#F2F1ED")        // Gray 50
-    static let brandParchmentDark = Color(hex: "#F3F4F6")    // Gray 100
-    static let brandInk = Color(hex: "#111111")              // Gray 900
-    static let brandCream = Color(hex: "#FEF0EB")            // Orange 50
-    static let brandBurgundy = Color(hex: "#DC2626")         // Error red (repurposed)
+    static let brandSepia = PremiumUI.secondaryText
+    static let brandSepiaLight = PremiumUI.secondaryText
+    static let brandParchment = PremiumUI.card
+    static let brandParchmentDark = PremiumUI.chipFill
+    static let brandInk = PremiumUI.ink
+    static let brandCream = PremiumUI.emberWash
+    static let brandBurgundy = PremiumUI.destructive
 
     // MARK: - Primary Palette - Primary Orange (Brand Primary)
     // WCAG AAA compliant on white backgrounds
 
-    static let primaryGold = Color(hex: "#D3AF37")           // Primary Orange - Primary accent
-    static let primaryGoldText = Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#D4AF37") : UIColor(hex: "#B8962E") })       // Orange 700 for text compliance
-    static let primaryGoldLight = Color(hex: "#E0C04A")      // Orange 400
-    static let primaryGoldDark = Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#D4AF37") : UIColor(hex: "#B8962E") })       // Orange 600
-    static let primaryGoldSubtle = Color(hex: "#D3AF37").opacity(0.08)
-    static let primaryGoldMuted = Color(hex: "#D3AF37").opacity(0.15)
+    // Type-safe ember. This token both carries type and fills the primary CTA
+    // under a white label, and `emberMark` clears neither (3.17:1 / 3.49:1).
+    // `emberMark` is reserved for the mark tokens below (rules, dots, rails).
+    static let primaryGold = PremiumUI.ember
+    static let primaryGoldText = PremiumUI.ember
+    // The lighter-but-still-saturated ember (gradient stops, trend bars, and
+    // fills that carry white text) — NOT the pale emberTint wash, which would
+    // wash out white text and thin bars. Hex.emberDark is that tone.
+    static let primaryGoldLight = Color(hex: PremiumUI.Hex.emberDark)
+    static let primaryGoldDark = PremiumUI.emberDeep
+    static let primaryGoldSubtle = PremiumUI.emberMark.opacity(0.08)
+    static let primaryGoldMuted = PremiumUI.emberMark.opacity(0.15)
 
     // MARK: - Design System Supporting Palette (v2.0 — matches PremiumUI)
     // Status/section differentiators drawn from the Insight Atlas Design System.
     // These never appear in navigation or primary CTAs — that territory is gold.
 
-    static let dsCoral = Color(hex: "#E8553A")               // Destructive / alerts
-    static let dsSkyBlue = Color(hex: "#4BA3C8")             // New / informational
-    static let dsForest = Color(hex: "#3D5840")              // Completed / success
-    static let dsWarmOrange = Color(hex: "#D87520")          // In-progress / active
+    // Library status semantics, shared with `LibraryView`/`LibraryComponents`:
+    // new = ember, in progress = celadon, completed = muted. `dsCoral` keeps
+    // destructive for the swipe-row delete tint only.
+    static let dsCoral = PremiumUI.destructive
+    static let dsSkyBlue = PremiumUI.ember         // new
+    static let dsForest = PremiumUI.celadon        // in progress
+    static let dsWarmOrange = PremiumUI.secondaryText  // completed
 
     // MARK: - Premium Accent Colors (Modern Minimalistic)
 
-    static let accentPrimary = Color(hex: "#D3AF37")         // Primary Orange - Primary CTAs
-    static let accentSuccess = Color(hex: "#059669")         // Success green
-    static let accentHighlight = Color(hex: "#D3AF37")       // Primary Orange - Highlights
-    static let accentInfo = Color(hex: "#2E5A7D")            // Navy Blue - Information
-    static let accentWarning = Color(hex: "#D97706")         // Warning
-    static let accentError = Color(hex: "#DC2626")           // Error
+    static let accentPrimary = PremiumUI.ember
+    static let accentSuccess = PremiumUI.celadon
+    // Both call sites are inline advisory text, so this must be type-safe.
+    static let accentHighlight = PremiumUI.ember
+    static let accentInfo = PremiumUI.indigo
+    // Deep ember, so a caution is distinguishable from ordinary brand chrome.
+    static let accentWarning = PremiumUI.emberDeep
+    static let accentError = PremiumUI.destructive
 
     // MARK: - Secondary Palette - Refined Accents
 
-    static let accentOrange = Color(hex: "#D3AF37")          // Primary Orange
-    static let accentOrangeText = Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#D4AF37") : UIColor(hex: "#B8962E") })      // Orange 700 for text
-    static let accentOrangeLight = Color(hex: "#E0C04A")     // Orange 400
-    static let accentOrangeSubtle = Color(hex: "#D3AF37").opacity(0.08)
+    static let accentOrange = PremiumUI.ember
+    static let accentOrangeText = PremiumUI.ember
+    static let accentOrangeLight = PremiumUI.emberTint
+    static let accentOrangeSubtle = PremiumUI.emberMark.opacity(0.08)
 
-    static let accentNavy = Color(hex: "#2E5A7D")            // Navy Blue (secondary brand)
-    static let accentNavyText = Color(hex: "#2E5A7D")        // Same - already compliant
-    static let accentNavyLight = Color(hex: "#4A7A9D")       // Navy 400
-    static let accentNavySubtle = Color(hex: "#2E5A7D").opacity(0.08)
-    static let accentNavyMuted = Color(hex: "#2E5A7D").opacity(0.15)
+    static let accentNavy = PremiumUI.indigo
+    static let accentNavyText = PremiumUI.indigo
+    static let accentNavyLight = PremiumUI.indigoTint
+    static let accentNavySubtle = PremiumUI.indigo.opacity(0.08)
+    static let accentNavyMuted = PremiumUI.indigo.opacity(0.15)
 
     // Legacy aliases (use accentNavy instead)
-    static let accentTeal = Color(hex: "#2E5A7D")            // Navy Blue (was teal)
-    static let accentTealText = Color(hex: "#2E5A7D")
-    static let accentTealLight = Color(hex: "#4A7A9D")
-    static let accentTealSubtle = Color(hex: "#2E5A7D").opacity(0.08)
-    static let accentTealMuted = Color(hex: "#2E5A7D").opacity(0.15)
+    static let accentTeal = PremiumUI.indigo
+    static let accentTealText = PremiumUI.indigo
+    static let accentTealLight = PremiumUI.indigoTint
+    static let accentTealSubtle = PremiumUI.indigo.opacity(0.08)
+    static let accentTealMuted = PremiumUI.indigo.opacity(0.15)
     
     // Deprecated - remove these
-    static let accentBurgundy = Color(hex: "#7B2D3E")        // Deprecated
-    static let accentBurgundyLight = Color(hex: "#9A4458")   // Deprecated
-    static let accentBurgundySubtle = Color(hex: "#7B2D3E").opacity(0.08)
+    static let accentBurgundy = PremiumUI.destructive
+    static let accentBurgundyLight = PremiumUI.emberDeep
+    static let accentBurgundySubtle = PremiumUI.destructive.opacity(0.08)
 
-    static let accentCoral = Color(hex: "#D3AF37")           // Use accentOrange instead
-    static let accentCoralText = Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#D4AF37") : UIColor(hex: "#B8962E") })       // Use accentOrangeText instead
-    static let accentCoralLight = Color(hex: "#E0C04A")      // Use accentOrangeLight instead
-    static let accentCoralSubtle = Color(hex: "#D3AF37").opacity(0.08)
-    static let accentCoralMuted = Color(hex: "#D3AF37").opacity(0.15)
+    static let accentCoral = PremiumUI.ember
+    static let accentCoralText = PremiumUI.ember
+    static let accentCoralLight = PremiumUI.emberTint
+    static let accentCoralSubtle = PremiumUI.emberMark.opacity(0.08)
+    static let accentCoralMuted = PremiumUI.emberMark.opacity(0.15)
 
     // Additional accent colors for editorial blocks
-    static let accentGreen = Color(hex: "#059669")           // Success green for action boxes
-    static let accentBlue = Color(hex: "#2563EB")            // Blue for flowcharts/diagrams
-    static let accentPurple = Color(hex: "#7C3AED")          // Purple for alternative perspectives
+    static let accentGreen = PremiumUI.celadon
+    static let accentBlue = PremiumUI.indigo
+    static let accentPurple = PremiumUI.indigoDeep
 
     // MARK: - Premium Commentary Box Colors (Modern Minimalistic)
 
-    // Insight Note - Uses Primary Orange for warm highlights
-    static let insightOrange = Color(hex: "#D3AF37")         // Primary Orange
-    static let insightOrangeLight = Color(hex: "#E0C04A")    // Orange 400
-    static let insightBgStart = Color(hex: "#FAF9F6")        // White
-    static let insightBgMid = Color(hex: "#FEF0EB")          // Orange 50
-    static let insightBgEnd = Color(hex: "#FCD4C4")          // Orange 100
+    // Insight Note - Uses ember for warm highlights (carries the block title)
+    static let insightOrange = PremiumUI.ember
+    static let insightOrangeLight = PremiumUI.emberTint
+    static let insightBgStart = PremiumUI.card
+    static let insightBgMid = PremiumUI.emberWash
+    static let insightBgEnd = PremiumUI.emberTint
 
     // Alternative Perspective - Uses Navy Blue for balanced info
-    static let perspectiveTeal = Color(hex: "#2E5A7D")       // Navy Blue
-    static let perspectiveTealDark = Color(hex: "#1E3D54")   // Navy 700
-    static let perspectiveBgStart = Color(hex: "#FAF9F6")    // White
-    static let perspectiveBgMid = Color(hex: "#EBF3F7")      // Navy 50
-    static let perspectiveBgEnd = Color(hex: "#C9DEE9")      // Navy 100
+    static let perspectiveTeal = PremiumUI.indigo
+    static let perspectiveTealDark = PremiumUI.indigoDeep
+    static let perspectiveBgStart = PremiumUI.card
+    static let perspectiveBgMid = PremiumUI.indigoWash
+    static let perspectiveBgEnd = PremiumUI.indigoTint
 
     // Research Insight - Uses Success Green for scholarly feel
-    static let researchSage = Color(hex: "#059669")          // Success Green
-    static let researchSageLight = Color(hex: "#34D399")     // Success Green (dark mode)
-    static let researchBgStart = Color(hex: "#FAF9F6")       // White
-    static let researchBgMid = Color(hex: "#F0FDF4")         // Green tint
-    static let researchBgEnd = Color(hex: "#D1FAE5")         // Green wash
+    static let researchSage = PremiumUI.celadon
+    // Used as TEXT (author highlights) on light wash backgrounds, so it must
+    // stay contrast-safe — celadonDeep, not the near-invisible celadonTint.
+    static let researchSageLight = PremiumUI.celadonDeep
+    static let researchBgStart = PremiumUI.card
+    static let researchBgMid = PremiumUI.celadonWash
+    static let researchBgEnd = PremiumUI.celadonTint
 
     // MARK: - Premium Quote Card Colors (Clean Modern)
 
-    static let parchmentBase = adaptivePalette(light: "#FAFCFD", dark: "#24262A")
-    static let parchmentMid = Color(hex: "#F2F1ED")          // Gray 50
-    static let parchmentDark = Color(hex: "#F3F4F6")         // Gray 100
-    static let parchmentVignette = Color(hex: "#4B5563")     // Gray 600
-    static let goldOrnament = Color(hex: "#D3AF37")          // Primary Orange
-    static let goldTitle = Color(hex: "#D3AF37")             // Primary Orange
-    static let coralAuthor = Color(hex: "#2E5A7D")           // Navy Blue
-    static let inkMuted = Color(hex: "#4B5563")              // Gray 600
+    static let parchmentBase = PremiumUI.background
+    static let parchmentMid = PremiumUI.card
+    static let parchmentDark = PremiumUI.chipFill
+    static let parchmentVignette = PremiumUI.secondaryText
+    static let goldOrnament = PremiumUI.emberMark
+    static let goldTitle = PremiumUI.ember
+    static let coralAuthor = PremiumUI.indigo
+    static let inkMuted = PremiumUI.secondaryText
 
     // MARK: - Premium Frame Colors (Layered Card Design)
 
     // Layer 1: Outer primary orange gradient
-    static let goldFrameOuter = Color(hex: "#D3AF37")        // Primary Orange
-    static let goldFrameOuterMid = Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#D4AF37") : UIColor(hex: "#B8962E") })     // Orange 600
-    static let goldFrameOuterDark = Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#D4AF37") : UIColor(hex: "#B8962E") })    // Orange 700
+    static let goldFrameOuter = PremiumUI.emberMark
+    static let goldFrameOuterMid = PremiumUI.ember
+    static let goldFrameOuterDark = PremiumUI.emberDeep
 
-    // Layer 2: Inner lighter orange gradient
-    static let goldFrameInnerLight = Color(hex: "#FAAB8D")   // Orange 200
-    static let goldFrameInnerMid = Color(hex: "#E0C04A")     // Orange 400
-    static let goldFrameInnerDark = Color(hex: "#D3AF37")    // Primary Orange
+    // Layer 2: Inner lighter orange gradient (pale → light-saturated → primary
+    // ramp, mirroring the original Orange 200 → 400 → primary frame)
+    static let goldFrameInnerLight = PremiumUI.emberTint
+    static let goldFrameInnerMid = Color(hex: PremiumUI.Hex.emberDark)
+    static let goldFrameInnerDark = PremiumUI.emberMark
 
     // Layer 3: White gap
-    static let goldFrameCreamLight = adaptivePalette(light: "#FCFAF2", dark: "#26241C")   // subtle gold parchment
-    static let goldFrameCreamMid = adaptivePalette(light: "#F7F0DE", dark: "#2C2820")
-    static let goldFrameCreamDark = adaptivePalette(light: "#F0E7CE", dark: "#332E1F")
+    static let goldFrameCreamLight = PremiumUI.emberWash   // subtle gold parchment
+    static let goldFrameCreamMid = PremiumUI.emberWash
+    static let goldFrameCreamDark = PremiumUI.emberTint
 
     // Layer 4: Orange pinstripe
-    static let goldPinstripeLight = Color(hex: "#E0C04A")    // Orange 400
-    static let goldPinstripeDark = Color(hex: "#D3AF37")     // Primary Orange
+    static let goldPinstripeLight = PremiumUI.emberTint
+    static let goldPinstripeDark = PremiumUI.emberMark
 
     // Outer card gradient (Clean surfaces)
-    static let outerCardTop = Color(hex: "#FAF9F6")          // Pure White
-    static let outerCardMid = Color(hex: "#F2F1ED")          // Gray 50
-    static let outerCardBottom = Color(hex: "#F3F4F6")       // Gray 100
-    static let cardBackdrop = Color(hex: "#E5E7EB")          // Gray 200
+    static let outerCardTop = PremiumUI.background
+    static let outerCardMid = PremiumUI.card
+    static let outerCardBottom = PremiumUI.chipFill
+    static let cardBackdrop = PremiumUI.divider
 
     // MARK: - Text Colors (Adaptive Light/Dark with Fallbacks)
 
     /// Primary text - adapts to light/dark mode
     static var textHeading: Color {
-        if isSepia { return Color(hex: "#2A2725") }
-        if isHighContrast { return adaptivePalette(light: "#0C0D0E", dark: "#FFFFFF") }
-        return Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#FAF9F6") : UIColor(hex: "#111111") })
+        if isSepia { return PremiumUI.Sepia.text }
+        if isHighContrast { return PremiumUI.HighContrast.heading }
+        return PremiumUI.ink
     }
 
     static var textBody: Color {
-        if isSepia { return Color(hex: "#2A2725") }
-        if isHighContrast { return adaptivePalette(light: "#1A1C1E", dark: "#F2F4F8") }
-        return Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#FAF9F6") : UIColor(hex: "#111111") })
+        if isSepia { return PremiumUI.Sepia.text }
+        if isHighContrast { return PremiumUI.HighContrast.body }
+        return PremiumUI.ink
     }
 
     static var textMuted: Color {
-        if isSepia { return Color(hex: "#8A8580") }
-        if isHighContrast { return adaptivePalette(light: "#4A4F55", dark: "#DEE3E8") }
-        return adaptivePalette(light: "#6B7280", dark: "#C7CDD3")
+        if isSepia { return PremiumUI.Sepia.muted }
+        if isHighContrast { return PremiumUI.HighContrast.muted }
+        return PremiumUI.secondaryText
     }
-    static let textSubtle = Color(UIColor(named: "TextSubtle") ?? UIColor(hex: "#9CA3AF"))
-    static let textInverse = Color(hex: "#FAF9F6")           // White (always)
-    static let textHandwritten = Color(hex: "#2E5A7D")       // Navy Blue
+    static let textSubtle = PremiumUI.secondaryText
+    static let textInverse = PremiumUI.card
+    static let textHandwritten = PremiumUI.indigo
 
     // MARK: - Background Colors (Adaptive Light/Dark with Fallbacks)
 
     /// Primary background - White in light mode, Navy 900 in dark mode
     static var bgPrimary: Color {
-        if isSepia { return adaptivePalette(light: "#FAFAF8", dark: "#1E1B16") }
-        return Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#111111") : UIColor(hex: "#FAF9F6") })
+        if isSepia { return PremiumUI.Sepia.bg }
+        return PremiumUI.background
     }
     /// Secondary background
     static var bgSecondary: Color {
-        if isSepia { return adaptivePalette(light: "#F5F0E8", dark: "#221F19") }
-        return Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#1A1A1A") : UIColor(hex: "#F2F1ED") })
+        if isSepia { return PremiumUI.Sepia.surface }
+        return PremiumUI.card
     }
     /// Warm "parchment" canvas — a distinctly cream/tan surface (not white, not
     /// grey) so pure-white cards lift off it. Used as the Library's primary surface.
     static var paper: Color {
-        if isSepia { return adaptivePalette(light: "#F1ECDF", dark: "#1E1B16") }
-        return Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#151310") : UIColor(hex: "#F0ECE1") })
+        if isSepia { return PremiumUI.Sepia.sunken }
+        return PremiumUI.chipFill
     }
     /// Card background
     static var bgCard: Color {
-        if isSepia { return adaptivePalette(light: "#FFFFFF", dark: "#2A251E") }
-        return Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#242424") : UIColor(hex: "#FFFFFF") })
+        if isSepia { return PremiumUI.Sepia.card }
+        return PremiumUI.card
     }
     /// Elevated surface
-    static let bgElevated = adaptivePalette(light: "#FFFFFF", dark: "#2A2D31")
+    static let bgElevated = PremiumUI.card
 
     // MARK: - Border Colors (Adaptive Light/Dark with Fallbacks)
 
-    static let borderLight = Color(UIColor(named: "BorderLight") ?? UIColor(hex: "#E5E7EB"))
-    static let borderMedium = Color(UIColor(named: "BorderMedium") ?? UIColor(hex: "#D1D5DB"))
-    static let borderDark = Color(UIColor(named: "BorderDark") ?? UIColor(hex: "#9CA3AF"))
+    static let borderLight = PremiumUI.divider
+    static let borderMedium = PremiumUI.dividerStrong
+    static let borderDark = PremiumUI.secondaryText
 
     // MARK: - Fallback Static Colors (for non-adaptive contexts)
+    //
+    // These are FIXED values, not adaptive: `Light` members stay light-palette
+    // in dark mode and vice versa. Views that draw on an always-light surface
+    // (e.g. a box filled with `Color.white`) use `Light` so their text stays
+    // dark in dark mode. Pinned to `PremiumUI.Hex` so values cannot drift from
+    // the palette.
 
     struct Light {
-        static let textHeading = Color(hex: "#111111")       // Gray 900
-        static let textBody = Color(hex: "#111111")          // Gray 800
-        static let textMuted = Color(hex: "#6B7280")         // Gray 500
-        static let textSubtle = Color(hex: "#9CA3AF")        // Gray 400
-        static let bgPrimary = Color(hex: "#FAF9F6")         // White
-        static let bgSecondary = Color(hex: "#F2F1ED")       // Gray 50
-        static let bgCard = Color(hex: "#FAF9F6")            // White
-        static let borderLight = Color(hex: "#E5E7EB")       // Gray 200
-        static let borderMedium = Color(hex: "#D1D5DB")      // Gray 300
+        static let textHeading = Color(hex: PremiumUI.Hex.inkLight)
+        static let textBody = Color(hex: PremiumUI.Hex.inkLight)
+        static let textMuted = Color(hex: PremiumUI.Hex.mutedLight)
+        static let textSubtle = Color(hex: PremiumUI.Hex.mutedLight)
+        static let bgPrimary = Color(hex: PremiumUI.Hex.backgroundLight)
+        static let bgSecondary = Color(hex: PremiumUI.Hex.cardLight)
+        static let bgCard = Color(hex: PremiumUI.Hex.cardLight)
+        static let borderLight = Color(hex: PremiumUI.Hex.dividerLight)
+        static let borderMedium = Color(hex: PremiumUI.Hex.dividerStrongLight)
     }
 
     struct Dark {
-        static let textHeading = Color(hex: "#FAF9F6")       // White
-        static let textBody = Color(hex: "#C9DEE9")          // Navy 100
-        static let textMuted = Color(hex: "#9DC0D6")         // Navy 200
-        static let textSubtle = Color(hex: "#6B9AB8")        // Navy 300
-        static let bgPrimary = Color(hex: "#0F1E2A")         // Navy 900
-        static let bgSecondary = Color(hex: "#162B3D")       // Navy 800
-        static let bgCard = Color(hex: "#1E3D54")            // Navy 700
-        static let borderLight = Color(hex: "#254A66")       // Navy 600
-        static let borderMedium = Color(hex: "#4A7A9D")      // Navy 400
+        static let textHeading = Color(hex: PremiumUI.Hex.inkDark)
+        static let textBody = Color(hex: PremiumUI.Hex.inkDark)
+        static let textMuted = Color(hex: PremiumUI.Hex.mutedDark)
+        static let textSubtle = Color(hex: PremiumUI.Hex.mutedDark)
+        static let bgPrimary = Color(hex: PremiumUI.Hex.backgroundDark)
+        static let bgSecondary = Color(hex: PremiumUI.Hex.cardDark)
+        static let bgCard = Color(hex: PremiumUI.Hex.cardDark)
+        static let borderLight = Color(hex: PremiumUI.Hex.dividerDark)
+        static let borderMedium = Color(hex: PremiumUI.Hex.dividerStrongDark)
     }
 
     // MARK: - Spacing
@@ -591,19 +610,16 @@ extension Color {
 // MARK: - Premium CTA View Modifiers
 
 extension View {
-    /// Gold capsule primary CTA using PremiumUI tokens.
+    /// Ember primary CTA using PremiumUI tokens.
+    ///
+    /// A solid fill, not a gradient: `gold` and `goldDark` both resolve to
+    /// ember, so the two stops were identical. White on ember is 5.10:1.
     func premiumPrimaryCTA() -> some View {
         self
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .foregroundStyle(.white)
-            .background(
-                LinearGradient(
-                    colors: [InsightAtlasColors.gold, InsightAtlasColors.goldDark],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .background(PremiumUI.ember)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }

@@ -11,27 +11,27 @@ struct InsightAtlasHTMLTemplate {
             /* Complete Design System with All Unique Elements */
 
             :root {
-                --ivory: #FAF9F6;
-                --surface: #FFFFFF;
-                --surface-dim: #F2F1ED;
-                --deep-slate: #2C3E50;
-                --ink: #111111;
-                --gold: #B8962E;
-                --gold-glow: rgba(184,150,46,0.15);
-                --sky-blue: #3A8FB7;
-                --coral: #E8553A;
-                --warm-orange: #D87520;
-                --emerald: #059669;
-                --text-1: #111111;
-                --text-2: #555555;
-                --text-3: #999999;
-                --border: #E0DFDB;
-                --border-light: #EEEDEA;
+                --ivory: \(PremiumUI.Hex.backgroundLight);
+                --surface: \(PremiumUI.Hex.cardLight);
+                --surface-dim: \(PremiumUI.Hex.chipLight);
+                --deep-slate: \(PremiumUI.Hex.indigoLight);
+                --ink: \(PremiumUI.Hex.inkLight);
+                --gold: \(PremiumUI.Hex.emberMarkLight);
+                --gold-glow: rgba(194,67,31,0.15);
+                --sky-blue: \(PremiumUI.Hex.indigoLight);
+                --coral: \(PremiumUI.Hex.emberMarkLight);
+                --warm-orange: \(PremiumUI.Hex.emberMarkLight);
+                --emerald: \(PremiumUI.Hex.celadonLight);
+                --text-1: \(PremiumUI.Hex.inkLight);
+                --text-2: \(PremiumUI.Hex.mutedLight);
+                --text-3: \(PremiumUI.Hex.mutedLight);
+                --border: \(PremiumUI.Hex.dividerLight);
+                --border-light: \(PremiumUI.Hex.dividerLight);
                 --nav-bg: rgba(255,255,255,0.82);
                 --section-bg: rgba(255,255,255,0.5);
                 --card-bg: rgba(250,249,246,0.99);
-                --card-border: #E5E5E0;
-                --action-bg: #F5F4F0;
+                --card-border: \(PremiumUI.Hex.dividerLight);
+                --action-bg: \(PremiumUI.Hex.chipLight);
                 
                 /* Legacy mappings to keep the rest of the template working */
                 --brand-sepia: var(--deep-slate);
@@ -39,8 +39,8 @@ struct InsightAtlasHTMLTemplate {
                 --brand-ink: var(--ink);
                 --primary-gold: var(--gold);
                 --primary-gold-text: var(--gold);
-                --primary-gold-light: #d4af37;
-                --primary-gold-dark: #8b7318;
+                --primary-gold-light: \(PremiumUI.Hex.emberMarkLight);
+                --primary-gold-dark: \(PremiumUI.Hex.emberLight);
                 --primary-gold-subtle: var(--gold-glow);
                 --accent-coral: var(--coral);
                 --accent-coral-text: var(--coral);
@@ -48,7 +48,7 @@ struct InsightAtlasHTMLTemplate {
                 --accent-teal-text: var(--sky-blue);
                 --accent-orange: var(--warm-orange);
                 --accent-orange-text: var(--warm-orange);
-                --accent-crimson: #B12A2A;
+                --accent-crimson: \(PremiumUI.Hex.destructiveLight);
                 --text-heading: var(--text-1);
                 --text-body: var(--text-2);
                 --text-muted: var(--text-3);
@@ -73,21 +73,27 @@ struct InsightAtlasHTMLTemplate {
             /* ═══ DARK MODE ═══ */
             @media (prefers-color-scheme: dark) {
                 :root {
-                    --text-1: #FAF9F6;
-                    --text-2: #A0A0A0;
-                    --text-3: #666666;
-                    --bg-primary: #0D0D0D;
-                    --bg-secondary: #1A1A1A;
-                    --bg-card: #242424;
-                    --bg-cream: #1A1A1A;
-                    --border-light: #2A2A2A;
-                    --border-medium: #3A3A3A;
-                    --border: #3A3A3A;
-                    --card-border: #2A2A2A;
+                    --text-1: \(PremiumUI.Hex.inkDark);
+                    --text-2: \(PremiumUI.Hex.mutedDark);
+                    --text-3: \(PremiumUI.Hex.mutedDark);
+                    --bg-primary: \(PremiumUI.Hex.backgroundDark);
+                    --bg-secondary: \(PremiumUI.Hex.cardDark);
+                    --bg-card: \(PremiumUI.Hex.cardDark);
+                    --bg-cream: \(PremiumUI.Hex.cardDark);
+                    --border-light: \(PremiumUI.Hex.dividerDark);
+                    --border-medium: \(PremiumUI.Hex.dividerDark);
+                    --border: \(PremiumUI.Hex.dividerDark);
+                    --card-border: \(PremiumUI.Hex.dividerDark);
                     --nav-bg: rgba(13,13,13,0.82);
                     --section-bg: rgba(26,26,26,0.5);
                     --card-bg: rgba(36,36,36,0.99);
-                    --action-bg: #1A1A1A;
+                    --action-bg: \(PremiumUI.Hex.cardDark);
+                }
+
+                /* Celadon literals below are light-palette; lift them for dark */
+                .takeaways .block-header {
+                    color: \(PremiumUI.Hex.celadonDark);
+                    border-bottom-color: rgba(111, 179, 156, 0.3);
                 }
             }
 
@@ -118,7 +124,7 @@ struct InsightAtlasHTMLTemplate {
             }
 
             ::selection {
-                background: rgba(201, 162, 39, 0.25);
+                background: rgba(232, 92, 54, 0.25);
                 color: var(--text-heading);
             }
 
@@ -160,7 +166,7 @@ struct InsightAtlasHTMLTemplate {
             a {
                 color: var(--primary-gold);
                 text-decoration: none;
-                border-bottom: 1px solid rgba(201, 162, 39, 0.3);
+                border-bottom: 1px solid rgba(232, 92, 54, 0.3);
                 transition: all var(--transition-fast);
             }
 
@@ -210,7 +216,7 @@ struct InsightAtlasHTMLTemplate {
                 left: 28px;
                 right: 28px;
                 bottom: 28px;
-                border: 1px solid rgba(201, 162, 39, 0.3);
+                border: 1px solid rgba(232, 92, 54, 0.3);
                 border-radius: 2px;
                 pointer-events: none;
             }
@@ -367,7 +373,7 @@ struct InsightAtlasHTMLTemplate {
             .quick-glance {
                 background: var(--bg-card);
                 backdrop-filter: blur(20px);
-                border: 1px solid rgba(201, 162, 39, 0.15);
+                border: 1px solid rgba(232, 92, 54, 0.15);
                 border-radius: var(--radius-xl);
                 padding: 2rem;
                 margin: 2.5rem 0;
@@ -473,7 +479,7 @@ struct InsightAtlasHTMLTemplate {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: linear-gradient(135deg, var(--accent-teal) 0%, #3BA396 100%);
+                background: linear-gradient(135deg, var(--accent-teal) 0%, \(PremiumUI.Hex.celadonLight) 100%);
                 color: var(--text-inverse);
                 font-family: var(--font-ui);
                 font-weight: 600;
@@ -510,16 +516,16 @@ struct InsightAtlasHTMLTemplate {
 
             /* ═══ TAKEAWAYS ═══ */
             .takeaways {
-                background: linear-gradient(135deg, rgba(74, 155, 127, 0.1) 0%, rgba(74, 155, 127, 0.04) 100%);
-                border: 2px solid rgba(74, 155, 127, 0.3);
+                background: linear-gradient(135deg, rgba(65, 112, 95, 0.08) 0%, rgba(65, 112, 95, 0.04) 100%);
+                border: 2px solid rgba(65, 112, 95, 0.3);
                 border-radius: var(--radius-xl);
                 padding: 2rem;
                 margin: 2.5rem 0;
             }
 
             .takeaways .block-header {
-                color: #4A9B7F;
-                border-bottom: 1px solid rgba(74, 155, 127, 0.25);
+                color: \(PremiumUI.Hex.celadonLight);
+                border-bottom: 1px solid rgba(65, 112, 95, 0.25);
             }
 
             .takeaways .block-header::before { content: '🎯'; font-size: 1.125rem; }
@@ -633,7 +639,7 @@ struct InsightAtlasHTMLTemplate {
                     page-break-after: always;
                     margin: 0;
                     padding: 2rem;
-                    border: 1px solid #C9A227;
+                    border: 1px solid \(PremiumUI.Hex.emberMarkLight);
                     background: white;
                 }
                 .cover-page::before, .cover-page::after { display: none; }

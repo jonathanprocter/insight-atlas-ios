@@ -1947,9 +1947,11 @@ final class PDFContentBlockRenderer {
                 context.setFillColor(PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.15).cgColor)
                 context.fill(headerRect)
             } else if rowIndex % 2 == 0 {
-                // Alternating row colors
+                // Alternating row fill. The palette's page ground, not a bare
+                // `white: 0.98` — that was a cool near-white with no counterpart
+                // anywhere else in the document.
                 let rowRect = CGRect(x: point.x + padding, y: currentY, width: maxWidth - padding * 2, height: rowHeight)
-                context.setFillColor(UIColor(white: 0.98, alpha: 1.0).cgColor)
+                context.setFillColor(PDFStyleConfiguration.Colors.bgPrimary.cgColor)
                 context.fill(rowRect)
             }
 

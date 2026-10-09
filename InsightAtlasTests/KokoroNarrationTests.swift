@@ -203,31 +203,33 @@ final class KokoroNarrationTests: XCTestCase {
 
     // MARK: - Stable provider fallback policy
 
-    func testNarrationFallbackPolicyUsesOnlyInstalledOnDeviceKokoro() {
+    func testNarrationFallbackPolicyPrefersKokoroWhenInstalled() {
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
+                preferred: .kokoro,
                 kokoroConfigured: true
             ),
-            [.kokoro]
+            [.kokoro, .appleVoice]
         )
     }
 
     func testNarrationFallbackPolicyNeverRoutesToUnavailableHostedLiam() {
-        XCTAssertTrue(
+        // Routes contain only on-device engines: Kokoro when installed, and
+        // the Apple system voice, which needs no download. The retired hosted
+        // Liam provider never appears.
+        XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
+                preferred: .kokoro,
                 kokoroConfigured: false
-            ).isEmpty
+            ),
+            [.appleVoice]
         )
         XCTAssertEqual(
             NarrationFallbackPolicy.orderedRoutes(
+                preferred: .apple,
                 kokoroConfigured: true
             ),
-            [.kokoro]
-        )
-        XCTAssertTrue(
-            NarrationFallbackPolicy.orderedRoutes(
-                kokoroConfigured: false
-            ).isEmpty
+            [.appleVoice, .kokoro]
         )
     }
 

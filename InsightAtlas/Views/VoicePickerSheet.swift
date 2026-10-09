@@ -33,22 +33,38 @@ struct VoicePickerSheet: View {
     }
 
     private var recommendedVoices: [VoicePickerOption] {
-        KokoroVoiceRegistry.voicesSorted(for: profile).map {
-            VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
+        switch provider {
+        case .kokoro:
+            return KokoroVoiceRegistry.voicesSorted(for: profile).map {
+                VoicePickerOption(id: $0.voiceID, name: $0.name, description: $0.description)
+            }
+        case .apple:
+            return AppleVoiceCatalog.installedVoices().map {
+                VoicePickerOption(
+                    id: $0.identifier,
+                    name: $0.name,
+                    description: "\(AppleVoiceCatalog.qualityLabel(for: $0)) · \($0.language)"
+                )
+            }
         }
     }
 
     private var otherVoices: [VoicePickerOption] { [] }
 
     private var primarySectionTitle: String {
-        "KOKORO VOICES · ON-DEVICE"
+        switch provider {
+        case .kokoro: return "KOKORO VOICES · ON-DEVICE"
+        case .apple: return "APPLE VOICES · ON-DEVICE"
+        }
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Choose an installed Kokoro voice for private on-device previews and full-guide narration.")
+                    Text(provider == .apple
+                        ? "Choose an installed Apple voice for private on-device previews and full-guide narration. Premium voices install via iOS Settings → Accessibility → Spoken Content."
+                        : "Choose an installed Kokoro voice for private on-device previews and full-guide narration.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)

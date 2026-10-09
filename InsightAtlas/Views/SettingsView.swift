@@ -1,8 +1,14 @@
 import SwiftUI
 import UIKit
+import AVFoundation
 
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+
+    // Observed (not read) so the AI Provider row's value label refreshes when
+    // the MiniMax model is changed on the API Configuration screen —
+    // `AIProvider.displayName` resolves that model.
+    @AppStorage(MiniMaxOAuthConfig.modelStorageKey) private var minimaxModel = MiniMaxOAuthConfig.defaultModel
     @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
     @AppStorage(PremiumUI.themeStorageKey) private var themePreference = PremiumTheme.system.rawValue
@@ -573,6 +579,10 @@ struct PremiumSettingsDivider: View {
 struct AIProviderSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
 
+    // Observed (not read) so provider titles refresh when the MiniMax model
+    // changes — `AIProvider.displayName` resolves that model.
+    @AppStorage(MiniMaxOAuthConfig.modelStorageKey) private var minimaxModel = MiniMaxOAuthConfig.defaultModel
+
     var body: some View {
         PremiumChoiceList(
             title: "AI Provider",
@@ -747,6 +757,7 @@ struct APIConfigurationView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @ObservedObject private var minimax = MiniMaxOAuthService.shared
     @AppStorage(OpenRouterConfig.modelStorageKey) private var openRouterModel = OpenRouterConfig.defaultModel
+    @AppStorage(MiniMaxOAuthConfig.modelStorageKey) private var minimaxModel = MiniMaxOAuthConfig.defaultModel
     @State private var minimaxError: String?
 
     private func savedSuffix(for key: String?) -> String? {
@@ -886,10 +897,49 @@ struct APIConfigurationView: View {
                     }
                     .listRowBackground(PremiumUI.card)
                 }
+
+                // MiniMax model selector — one sign-in serves several models;
+                // pick a suggestion or type any valid identifier.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("MiniMax Model")
+                        .font(PremiumUI.ui(13, .semibold))
+                        .foregroundStyle(PremiumUI.secondaryText)
+
+                    HStack(spacing: 8) {
+                        TextField(MiniMaxOAuthConfig.defaultModel, text: $minimaxModel)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .submitLabel(.done)
+                            .font(PremiumUI.ui(15, .regular))
+                            .foregroundStyle(PremiumUI.ink)
+
+                        Menu {
+                            ForEach(MiniMaxOAuthConfig.candidateModels, id: \.self) { model in
+                                Button {
+                                    minimaxModel = model
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                } label: {
+                                    if minimaxModel == model {
+                                        Label(model, systemImage: "checkmark")
+                                    } else {
+                                        Text(model)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(PremiumUI.gold)
+                                .frame(width: 32, height: 32)
+                        }
+                        .accessibilityLabel("Choose a MiniMax model")
+                    }
+                }
+                .listRowBackground(PremiumUI.card)
             } header: {
                 Text("MiniMax (OAuth)")
             } footer: {
-                Text("Sign in with MiniMax to generate guides with the \(MiniMaxOAuthConfig.defaultModel) model. Sign-in opens MiniMax in your browser to approve a code — no password is entered in the app. Then select MiniMax under Generation → AI Provider. Tokens are stored in the iOS Keychain.")
+                Text("Sign in with MiniMax to generate guides. MiniMax M3 is the default and has a 1M-token context window; the M2.x models are kept for fallback. Sign-in opens MiniMax in your browser to approve a code — no password is entered in the app. Then select MiniMax under Generation → AI Provider. Tokens are stored in the iOS Keychain.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
@@ -916,13 +966,54 @@ struct AudioSettingsView: View {
     @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
     private var kokoroVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
 
+    @AppStorage(AppleVoiceCatalog.selectedVoiceStorageKey)
+    private var appleVoiceID = ""
+
     private var selectedKokoroVoice: KokoroVoice {
         KokoroVoiceRegistry.voice(byVoiceID: kokoroVoiceID)
             ?? KokoroVoiceRegistry.defaultVoice
     }
 
+    private var selectedAppleVoice: AVSpeechSynthesisVoice? {
+        AppleVoiceCatalog.voice(byID: appleVoiceID) ?? AppleVoiceCatalog.defaultVoice()
+    }
+
+    private var engine: VoiceProvider { environment.userSettings.voiceProvider }
+
     var body: some View {
         List {
+            Section {
+                Picker("Narration Engine", selection: Binding(
+                    get: { environment.userSettings.voiceProvider },
+                    set: { environment.updateVoiceProvider($0) }
+                )) {
+                    ForEach(VoiceProvider.allCases) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+            } header: {
+                Text("Narration Engine")
+            } footer: {
+                Text(engine == .apple
+                    ? "Apple voices synthesize instantly with no model download. For the best quality, download a Premium or Enhanced voice in iOS Settings → Accessibility → Spoken Content → Voices → English, then pick it below."
+                    : "Kokoro generates premium narration privately on this iPhone after a one-time 132 MB model download.")
+            }
+
+            if engine == .apple {
+                Section {
+                    Picker("Apple Voice", selection: $appleVoiceID) {
+                        ForEach(AppleVoiceCatalog.installedVoices(), id: \.identifier) { voice in
+                            Text("\(voice.name) (\(AppleVoiceCatalog.qualityLabel(for: voice)))")
+                                .tag(voice.identifier)
+                        }
+                    }
+                } header: {
+                    Text("Apple Voice")
+                } footer: {
+                    Text("Voices marked Premium or Enhanced sound far better than Standard. Newly downloaded voices appear here after installing them in iOS Settings.")
+                }
+            }
+
             Section {
                 kokoroModelStatus
 
@@ -940,9 +1031,9 @@ struct AudioSettingsView: View {
                     }
                 }
             } header: {
-                Text("Kokoro On-Device Voice (Primary)")
+                Text(engine == .kokoro ? "Kokoro On-Device Voice (Primary)" : "Kokoro On-Device Voice")
             } footer: {
-                Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The installed model uses about 182 MB.")
+                Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The download is about 132 MB and uses about 186 MB once installed.")
             }
 
 
@@ -958,7 +1049,9 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Playback")
             } footer: {
-                Text("New narration is generated privately on this device with the selected Kokoro voice, \(selectedKokoroVoice.name).")
+                Text(engine == .apple
+                    ? "New narration is generated privately on this device with the selected Apple voice, \(selectedAppleVoice?.name ?? "the system default")."
+                    : "New narration is generated privately on this device with the selected Kokoro voice, \(selectedKokoroVoice.name).")
             }
 
             Section {
@@ -971,10 +1064,18 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration starts after a guide finishes using the installed on-device Kokoro model. MiniMax M3 generates written guides and is not an audio provider.")
+                Text("When on, narration starts automatically after a guide finishes, using the selected on-device engine. MiniMax generates written guides and is not an audio provider.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
+        .onAppear {
+            // An empty stored id leaves the Apple Voice picker with no row
+            // selected; materialize the effective default so the UI shows it.
+            if appleVoiceID.isEmpty,
+               let fallback = AppleVoiceCatalog.defaultVoice() {
+                appleVoiceID = fallback.identifier
+            }
+        }
     }
 
     @ViewBuilder
@@ -1016,7 +1117,7 @@ struct AudioSettingsView: View {
 
         case .failed(let message):
             Label("Download failed", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.red)
+                .foregroundStyle(PremiumUI.destructive)
             Text(message)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -1170,7 +1271,7 @@ struct KokoroVoiceSettingsRow: View {
                 } else {
                     Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(isPreviewing ? Color.red : PremiumUI.gold)
+                        .foregroundStyle(isPreviewing ? PremiumUI.destructive : PremiumUI.gold)
                 }
             }
             .buttonStyle(.plain)
@@ -1194,10 +1295,9 @@ struct KokoroVoiceSettingsRow: View {
 struct ThemeSettingsView: View {
     @AppStorage(PremiumUI.themeStorageKey) private var selection = PremiumTheme.system.rawValue
 
-    // The app is currently locked to light mode (see ContentView's
-    // `.preferredColorScheme(.light)`), so Dark and System would be no-ops.
-    // Only surface the option that actually takes effect to avoid misleading
-    // the user; dark-mode tokens already exist for when the lock is lifted.
+    // Light, Dark, and System are all live: ContentView derives its
+    // preferredColorScheme from this stored preference, and every PremiumUI
+    // token ships a dark variant.
     private let availableThemes: [PremiumTheme] = PremiumTheme.allCases
 
     var body: some View {

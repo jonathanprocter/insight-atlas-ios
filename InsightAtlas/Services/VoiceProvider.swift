@@ -12,17 +12,47 @@ import Foundation
 /// Available voice-generation providers.
 enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
     case kokoro = "kokoro"
+    case apple = "apple"
+
+    /// UserDefaults key mirroring the user's engine choice, readable by the
+    /// NarrationService actor without decoding the full settings blob.
+    static let storageKey = "voice_provider"
 
     var id: String { rawValue }
-    var displayName: String { "Kokoro (On-Device)" }
-    var description: String { "Premium offline narration with no API key or per-use fee" }
+
+    var displayName: String {
+        switch self {
+        case .kokoro: return "Kokoro (On-Device)"
+        case .apple: return "Apple Voice (On-Device)"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .kokoro:
+            return "Premium offline narration with no API key or per-use fee"
+        case .apple:
+            return "System voices — no model download; premium voices install via iOS Settings"
+        }
+    }
+
     var requiresSeparateApiKey: Bool { false }
-    var defaultVoiceID: String { KokoroVoiceRegistry.defaultVoice.voiceID }
+
+    var defaultVoiceID: String {
+        switch self {
+        case .kokoro: return KokoroVoiceRegistry.defaultVoice.voiceID
+        case .apple: return AppleVoiceCatalog.defaultVoice()?.identifier ?? ""
+        }
+    }
+
     var audioFileExtension: String { "wav" }
 
-    /// Check whether Kokoro can generate audio on this device.
+    /// Check whether this provider can generate audio on this device.
     func isConfigured() -> Bool {
-        KokoroModelStore.isInstalled
+        switch self {
+        case .kokoro: return KokoroModelStore.isInstalled
+        case .apple: return AppleVoiceCatalog.defaultVoice() != nil
+        }
     }
 }
 
@@ -30,25 +60,42 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 
 struct VoiceProviderAvailability: Equatable, Sendable {
     let kokoro: Bool
+    let apple: Bool
 
     static var current: VoiceProviderAvailability {
-        VoiceProviderAvailability(kokoro: KokoroModelStore.isInstalled)
+        VoiceProviderAvailability(
+            kokoro: KokoroModelStore.isInstalled,
+            apple: AppleVoiceCatalog.defaultVoice() != nil
+        )
     }
 
     func contains(_ provider: VoiceProvider) -> Bool {
         switch provider {
         case .kokoro:
             return kokoro
+        case .apple:
+            return apple
         }
     }
 }
 
 enum VoiceProviderFallbackPlanner {
+    /// The preferred provider first, then every other available provider, so
+    /// a missing Kokoro install degrades to the Apple system voice instead of
+    /// failing outright. Mirrors `NarrationFallbackPolicy.orderedRoutes`.
     static func orderedProviders(
         preferred: VoiceProvider,
         availability: VoiceProviderAvailability
     ) -> [VoiceProvider] {
-        availability.contains(preferred) ? [preferred] : []
+        var ordered: [VoiceProvider] = []
+        if availability.contains(preferred) {
+            ordered.append(preferred)
+        }
+        for candidate in VoiceProvider.allCases
+        where candidate != preferred && availability.contains(candidate) {
+            ordered.append(candidate)
+        }
+        return ordered
     }
 }
 
@@ -92,7 +139,7 @@ enum VoiceRoutingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noConfiguredProvider:
-            return "On-device narration is not ready. Download the Kokoro voice model in Settings."
+            return "On-device narration is not ready. Narration uses an installed Kokoro model or an Apple system voice."
         case .allProvidersFailed(let detail):
             return "On-device narration failed. \(detail)"
         }
@@ -111,17 +158,18 @@ final class VoiceServiceManager: ObservableObject {
 
     private init() {
         self.kokoroService = KokoroAudioService.shared
-        self.currentProvider = .kokoro
 
-        // Replace any persisted retired provider with the supported local provider.
-        if UserDefaults.standard.string(forKey: "voice_provider") != VoiceProvider.kokoro.rawValue {
-            UserDefaults.standard.set(VoiceProvider.kokoro.rawValue, forKey: "voice_provider")
-        }
+        // Replace any persisted retired provider with the supported local
+        // provider; a valid stored choice (kokoro or apple) is kept.
+        let stored = UserDefaults.standard.string(forKey: VoiceProvider.storageKey)
+        let provider = stored.flatMap(VoiceProvider.init(rawValue:)) ?? .kokoro
+        self.currentProvider = provider
+        UserDefaults.standard.set(provider.rawValue, forKey: VoiceProvider.storageKey)
     }
 
     func setProvider(_ provider: VoiceProvider) {
         currentProvider = provider
-        UserDefaults.standard.set(provider.rawValue, forKey: "voice_provider")
+        UserDefaults.standard.set(provider.rawValue, forKey: VoiceProvider.storageKey)
     }
 
     var isCurrentProviderConfigured: Bool {
@@ -143,6 +191,10 @@ final class VoiceServiceManager: ObservableObject {
         switch provider {
         case .kokoro:
             return try await kokoroService.generateAudio(text: text, voiceID: voiceID)
+        case .apple:
+            return try await AppleSpeechAudioService.shared.generateAudio(
+                text: text, voiceID: voiceID
+            )
         }
     }
 
@@ -160,31 +212,50 @@ final class VoiceServiceManager: ObservableObject {
             throw VoiceRoutingError.noConfiguredProvider
         }
 
-        let voiceID = resolvedVoiceID(
-            preferredVoiceID: preferredVoiceID,
-            readerProfile: readerProfile
-        )
-        do {
-            let audio = try await generateAudio(
-                text: text,
-                voiceID: voiceID,
-                provider: .kokoro
+        var lastError: Error?
+        for provider in providers {
+            let voiceID = resolvedVoiceID(
+                preferredVoiceID: preferredVoiceID,
+                readerProfile: readerProfile,
+                provider: provider
             )
-            return RoutedGeneratedAudio(audio: audio, provider: .kokoro, voiceID: voiceID)
-        } catch {
-            throw VoiceRoutingError.allProvidersFailed(error.localizedDescription)
+            do {
+                let audio = try await generateAudio(
+                    text: text,
+                    voiceID: voiceID,
+                    provider: provider
+                )
+                return RoutedGeneratedAudio(audio: audio, provider: provider, voiceID: voiceID)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+            }
         }
+        throw VoiceRoutingError.allProvidersFailed(
+            lastError?.localizedDescription ?? "Unknown narration failure."
+        )
     }
 
     private func resolvedVoiceID(
         preferredVoiceID: String?,
-        readerProfile: ReaderProfile
+        readerProfile: ReaderProfile,
+        provider: VoiceProvider
     ) -> String {
-        if let preferredVoiceID,
-           KokoroVoiceRegistry.isValidVoiceID(preferredVoiceID) {
-            return preferredVoiceID
+        switch provider {
+        case .kokoro:
+            if let preferredVoiceID,
+               KokoroVoiceRegistry.isValidVoiceID(preferredVoiceID) {
+                return preferredVoiceID
+            }
+            return KokoroVoiceRegistry.recommendedVoice(for: readerProfile).voiceID
+        case .apple:
+            if let preferredVoiceID,
+               AppleVoiceCatalog.voice(byID: preferredVoiceID) != nil {
+                return preferredVoiceID
+            }
+            return AppleVoiceCatalog.selectedVoice()?.identifier ?? ""
         }
-        return KokoroVoiceRegistry.recommendedVoice(for: readerProfile).voiceID
     }
 
     func availableVoices() -> [any UnifiedVoice] {

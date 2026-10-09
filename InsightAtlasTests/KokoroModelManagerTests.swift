@@ -30,10 +30,17 @@ final class KokoroModelManagerTests: XCTestCase {
             manifest.downloadURL.absoluteString,
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
         )
-        XCTAssertEqual(manifest.archiveByteCount, 131_839_838)
+        // Measured against the live GitHub release asset on 2026-10-09:
+        //   curl -sL <downloadURL> -o a.tar.bz2 && shasum -a 256 a.tar.bz2
+        // The previous expectations (131_839_838 / 75654a84…) matched neither
+        // the published archive nor anything else; because the test and the
+        // manifest asserted the same wrong pair, they agreed with each other
+        // while every real install failed size verification. Re-measure with
+        // the command above rather than copying these values forward.
+        XCTAssertEqual(manifest.archiveByteCount, 132_303_094)
         XCTAssertEqual(
             manifest.sha256,
-            "75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3"
+            "4c3052abaa60943a341f193888cf6abd68787dae6ab8ae5c925a706caa247e4e"
         )
         XCTAssertGreaterThanOrEqual(manifest.minimumAvailableCapacity, 450 * 1_024 * 1_024)
     }

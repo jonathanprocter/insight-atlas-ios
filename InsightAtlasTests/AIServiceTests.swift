@@ -157,7 +157,7 @@ final class AIServiceTests: XCTestCase {
     func testProviderDisplayNames() {
         XCTAssertEqual(AIProvider.claude.displayName, "Claude")
         XCTAssertEqual(AIProvider.openRouter.displayName, "OpenRouter")
-        XCTAssertEqual(AIProvider.minimax.displayName, "MiniMax M2.7")
+        XCTAssertEqual(AIProvider.minimax.displayName, "MiniMax M3")
     }
 
     func testAllProvidersEnumerated() {
@@ -165,19 +165,76 @@ final class AIServiceTests: XCTestCase {
     }
 
     func testMiniMaxUsesSupportedModelAndDeepResearchBudget() {
-        XCTAssertEqual(MiniMaxOAuthConfig.defaultModel, "MiniMax-M2.7")
+        XCTAssertEqual(MiniMaxOAuthConfig.defaultModel, "MiniMax-M3")
+        // M3 shares max_tokens with its (heavy) reasoning, so every mode gets
+        // the full 64k output allowance; the M2.x family keeps the smaller
+        // standard budget.
         XCTAssertEqual(
-            MiniMaxOAuthConfig.outputTokenLimit(mode: .standard, summaryType: .professional),
-            16_000
-        )
-        XCTAssertEqual(
-            MiniMaxOAuthConfig.outputTokenLimit(mode: .deepResearch, summaryType: .deepResearch),
+            MiniMaxOAuthConfig.outputTokenLimit(
+                mode: .standard, summaryType: .professional, model: "MiniMax-M3"
+            ),
             64_000
         )
         XCTAssertEqual(
-            MiniMaxOAuthConfig.inputTokenLimit(mode: .deepResearch, summaryType: .deepResearch),
+            MiniMaxOAuthConfig.outputTokenLimit(
+                mode: .standard, summaryType: .professional, model: "MiniMax-M2.7"
+            ),
+            16_000
+        )
+        XCTAssertEqual(
+            MiniMaxOAuthConfig.outputTokenLimit(
+                mode: .deepResearch, summaryType: .deepResearch, model: "MiniMax-M2.7"
+            ),
+            64_000
+        )
+        XCTAssertEqual(
+            MiniMaxOAuthConfig.inputTokenLimit(
+                mode: .deepResearch,
+                summaryType: .deepResearch,
+                model: "MiniMax-M3"
+            ),
+            936_000
+        )
+        XCTAssertEqual(
+            MiniMaxOAuthConfig.inputTokenLimit(
+                mode: .deepResearch,
+                summaryType: .deepResearch,
+                model: "MiniMax-M2.7"
+            ),
             140_800
         )
+    }
+
+    func testMiniMaxOffersM3AndLegacyModelsAsChoices() {
+        XCTAssertEqual(MiniMaxOAuthConfig.candidateModels.first, "MiniMax-M3")
+        XCTAssertTrue(MiniMaxOAuthConfig.candidateModels.contains("MiniMax-M2.7"))
+    }
+
+    func testMiniMaxResolvedModelHonorsUserOverride() {
+        let defaults = UserDefaults.standard
+        let key = MiniMaxOAuthConfig.modelStorageKey
+        let original = defaults.string(forKey: key)
+        defer {
+            if let original { defaults.set(original, forKey: key) }
+            else { defaults.removeObject(forKey: key) }
+        }
+
+        defaults.removeObject(forKey: key)
+        XCTAssertEqual(MiniMaxOAuthConfig.resolvedModel, "MiniMax-M3")
+
+        defaults.set("MiniMax-M2.7", forKey: key)
+        XCTAssertEqual(MiniMaxOAuthConfig.resolvedModel, "MiniMax-M2.7")
+        XCTAssertEqual(AIProvider.minimax.displayName, "MiniMax M2.7")
+
+        // A blank override falls back to the default rather than sending "".
+        defaults.set("   ", forKey: key)
+        XCTAssertEqual(MiniMaxOAuthConfig.resolvedModel, "MiniMax-M3")
+    }
+
+    func testMiniMaxContextWindowIsModelAware() {
+        XCTAssertEqual(MiniMaxOAuthConfig.contextWindowTokens(for: "MiniMax-M3"), 1_000_000)
+        XCTAssertEqual(MiniMaxOAuthConfig.contextWindowTokens(for: "MiniMax-M2.7"), 204_800)
+        XCTAssertEqual(MiniMaxOAuthConfig.contextWindowTokens(for: "MiniMax-M2"), 204_800)
     }
 
     func testMiniMaxTokenEstimateReservesDeepResearchOutputWindow() async {
@@ -193,7 +250,9 @@ final class AIServiceTests: XCTestCase {
             settings: settings
         )
 
-        XCTAssertEqual(estimate.contextLimit, 140_800)
+        // M3 is the default model: 1,000,000-token window less the 64,000-token
+        // Deep Research output reservation.
+        XCTAssertEqual(estimate.contextLimit, 936_000)
     }
 
     func testDeepResearchPromptIncludesRequestedLengthContract() {

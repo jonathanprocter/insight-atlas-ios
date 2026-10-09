@@ -68,7 +68,7 @@ struct InsightNoteBlockView: View {
         HStack(spacing: 0) {
             // Coral left border
             Rectangle()
-                .fill(Color(hex: "#E8553A"))
+                .fill(PremiumUI.emberMark)
                 .frame(width: 3)
             
             VStack(alignment: .leading, spacing: 16) {
@@ -131,13 +131,13 @@ struct InsightNoteBlockView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(hex: "#FDF8F3")) // slightly off-white contrast against cream
+                    .background(PremiumUI.emberWash)
                     .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.sm))
                 }
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "#F5F4F0")) // Warm Cream
+            .background(PremiumUI.chipFill)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.vertical, 8)
@@ -442,7 +442,7 @@ struct PremiumQuoteBlockView: View {
         HStack(spacing: 0) {
             // Coral left border
             Rectangle()
-                .fill(Color(hex: "#E8553A"))
+                .fill(PremiumUI.emberMark)
                 .frame(width: 3)
             
             VStack(alignment: .leading, spacing: 16) {
@@ -461,13 +461,13 @@ struct PremiumQuoteBlockView: View {
                     Text("— \(attribution.uppercased())")
                         .font(.custom("Inter-SemiBold", size: 14))
                         .tracking(1)
-                        .foregroundColor(Color(hex: "#E8553A"))
+                        .foregroundColor(PremiumUI.ember)
                 }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "#F5F4F0")) // Warm Cream
+            .background(PremiumUI.chipFill)
         }
         .cornerRadius(12)
         .padding(.vertical, 8)
@@ -725,7 +725,7 @@ struct SectionHeaderBlockView: View {
             } else if level == 2 {
                 HStack(spacing: 8) {
                     Rectangle()
-                        .fill(Color(hex: "#E8553A")) // Coral accent
+                        .fill(PremiumUI.emberMark)
                         .frame(width: 3, height: 18)
                         
                     Text(text)

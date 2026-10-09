@@ -95,7 +95,7 @@ struct BookReferenceLink: View {
 
                     Text("by \(reference.author)")
                         .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.Light.textMuted)
+                        .foregroundColor(AnalysisTheme.textMuted)
                 }
 
                 Spacer()
@@ -148,7 +148,7 @@ func parseMarkdownBold(_ text: String) -> AttributedString {
                 var titleAttr = AttributedString(bookTitle)
                 // Gold italic for book title
                 titleAttr.font = .custom("CormorantGaramond-Italic", size: 17)
-                titleAttr.foregroundColor = Color(hex: "#B8962E")
+                titleAttr.foregroundColor = PremiumUI.ember
                 
                 var byAttr = AttributedString(" by ")
                 byAttr.font = .custom("CormorantGaramond-Regular", size: 17)
@@ -157,7 +157,7 @@ func parseMarkdownBold(_ text: String) -> AttributedString {
                 var authorAttr = AttributedString(authorName.uppercased())
                 // Coral small caps (uppercased) for author
                 authorAttr.font = .custom("Inter-SemiBold", size: 15) // Mimicking small caps
-                authorAttr.foregroundColor = Color(hex: "#E8553A")
+                authorAttr.foregroundColor = PremiumUI.ember
                 
                 styledCitation.append(titleAttr)
                 styledCitation.append(byAttr)
@@ -292,10 +292,9 @@ struct PremiumQuickGlanceView: View {
     let keyPoints: [String]
     let readingTime: Int
 
-    // CRITICAL FIX: Use explicit light-mode colors for text inside light background boxes
-    // This ensures readability when the box has a light background in dark mode
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let boxHeadingColor = AnalysisTheme.Light.textHeading
+    // Box surface is adaptive (PremiumUI.card), so text follows the adaptive theme.
+    private let boxTextColor = AnalysisTheme.textBody
+    private let boxHeadingColor = AnalysisTheme.textHeading
 
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
@@ -323,13 +322,8 @@ struct PremiumQuickGlanceView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(
-                    LinearGradient(
-                        colors: [AnalysisTheme.primaryGold, AnalysisTheme.accentOrange],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                // Solid: both stops resolve to ember, so the gradient was flat.
+                .background(AnalysisTheme.primaryGold)
                 .cornerRadius(AnalysisTheme.Radius.full)
                 .fixedSize(horizontal: true, vertical: false)
             }
@@ -337,7 +331,7 @@ struct PremiumQuickGlanceView: View {
 
             // Divider with proper spacing from top border
             Divider()
-                .background(AnalysisTheme.Light.borderLight)
+                .background(AnalysisTheme.borderLight)
                 .padding(.top, 4)
 
             Text(parseMarkdownBold("**Core Message:** \(coreMessage)"))
@@ -362,19 +356,13 @@ struct PremiumQuickGlanceView: View {
         .padding(.top, 8) // Extra top padding to prevent overlap with top border
         .background(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl)
-                .fill(Color.white) // Always white background for light box appearance
+                .fill(PremiumUI.card)
                 .shadow(color: AnalysisTheme.shadowCard, radius: 12, x: 0, y: 4)
         )
         .overlay(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl)
-                .stroke(
-                    LinearGradient(
-                        colors: [AnalysisTheme.primaryGold, AnalysisTheme.accentOrange, AnalysisTheme.primaryGold],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 2
-                )
+                // Solid: all three stops resolved to ember.
+                .stroke(AnalysisTheme.primaryGold, lineWidth: 2)
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -386,9 +374,9 @@ struct TableOfContentsView: View {
     let sections: [AnalysisSection]
     let onSectionTap: (Int) -> Void
 
-    // Use explicit dark text for light background
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let boxHeadingColor = AnalysisTheme.Light.textHeading
+    // Box surface is adaptive (PremiumUI.card), so text follows the adaptive theme.
+    private let boxTextColor = AnalysisTheme.textBody
+    private let boxHeadingColor = AnalysisTheme.textHeading
     private let tocAccentColor = AnalysisTheme.primaryGold
 
     var body: some View {
@@ -407,7 +395,7 @@ struct TableOfContentsView: View {
 
                 Text("\(filteredSections.count) sections")
                     .font(.analysisUISmall())
-                    .foregroundColor(AnalysisTheme.Light.textMuted)
+                    .foregroundColor(AnalysisTheme.textMuted)
             }
             .padding(.bottom, AnalysisTheme.Spacing.xs)
 
@@ -447,14 +435,14 @@ struct TableOfContentsView: View {
 
                     if index < filteredSections.count - 1 {
                         Divider()
-                            .background(AnalysisTheme.Light.borderLight)
+                            .background(AnalysisTheme.borderLight)
                     }
                 }
             }
             .padding(.top, AnalysisTheme.Spacing.sm)
         }
         .padding(AnalysisTheme.Spacing.xl)
-        .background(Color.white)
+        .background(PremiumUI.card)
         .overlay(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl)
                 .stroke(tocAccentColor.opacity(0.3), lineWidth: 1.5)
@@ -538,8 +526,8 @@ struct PremiumInsightNoteView: View {
     let content: String
 
     // Use explicit dark text color for light background box (fixes dark mode visibility)
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let boxMutedColor = AnalysisTheme.Light.textMuted
+    private let boxTextColor = AnalysisTheme.textBody
+    private let boxMutedColor = AnalysisTheme.textMuted
 
     private var parsed: (coreConnection: String, keyDistinction: String?, practicalImplication: String?, goDeeper: String?) {
         parseInsightNoteContent(content)
@@ -581,7 +569,7 @@ struct PremiumInsightNoteView: View {
                 .padding(AnalysisTheme.Spacing.md)
                 .background(
                     ZStack {
-                        Color.white
+                        PremiumUI.card
                         AnalysisTheme.accentCoralSubtle.opacity(0.5)
                     }
                 )
@@ -605,7 +593,7 @@ struct PremiumInsightNoteView: View {
                 .padding(AnalysisTheme.Spacing.md)
                 .background(
                     ZStack {
-                        Color.white
+                        PremiumUI.card
                         AnalysisTheme.accentOrangeSubtle.opacity(0.5)
                     }
                 )
@@ -648,7 +636,7 @@ struct PremiumInsightNoteView: View {
                 .padding(AnalysisTheme.Spacing.md)
                 .background(
                     ZStack {
-                        Color.white
+                        PremiumUI.card
                         AnalysisTheme.accentTealSubtle.opacity(0.5)
                     }
                 )
@@ -659,14 +647,10 @@ struct PremiumInsightNoteView: View {
         .padding(.leading, AnalysisTheme.Spacing.sm)
         .background(
             ZStack {
-                // Solid white base ensures readability in dark mode
-                Color.white
-                // Subtle gradient overlay for visual interest
-                LinearGradient(
-                    colors: [AnalysisTheme.accentCoralSubtle, AnalysisTheme.accentOrangeSubtle],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
+                // Adaptive card base keeps the wash legible in both themes
+                PremiumUI.card
+                // Flat ember wash: the two gradient stops were the same tint.
+                AnalysisTheme.accentCoralSubtle
             }
         )
         .overlay(alignment: .leading) {
@@ -815,7 +799,7 @@ struct PremiumActionBoxView: View {
         .padding(AnalysisTheme.Spacing.lg)
         .background(
             ZStack {
-                Color.white
+                PremiumUI.card
                 applyItGreen.opacity(0.08)
             }
         )
@@ -835,10 +819,9 @@ struct PremiumActionBoxView: View {
 struct PremiumKeyTakeawaysView: View {
     let takeaways: [String]
 
-    // CRITICAL FIX: Use explicit light-mode dark text color for visibility on light background
-    // The box has a light green/white background, so text must be dark even in dark mode
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let takeawayGreen = Color(hex: "#2D6A4F") // Darker green for better contrast
+    // Box surface is adaptive (PremiumUI.card), so text follows the adaptive theme.
+    private let boxTextColor = AnalysisTheme.textBody
+    private let takeawayGreen = PremiumUI.celadonDeep // Darker green for better contrast
 
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
@@ -873,8 +856,7 @@ struct PremiumKeyTakeawaysView: View {
         }
         .padding(AnalysisTheme.Spacing.xl)
         .background(
-            // Use solid light background for consistent appearance
-            Color.white
+            PremiumUI.card
         )
         .overlay(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl)
@@ -903,9 +885,9 @@ struct PremiumFoundationalNarrativeView: View {
     let title: String
     let content: String
 
-    // CRITICAL FIX: Use explicit dark text for light background
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let boxHeaderColor = Color(hex: "#4B5563") // Gray 600 - visible on light bg
+    // Box surface is adaptive (PremiumUI.card), so text follows the adaptive theme.
+    private let boxTextColor = AnalysisTheme.textBody
+    private let boxHeaderColor = PremiumUI.secondaryText // Gray 600 - visible on light bg
 
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
@@ -921,7 +903,7 @@ struct PremiumFoundationalNarrativeView: View {
             .padding(.bottom, AnalysisTheme.Spacing.xs)
 
             Divider()
-                .background(Color(hex: "#D1D5DB")) // Light gray divider
+                .background(PremiumUI.divider) // Light gray divider
 
             Text(parseMarkdownInline(content, foregroundColor: boxTextColor))
                 .font(.analysisBody())
@@ -930,8 +912,7 @@ struct PremiumFoundationalNarrativeView: View {
         .padding(AnalysisTheme.Spacing.lg)
         .padding(.leading, AnalysisTheme.Spacing.sm)
         .background(
-            // Use solid light background
-            Color.white
+            PremiumUI.card
         )
         .overlay(alignment: .leading) {
             // Accent bar clipped to match container's rounded corners
@@ -944,7 +925,7 @@ struct PremiumFoundationalNarrativeView: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl)
-                .stroke(Color(hex: "#E5E7EB"), lineWidth: 1)
+                .stroke(PremiumUI.divider, lineWidth: 1)
         )
         .cornerRadius(AnalysisTheme.Radius.xl)
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
@@ -959,9 +940,11 @@ struct PremiumExerciseView: View {
     let steps: [String]
     let estimatedTime: String?
 
-    // CRITICAL FIX: Use explicit dark text for light background
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let exerciseTeal = Color(hex: "#0D6E6E") // Darker teal for better contrast
+    // Box surface is adaptive (PremiumUI.card), so text follows the adaptive theme.
+    private let boxTextColor = AnalysisTheme.textBody
+    // Indigo, not celadon: Takeaways already owns the deep celadon, and two
+    // adjacent editorial blocks in the same colour read as one block.
+    private let exerciseTeal = PremiumUI.indigoDeep
 
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
@@ -1015,8 +998,7 @@ struct PremiumExerciseView: View {
         }
         .padding(AnalysisTheme.Spacing.xl)
         .background(
-            // Use solid white background
-            Color.white
+            PremiumUI.card
         )
         .overlay(alignment: .leading) {
             Rectangle()
@@ -1042,7 +1024,7 @@ struct PremiumFlowchartView: View {
     let steps: [String]
 
     // CRITICAL FIX: Use explicit dark text for light background boxes
-    private let boxTextColor = AnalysisTheme.Light.textHeading
+    private let boxTextColor = AnalysisTheme.textHeading
 
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
@@ -1065,12 +1047,12 @@ struct PremiumFlowchartView: View {
                     VStack(spacing: AnalysisTheme.Spacing.sm) {
                         Text(step)
                             .font(.analysisUI())
-                            .foregroundColor(boxTextColor) // Dark text on light background
+                            .foregroundColor(boxTextColor)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, AnalysisTheme.Spacing.lg)
                             .padding(.vertical, AnalysisTheme.Spacing.md)
                             .frame(maxWidth: .infinity)
-                            .background(Color.white) // Explicit white background
+                            .background(PremiumUI.card)
                             .overlay(
                                 RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
                                     .stroke(AnalysisTheme.primaryGold.opacity(0.4), lineWidth: 2)
@@ -1090,8 +1072,7 @@ struct PremiumFlowchartView: View {
         }
         .padding(AnalysisTheme.Spacing.xl)
         .background(
-            // Use solid white background for consistent light appearance
-            Color.white
+            PremiumUI.card
         )
         .overlay(
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.xl)
@@ -1300,8 +1281,8 @@ struct PremiumQuoteView: View {
     let source: String?
 
     // Use explicit dark text color for light background box (fixes dark mode visibility)
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let boxMutedColor = AnalysisTheme.Light.textMuted
+    private let boxTextColor = AnalysisTheme.textBody
+    private let boxMutedColor = AnalysisTheme.textMuted
 
     init(quote: String, author: String? = nil, source: String? = nil) {
         self.quote = quote
@@ -1313,7 +1294,7 @@ struct PremiumQuoteView: View {
         ZStack(alignment: .topLeading) {
             // Background card
             RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg)
-                .fill(Color(hex: "#F5F3ED"))
+                .fill(PremiumUI.chipFill)
 
             // Coral/terracotta left border
             HStack(spacing: 0) {
@@ -1420,7 +1401,7 @@ struct PremiumAuthorSpotlightView: View {
                 .padding(.vertical, AnalysisTheme.Spacing.md)
             }
         }
-        .background(Color.white)
+        .background(PremiumUI.card)
         .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg))
         // Inner border
         .overlay(
@@ -1556,7 +1537,7 @@ struct RoundedCorner: Shape {
 
 // MARK: - Accent Color for Coral (muted)
 
-private let accentCoralMuted = Color(hex: "#D4735C").opacity(0.25)
+private let accentCoralMuted = PremiumUI.emberMark.opacity(0.25)
 
 // MARK: - Premium Book Title View
 
@@ -1610,7 +1591,7 @@ struct AuthorSpotlightView: View {
                 BookTitleView(title: bookTitle)
 
                 if let description = description {
-                    Text(parseMarkdownInline(description, foregroundColor: AnalysisTheme.Light.textBody))
+                    Text(parseMarkdownInline(description, foregroundColor: AnalysisTheme.textBody))
                         .font(.analysisBody())
                         .padding(.top, AnalysisTheme.Spacing.xs)
                 }
@@ -1620,9 +1601,9 @@ struct AuthorSpotlightView: View {
         .padding(.leading, AnalysisTheme.Spacing.sm)
         .background(
             ZStack {
-                Color.white
+                PremiumUI.card
                 LinearGradient(
-                    colors: [Color(hex: "#FDF8F3").opacity(0.8), Color(hex: "#FBF7E9").opacity(0.6)],
+                    colors: [PremiumUI.emberWash.opacity(0.8), PremiumUI.emberWash.opacity(0.6)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -1647,8 +1628,8 @@ struct AlternativePerspectiveView: View {
     let content: String
 
     // Use explicit dark text color for light background box (fixes dark mode visibility)
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let boxMutedColor = AnalysisTheme.Light.textMuted
+    private let boxTextColor = AnalysisTheme.textBody
+    private let boxMutedColor = AnalysisTheme.textMuted
 
     private var bookRefs: [BookReference] {
         parseBookReferences(from: content)
@@ -1687,9 +1668,9 @@ struct AlternativePerspectiveView: View {
         .padding(.leading, AnalysisTheme.Spacing.sm)
         .background(
             ZStack {
-                Color.white
+                PremiumUI.card
                 LinearGradient(
-                    colors: [Color(hex: "#F5FAFA"), Color(hex: "#F0FAF8").opacity(0.8)],
+                    colors: [PremiumUI.celadonWash, PremiumUI.celadonWash.opacity(0.8)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -1718,8 +1699,8 @@ struct ResearchInsightView: View {
     let source: String?
 
     // Use explicit dark text color for light background box (fixes dark mode visibility)
-    private let boxTextColor = AnalysisTheme.Light.textBody
-    private let boxMutedColor = AnalysisTheme.Light.textMuted
+    private let boxTextColor = AnalysisTheme.textBody
+    private let boxMutedColor = AnalysisTheme.textMuted
 
     private var bookRefs: [BookReference] {
         parseBookReferences(from: content)
@@ -1771,9 +1752,9 @@ struct ResearchInsightView: View {
         .padding(.leading, AnalysisTheme.Spacing.sm)
         .background(
             ZStack {
-                Color.white
+                PremiumUI.card
                 LinearGradient(
-                    colors: [Color(hex: "#FBF7E9"), Color(hex: "#FDFAF0").opacity(0.8)],
+                    colors: [PremiumUI.emberWash, PremiumUI.emberWash.opacity(0.8)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -1849,7 +1830,7 @@ struct PremiumQuoteWithAttributionView: View {
         .padding(.leading, AnalysisTheme.Spacing.lg)
         .background(
             LinearGradient(
-                colors: [Color(hex: "#FAF9F7").opacity(0.6), Color(hex: "#FDF8F3").opacity(0.4)],
+                colors: [PremiumUI.card.opacity(0.6), PremiumUI.emberWash.opacity(0.4)],
                 startPoint: .leading,
                 endPoint: .trailing
             )
@@ -1898,7 +1879,7 @@ struct AuthorBioView: View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             AuthorNameView(name: name)
 
-            Text(parseMarkdownInline(bio, foregroundColor: AnalysisTheme.Light.textBody))
+            Text(parseMarkdownInline(bio, foregroundColor: AnalysisTheme.textBody))
                 .font(.analysisBody())
 
             if let works = otherWorks, !works.isEmpty {
@@ -1922,9 +1903,9 @@ struct AuthorBioView: View {
         .padding(AnalysisTheme.Spacing.lg)
         .background(
             ZStack {
-                Color.white
+                PremiumUI.card
                 LinearGradient(
-                    colors: [Color(hex: "#FAF9F7"), Color(hex: "#FDF8F3").opacity(0.8)],
+                    colors: [PremiumUI.card, PremiumUI.emberWash.opacity(0.8)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -1961,7 +1942,7 @@ struct ComparisonTableView: View {
         VStack(spacing: 0) {
             // Header row
             HStack(spacing: 0) {
-                ForEach(headers, id: \.self) { header in
+                ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
                     Text(header.uppercased())
                         .font(.analysisUIBold())
                         .foregroundColor(.white)
@@ -1972,8 +1953,11 @@ struct ComparisonTableView: View {
                 }
             }
             .background(
+                // Fixed ember stops: the header text is always white, so the
+                // band must stay mid-tone in both themes (the adaptive ember
+                // lightens in dark mode; emberTint is a pale wash).
                 LinearGradient(
-                    colors: [AnalysisTheme.primaryGold, AnalysisTheme.primaryGoldLight],
+                    colors: [Color(hex: PremiumUI.Hex.emberMarkLight), Color(hex: PremiumUI.Hex.emberLight)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -1982,7 +1966,10 @@ struct ComparisonTableView: View {
             // Data rows
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 HStack(spacing: 0) {
-                    ForEach(row, id: \.self) { cell in
+                    // Identity is the column position, not the text: repeated
+                    // cell values ("Yes", "Yes") or two blank cells in one row
+                    // would otherwise collide and drop a column.
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
                         Text(cell)
                             .font(.analysisBody())
                             .foregroundColor(AnalysisTheme.textBody)
@@ -1991,7 +1978,7 @@ struct ComparisonTableView: View {
                             .padding(.horizontal, AnalysisTheme.Spacing.sm)
                     }
                 }
-                .background(index % 2 == 0 ? Color(hex: "#FDF8F3").opacity(0.5) : PremiumUI.card)
+                .background(index % 2 == 0 ? PremiumUI.emberWash.opacity(0.5) : PremiumUI.card)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.lg))
@@ -2008,8 +1995,8 @@ struct ComparisonTableView: View {
 struct ProcessTimelineView: View {
     let steps: [String]
 
-    // CRITICAL FIX: Use explicit dark text for light background
-    private let boxTextColor = AnalysisTheme.Light.textHeading
+    // Box surface is adaptive (PremiumUI.card), so text follows the adaptive theme.
+    private let boxTextColor = AnalysisTheme.textHeading
 
     var body: some View {
         VStack(spacing: AnalysisTheme.Spacing.lg) {
@@ -2057,7 +2044,7 @@ struct ProcessTimelineView: View {
             }
         }
         .padding(AnalysisTheme.Spacing.xl)
-        .background(Color.white)
+        .background(PremiumUI.card)
         .cornerRadius(AnalysisTheme.Radius.xl)
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
     }
@@ -2069,9 +2056,9 @@ struct ConceptMapView: View {
     let centralConcept: String
     let connections: [(concept: String, relationship: String)]
 
-    // CRITICAL FIX: Use explicit dark text for light background
-    private let boxTextColor = AnalysisTheme.Light.textHeading
-    private let boxMutedColor = AnalysisTheme.Light.textMuted
+    // Box surface is adaptive (PremiumUI.card), so text follows the adaptive theme.
+    private let boxTextColor = AnalysisTheme.textHeading
+    private let boxMutedColor = AnalysisTheme.textMuted
 
     var body: some View {
         VStack(spacing: AnalysisTheme.Spacing.lg) {
@@ -2135,7 +2122,7 @@ struct ConceptMapView: View {
                                     .stroke(AnalysisTheme.primaryGold.opacity(0.5), lineWidth: 1.5)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.white) // Explicit white background
+                                            .fill(PremiumUI.card)
                                     )
                             )
                         Spacer()
@@ -2144,7 +2131,7 @@ struct ConceptMapView: View {
             }
         }
         .padding(AnalysisTheme.Spacing.xl)
-        .background(Color.white)
+        .background(PremiumUI.card)
         .cornerRadius(AnalysisTheme.Radius.xl)
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
     }
@@ -2404,13 +2391,13 @@ struct PremiumQuoteCardView: View {
             // Base parchment gradient using theme colors
             RadialGradient(
                 colors: [
-                    AnalysisTheme.parchmentBase,           // #F8F3E8
+                    AnalysisTheme.parchmentBase,
                     AnalysisTheme.parchmentBase.opacity(0.95),
-                    PremiumUI.searchFill,             // #F5F3ED
-                    AnalysisTheme.parchmentMid,            // #E8DFCD
-                    AnalysisTheme.brandParchmentDark,      // #E8E4DC
+                    PremiumUI.searchFill,
+                    AnalysisTheme.parchmentMid,
+                    AnalysisTheme.brandParchmentDark,
                     AnalysisTheme.parchmentDark.opacity(0.8),
-                    AnalysisTheme.parchmentDark            // #CBBFA5
+                    AnalysisTheme.parchmentDark
                 ],
                 center: UnitPoint(x: 0.45, y: 0.4),
                 startRadius: 0,
@@ -2780,7 +2767,7 @@ private struct StyledCommentaryText: View {
 
     // CRITICAL FIX: Use explicit dark text for light background boxes
     // Commentary boxes always have light backgrounds, so text must be dark even in dark mode
-    private let bodyTextColor = AnalysisTheme.Light.textBody
+    private let bodyTextColor = AnalysisTheme.textBody
 
     var body: some View {
         buildStyledText()
@@ -3310,7 +3297,7 @@ func exportPremiumCommentaryBox(
         tagline: "contends..."
     )
     .padding()
-    .background(Color(hex: "#e8e0d0"))
+    .background(PremiumUI.emberTint)
 }
 
 #Preview("Premium Commentary Boxes") {
@@ -3336,7 +3323,7 @@ func exportPremiumCommentaryBox(
         }
         .padding()
     }
-    .background(Color(hex: "#f5f2eb"))
+    .background(PremiumUI.emberWash)
 }
 
 // MARK: - Premium Author Spotlight Card (Layered Gold Frame Design)
@@ -3599,8 +3586,8 @@ private struct StyledBioText: View {
 
     // Coral colors for book titles
     private let coralColors: [Color] = [
-        Color(hex: "#C67650"),
-        Color(hex: "#BE6E48")
+        PremiumUI.emberMark,
+        PremiumUI.ember
     ]
 
     var body: some View {

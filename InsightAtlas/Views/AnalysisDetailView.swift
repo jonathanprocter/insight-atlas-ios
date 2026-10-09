@@ -102,7 +102,7 @@ struct AnalysisDetailView: View {
                         }
                     }
                     .padding()
-                    .background(Color(.systemGray6))
+                    .background(PremiumUI.chipFill)
                     .cornerRadius(8)
                 }
                 #endif
@@ -223,7 +223,7 @@ struct AnalysisDetailView: View {
                 .foregroundStyle(.secondary)
             Text("\(Int(score * 100))%")
                 .font(.caption.bold())
-                .foregroundColor(score >= 0.9 ? .green : score >= 0.8 ? .orange : .red)
+                .foregroundColor(score >= 0.9 ? PremiumUI.celadon : score >= 0.8 ? PremiumUI.emberDeep : PremiumUI.destructive)
         }
     }
     #endif
@@ -266,7 +266,7 @@ struct AnalysisDetailView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(Color(.systemGray5))
+                        .fill(PremiumUI.divider)
                         .frame(height: 3)
 
                     Rectangle()
@@ -1811,6 +1811,11 @@ struct ParsedAnalysisContent {
                     var updatedSection = current
                     updatedSection.blocks = currentBlocks
                     sections.append(updatedSection)
+                } else if !currentBlocks.isEmpty {
+                    // Content ahead of the first heading (e.g. the executive
+                    // summary prose) — keep it as an untitled intro section
+                    // rather than dropping it.
+                    sections.append(AnalysisSection(heading: nil, blocks: currentBlocks))
                 }
 
                 let heading = String(line.dropFirst(3))
@@ -2343,7 +2348,7 @@ struct AnalysisExportOptionsView: View {
                                     let formatScore = scoreFor(format: format, from: score)
                                     if formatScore < 0.85 {
                                         Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(.orange)
+                                            .foregroundColor(PremiumUI.emberDeep)
                                             .font(.caption)
                                     }
                                 }
@@ -2360,7 +2365,7 @@ struct AnalysisExportOptionsView: View {
                         Section {
                             HStack(spacing: 12) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(PremiumUI.emberDeep)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Layout quality may be reduced")
                                         .font(.subheadline.weight(.medium))
@@ -2376,7 +2381,7 @@ struct AnalysisExportOptionsView: View {
                 if let error = exportError {
                     Section {
                         Text(error)
-                            .foregroundColor(.red)
+                            .foregroundColor(PremiumUI.destructive)
                     }
                 }
             }
@@ -2393,7 +2398,7 @@ struct AnalysisExportOptionsView: View {
                 if isExporting {
                     ProgressView("Exporting...")
                         .padding()
-                        .background(Color(.systemBackground))
+                        .background(PremiumUI.card)
                         .cornerRadius(10)
                         .shadow(radius: 10)
                 }

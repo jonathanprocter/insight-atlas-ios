@@ -1407,9 +1407,9 @@ final class PDFDiagramRenderer {
         let trackRect = CGRect(x: innerX, y: trackY, width: innerW, height: trackH)
 
         // Track gradient: muted burgundy pole → parchment center → slate pole.
-        let leftColor = UIColor(hex: "#B98A93")
+        let leftColor = UIColor(hex: PremiumUI.Hex.emberLight)
         let midColor = PDFStyleConfiguration.Colors.bgSecondary
-        let rightColor = UIColor(hex: "#93A3B9")
+        let rightColor = UIColor(hex: PremiumUI.Hex.indigoLight)
         let trackPath = UIBezierPath(roundedRect: trackRect, cornerRadius: trackH / 2)
         context.saveGState()
         context.addPath(trackPath.cgPath)

@@ -256,7 +256,7 @@ struct RegenerateView: View {
                         Spacer()
                         Text("\(currentScore)%")
                             .font(InsightAtlasTypography.h3)
-                            .foregroundColor(currentScore >= passingThreshold ? .green : InsightAtlasColors.coral)
+                            .foregroundColor(currentScore >= passingThreshold ? PremiumUI.celadon : PremiumUI.destructive)
                     }
 
                     // Progress bar
@@ -271,7 +271,7 @@ struct RegenerateView: View {
                                 .fill(
                                     currentScore >= passingThreshold
                                         ? LinearGradient(
-                                            colors: [Color.green, Color.green.opacity(0.75)],
+                                            colors: [PremiumUI.celadon, PremiumUI.celadon.opacity(0.75)],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
@@ -301,7 +301,7 @@ struct RegenerateView: View {
                         if currentScore >= passingThreshold {
                             Label("Passed", systemImage: "checkmark.seal.fill")
                                 .font(InsightAtlasTypography.captionBold)
-                                .foregroundColor(.green)
+                                .foregroundColor(PremiumUI.celadon)
                         }
                     }
                 }
@@ -344,10 +344,10 @@ struct RegenerateView: View {
             if report.meetsThreshold {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(PremiumUI.celadon)
                     Text("All quality criteria met!")
                         .font(InsightAtlasTypography.uiBody)
-                        .foregroundColor(.green)
+                        .foregroundColor(PremiumUI.celadon)
                 }
             }
         }
@@ -437,7 +437,7 @@ struct RegenerateView: View {
         case .extracting, .generating, .auditing, .improving:
             return InsightAtlasColors.gold
         case .complete:
-            return currentScore >= passingThreshold ? .green : InsightAtlasColors.coral
+            return currentScore >= passingThreshold ? PremiumUI.celadon : PremiumUI.destructive
         case .failed:
             return InsightAtlasColors.coral
         }

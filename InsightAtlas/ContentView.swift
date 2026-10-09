@@ -53,7 +53,7 @@ struct ContentView: View {
                     HStack {
                         HStack(spacing: 8) {
                             Image(systemName: "safari")
-                                .foregroundColor(Color(hex: "#E8553A"))
+                                .foregroundColor(PremiumUI.ember)
                                 .font(.system(size: 21))
                             Text("Insight Atlas".uppercased())
                                 .font(PremiumUI.ui(14, .bold, relativeTo: .caption))

@@ -268,10 +268,12 @@ struct GenerationView: View {
                         Text("Audio provider")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
-                        Text("Kokoro on-device · selected voice")
+                        Text(environment.userSettings.voiceProvider == .apple
+                            ? "Apple voice on-device · selected voice"
+                            : "Kokoro on-device · selected voice")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
-                        Text("MiniMax M3 writes the guide; it does not synthesize audio.")
+                        Text("MiniMax writes the guide; it does not synthesize audio.")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
                     }
@@ -283,7 +285,7 @@ struct GenerationView: View {
                 .accessibilityIdentifier("generation_voice_liam_label")
 
                 if !KokoroModelStore.isInstalled {
-                    Text("Download Kokoro in Settings → Audio & Narration before listening.")
+                    Text("Kokoro isn't installed yet — narration will use an Apple system voice. Download Kokoro in Settings → Audio & Narration for premium audio.")
                         .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.accentHighlight)
                 }
@@ -624,8 +626,10 @@ struct GenerationView: View {
 
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
-                    // has auto-narration on and the on-device model is installed.
-                    let hasNarrationProvider = KokoroModelStore.isInstalled
+                    // has auto-narration on and any engine (Kokoro or an Apple system
+                    // voice) can speak it.
+                    let availability = VoiceProviderAvailability.current
+                    let hasNarrationProvider = availability.kokoro || availability.apple
                     let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
                     if willNarrate {
                         item.narrationState = .generating

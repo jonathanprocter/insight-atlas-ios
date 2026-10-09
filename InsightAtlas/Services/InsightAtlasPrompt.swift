@@ -221,6 +221,9 @@ struct InsightAtlasPromptGenerator {
 
         FORMATTING ESSENTIALS:
         - Use [PREMIUM_H1] and [PREMIUM_H2] for section headers (not markdown #)
+        - Place a [PREMIUM_DIVIDER] (a standalone tag, no closing tag, no
+          content) between major parts of the guide — at least 2 per guide.
+          It renders as an ornamental section break.
         - Use **bold** and *italics* for inline emphasis
         - Never use markdown headers (#), blockquotes (>), code fences (```), or markdown links/images
         - All block tags must be properly closed: [TAG]...[/TAG]
@@ -331,6 +334,9 @@ struct InsightAtlasPromptGenerator {
         "[Exact quote]"
         — [Attribution if needed]
         [/PREMIUM_QUOTE]
+
+        Use at least 2 [PREMIUM_QUOTE] blocks per full guide — the author's own
+        strongest sentences, never invented or paraphrased.
 
         ───
         EXTERNAL TRIANGULATION BLOCKS (THE CORE VALUE-ADD)
@@ -449,15 +455,24 @@ struct InsightAtlasPromptGenerator {
         Use visuals to clarify relationships, processes, and comparisons that prose alone cannot efficiently convey.
 
         CHOOSE THE VISUAL TYPE THAT MATCHES THE CONTENT'S SHAPE — do NOT default to flowcharts:
-        - Ordered sequence / steps over time → [VISUAL_PROCESS] or [VISUAL_TIMELINE]
+        - Ordered sequence / steps over time → [VISUAL_PROCESS] or [VISUAL_TIMELINE]; phases with overlapping durations → [VISUAL_GANTT]
         - Cyclical or self-reinforcing loop → [VISUAL_CYCLE]
-        - Hierarchy, foundation-to-peak, or layered levels → [VISUAL_PYRAMID]
+        - Hierarchy, foundation-to-peak, or layered levels → [VISUAL_PYRAMID]; visible symptoms over hidden causes → [VISUAL_ICEBERG]; progressive rungs → [VISUAL_LADDER]
         - Narrowing stages (many → few) → [VISUAL_FUNNEL]
-        - Quantities / magnitudes to compare → [VISUAL_BAR_CHART]
-        - Parts of a whole / proportions → [VISUAL_PIE_CHART]
+        - Quantities / magnitudes to compare → [VISUAL_BAR_CHART]; several series per category → [VISUAL_BAR_CHART_GROUPED] or [VISUAL_BAR_CHART_STACKED]
+        - Change over time as a trend → [VISUAL_LINE_CHART] or [VISUAL_AREA_CHART]
+        - Parts of a whole / proportions → [VISUAL_PIE_CHART]; dominance by area → [VISUAL_TREEMAP]
         - Two opposing poles with a middle ground → [VISUAL_SPECTRUM]
-        - A central idea with radiating branches → [VISUAL_MINDMAP]
-        - Rows × columns / side-by-side comparison → [VISUAL_MATRIX] or [VISUAL_COMPARISON]
+        - A central idea with radiating branches → [VISUAL_MINDMAP] or [VISUAL_CONCEPT_MAP]; mutually influencing elements with labeled relationships → [VISUAL_NETWORK]
+        - Rows × columns / side-by-side comparison → [VISUAL_MATRIX] or [VISUAL_COMPARISON]; transformation → [VISUAL_BEFORE_AFTER]
+        - Items placed on two independent axes → [VISUAL_QUADRANT]; measured x/y data points → [VISUAL_SCATTER_PLOT]; with a third magnitude → [VISUAL_BUBBLE]
+        - Overlapping categories with shared ground → [VISUAL_VENN]
+        - One effect traced to cause categories → [VISUAL_FISHBONE]
+        - Internal/external assets and risks → [VISUAL_SWOT]
+        - Quantities flowing between stages → [VISUAL_SANKEY]
+        - Intensity across two dimensions → [VISUAL_HEATMAP]
+        - A person's experience through stages, with emotional tone → [VISUAL_JOURNEY_MAP]; narrative beats in order → [VISUAL_STORYBOARD]
+        - Headline statistics worth foregrounding → [VISUAL_INFOGRAPHIC]; a single measurement against a target → [VISUAL_GAUGE]
 
         NEVER force non-sequential content into a flowchart or process diagram. Book metadata (title, author, publisher, copyright), citation/reading lists, intellectual lineages, and plain bullet lists are NOT processes — render them as ordinary prose or the matching structured type, never as a [VISUAL_FLOWCHART]/[VISUAL_PROCESS]. A flowchart/process is ONLY for a genuine ordered sequence where each step leads to the next.
 
@@ -481,12 +496,16 @@ struct InsightAtlasPromptGenerator {
           [/VISUAL_FLOWCHART]
 
         TABLES AND EMPHASIS:
-        - Never emit a bare markdown table. Any tabular content MUST be wrapped in
-          [VISUAL_TABLE: Title] ... [/VISUAL_TABLE] using the pipe format shown
-          below. A bare markdown table is not laid out as a grid.
-        - Do not emit a "|---|---|" alignment row; the renderer does not need one.
+        - Strongly prefer wrapping tabular content in [VISUAL_TABLE: Title] ...
+          [/VISUAL_TABLE] using the pipe format shown below — the wrapped form
+          gets a titled, styled card. A bare markdown pipe table is rendered,
+          but as a plain grid without a title.
         - Use **double asterisks** for bold and *single asterisks* for italics.
           Do not use underscores, backticks, or HTML tags for emphasis.
+        - Prose arrow chains are rewarded: a clean sequence written as
+          "A → B → C" in body text is automatically promoted to a drawn stepper
+          diagram in the PDF, and "A ↔ B" to a two-pole spectrum — so when a
+          short causal chain appears mid-paragraph, write it with real arrows.
 
         ───
         COMPONENT SELECTION, VARIETY & OUTPUT HYGIENE (HARD RULES)
@@ -504,7 +523,7 @@ struct InsightAtlasPromptGenerator {
         - mechanism (how something works, a causal chain) → [VISUAL_FLOWCHART] or [VISUAL_PROCESS]
         - taxonomy (a classification with 3+ members) → ONE [VISUAL_TABLE] or [VISUAL_COMPARISON], never several
         - comparison across shared dimensions → [VISUAL_COMPARISON]
-        - lineage (who influenced whom) → [VISUAL_TIMELINE] or [VISUAL_HIERARCHY]
+        - lineage (who influenced whom) → [VISUAL_TIMELINE]
         - application (something the reader performs) → [ACTION_BOX] or [EXERCISE_*]
         - person (background on an author) → [AUTHOR_SPOTLIGHT], max 1 per person per guide
         - data (study results, real numbers) → [RESEARCH_INSIGHT] or the matching chart visual
@@ -518,9 +537,11 @@ struct InsightAtlasPromptGenerator {
         - No two consecutive components may share a type. Separate them with body
           text or a different type. Two adjacent corroborations merge into ONE
           [INSIGHT_NOTE] citing both sources.
-        - Per thematic section: max 1 [INSIGHT_NOTE], max 1 visual, max 1
-          exercise, max 1 [ALTERNATIVE_PERSPECTIVE], and no more than 4
-          non-prose components in total.
+        - Per thematic section: max 1 [INSIGHT_NOTE], 2–3 visuals where each
+          earns its place (never adjacent — separate them with prose), max 1
+          exercise, max 1 [ALTERNATIVE_PERSPECTIVE], and no more than 6
+          non-prose components in total. This per-section budget is what adds
+          up to the guide-wide target of 12–18 visuals.
         - Across the guide, [INSIGHT_NOTE] must not exceed 40% of all callout
           components. Overflow notes are usually contrast or further reading in
           disguise — reclassify them.
@@ -588,6 +609,33 @@ struct InsightAtlasPromptGenerator {
 
         The payload lines below are ILLUSTRATIONS OF SHAPE, not content. Never
         reproduce their wording. Write payloads about the book being analysed.
+
+        JSON PAYLOADS (PREFERRED FOR DATA-RICH VISUALS): Every [VISUAL_*] tag
+        also accepts a single JSON object as its payload, and JSON is tried
+        first. Prefer JSON whenever the visual carries structured data — it
+        cannot be misparsed, and several fields are ONLY reachable through
+        JSON: quadrant/scatter axis labels, timeline event descriptions,
+        network link type and strength, gantt task status, pyramid level
+        descriptions, and spectrum item positions. The payload must start with
+        "{" and contain nothing but the JSON. Two complete examples:
+
+        [VISUAL_QUADRANT: Title]
+        {"axesX": "Urgency", "axesY": "Importance", "quadrants": [
+          {"name": "Urgent and important", "items": ["Crisis contact with a client"]},
+          {"name": "Important, not urgent", "items": ["Weekly supervision"]}
+        ]}
+        [/VISUAL_QUADRANT]
+
+        [VISUAL_TIMELINE: Title]
+        {"events": [
+          {"date": "1952", "title": "Existential therapy emerges", "description": "May publishes on anxiety"},
+          {"date": "1979", "title": "Cognitive turn", "description": "Beck formalises schema work"}
+        ]}
+        [/VISUAL_TIMELINE]
+
+        The JSON keys must match the shapes above exactly for their type; a
+        malformed JSON payload renders as a broken box, so when unsure of a
+        type's JSON shape, fall back to its line format below.
 
         [VISUAL_SPECTRUM: Title]
         Rigid control → Open willingness
@@ -717,8 +765,9 @@ struct InsightAtlasPromptGenerator {
         [/VISUAL_FUNNEL]
 
         [VISUAL_GAUGE: Title]
-        Current distress rating: 72
-        Target range: 40
+        stat: Current distress rating | 72 of 100
+        stat: Target range | below 40
+        highlight: Ratings above 70 call for a grounding practice before continuing
         [/VISUAL_GAUGE]
 
         [VISUAL_TREEMAP: Title]
@@ -733,8 +782,9 @@ struct InsightAtlasPromptGenerator {
         [/VISUAL_BUBBLE]
 
         [VISUAL_INFOGRAPHIC: Title]
-        Adults reporting impostor feelings: 62
-        Who never disclose it: 75
+        stat: Adults reporting impostor feelings | 62%
+        stat: Who never disclose it | 75%
+        highlight: Prevalence peaks at career transitions, not early career
         [/VISUAL_INFOGRAPHIC]
 
         [VISUAL_SCATTER_PLOT: Title]
@@ -761,10 +811,13 @@ struct InsightAtlasPromptGenerator {
         [/VISUAL_GANTT]
 
         [VISUAL_NETWORK: Title]
-        Node: Avoidance | maintaining
-        Node: Anxiety | presenting
-        Link: Avoidance -> Anxiety
+        Node: avoidance | Avoidance | maintaining
+        Node: anxiety | Anxiety | presenting
+        Link: avoidance -> anxiety
         [/VISUAL_NETWORK]
+        (Node lines are id | display label | optional role; Link lines connect
+        node ids with "->". To label a link's type or strength, use the JSON
+        payload form instead.)
 
         [VISUAL_FISHBONE: Title]
         Effect: Treatment dropout
@@ -815,23 +868,12 @@ struct InsightAtlasPromptGenerator {
         Worry returns stronger
         [/VISUAL_CYCLE]
 
-        [VISUAL_HIERARCHY: Title]
-        Dominant personal narrative
-        Societal narratives about productivity
-        Family narratives about loyalty
-        Individual remembered events
-        [/VISUAL_HIERARCHY]
-
-        [VISUAL_RADAR: Title]
-        Emotional awareness
-        Distress tolerance
-        Values clarity
-        [/VISUAL_RADAR]
-
         [VISUAL_STORYBOARD: Title]
-        Noticing the urge: the moment avoidance begins
-        Choosing differently: acting on the value instead
+        Scene 1: Noticing the urge — the moment avoidance begins
+        Scene 2: Choosing differently — acting on the value instead
         [/VISUAL_STORYBOARD]
+        (Each line is Scene N: Scene title — one-line description; the title
+        comes before the em dash, the description after it.)
 
         [VISUAL_JOURNEY_MAP: Title]
         Stage: First contact | apprehensive
@@ -845,6 +887,20 @@ struct InsightAtlasPromptGenerator {
         One point per line
         Use only if no type above fits
         [/VISUAL_GENERIC]
+
+        Two standalone block diagrams (not VISUAL_ tags) are also available:
+
+        [CONCEPT_MAP: Title]
+        Central: Psychological flexibility
+        Contact with the present moment
+        Values-guided action
+        [/CONCEPT_MAP]
+
+        [PROCESS_TIMELINE: Title]
+        Notice the trigger
+        Name the automatic response
+        Choose the valued action
+        [/PROCESS_TIMELINE]
 
         VISUAL COVERAGE STANDARD (GLOBAL):
         - Use the full visual library (30+ supported visual types) across guides to avoid repetition.

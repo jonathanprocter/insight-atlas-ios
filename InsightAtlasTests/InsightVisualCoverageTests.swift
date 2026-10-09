@@ -15,7 +15,17 @@ final class InsightVisualCoverageTests: XCTestCase {
         "VISUAL_ZONE_VIOLATION"
     ]
 
-    /// The visual vocabulary the generation prompt advertises.
+    /// Tags the prompt no longer offers but the parser must still handle, so
+    /// guides generated before they were retired keep rendering.
+    /// `VISUAL_RADAR` carried no value channel (every bar drew at a fixed
+    /// width) and `VISUAL_HIERARCHY` degraded to a bullet list in PDF.
+    private let retiredButStillParsedTags: Set<String> = [
+        "VISUAL_RADAR",
+        "VISUAL_HIERARCHY"
+    ]
+
+    /// The visual vocabulary the generation prompt advertises, plus the
+    /// retired tags above that must still resolve.
     private let promptTags = [
         "VISUAL_AREA_CHART", "VISUAL_BAR_CHART", "VISUAL_BAR_CHART_GROUPED",
         "VISUAL_BAR_CHART_STACKED", "VISUAL_BEFORE_AFTER", "VISUAL_BRIDGE",
@@ -134,5 +144,51 @@ final class InsightVisualCoverageTests: XCTestCase {
         }
         XCTAssertEqual(data.leftPole, "Inauthentic")
         XCTAssertEqual(data.items.count, 2)
+    }
+
+    // MARK: - Table column alignment
+
+    /// Empty cells used to be filtered out of each row, which left-shifted
+    /// every cell after a blank one so values landed under the wrong header.
+    func testTableRowsKeepBlankCellsInPosition() {
+        let visual = InsightVisualParser.parse(
+            tag: "VISUAL_TABLE",
+            title: "Practice Comparison",
+            lines: [
+                "| Practice | Effort | Evidence |",
+                "|---|---|---|",
+                "| Noting | Low | Strong |",
+                "| Journaling |  | Mixed |"
+            ]
+        )
+        guard case .table(let data)? = visual?.payload else {
+            return XCTFail("expected a table payload, got \(String(describing: visual?.payload))")
+        }
+        XCTAssertEqual(data.columns, ["Practice", "Effort", "Evidence"])
+        XCTAssertEqual(data.rows.count, 2, "the |---| separator row must be dropped")
+        XCTAssertEqual(data.rows[0], ["Noting", "Low", "Strong"])
+        XCTAssertEqual(
+            data.rows[1],
+            ["Journaling", "", "Mixed"],
+            "a blank middle cell must stay in column 2 so Mixed remains under Evidence"
+        )
+    }
+
+    /// Markdown alignment rows (`|:---|---:|`) are separators too.
+    func testTableDropsAlignmentSeparatorRows() {
+        let visual = InsightVisualParser.parse(
+            tag: "VISUAL_COMPARISON_MATRIX",
+            title: "Contrast",
+            lines: [
+                "| Frame | Claim |",
+                "|:---|---:|",
+                "| Stoic | Assent precedes emotion |"
+            ]
+        )
+        guard case .comparison(let data)? = visual?.payload else {
+            return XCTFail("expected a comparison payload, got \(String(describing: visual?.payload))")
+        }
+        XCTAssertEqual(data.rows.count, 1)
+        XCTAssertEqual(data.rows[0], ["Stoic", "Assent precedes emotion"])
     }
 }

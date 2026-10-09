@@ -641,6 +641,20 @@ class DataManager: ObservableObject {
         return nil
     }
 
+    /// The title in a `[VISUAL_X: Some Title]` opening marker, if any.
+    ///
+    /// `detectBlockStart` returns the type alone, so the export used to drop
+    /// every visual title — the same guide showed titled visuals in the reader
+    /// and the PDF but untitled ones in exported HTML.
+    nonisolated private func detectBlockTitle(_ line: String) -> String? {
+        guard line.hasPrefix("["), let close = line.firstIndex(of: "]") else { return nil }
+        let inner = line[line.index(after: line.startIndex)..<close]
+        guard let colon = inner.firstIndex(of: ":") else { return nil }
+        let title = inner[inner.index(after: colon)...]
+            .trimmingCharacters(in: .whitespaces)
+        return title.isEmpty ? nil : title
+    }
+
     nonisolated private func detectBlockEnd(_ line: String) -> Bool {
         if line.hasPrefix("[/VISUAL_") {
             return true
@@ -707,7 +721,12 @@ class DataManager: ObservableObject {
         )
     }
 
-    nonisolated private func renderSpecialBlock(type: String, content: [String], fullContent: String = "") -> String {
+    nonisolated private func renderSpecialBlock(
+        type: String,
+        content: [String],
+        fullContent: String = "",
+        blockTitle: String? = nil
+    ) -> String {
         let processedContent = content
             .filter { !$0.isEmpty }
             .map { convertInlineMarkdown($0) }
@@ -757,10 +776,15 @@ class DataManager: ObservableObject {
         }
 
         if type.hasPrefix("VISUAL_") {
-            return renderGenericVisualHTML(tag: type, content: content)
+            return renderGenericVisualHTML(tag: type, content: content, title: blockTitle)
         }
 
-        let header = headers[type] ?? ("", type.uppercased())
+        var header = headers[type] ?? ("", type.uppercased())
+        // A titled marker names this specific block; the generic class label is
+        // only a fallback for untitled ones.
+        if let blockTitle {
+            header.title = escapeHTML(blockTitle)
+        }
         var contentHTML: String
 
         if type == "visual-flowchart" {
@@ -804,9 +828,13 @@ class DataManager: ObservableObject {
         """
     }
 
-    nonisolated private func renderGenericVisualHTML(tag: String, content: [String]) -> String {
+    nonisolated private func renderGenericVisualHTML(
+        tag: String,
+        content: [String],
+        title: String? = nil
+    ) -> String {
         let canonicalTag = canonicalizeVisualTag(tag)
-        guard let visual = InsightVisualParser.parse(tag: canonicalTag, title: nil, lines: content) else {
+        guard let visual = InsightVisualParser.parse(tag: canonicalTag, title: title, lines: content) else {
             let fallbackBody = renderBlockContent(content)
             return """
             <div class="visual-generic">
@@ -819,10 +847,13 @@ class DataManager: ObservableObject {
         let header = visualHeader(for: visual.type)
         let body = renderVisualBodyHTML(for: visual)
         let containerClass = visualContainerClass(for: visual.type)
+        // Show the visual's own title when it has one, matching the reader and
+        // the PDF; the type label ("COMPARISON", "TIMELINE") is the fallback.
+        let headerText = title.map { escapeHTML($0) } ?? header.title
 
         return """
         <div class="\(containerClass)">
-            <div class="block-header">\(header.icon) \(header.title)</div>
+            <div class="block-header">\(header.icon) \(headerText)</div>
             <div class="block-content">\(body)</div>
         </div>
         """
@@ -1953,6 +1984,7 @@ class DataManager: ObservableObject {
         var inCodeBlock = false
         var inSpecialBlock = false
         var specialBlockType = ""
+        var specialBlockTitle: String?
         var specialBlockContent: [String] = []
         var inTable = false
         var tableRows: [[String]] = []
@@ -2054,10 +2086,16 @@ class DataManager: ObservableObject {
             }
 
             if inSpecialBlock && !detectBlockEnd(trimmed) && isNewBlockStartLine(trimmed) {
-                let blockHTML = renderSpecialBlock(type: specialBlockType, content: specialBlockContent, fullContent: markdown)
+                let blockHTML = renderSpecialBlock(
+                    type: specialBlockType,
+                    content: specialBlockContent,
+                    fullContent: markdown,
+                    blockTitle: specialBlockTitle
+                )
                 htmlLines.append(blockHTML)
                 inSpecialBlock = false
                 specialBlockType = ""
+                specialBlockTitle = nil
                 specialBlockContent = []
             }
 
@@ -2081,17 +2119,24 @@ class DataManager: ObservableObject {
                 closeListWithFlush()
                 inSpecialBlock = true
                 specialBlockType = blockStart
+                specialBlockTitle = detectBlockTitle(trimmed)
                 specialBlockContent = []
                 continue
             }
 
             if detectBlockEnd(trimmed) {
                 if inSpecialBlock {
-                    let blockHTML = renderSpecialBlock(type: specialBlockType, content: specialBlockContent, fullContent: markdown)
+                    let blockHTML = renderSpecialBlock(
+                        type: specialBlockType,
+                        content: specialBlockContent,
+                        fullContent: markdown,
+                        blockTitle: specialBlockTitle
+                    )
                     htmlLines.append(blockHTML)
                 }
                 inSpecialBlock = false
                 specialBlockType = ""
+                specialBlockTitle = nil
                 specialBlockContent = []
                 continue
             }
@@ -2358,7 +2403,12 @@ class DataManager: ObservableObject {
             print("⚠️ Warning: Unclosed block marker for '\(specialBlockType)' - rendering content as-is")
             #endif
             // Render the unclosed block anyway to prevent content loss
-            let blockHTML = renderSpecialBlock(type: specialBlockType, content: specialBlockContent, fullContent: markdown)
+            let blockHTML = renderSpecialBlock(
+                type: specialBlockType,
+                content: specialBlockContent,
+                fullContent: markdown,
+                blockTitle: specialBlockTitle
+            )
             htmlLines.append(blockHTML)
         }
 
@@ -2405,45 +2455,64 @@ class DataManager: ObservableObject {
 
                 :root {
                     /* Brand Colors */
-                    --brand-sepia: #5C4A3D;
-                    --brand-parchment: #F5F3ED;
-                    --brand-ink: #3D3229;
-                    --gold: #CBA135;
-                    --burgundy: #582534;
-                    --coral: #E76F51;
+                    --brand-sepia: \(PremiumUI.Hex.mutedLight);
+                    --brand-parchment: \(PremiumUI.Hex.chipLight);
+                    --brand-ink: \(PremiumUI.Hex.inkLight);
+                    --gold: \(PremiumUI.Hex.emberMarkLight);
+                    --burgundy: \(PremiumUI.Hex.emberLight);
+                    --coral: \(PremiumUI.Hex.emberMarkLight);
 
                     /* Primary Palette - Premium Gold */
-                    --primary-gold: #C9A227;
-                    --primary-gold-light: #DCBE5E;
-                    --primary-gold-dark: #A88A1F;
-                    --primary-gold-subtle: rgba(203, 161, 53, 0.08);
+                    --primary-gold: \(PremiumUI.Hex.emberMarkLight);
+                    --primary-gold-light: \(PremiumUI.Hex.emberMarkLight);
+                    --primary-gold-dark: \(PremiumUI.Hex.emberLight);
+                    --primary-gold-subtle: rgba(var(--ember-rgb), 0.08);
 
                     /* Secondary Palette */
-                    --accent-burgundy: #6B3A4A;
-                    --accent-coral: #D4735C;
-                    --accent-coral-text: #B54D35;  /* WCAG AA compliant for text */
-                    --accent-teal: #2A8B7F;
-                    --accent-teal-text: #1F6B62;   /* WCAG AA compliant for text */
-                    --accent-orange: #E89B5A;
-                    --accent-orange-text: #9A5A25; /* WCAG AA compliant for text */
-                    --primary-gold-text: #8B7318;  /* WCAG AA compliant for text */
+                    --accent-burgundy: \(PremiumUI.Hex.emberLight);
+                    --accent-coral: \(PremiumUI.Hex.emberMarkLight);
+                    --accent-coral-text: \(PremiumUI.Hex.emberLight);  /* WCAG AA compliant for text */
+                    --accent-teal: \(PremiumUI.Hex.celadonLight);
+                    --accent-teal-text: \(PremiumUI.Hex.celadonLight);   /* WCAG AA compliant for text */
+                    --accent-orange: \(PremiumUI.Hex.emberMarkLight);
+                    --accent-orange-text: \(PremiumUI.Hex.emberLight); /* WCAG AA compliant for text */
+                    --primary-gold-text: \(PremiumUI.Hex.emberLight);  /* WCAG AA compliant for text */
 
                     /* Text Colors - Master Template 2026 Brown/Sepia */
-                    --text-heading: #2D2520;
-                    --text-body: #3D3229;
-                    --text-muted: #5C5248;
-                    --text-subtle: #7A7168;
-                    --text-inverse: #FDFCFA;
+                    --text-heading: \(PremiumUI.Hex.inkLight);
+                    --text-body: \(PremiumUI.Hex.inkLight);
+                    --text-muted: \(PremiumUI.Hex.mutedLight);
+                    --text-subtle: \(PremiumUI.Hex.mutedLight);
+                    --text-inverse: \(PremiumUI.Hex.cardLight);
 
-                    /* Background Colors - Master Template 2026 */
-                    --bg-primary: #FDFCFA;
-                    --bg-secondary: #F5F3ED;
-                    --bg-card: #FFFFFF;
-                    --bg-cream: #FEFCE8;
+                    /* Background Colors - Master Template 2026.
+                       The page ground is the palette's background, not white —
+                       white is the card, and the app and PDF both put cards on
+                       a warm ground. With white here, exported guides lost the
+                       card/page separation the other two surfaces have. */
+                    --bg-primary: \(PremiumUI.Hex.backgroundLight);
+                    --bg-secondary: \(PremiumUI.Hex.chipLight);
+                    --bg-card: \(PremiumUI.Hex.cardLight);
+                    --bg-cream: \(PremiumUI.Hex.emberWashLight);
 
                     /* Border Colors - Master Template 2026 */
-                    --border-light: #E8E4DC;
-                    --border-medium: #D4CFC5;
+                    --border-light: \(PremiumUI.Hex.dividerLight);
+                    --border-medium: \(PremiumUI.Hex.dividerStrongLight);
+
+                    /* Palette as RGB triplets.
+                       Every tinted fill, border and shadow below composes one
+                       of these with an alpha instead of writing a literal
+                       rgba(). A literal cannot be re-pointed when the palette
+                       moves, and cannot be overridden inside the dark block —
+                       which is how this export ended up a palette generation
+                       behind the app, with ember-era headers over terracotta-era
+                       grounds inside the same callout. */
+                    --ember-rgb: \(PremiumUI.Hex.RGB.emberLight);
+                    --ember-mark-rgb: \(PremiumUI.Hex.RGB.emberMarkLight);
+                    --indigo-rgb: \(PremiumUI.Hex.RGB.indigoLight);
+                    --celadon-rgb: \(PremiumUI.Hex.RGB.celadonLight);
+                    --destructive-rgb: \(PremiumUI.Hex.RGB.destructiveLight);
+                    --ink-rgb: \(PremiumUI.Hex.RGB.inkLight);
 
                     /* Fonts */
                     --font-display: 'Cormorant Garamond', Georgia, serif;
@@ -2459,52 +2528,65 @@ class DataManager: ObservableObject {
                 /* ═══ DARK MODE - Master Template 2026 ═══ */
                 @media (prefers-color-scheme: dark) {
                     :root {
-                        --text-heading: #F5F3ED;
-                        --text-body: #E8E4DC;
-                        --text-muted: #B8B0A3;
-                        --text-subtle: #8A8178;
+                        --text-heading: \(PremiumUI.Hex.inkDark);
+                        --text-body: \(PremiumUI.Hex.inkDark);
+                        --text-muted: \(PremiumUI.Hex.mutedDark);
+                        --text-subtle: \(PremiumUI.Hex.mutedDark);
 
-                        --bg-primary: #1A1816;
-                        --bg-secondary: #242120;
-                        --bg-card: #2A2725;
-                        --bg-cream: #2A2725;
+                        --bg-primary: \(PremiumUI.Hex.backgroundDark);
+                        --bg-secondary: \(PremiumUI.Hex.cardDark);
+                        --bg-card: \(PremiumUI.Hex.cardDark);
+                        --bg-cream: \(PremiumUI.Hex.cardDark);
 
-                        --border-light: #3D3A38;
-                        --border-medium: #4A4744;
+                        --border-light: \(PremiumUI.Hex.dividerDark);
+                        --border-medium: \(PremiumUI.Hex.dividerStrongDark);
 
-                        --primary-gold: #DCBE5E;
-                        --primary-gold-text: #DCBE5E;  /* Light enough for dark mode */
-                        --primary-gold-subtle: rgba(220, 190, 94, 0.12);
+                        /* Re-point the triplets, and every tint built from
+                           them follows into dark mode automatically. */
+                        --ember-rgb: \(PremiumUI.Hex.RGB.emberDark);
+                        --ember-mark-rgb: \(PremiumUI.Hex.RGB.emberMarkDark);
+                        --indigo-rgb: \(PremiumUI.Hex.RGB.indigoDark);
+                        --celadon-rgb: \(PremiumUI.Hex.RGB.celadonDark);
+                        --destructive-rgb: \(PremiumUI.Hex.RGB.destructiveDark);
+                        --ink-rgb: \(PremiumUI.Hex.RGB.inkDark);
+
+                        --primary-gold: \(PremiumUI.Hex.emberMarkDark);
+                        --primary-gold-text: \(PremiumUI.Hex.emberMarkDark);  /* Light enough for dark mode */
+                        --primary-gold-subtle: rgba(var(--ember-mark-rgb), 0.12);
 
                         /* Lighter accent colors for dark mode - already WCAG compliant on dark bg */
-                        --accent-coral: #E8927E;
-                        --accent-coral-text: #E8927E;
-                        --accent-teal: #4ABFB0;
-                        --accent-teal-text: #4ABFB0;
-                        --accent-orange-text: #F0B07A;
+                        --accent-coral: \(PremiumUI.Hex.emberMarkDark);
+                        --accent-coral-text: \(PremiumUI.Hex.emberMarkDark);
+                        --accent-teal: \(PremiumUI.Hex.celadonDark);
+                        --accent-teal-text: \(PremiumUI.Hex.celadonDark);
+                        --accent-orange-text: \(PremiumUI.Hex.emberMarkDark);
                     }
 
                     /* Dark mode SVG icon adjustments */
                     .insight-note .block-header::before {
-                        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E8927E' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z'/%3E%3C/svg%3E");
+                        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='\(PremiumUI.Hex.URLEncoded.emberOnDark)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z'/%3E%3C/svg%3E");
                     }
                     .alternative-perspective .block-header::before {
-                        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ABFB0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v18'/%3E%3Cpath d='M3 7l3 9h6l3-9'/%3E%3Cpath d='M15 7l3 9h6'/%3E%3Ccircle cx='6' cy='16' r='2'/%3E%3Ccircle cx='18' cy='16' r='2'/%3E%3Cpath d='M3 7h18'/%3E%3C/svg%3E");
+                        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='\(PremiumUI.Hex.URLEncoded.celadonOnDark)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v18'/%3E%3Cpath d='M3 7l3 9h6l3-9'/%3E%3Cpath d='M15 7l3 9h6'/%3E%3Ccircle cx='6' cy='16' r='2'/%3E%3Ccircle cx='18' cy='16' r='2'/%3E%3Cpath d='M3 7h18'/%3E%3C/svg%3E");
                     }
                     .research-insight .block-header::before {
-                        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C9B896' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3h6v6l3 9H6l3-9V3z'/%3E%3Cpath d='M9 3h6'/%3E%3Cpath d='M8 18h8'/%3E%3Cpath d='M10 21h4'/%3E%3Ccircle cx='10' cy='13' r='1'/%3E%3Ccircle cx='14' cy='15' r='1'/%3E%3C/svg%3E");
+                        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='\(PremiumUI.Hex.URLEncoded.celadonOnDark)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3h6v6l3 9H6l3-9V3z'/%3E%3Cpath d='M9 3h6'/%3E%3Cpath d='M8 18h8'/%3E%3Cpath d='M10 21h4'/%3E%3Ccircle cx='10' cy='13' r='1'/%3E%3Ccircle cx='14' cy='15' r='1'/%3E%3C/svg%3E");
                     }
 
                     /* Adjust research insight color for dark mode */
                     .research-insight {
-                        border-left-color: #C9B896;
+                        border-left-color: \(PremiumUI.Hex.celadonDark);
                     }
                     .research-insight .block-header {
-                        color: #C9B896;
+                        color: \(PremiumUI.Hex.celadonDark);
                     }
                     .research-insight .block-content .author-highlight,
                     .research-insight .block-content strong[data-author] {
-                        color: #C9B896;
+                        color: \(PremiumUI.Hex.celadonDark);
+                    }
+                    .takeaways .block-header {
+                        color: \(PremiumUI.Hex.celadonDark);
+                        border-bottom-color: rgba(var(--celadon-rgb), 0.3);
                     }
                 }
 
@@ -2535,7 +2617,7 @@ class DataManager: ObservableObject {
                     border-right-color: var(--accent-teal);
                 }
                 [dir="rtl"] .research-insight {
-                    border-right-color: #B89D78;
+                    border-right-color: \(PremiumUI.Hex.celadonLight);
                 }
                 [dir="rtl"] ul, [dir="rtl"] ol {
                     padding-right: 1.5rem;
@@ -2569,7 +2651,7 @@ class DataManager: ObservableObject {
                 }
 
                 ::selection {
-                    background: rgba(201, 162, 39, 0.25);
+                    background: rgba(var(--ember-mark-rgb), 0.25);
                     color: var(--text-heading);
                 }
 
@@ -2637,7 +2719,7 @@ class DataManager: ObservableObject {
                     left: 28px;
                     right: 28px;
                     bottom: 28px;
-                    border: 1px solid rgba(201, 162, 39, 0.3);
+                    border: 1px solid rgba(var(--ember-mark-rgb), 0.3);
                     border-radius: 2px;
                     pointer-events: none;
                 }
@@ -2839,7 +2921,7 @@ class DataManager: ObservableObject {
                     padding: 0.5rem 1rem;
                     border-radius: 9999px;
                     letter-spacing: 0.02em;
-                    box-shadow: 0 0 20px rgba(201, 162, 39, 0.25);
+                    box-shadow: 0 0 20px rgba(var(--ember-mark-rgb), 0.25);
                 }
                 .reading-time-badge::before { content: '⏱'; }
 
@@ -2850,7 +2932,7 @@ class DataManager: ObservableObject {
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
-                    box-shadow: 0 4px 24px rgba(45, 37, 32, 0.06);
+                    box-shadow: 0 4px 24px rgba(var(--ink-rgb), 0.06);
                 }
                 .toc-header {
                     display: flex;
@@ -2923,11 +3005,11 @@ class DataManager: ObservableObject {
                 .quick-glance {
                     background: var(--bg-card);
                     backdrop-filter: blur(20px);
-                    border: 1px solid rgba(201, 162, 39, 0.15);
+                    border: 1px solid rgba(var(--ember-mark-rgb), 0.15);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
-                    box-shadow: 0 4px 24px rgba(45, 37, 32, 0.06);
+                    box-shadow: 0 4px 24px rgba(var(--ink-rgb), 0.06);
                     position: relative;
                     overflow: hidden;
                 }
@@ -2959,8 +3041,8 @@ class DataManager: ObservableObject {
 
                 /* ═══ INSIGHT NOTE ═══ */
                 .insight-note {
-                    background: linear-gradient(135deg, rgba(212, 115, 92, 0.08) 0%, rgba(232, 155, 90, 0.1) 100%);
-                    border: 1px solid rgba(212, 115, 92, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--ember-mark-rgb), 0.08) 0%, rgba(var(--ember-mark-rgb), 0.1) 100%);
+                    border: 1px solid rgba(var(--ember-mark-rgb), 0.25);
                     border-left: 4px solid var(--accent-coral);
                     border-radius: var(--radius-lg);
                     padding: 1.5rem 1.5rem 1.5rem 2rem;
@@ -2976,7 +3058,7 @@ class DataManager: ObservableObject {
                     display: inline-block;
                     width: 24px;
                     height: 24px;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23D4735C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z'/%3E%3C/svg%3E");
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='\(PremiumUI.Hex.URLEncoded.ember)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z'/%3E%3C/svg%3E");
                     background-size: contain;
                     background-repeat: no-repeat;
                 }
@@ -2996,7 +3078,7 @@ class DataManager: ObservableObject {
                 .insight-note .insight-section {
                     margin-top: 0.875rem;
                     padding: 0.75rem 1rem;
-                    background: rgba(212, 115, 92, 0.05);
+                    background: rgba(var(--ember-mark-rgb), 0.05);
                     border-radius: var(--radius-md);
                     border-left: 3px solid var(--accent-coral);
                 }
@@ -3017,7 +3099,7 @@ class DataManager: ObservableObject {
                     color: var(--text-body);
                 }
                 .insight-note .go-deeper {
-                    background: rgba(212, 115, 92, 0.08);
+                    background: rgba(var(--ember-mark-rgb), 0.08);
                     border-left-color: var(--accent-coral);
                 }
                 .insight-note .go-deeper .insight-text {
@@ -3031,8 +3113,8 @@ class DataManager: ObservableObject {
 
                 /* ═══ ALTERNATIVE PERSPECTIVE ═══ */
                 .alternative-perspective {
-                    background: linear-gradient(135deg, rgba(42, 139, 127, 0.08) 0%, rgba(42, 139, 127, 0.05) 100%);
-                    border: 1px solid rgba(42, 139, 127, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--celadon-rgb), 0.08) 0%, rgba(var(--celadon-rgb), 0.05) 100%);
+                    border: 1px solid rgba(var(--celadon-rgb), 0.25);
                     border-left: 4px solid var(--accent-teal);
                     border-radius: var(--radius-lg);
                     padding: 1.5rem 1.5rem 1.5rem 2rem;
@@ -3048,7 +3130,7 @@ class DataManager: ObservableObject {
                     display: inline-block;
                     width: 24px;
                     height: 24px;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232A8B7F' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v18'/%3E%3Cpath d='M3 7l3 9h6l3-9'/%3E%3Cpath d='M15 7l3 9h6'/%3E%3Ccircle cx='6' cy='16' r='2'/%3E%3Ccircle cx='18' cy='16' r='2'/%3E%3Cpath d='M3 7h18'/%3E%3C/svg%3E");
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='\(PremiumUI.Hex.URLEncoded.celadon)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v18'/%3E%3Cpath d='M3 7l3 9h6l3-9'/%3E%3Cpath d='M15 7l3 9h6'/%3E%3Ccircle cx='6' cy='16' r='2'/%3E%3Ccircle cx='18' cy='16' r='2'/%3E%3Cpath d='M3 7h18'/%3E%3C/svg%3E");
                     background-size: contain;
                     background-repeat: no-repeat;
                 }
@@ -3063,15 +3145,15 @@ class DataManager: ObservableObject {
 
                 /* ═══ RESEARCH INSIGHT ═══ */
                 .research-insight {
-                    background: linear-gradient(135deg, rgba(184, 157, 120, 0.12) 0%, rgba(184, 157, 120, 0.06) 100%);
-                    border: 1px solid rgba(184, 157, 120, 0.35);
-                    border-left: 4px solid #B89D78;
+                    background: linear-gradient(135deg, rgba(var(--celadon-rgb), 0.10) 0%, rgba(var(--celadon-rgb), 0.05) 100%);
+                    border: 1px solid rgba(var(--celadon-rgb), 0.30);
+                    border-left: 4px solid \(PremiumUI.Hex.celadonLight);
                     border-radius: var(--radius-lg);
                     padding: 1.5rem 1.5rem 1.5rem 2rem;
                     margin: 2rem 0;
                 }
                 .research-insight .block-header {
-                    color: #8B7355;
+                    color: \(PremiumUI.Hex.celadonLight);
                     padding-bottom: 0.75rem;
                     border-bottom: none;
                 }
@@ -3080,7 +3162,7 @@ class DataManager: ObservableObject {
                     display: inline-block;
                     width: 24px;
                     height: 24px;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B7355' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3h6v6l3 9H6l3-9V3z'/%3E%3Cpath d='M9 3h6'/%3E%3Cpath d='M8 18h8'/%3E%3Cpath d='M10 21h4'/%3E%3Ccircle cx='10' cy='13' r='1'/%3E%3Ccircle cx='14' cy='15' r='1'/%3E%3C/svg%3E");
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='\(PremiumUI.Hex.URLEncoded.celadon)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 3h6v6l3 9H6l3-9V3z'/%3E%3Cpath d='M9 3h6'/%3E%3Cpath d='M8 18h8'/%3E%3Cpath d='M10 21h4'/%3E%3Ccircle cx='10' cy='13' r='1'/%3E%3Ccircle cx='14' cy='15' r='1'/%3E%3C/svg%3E");
                     background-size: contain;
                     background-repeat: no-repeat;
                 }
@@ -3088,22 +3170,22 @@ class DataManager: ObservableObject {
                 /* Author name highlighting in Research Insight */
                 .research-insight .block-content .author-highlight,
                 .research-insight .block-content strong[data-author] {
-                    color: #B89D78;
+                    color: \(PremiumUI.Hex.celadonLight);
                     font-weight: 600;
                     letter-spacing: 0.02em;
                 }
 
                 /* ═══ ACTION BOX ═══ */
                 .action-box {
-                    background: rgba(42, 139, 127, 0.08);
-                    border: 2px solid rgba(42, 139, 127, 0.25);
+                    background: rgba(var(--celadon-rgb), 0.08);
+                    border: 2px solid rgba(var(--celadon-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 1.5rem 2rem;
                     margin: 2rem 0;
                 }
                 .action-box .block-header {
                     color: var(--accent-teal);
-                    border-bottom: 1px solid rgba(42, 139, 127, 0.25);
+                    border-bottom: 1px solid rgba(var(--celadon-rgb), 0.25);
                 }
                 .action-box .block-header::before {
                     content: '✓';
@@ -3139,7 +3221,7 @@ class DataManager: ObservableObject {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: linear-gradient(135deg, var(--accent-teal) 0%, #3BA396 100%);
+                    background: linear-gradient(135deg, var(--accent-teal) 0%, \(PremiumUI.Hex.celadonLight) 100%);
                     color: var(--text-inverse);
                     font-family: var(--font-ui);
                     font-weight: 600;
@@ -3149,8 +3231,8 @@ class DataManager: ObservableObject {
 
                 /* ═══ EXERCISE ═══ */
                 .exercise {
-                    background: linear-gradient(135deg, rgba(42, 139, 127, 0.08) 0%, rgba(42, 139, 127, 0.04) 100%);
-                    border: 2px solid rgba(42, 139, 127, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--celadon-rgb), 0.08) 0%, rgba(var(--celadon-rgb), 0.04) 100%);
+                    border: 2px solid rgba(var(--celadon-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
@@ -3167,21 +3249,21 @@ class DataManager: ObservableObject {
                 }
                 .exercise .block-header {
                     color: var(--accent-teal);
-                    border-bottom: 1px solid rgba(42, 139, 127, 0.25);
+                    border-bottom: 1px solid rgba(var(--celadon-rgb), 0.25);
                 }
                 .exercise .block-header::before { content: '✏️'; font-size: 1.125rem; }
 
                 /* ═══ TAKEAWAYS ═══ */
                 .takeaways {
-                    background: linear-gradient(135deg, rgba(74, 155, 127, 0.1) 0%, rgba(74, 155, 127, 0.04) 100%);
-                    border: 2px solid rgba(74, 155, 127, 0.3);
+                    background: linear-gradient(135deg, rgba(var(--celadon-rgb), 0.1) 0%, rgba(var(--celadon-rgb), 0.04) 100%);
+                    border: 2px solid rgba(var(--celadon-rgb), 0.3);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .takeaways .block-header {
-                    color: #4A9B7F;
-                    border-bottom: 1px solid rgba(74, 155, 127, 0.25);
+                    color: \(PremiumUI.Hex.celadonLight);
+                    border-bottom: 1px solid rgba(var(--celadon-rgb), 0.25);
                 }
                 .takeaways .block-header::before { content: '🎯'; font-size: 1.125rem; }
 
@@ -3201,15 +3283,15 @@ class DataManager: ObservableObject {
 
                 /* ═══ VISUAL FLOWCHART ═══ */
                 .visual-flowchart {
-                    background: linear-gradient(135deg, var(--primary-gold-subtle) 0%, rgba(232, 155, 90, 0.1) 100%);
-                    border: 2px solid rgba(201, 162, 39, 0.25);
+                    background: linear-gradient(135deg, var(--primary-gold-subtle) 0%, rgba(var(--ember-mark-rgb), 0.1) 100%);
+                    border: 2px solid rgba(var(--ember-mark-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-flowchart .block-header {
                     color: var(--primary-gold-dark);
-                    border-bottom: 1px solid rgba(201, 162, 39, 0.25);
+                    border-bottom: 1px solid rgba(var(--ember-mark-rgb), 0.25);
                 }
                 .visual-flowchart .block-header::before { content: '📊'; font-size: 1.125rem; }
 
@@ -3224,14 +3306,14 @@ class DataManager: ObservableObject {
                     max-width: 380px;
                     padding: 1rem 1.5rem;
                     background: var(--bg-card);
-                    border: 2px solid rgba(201, 162, 39, 0.25);
+                    border: 2px solid rgba(var(--ember-mark-rgb), 0.25);
                     border-radius: var(--radius-lg);
                     font-family: var(--font-ui);
                     font-weight: 500;
                     font-size: 1rem;
                     color: var(--text-heading);
                     text-align: center;
-                    box-shadow: 0 2px 4px rgba(45, 37, 32, 0.04);
+                    box-shadow: 0 2px 4px rgba(var(--ink-rgb), 0.04);
                 }
                 .flow-arrow {
                     color: var(--primary-gold);
@@ -3255,99 +3337,99 @@ class DataManager: ObservableObject {
 
                 /* ═══ VISUAL COMPARISON ═══ */
                 .visual-comparison {
-                    background: linear-gradient(135deg, rgba(232, 93, 45, 0.08) 0%, rgba(232, 93, 45, 0.03) 100%);
-                    border: 2px solid rgba(232, 93, 45, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--ember-mark-rgb), 0.08) 0%, rgba(var(--ember-mark-rgb), 0.03) 100%);
+                    border: 2px solid rgba(var(--ember-mark-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-comparison .block-header {
                     color: var(--primary-gold-dark);
-                    border-bottom: 1px solid rgba(232, 93, 45, 0.25);
+                    border-bottom: 1px solid rgba(var(--ember-mark-rgb), 0.25);
                 }
                 .visual-comparison .block-header::before { content: '◧'; font-size: 1.125rem; }
 
                 /* ═══ VISUAL TIMELINE ═══ */
                 .visual-timeline {
-                    background: linear-gradient(135deg, rgba(42, 139, 127, 0.08) 0%, rgba(42, 139, 127, 0.03) 100%);
-                    border: 2px solid rgba(42, 139, 127, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--celadon-rgb), 0.08) 0%, rgba(var(--celadon-rgb), 0.03) 100%);
+                    border: 2px solid rgba(var(--celadon-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-timeline .block-header {
                     color: var(--accent-teal-text);
-                    border-bottom: 1px solid rgba(42, 139, 127, 0.25);
+                    border-bottom: 1px solid rgba(var(--celadon-rgb), 0.25);
                 }
                 .visual-timeline .block-header::before { content: '🗓'; font-size: 1.125rem; }
 
                 /* ═══ VISUAL CONCEPT MAP ═══ */
                 .visual-concept-map {
-                    background: linear-gradient(135deg, rgba(212, 115, 92, 0.08) 0%, rgba(212, 115, 92, 0.03) 100%);
-                    border: 2px solid rgba(212, 115, 92, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--ember-mark-rgb), 0.08) 0%, rgba(var(--ember-mark-rgb), 0.03) 100%);
+                    border: 2px solid rgba(var(--ember-mark-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-concept-map .block-header {
                     color: var(--accent-coral-text);
-                    border-bottom: 1px solid rgba(212, 115, 92, 0.25);
+                    border-bottom: 1px solid rgba(var(--ember-mark-rgb), 0.25);
                 }
                 .visual-concept-map .block-header::before { content: '🗺️'; font-size: 1.125rem; }
 
                 /* ═══ VISUAL NETWORK ═══ */
                 .visual-network {
-                    background: linear-gradient(135deg, rgba(42, 139, 127, 0.08) 0%, rgba(42, 139, 127, 0.03) 100%);
-                    border: 2px solid rgba(42, 139, 127, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--celadon-rgb), 0.08) 0%, rgba(var(--celadon-rgb), 0.03) 100%);
+                    border: 2px solid rgba(var(--celadon-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-network .block-header {
                     color: var(--accent-teal-text);
-                    border-bottom: 1px solid rgba(42, 139, 127, 0.25);
+                    border-bottom: 1px solid rgba(var(--celadon-rgb), 0.25);
                 }
                 .visual-network .block-header::before { content: '🧩'; font-size: 1.125rem; }
 
                 /* ═══ VISUAL QUADRANT ═══ */
                 .visual-quadrant {
-                    background: linear-gradient(135deg, rgba(232, 155, 90, 0.1) 0%, rgba(232, 155, 90, 0.03) 100%);
-                    border: 2px solid rgba(232, 155, 90, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--ember-mark-rgb), 0.1) 0%, rgba(var(--ember-mark-rgb), 0.03) 100%);
+                    border: 2px solid rgba(var(--ember-mark-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-quadrant .block-header {
                     color: var(--accent-orange-text);
-                    border-bottom: 1px solid rgba(232, 155, 90, 0.25);
+                    border-bottom: 1px solid rgba(var(--ember-mark-rgb), 0.25);
                 }
                 .visual-quadrant .block-header::before { content: '▣'; font-size: 1.125rem; }
 
                 /* ═══ VISUAL CHART ═══ */
                 .visual-chart {
-                    background: linear-gradient(135deg, rgba(232, 155, 90, 0.12) 0%, rgba(232, 155, 90, 0.04) 100%);
-                    border: 2px solid rgba(232, 155, 90, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--ember-mark-rgb), 0.12) 0%, rgba(var(--ember-mark-rgb), 0.04) 100%);
+                    border: 2px solid rgba(var(--ember-mark-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-chart .block-header {
                     color: var(--accent-orange-text);
-                    border-bottom: 1px solid rgba(232, 155, 90, 0.25);
+                    border-bottom: 1px solid rgba(var(--ember-mark-rgb), 0.25);
                 }
                 .visual-chart .block-header::before { content: '📈'; font-size: 1.125rem; }
 
                 /* ═══ VISUAL DIAGRAM ═══ */
                 .visual-diagram {
-                    background: linear-gradient(135deg, rgba(46, 90, 125, 0.08) 0%, rgba(46, 90, 125, 0.03) 100%);
-                    border: 2px solid rgba(46, 90, 125, 0.25);
+                    background: linear-gradient(135deg, rgba(var(--indigo-rgb), 0.08) 0%, rgba(var(--indigo-rgb), 0.03) 100%);
+                    border: 2px solid rgba(var(--indigo-rgb), 0.25);
                     border-radius: var(--radius-xl);
                     padding: 2rem;
                     margin: 2.5rem 0;
                 }
                 .visual-diagram .block-header {
                     color: var(--accent-teal-text);
-                    border-bottom: 1px solid rgba(46, 90, 125, 0.25);
+                    border-bottom: 1px solid rgba(var(--indigo-rgb), 0.25);
                 }
                 .visual-diagram .block-header::before { content: '🧭'; font-size: 1.125rem; }
 
@@ -3686,7 +3768,7 @@ class DataManager: ObservableObject {
                     align-items: center;
                     justify-content: center;
                     flex-shrink: 0;
-                    box-shadow: 0 2px 6px rgba(201, 162, 39, 0.3);
+                    box-shadow: 0 2px 6px rgba(var(--ember-mark-rgb), 0.3);
                 }
                 .timeline-content {
                     flex: 1;
@@ -3741,7 +3823,7 @@ class DataManager: ObservableObject {
                 }
                 .concept-central {
                     padding: 1.25rem 2rem;
-                    background: linear-gradient(135deg, var(--primary-gold-subtle) 0%, rgba(232, 155, 90, 0.15) 100%);
+                    background: linear-gradient(135deg, var(--primary-gold-subtle) 0%, rgba(var(--ember-mark-rgb), 0.15) 100%);
                     border: 2px solid var(--primary-gold);
                     border-radius: 50px;
                     font-family: var(--font-display);
@@ -3786,7 +3868,7 @@ class DataManager: ObservableObject {
                     background: var(--bg-card);
                     border-left: 3px solid var(--primary-gold);
                     border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
-                    box-shadow: 0 2px 4px rgba(45, 37, 32, 0.04);
+                    box-shadow: 0 2px 4px rgba(var(--ink-rgb), 0.04);
                 }
                 blockquote::before {
                     content: '"';
@@ -3795,7 +3877,7 @@ class DataManager: ObservableObject {
                     left: 0.75rem;
                     font-family: var(--font-display);
                     font-size: 3rem;
-                    color: rgba(201, 162, 39, 0.25);
+                    color: rgba(var(--ember-mark-rgb), 0.25);
                     line-height: 1;
                 }
                 blockquote p {
@@ -3823,7 +3905,7 @@ class DataManager: ObservableObject {
                     font-size: 0.875rem;
                     border-radius: var(--radius-xl);
                     overflow: hidden;
-                    box-shadow: 0 2px 8px rgba(45, 37, 32, 0.04);
+                    box-shadow: 0 2px 8px rgba(var(--ink-rgb), 0.04);
                     margin: 1.5rem 0;
                 }
                 .styled-table thead th {
@@ -3907,7 +3989,7 @@ class DataManager: ObservableObject {
                     background: var(--bg-card);
                     border-left: 4px solid var(--accent-coral);
                     border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
-                    box-shadow: 0 4px 16px rgba(45, 37, 32, 0.06);
+                    box-shadow: 0 4px 16px rgba(var(--ink-rgb), 0.06);
                 }
                 .premium-quote-mark {
                     position: absolute;
@@ -3916,7 +3998,7 @@ class DataManager: ObservableObject {
                     font-family: var(--font-display);
                     font-size: 5rem;
                     font-weight: 700;
-                    color: rgba(203, 161, 53, 0.2);
+                    color: rgba(var(--ember-mark-rgb), 0.2);
                     line-height: 1;
                     pointer-events: none;
                 }
@@ -3968,7 +4050,7 @@ class DataManager: ObservableObject {
                     background: var(--bg-card);
                     border: 2px solid var(--primary-gold);
                     border-radius: var(--radius-xl);
-                    box-shadow: 0 4px 20px rgba(203, 161, 53, 0.1);
+                    box-shadow: 0 4px 20px rgba(var(--ember-mark-rgb), 0.1);
                 }
                 .author-spotlight::before {
                     content: '';
@@ -3977,7 +4059,7 @@ class DataManager: ObservableObject {
                     left: 4px;
                     right: 4px;
                     bottom: 4px;
-                    border: 1px solid rgba(203, 161, 53, 0.4);
+                    border: 1px solid rgba(var(--ember-mark-rgb), 0.4);
                     border-radius: calc(var(--radius-xl) - 4px);
                     pointer-events: none;
                 }
@@ -4195,14 +4277,14 @@ class DataManager: ObservableObject {
                 a {
                     color: var(--accent-burgundy);
                     text-decoration: none;
-                    border-bottom: 1px solid rgba(107, 58, 74, 0.3);
+                    border-bottom: 1px solid rgba(var(--destructive-rgb), 0.3);
                     transition: border-color 0.25s;
                 }
                 a:hover { border-bottom-color: var(--accent-burgundy); }
 
                 /* ═══ CODE ═══ */
                 code {
-                    background: rgba(201, 162, 39, 0.15);
+                    background: rgba(var(--ember-mark-rgb), 0.15);
                     padding: 2px 6px;
                     border-radius: 4px;
                     font-family: 'SF Mono', Monaco, monospace;
@@ -4257,7 +4339,7 @@ class DataManager: ObservableObject {
                         page-break-after: always;
                         margin: 0;
                         padding: 2rem;
-                        border: 1px solid #C9A227;
+                        border: 1px solid \(PremiumUI.Hex.emberMarkLight);
                         background: white;
                     }
                     .cover-page::before, .cover-page::after { display: none; }

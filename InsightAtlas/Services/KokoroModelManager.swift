@@ -24,8 +24,11 @@ struct KokoroModelManifest: Equatable, Sendable {
         downloadURL: URL(
             string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
         )!,
-        archiveByteCount: 131_839_838,
-        sha256: "75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3",
+        // Measured from the live GitHub release asset on 2026-10-09
+        // (curl + shasum). The previous values never matched the published
+        // archive, so verification failed on every install attempt.
+        archiveByteCount: 132_303_094,
+        sha256: "4c3052abaa60943a341f193888cf6abd68787dae6ab8ae5c925a706caa247e4e",
         minimumAvailableCapacity: 450 * 1_024 * 1_024
     )
 }
@@ -310,6 +313,7 @@ private enum KokoroModelInstaller {
             manifest.downloadURL,
             to: archiveURL,
             expectedByteCount: manifest.archiveByteCount,
+            fileManager: fileManager,
             progress: progress
         )
         try Task.checkCancellation()
@@ -374,35 +378,76 @@ private enum KokoroModelInstaller {
         }
     }
 
+    /// Where partial-download resume data survives between attempts. Lives at
+    /// the models root (not the per-install staging dir, which is deleted on
+    /// every failure) so a retry can continue instead of refetching 131 MB.
+    private static func resumeDataURL(fileManager: FileManager) -> URL {
+        KokoroModelStore.modelsRoot(fileManager: fileManager)
+            .appendingPathComponent(".model-download.resume")
+    }
+
     private static func download(
         _ sourceURL: URL,
         to destinationURL: URL,
         expectedByteCount: Int64,
+        fileManager: FileManager,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws {
-        let delegate = KokoroDownloadDelegate(
-            destinationURL: destinationURL,
-            expectedByteCount: expectedByteCount,
-            progress: progress
-        )
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 60
-        configuration.timeoutIntervalForResource = 900
-        let session = URLSession(
-            configuration: configuration,
-            delegate: delegate,
-            delegateQueue: nil
-        )
-        defer { session.finishTasksAndInvalidate() }
+        configuration.timeoutIntervalForRequest = 60      // per-stall, not total
+        configuration.timeoutIntervalForResource = 7_200  // 131 MB on a slow link needs more than the old 15 min
+        configuration.waitsForConnectivity = true
+        let resumeFile = resumeDataURL(fileManager: fileManager)
 
-        try await withTaskCancellationHandler {
-            try await delegate.download(
-                using: session,
-                from: sourceURL
+        var lastError: Error?
+        for attempt in 1...3 {
+            try Task.checkCancellation()
+
+            let resumeData = try? Data(contentsOf: resumeFile)
+            let delegate = KokoroDownloadDelegate(
+                destinationURL: destinationURL,
+                expectedByteCount: expectedByteCount,
+                progress: progress
             )
-        } onCancel: {
-            session.invalidateAndCancel()
+            let session = URLSession(
+                configuration: configuration,
+                delegate: delegate,
+                delegateQueue: nil
+            )
+
+            do {
+                try await withTaskCancellationHandler {
+                    try await delegate.download(
+                        using: session,
+                        from: sourceURL,
+                        resumeData: resumeData
+                    )
+                } onCancel: {
+                    session.invalidateAndCancel()
+                }
+                session.finishTasksAndInvalidate()
+                try? fileManager.removeItem(at: resumeFile)
+                return
+            } catch {
+                session.finishTasksAndInvalidate()
+                if error is CancellationError { throw error }
+
+                if resumeData != nil {
+                    // A resumed attempt failed — the embedded URL has likely
+                    // expired (GitHub's release CDN signs redirects). Start
+                    // the next attempt fresh.
+                    try? fileManager.removeItem(at: resumeFile)
+                } else if let captured = delegate.capturedResumeData {
+                    try? captured.write(to: resumeFile)
+                }
+
+                lastError = error
+                if attempt < 3 {
+                    try await Task.sleep(nanoseconds: UInt64(attempt) * 2_000_000_000)
+                }
+            }
         }
+        throw lastError ?? KokoroModelError.incompleteInstallation
     }
 
     private static func verifyArchive(
@@ -529,6 +574,10 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
     private var task: URLSessionDownloadTask?
     private var result: Result<Void, Error>?
 
+    /// Resume data captured from a failed transfer, for continuing the
+    /// download on the next attempt instead of restarting it.
+    private(set) var capturedResumeData: Data?
+
     init(
         destinationURL: URL,
         expectedByteCount: Int64,
@@ -541,12 +590,14 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
 
     func download(
         using session: URLSession,
-        from sourceURL: URL
+        from sourceURL: URL,
+        resumeData: Data? = nil
     ) async throws {
         try await withCheckedThrowingContinuation { continuation in
             lock.withLock {
                 self.continuation = continuation
-                let task = session.downloadTask(with: sourceURL)
+                let task = resumeData.map { session.downloadTask(withResumeData: $0) }
+                    ?? session.downloadTask(with: sourceURL)
                 self.task = task
                 task.resume()
             }
@@ -572,6 +623,14 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
+        // A CDN error page (404/503 HTML) must never be mistaken for the
+        // model archive; the checksum would reject it later, but failing here
+        // gives the user an accurate error instead of "incomplete download".
+        if let http = downloadTask.response as? HTTPURLResponse,
+           !(200...299).contains(http.statusCode) {
+            finish(.failure(KokoroModelError.invalidResponse))
+            return
+        }
         do {
             try? FileManager.default.removeItem(at: destinationURL)
             try FileManager.default.moveItem(at: location, to: destinationURL)
@@ -587,6 +646,10 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
         didCompleteWithError error: Error?
     ) {
         if let error {
+            let nsError = error as NSError
+            lock.withLock {
+                capturedResumeData = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+            }
             finish(.failure(error))
         }
     }

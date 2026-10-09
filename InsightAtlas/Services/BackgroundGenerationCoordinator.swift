@@ -1342,10 +1342,12 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             return nil
         }
 
-        // New narration is generated only with the installed on-device model.
-        // A stale hosted-token entry must not trigger the unavailable Liam route.
-        guard KokoroModelStore.isInstalled else {
-            audioLog("⚠️ No installed Kokoro model found - skipping audio generation")
+        // Narration needs an on-device engine: installed Kokoro or an Apple
+        // system voice. A stale hosted-token entry must not trigger the
+        // unavailable Liam route.
+        let availability = VoiceProviderAvailability.current
+        guard availability.kokoro || availability.apple else {
+            audioLog("⚠️ No narration engine available - skipping audio generation")
             return nil
         }
 

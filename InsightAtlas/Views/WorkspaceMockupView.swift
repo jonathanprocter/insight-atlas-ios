@@ -166,12 +166,14 @@ struct CompassMark: View {
 }
 
 /// Fixed brand palette for the Library chrome (footer + compass). These are the
-/// signature editorial tones and are intentionally non-adaptive.
+/// signature editorial tones and are intentionally non-adaptive: the footer is
+/// a solid indigo band in both themes, so its colors are pinned to the light
+/// palette values rather than the adaptive tokens.
 private enum ChromePalette {
-    static let ivory = Color(hex: "#FAF9F6")
-    static let deepSlate = Color(hex: "#2C3E50")
-    static let gold = Color(hex: "#B8962E")
-    static let coral = Color(hex: "#E8553A")
+    static let ivory = Color(hex: PremiumUI.Hex.backgroundLight)
+    static let deepSlate = Color(hex: PremiumUI.Hex.indigoLight)
+    static let gold = Color(hex: PremiumUI.Hex.emberMarkLight)
+    static let coral = Color(hex: PremiumUI.Hex.emberMarkLight)
 }
 
 #Preview("Library Footer") {

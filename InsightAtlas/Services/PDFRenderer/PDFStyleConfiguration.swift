@@ -30,9 +30,13 @@ struct PDFStyleConfiguration {
     // MARK: - Premium Color System (OE Brand Identity)
     //
     // Design Philosophy:
-    // - Burnt Orange (#D35F2E) as primary action/accent color - warm, energetic, distinctive
-    // - Deep Steel Blue (#3B5E7A) as secondary accent - professional, trustworthy, balanced
-    // - Deep Burgundy (#7B2D3E) for premium/emphasis - sophisticated, rich
+    // - Ember as primary action/accent colour - warm, energetic, distinctive
+    // - Indigo as secondary accent - professional, structural
+    // - Celadon for evidence and success states
+    //
+    // Values resolve from `PremiumUI.Hex`, pinned to the LIGHT variants: a PDF
+    // is printed output with no dark mode, so these must not resolve adaptively
+    // or an export made in dark mode would come out dark.
     // - Warm cream surfaces for comfortable reading
     // - High contrast (>10:1) for extended reading comfort
     // - Complementary color theory: Orange ↔ Blue creates visual interest
@@ -40,99 +44,103 @@ struct PDFStyleConfiguration {
 
     struct Colors {
         // === MOCKUP ACCENTS ===
-        static let terracotta = UIColor(hex: "#CC9966")
-        static let warmCream = UIColor(hex: "#FFFDFB")
-        static let lightTan = UIColor(hex: "#F0E6DC")
-        static let warmGray = UIColor(hex: "#F8F6F4")
+        static let terracotta = UIColor(hex: PremiumUI.Hex.emberMarkLight)
+        static let warmCream = UIColor(hex: PremiumUI.Hex.backgroundLight)
+        static let lightTan = UIColor(hex: PremiumUI.Hex.chipLight)
+        static let warmGray = UIColor(hex: PremiumUI.Hex.cardLight)
         // === BRAND COLORS (From OE Logo) ===
-        static let brandOrange = UIColor(hex: "#D35F2E")         // Burnt Orange - Primary brand
-        static let brandOrangeLight = UIColor(hex: "#E07A4D")    // Lighter Orange
-        static let brandOrangeDark = UIColor(hex: "#B84D22")     // Darker Orange
-        static let brandBlue = UIColor(hex: "#3B5E7A")           // Steel Blue - Secondary brand
-        static let brandBlueLight = UIColor(hex: "#4F7694")      // Lighter Blue
-        static let brandBlueDark = UIColor(hex: "#2D4A61")       // Darker Blue
-        static let brandBurgundy = UIColor(hex: "#7B2D3E")       // Deep Burgundy - Premium
-        static let brandCream = UIColor(hex: "#F5F0E8")          // Warm Cream - from logo "O"
+        static let brandOrange = UIColor(hex: PremiumUI.Hex.emberMarkLight)         // Burnt Orange - Primary brand
+        static let brandOrangeLight = UIColor(hex: PremiumUI.Hex.emberMarkLight)    // Lighter Orange
+        static let brandOrangeDark = UIColor(hex: PremiumUI.Hex.emberLight)     // Darker Orange
+        static let brandBlue = UIColor(hex: PremiumUI.Hex.indigoLight)           // Steel Blue - Secondary brand
+        static let brandBlueLight = UIColor(hex: PremiumUI.Hex.indigoLight)      // Lighter Blue
+        static let brandBlueDark = UIColor(hex: PremiumUI.Hex.indigoLight)       // Darker Blue
+        static let brandBurgundy = UIColor(hex: PremiumUI.Hex.emberLight)       // Deep Burgundy - Premium
+        static let brandCream = UIColor(hex: PremiumUI.Hex.emberWashLight)          // Warm Cream - from logo "O"
 
         // === READING SURFACES (Warm - Primary 70%) ===
-        static let readingBgPrimary = UIColor(hex: "#FAFAF8")    // Warm White - Primary reading background
-        static let readingBgSecondary = UIColor(hex: "#F5F0E8")  // Brand Cream - Alternative reading surface
-        static let readingBgTertiary = UIColor(hex: "#EDE8E0")   // Warm Linen - Quote blocks, section backgrounds
-        static let readingBgAccent = UIColor(hex: "#E5E0D8")     // Soft Sand - Hover states, subtle dividers
+        static let readingBgPrimary = UIColor(hex: PremiumUI.Hex.backgroundLight)    // Warm White - Primary reading background
+        static let readingBgSecondary = UIColor(hex: PremiumUI.Hex.cardLight)  // Brand Cream - Alternative reading surface
+        static let readingBgTertiary = UIColor(hex: PremiumUI.Hex.chipLight)   // Warm Linen - Quote blocks, section backgrounds
+        static let readingBgAccent = UIColor(hex: PremiumUI.Hex.dividerLight)     // Soft Sand - Hover states, subtle dividers
 
         // === UI CHROME (Minimalist) ===
-        static let uiBgPrimary = UIColor(hex: "#FAFAF8")         // Warm White - Navigation, header
-        static let uiBgSecondary = UIColor(hex: "#F0EBE3")       // Light Cream - Sidebar backgrounds
-        static let uiBorderPrimary = UIColor(hex: "#D5D0C8")     // Warm Steel - Borders, input fields
-        static let uiBorderSubtle = UIColor(hex: "#E5E0D8")      // Soft Sand - Subtle borders
+        static let uiBgPrimary = UIColor(hex: PremiumUI.Hex.backgroundLight)         // Warm White - Navigation, header
+        static let uiBgSecondary = UIColor(hex: PremiumUI.Hex.cardLight)       // Light Cream - Sidebar backgrounds
+        static let uiBorderPrimary = UIColor(hex: PremiumUI.Hex.dividerStrongLight) // structural borders, input fields
+        static let uiBorderSubtle = UIColor(hex: PremiumUI.Hex.dividerLight)      // hairline dividers
 
         // === TYPOGRAPHY COLORS (Maximum Readability AAA+) ===
-        static let textPrimary = UIColor(hex: "#2A2725")         // Ink Black - Primary reading text (14.5:1 contrast)
-        static let textHeading = UIColor(hex: "#2A2725")         // Ink Black - Headings, emphasis
-        static let textUI = UIColor(hex: "#5A5550")              // Warm Charcoal - UI text
-        static let textSecondary = UIColor(hex: "#8A8580")       // Warm Gray - Metadata, timestamps
-        static let textTertiary = UIColor(hex: "#9A9590")        // Lighter Gray - Icons, secondary UI
-        static let textInverse = UIColor(hex: "#FFFFFF")         // White - Inverse text on dark backgrounds
+        static let textPrimary = UIColor(hex: PremiumUI.Hex.inkLight)         // Ink Black - Primary reading text (14.5:1 contrast)
+        static let textHeading = UIColor(hex: PremiumUI.Hex.inkLight)         // Ink Black - Headings, emphasis
+        static let textUI = UIColor(hex: PremiumUI.Hex.mutedLight)              // Warm Charcoal - UI text
+        static let textSecondary = UIColor(hex: PremiumUI.Hex.mutedLight)       // Warm Gray - Metadata, timestamps
+        static let textTertiary = UIColor(hex: PremiumUI.Hex.mutedLight)        // Lighter Gray - Icons, secondary UI
+        static let textInverse = UIColor(hex: PremiumUI.Hex.cardLight)         // White - Inverse text on dark backgrounds
 
         // === PREMIUM ACCENT COLORS (Modern Minimalistic) ===
-        static let accentPrimary = UIColor(hex: "#D35F2E")       // Burnt Orange - Primary CTAs, links, progress
-        static let accentSuccess = UIColor(hex: "#5A8A6B")       // Muted Sage - Success, completion, resume
-        static let accentHighlight = UIColor(hex: "#D35F2E")     // Burnt Orange - Highlights, bookmarks
-        static let accentInfo = UIColor(hex: "#3B5E7A")          // Steel Blue - Information, tooltips
-        static let accentPremium = UIColor(hex: "#7B2D3E")       // Deep Burgundy - Premium badges, VIP features
+        static let accentPrimary = UIColor(hex: PremiumUI.Hex.emberMarkLight)       // Burnt Orange - Primary CTAs, links, progress
+        static let accentSuccess = UIColor(hex: PremiumUI.Hex.celadonLight)       // Muted Sage - Success, completion, resume
+        static let accentHighlight = UIColor(hex: PremiumUI.Hex.emberMarkLight)     // Burnt Orange - Highlights, bookmarks
+        static let accentInfo = UIColor(hex: PremiumUI.Hex.indigoLight)          // indigo - Information, tooltips
+        static let accentPremium = UIColor(hex: PremiumUI.Hex.indigoDeepLight)  // deep indigo - Premium badges
 
         // === SEMANTIC COLORS (Functional) ===
-        static let semanticWarning = UIColor(hex: "#D9A441")     // Warm Amber - Warning
-        static let semanticError = UIColor(hex: "#C45526")       // Dark Orange - Error (stays in brand)
-        static let semanticInfo = UIColor(hex: "#3B5E7A")        // Steel Blue - Informative
-        static let semanticHighlightBg = UIColor(hex: "#FDF5E8") // Soft Orange Tint - Highlighting
+        static let semanticWarning = UIColor(hex: PremiumUI.Hex.emberDeepLight)     // deep ember - Warning
+        static let semanticError = UIColor(hex: PremiumUI.Hex.destructiveLight)       // Dark Orange - Error (stays in brand)
+        static let semanticInfo = UIColor(hex: PremiumUI.Hex.indigoLight)        // Steel Blue - Informative
+        static let semanticHighlightBg = UIColor(hex: PremiumUI.Hex.emberWashLight) // Soft Orange Tint - Highlighting
 
         // === PRIMARY PALETTE - Burnt Orange ===
-        static let primaryGold = UIColor(hex: "#D35F2E")         // Burnt Orange
-        static let primaryGoldLight = UIColor(hex: "#E07A4D")    // Lighter Orange
-        static let primaryGoldDark = UIColor(hex: "#B84D22")     // Darker Orange
+        static let primaryGold = UIColor(hex: PremiumUI.Hex.emberMarkLight)         // Burnt Orange
+        static let primaryGoldLight = UIColor(hex: PremiumUI.Hex.emberMarkLight)    // Lighter Orange
+        static let primaryGoldDark = UIColor(hex: PremiumUI.Hex.emberLight)     // Darker Orange
 
         // === SECONDARY ACCENTS ===
-        static let accentBurgundy = UIColor(hex: "#7B2D3E")      // Deep Burgundy (Premium)
-        static let accentBurgundyLight = UIColor(hex: "#9A4458") // Lighter Burgundy
-        static let accentCoral = UIColor(hex: "#D35F2E")         // Burnt Orange
-        static let accentCoralLight = UIColor(hex: "#E07A4D")    // Lighter Orange
-        static let accentTeal = UIColor(hex: "#3B5E7A")          // Steel Blue
-        static let accentOrange = UIColor(hex: "#D35F2E")        // Burnt Orange
-        static let accentCrimson = UIColor(hex: "#7B2D3E")       // Deep Burgundy
-        static let accentPurple = UIColor(hex: "#3B5E7A")        // Steel Blue
+        static let accentBurgundy = UIColor(hex: PremiumUI.Hex.destructiveLight)  // destructive red
+        static let accentBurgundyLight = UIColor(hex: PremiumUI.Hex.emberDeepLight) // deep ember
+        static let accentCoral = UIColor(hex: PremiumUI.Hex.emberMarkLight)         // ember (marks)
+        static let accentCoralLight = UIColor(hex: PremiumUI.Hex.emberMarkLight)    // ember (marks)
+        static let accentTeal = UIColor(hex: PremiumUI.Hex.indigoLight)          // indigo
+        static let accentOrange = UIColor(hex: PremiumUI.Hex.emberMarkLight)        // ember (marks)
+        static let accentCrimson = UIColor(hex: PremiumUI.Hex.destructiveLight)  // destructive red
+        static let accentPurple = UIColor(hex: PremiumUI.Hex.indigoLight)        // indigo
 
-        // === SEMANTIC ACCENTS (redesign — one hue per component class) ===
-        // Extend the base palette with four muted functional accents from the
-        // redesign mockup tokens. All verified ≥ WCAG AA on the cream ground.
-        static let semanticNotes = UIColor(hex: "#742B38")       // burgundy — notes & structure
-        static let semanticEvidence = UIColor(hex: "#2E6355")    // teal — research & data
-        static let semanticPractice = UIColor(hex: "#3B5876")    // slate — exercises & protocols
-        static let semanticCaution = UIColor(hex: "#8A6414")     // amber — limitations & warnings
-        static let semanticCautionBg = UIColor(hex: "#FBF7EC")   // amber-tinted callout ground
+        // === SEMANTIC ACCENTS (one hue per component class) ===
+        // Four functional accents, each distinguishable from the others AND
+        // from the brand marks — a reader must be able to tell a caution from
+        // a note at a glance. All verified ≥ WCAG AA large on the card ground
+        // by `PDFRedesignPhase456Tests.testSemanticAccentsMeetContrastOnCream`.
+        static let semanticNotes = UIColor(hex: PremiumUI.Hex.indigoDeepLight)  // deep indigo — notes & structure
+        static let semanticEvidence = UIColor(hex: PremiumUI.Hex.celadonLight)    // celadon — research & data
+        static let semanticPractice = UIColor(hex: PremiumUI.Hex.indigoLight)    // indigo — exercises & protocols
+        static let semanticCaution = UIColor(hex: PremiumUI.Hex.emberDeepLight) // deep ember — limitations & warnings
+        static let semanticCautionBg = UIColor(hex: PremiumUI.Hex.emberWashLight)   // ember-tinted callout ground
 
         // Brand Colors - Warm editorial palette
-        static let brandSepia = UIColor(hex: "#5A5550")          // Warm Charcoal
-        static let brandSepiaLight = UIColor(hex: "#8A8580")     // Warm Gray
-        static let brandParchment = UIColor(hex: "#F5F0E8")      // Brand Cream
-        static let brandParchmentDark = UIColor(hex: "#EDE8E0")  // Warm Linen
-        static let brandInk = UIColor(hex: "#2A2725")            // Ink Black
+        static let brandSepia = UIColor(hex: PremiumUI.Hex.mutedLight)          // Warm Charcoal
+        static let brandSepiaLight = UIColor(hex: PremiumUI.Hex.mutedLight)     // Warm Gray
+        static let brandParchment = UIColor(hex: PremiumUI.Hex.cardLight)      // Brand Cream
+        static let brandParchmentDark = UIColor(hex: PremiumUI.Hex.chipLight)  // Warm Linen
+        static let brandInk = UIColor(hex: PremiumUI.Hex.inkLight)            // Ink Black
 
         // Text Colors - Optimized for reading
-        static let textBody = UIColor(hex: "#2A2725")            // Ink Black
-        static let textMuted = UIColor(hex: "#8A8580")           // Warm Gray
-        static let textSubtle = UIColor(hex: "#9A9590")          // Lighter Gray
+        static let textBody = UIColor(hex: PremiumUI.Hex.inkLight)            // Ink Black
+        static let textMuted = UIColor(hex: PremiumUI.Hex.mutedLight)           // Warm Gray
+        static let textSubtle = UIColor(hex: PremiumUI.Hex.mutedLight)          // Lighter Gray
 
         // Background Colors - Warm reading surfaces
-        static let bgPrimary = UIColor(hex: "#FAFAF8")           // Warm White
-        static let bgSecondary = UIColor(hex: "#F5F0E8")         // Brand Cream
-        static let bgCard = UIColor(hex: "#FFFFFF")              // Pure White for elevated cards
-        static let bgCream = UIColor(hex: "#F5F0E8")             // Brand Cream
+        static let bgPrimary = UIColor(hex: PremiumUI.Hex.backgroundLight)           // Warm White
+        static let bgSecondary = UIColor(hex: PremiumUI.Hex.cardLight)         // Brand Cream
+        static let bgCard = UIColor(hex: PremiumUI.Hex.cardLight)              // Pure White for elevated cards
+        static let bgCream = UIColor(hex: PremiumUI.Hex.emberWashLight)             // Brand Cream
 
-        // Border Colors - Subtle for minimalist design
-        static let borderLight = UIColor(hex: "#E5E0D8")         // Soft Sand
-        static let borderMedium = UIColor(hex: "#D5D0C8")        // Warm Steel
-        static let borderDark = UIColor(hex: "#9A9590")          // Warm Graphite
+        // Border Colors — a real three-step ramp. `borderMedium` backs the
+        // structural strokes (table grids, framed blocks); when it shared
+        // `divider` with `borderLight`, those 16 call sites drew hairlines.
+        static let borderLight = UIColor(hex: PremiumUI.Hex.dividerLight)
+        static let borderMedium = UIColor(hex: PremiumUI.Hex.dividerStrongLight)
+        static let borderDark = UIColor(hex: PremiumUI.Hex.mutedLight)
     }
 
     // MARK: - Typography

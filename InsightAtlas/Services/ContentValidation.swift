@@ -40,17 +40,14 @@ enum ContentMarkers {
 
     // MARK: - Visual Markers
 
-    /// Modern visual block markers
-    static let visualMarkers: Set<String> = [
-        "[VISUAL_FLOWCHART",
-        "[VISUAL_FLOW_DIAGRAM",
-        "[VISUAL_TABLE",
-        "[VISUAL_COMPARISON_MATRIX",
-        "[VISUAL_CONCEPT_MAP",
-        "[VISUAL_TIMELINE",
-        "[VISUAL_BAR_CHART",
-        "[VISUAL_PIE_CHART"
-    ]
+    /// Modern visual block markers — every spelling the renderer accepts
+    /// (canonical `InsightVisualType` raw values plus parser aliases), so the
+    /// variety check counts the whole catalog the prompt offers, not a subset.
+    static let visualMarkers: Set<String> = Set(
+        (InsightVisualType.allCases.map(\.rawValue)
+            + InsightVisualParser.tagAliases.keys)
+            .map { "[" + $0 }
+    )
 
     /// Legacy visual markers (for backwards compatibility)
     static let legacyVisualMarkers: Set<String> = [
@@ -128,12 +125,6 @@ enum ContentMarkers {
     ]
 
     // MARK: - Cross-Book Synthesis
-
-    /// Phrases indicating proper cross-book synthesis
-    static let crossBookSynthesisPhrases: Set<String> = [
-        "cross-book synthesis",
-        "cross book synthesis"
-    ]
 
     /// Cross-disciplinary synthesis signals
     static let synthesisSignals: Set<String> = [
@@ -343,29 +334,10 @@ struct OutputQualityValidator {
             }
         }
 
-        // MARK: - Cross-Book Synthesis Validation
-
-        if !lowercased.containsAny(of: ContentMarkers.crossBookSynthesisPhrases) {
-            issues.append("Missing Cross-Book Synthesis sections")
-        }
+        // MARK: - Chapter Framing Validation
 
         if lowercased.containsAny(of: ContentMarkers.chapterFramingPhrases) {
             issues.append("Chapter-by-chapter framing is not allowed; use thematic synthesis")
-        }
-
-        // MARK: - Required Sections Validation
-
-        if !lowercased.contains("[section: comparative analysis]") &&
-            !lowercased.contains("[premium_h2]comparative analysis[/premium_h2]") {
-            issues.append("Missing Comparative Analysis section")
-        }
-
-        if !lowercased.contains("[premium_h2]synthesis interlude[/premium_h2]") {
-            issues.append("Missing Synthesis Interlude sections")
-        }
-
-        if !lowercased.contains("[premium_h2]applied implications[/premium_h2]") {
-            issues.append("Missing Applied Implications section")
         }
 
         // MARK: - Premium Formatting Validation

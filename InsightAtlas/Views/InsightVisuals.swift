@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Insight Visual Models
 
-enum InsightVisualType: String {
+enum InsightVisualType: String, CaseIterable {
     case timeline = "VISUAL_TIMELINE"
     case flowchart = "VISUAL_FLOWCHART"
     case comparisonMatrix = "VISUAL_COMPARISON_MATRIX"
@@ -537,6 +537,27 @@ struct InsightVisualParser {
         }
     }
 
+    /// Splits one pipe-delimited table row into cells.
+    ///
+    /// Only the artifacts of the optional leading/trailing edge pipes are
+    /// dropped; interior empty cells are preserved in position. Filtering all
+    /// empties out instead left-shifted every cell after a blank one, so
+    /// `| A |  | C |` rendered C under the second column's header.
+    private static func tableCells(in row: String) -> [String] {
+        var cells = row
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        if cells.first?.isEmpty == true { cells.removeFirst() }
+        if cells.last?.isEmpty == true { cells.removeLast() }
+        return cells
+    }
+
+    /// Whether a row is a markdown alignment/separator row (`|---|---|`).
+    private static func isSeparatorRow(_ cells: [String]) -> Bool {
+        let joined = cells.joined()
+        return !joined.isEmpty && joined.allSatisfy { $0 == "-" || $0 == ":" }
+    }
+
     private static func parseLineFormat(type: InsightVisualType, title: String?, lines: [String]) -> InsightVisual? {
         let trimmed = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
 
@@ -562,14 +583,10 @@ struct InsightVisualParser {
         case .comparisonMatrix:
             let tableLines = trimmed.filter { $0.contains("|") }
             guard tableLines.count >= 2 else { return nil }
-            let header = tableLines[0].split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let header = tableCells(in: tableLines[0])
             let rows = tableLines.dropFirst(1).compactMap { row -> [String]? in
-                let cells = row.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                let joined = cells.joined()
-                if !joined.isEmpty && joined.allSatisfy({ $0 == "-" }) {
-                    return nil
-                }
-                return cells
+                let cells = tableCells(in: row)
+                return isSeparatorRow(cells) ? nil : cells
             }
             guard !header.isEmpty else { return nil }
             return InsightVisual(type: type, title: title, payload: .comparison(ComparisonMatrixData(columns: header, rows: rows)))
@@ -577,14 +594,10 @@ struct InsightVisualParser {
         case .table:
             let tableLines = trimmed.filter { $0.contains("|") }
             guard tableLines.count >= 2 else { return nil }
-            let header = tableLines[0].split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let header = tableCells(in: tableLines[0])
             let rows = tableLines.dropFirst(1).compactMap { row -> [String]? in
-                let cells = row.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                let joined = cells.joined()
-                if !joined.isEmpty && joined.allSatisfy({ $0 == "-" }) {
-                    return nil
-                }
-                return cells
+                let cells = tableCells(in: row)
+                return isSeparatorRow(cells) ? nil : cells
             }
             guard !header.isEmpty else { return nil }
             return InsightVisual(type: type, title: title, payload: .table(ComparisonMatrixData(columns: header, rows: rows)))

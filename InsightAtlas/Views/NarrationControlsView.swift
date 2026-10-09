@@ -12,6 +12,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 
 // MARK: - View model
 
@@ -23,6 +24,13 @@ final class NarrationControlViewModel: ObservableObject {
     @Published private(set) var canRetry = false
 
     private var generationTask: Task<Void, Never>?
+
+    /// Retry is offered whenever any on-device engine (Kokoro or an Apple
+    /// system voice) can attempt synthesis again.
+    private var retryAvailable: Bool {
+        let availability = VoiceProviderAvailability.current
+        return availability.kokoro || availability.apple
+    }
 
     var progressLabel: String {
         progress?.statusDescription ?? "Preparing narration…"
@@ -68,7 +76,7 @@ final class NarrationControlViewModel: ObservableObject {
                         )
                     } catch {
                         errorMessage = NarrationPlaybackFailureMessage.message(for: error)
-                        canRetry = KokoroModelStore.isInstalled
+                        canRetry = retryAvailable
                     }
                 }
             } catch is CancellationError {
@@ -81,7 +89,7 @@ final class NarrationControlViewModel: ObservableObject {
                 generationTask = nil
                 DataManager.shared.markNarrationFailed(for: item.id)
                 errorMessage = error.localizedDescription
-                canRetry = KokoroModelStore.isInstalled
+                canRetry = retryAvailable
             }
         }
     }
@@ -128,14 +136,20 @@ final class NarrationControlViewModel: ObservableObject {
             }
         } catch {
             errorMessage = NarrationPlaybackFailureMessage.message(for: error)
-            canRetry = KokoroModelStore.isInstalled
+            canRetry = retryAvailable
         }
     }
 
     func narratorName(for voiceID: String?) -> String {
         guard let voiceID else { return "Narrator" }
         if voiceID == KokoroTTSClient.voice { return "Liam" }
-        return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
+        if let kokoro = KokoroVoiceRegistry.voice(byVoiceID: voiceID) {
+            return kokoro.name
+        }
+        if let apple = AppleVoiceCatalog.voice(byID: voiceID) {
+            return apple.name
+        }
+        return voiceID
     }
 
     static func audioURL(for filename: String) -> URL? {
@@ -171,6 +185,21 @@ struct NarrationControlsView: View {
 
     private var kokoroConfigured: Bool { KokoroModelStore.isInstalled }
 
+    /// The engine narration will actually use: the preferred one, or the
+    /// other as fallback (mirrors NarrationFallbackPolicy).
+    private var activeEngine: VoiceProvider {
+        let preferred = VoiceProvider(
+            rawValue: UserDefaults.standard.string(forKey: VoiceProvider.storageKey) ?? ""
+        ) ?? .kokoro
+        if preferred == .kokoro && !kokoroConfigured { return .apple }
+        return preferred
+    }
+
+    /// Whether any on-device engine can synthesize narration right now.
+    private var narrationAvailable: Bool {
+        kokoroConfigured || AppleVoiceCatalog.defaultVoice() != nil
+    }
+
     private var selectedKokoroVoiceName: String {
         guard let voiceID = UserDefaults.standard.string(
             forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
@@ -179,6 +208,13 @@ struct NarrationControlsView: View {
         }
         return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name
             ?? KokoroVoiceRegistry.defaultVoice.name
+    }
+
+    private var selectedEngineVoiceName: String {
+        switch activeEngine {
+        case .kokoro: return selectedKokoroVoiceName
+        case .apple: return AppleVoiceCatalog.selectedVoice()?.name ?? "System Voice"
+        }
     }
 
     var body: some View {
@@ -287,9 +323,9 @@ struct NarrationControlsView: View {
                 preparingRow
             } else if hasAudio {
                 playbackControls
-            } else if !kokoroConfigured {
+            } else if !narrationAvailable {
                 HStack {
-                    Text("Download Kokoro in Settings → Audio & Narration before listening.")
+                    Text("No narration voice is available on this device. Download Kokoro in Settings → Audio & Narration, or install an Apple voice in iOS Settings → Accessibility → Spoken Content.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -368,13 +404,15 @@ struct NarrationControlsView: View {
     }
 
     private var readySubtitle: String {
-        kokoroConfigured
-            ? "Kokoro on-device · \(selectedKokoroVoiceName)"
-            : "Download the Kokoro voice model"
+        guard narrationAvailable else { return "No narration voice available" }
+        switch activeEngine {
+        case .kokoro: return "Kokoro on-device · \(selectedKokoroVoiceName)"
+        case .apple: return "Apple voice on-device · \(selectedEngineVoiceName)"
+        }
     }
 
     private var listenButtonTitle: String {
-        "Listen with \(selectedKokoroVoiceName)"
+        "Listen with \(selectedEngineVoiceName)"
     }
 
     private var playbackControls: some View {
