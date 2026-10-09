@@ -51,15 +51,41 @@ protocol KokoroSynthesizing: Sendable {
     ///     otherwise indistinguishable from a stalled first chunk.
     ///   - onProgress: `(completed, total)` chunks, called before the first
     ///     chunk and after each one completes.
+    ///   - segmentDirectory / onSegment: optional streaming output — each chunk
+    ///     is also written as its own playable file and reported immediately,
+    ///     so playback can start before the whole narration is rendered.
     func generate(
         text: String,
         speakerID: Int,
         modelDirectory: URL,
+        segmentDirectory: URL?,
         onModelLoadStart: (@Sendable () -> Void)?,
-        onProgress: (@Sendable (Int, Int) -> Void)?
+        onProgress: (@Sendable (Int, Int) -> Void)?,
+        onSegment: (@Sendable (URL, Int, Int) -> Void)?
     ) async throws -> KokoroSynthesisResult
 
     func reset() async
+}
+
+extension KokoroSynthesizing {
+    /// Non-streaming convenience used by tests and the background pipeline.
+    func generate(
+        text: String,
+        speakerID: Int,
+        modelDirectory: URL,
+        onModelLoadStart: (@Sendable () -> Void)? = nil,
+        onProgress: (@Sendable (Int, Int) -> Void)? = nil
+    ) async throws -> KokoroSynthesisResult {
+        try await generate(
+            text: text,
+            speakerID: speakerID,
+            modelDirectory: modelDirectory,
+            segmentDirectory: nil,
+            onModelLoadStart: onModelLoadStart,
+            onProgress: onProgress,
+            onSegment: nil
+        )
+    }
 }
 
 final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
@@ -100,6 +126,24 @@ final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
         onModelLoadStart: (@Sendable () -> Void)?,
         onProgress: (@Sendable (Int, Int) -> Void)?
     ) async throws -> GeneratedAudio {
+        try await generateAudio(
+            text: text,
+            voiceID: voiceID,
+            segmentDirectory: nil,
+            onModelLoadStart: onModelLoadStart,
+            onProgress: onProgress,
+            onSegment: nil
+        )
+    }
+
+    func generateAudio(
+        text: String,
+        voiceID: String,
+        segmentDirectory: URL?,
+        onModelLoadStart: (@Sendable () -> Void)?,
+        onProgress: (@Sendable (Int, Int) -> Void)?,
+        onSegment: (@Sendable (URL, Int, Int) -> Void)?
+    ) async throws -> GeneratedAudio {
         try Task.checkCancellation()
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw KokoroAudioError.emptyText }
@@ -115,8 +159,10 @@ final class KokoroAudioService: AudioServiceProtocol, @unchecked Sendable {
             text: trimmed,
             speakerID: voice.speakerID,
             modelDirectory: modelDirectoryProvider(),
+            segmentDirectory: segmentDirectory,
             onModelLoadStart: onModelLoadStart,
-            onProgress: onProgress
+            onProgress: onProgress,
+            onSegment: onSegment
         )
         return GeneratedAudio(
             data: result.data,
@@ -162,12 +208,21 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         loadedDirectory = nil
     }
 
+    /// - Parameters:
+    ///   - segmentDirectory: when supplied, each chunk is also written as its
+    ///     own playable WAV here and reported through `onSegment` as soon as it
+    ///     is on disk. That lets playback start on chunk 1 while the rest of a
+    ///     long narration is still rendering. The combined file is still
+    ///     produced exactly as before, so persistence and caching are unchanged.
+    ///   - onSegment: `(url, index, total)` for each finished chunk.
     func generate(
         text: String,
         speakerID: Int,
         modelDirectory: URL,
+        segmentDirectory: URL? = nil,
         onModelLoadStart: (@Sendable () -> Void)? = nil,
-        onProgress: (@Sendable (Int, Int) -> Void)? = nil
+        onProgress: (@Sendable (Int, Int) -> Void)? = nil,
+        onSegment: (@Sendable (URL, Int, Int) -> Void)? = nil
     ) async throws -> KokoroSynthesisResult {
         let chunks = chunker.chunks(for: text)
         guard !chunks.isEmpty else { throw KokoroAudioError.emptyText }
@@ -231,6 +286,35 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
                 to: audioFile
             )
             totalFrames += Int64(samples.count)
+
+            // Publish this chunk on its own so playback can begin before the
+            // whole narration is rendered. Scoped so the AVAudioFile flushes
+            // and closes before the player is handed the URL.
+            if let segmentDirectory, let onSegment {
+                let segmentURL = segmentDirectory.appendingPathComponent(
+                    String(format: "seg_%04d.wav", chunkIndex)
+                )
+                do {
+                    var segmentFile: AVAudioFile? = try makeAudioFile(
+                        at: segmentURL,
+                        sampleRate: Double(sampleRate)
+                    )
+                    if let segmentFile {
+                        try append(
+                            samples: samples,
+                            sampleRate: Double(sampleRate),
+                            to: segmentFile
+                        )
+                    }
+                    segmentFile = nil
+                    onSegment(segmentURL, chunkIndex, chunks.count)
+                } catch {
+                    // A segment failure must never abort the real render; the
+                    // combined file is still authoritative.
+                    print("[Narration] segment \(chunkIndex) unavailable: \(error.localizedDescription)")
+                }
+            }
+
             onProgress?(chunkIndex + 1, chunks.count)
             print(String(
                 format: "[Timing] Kokoro chunk %d/%d: %.1fs for %d chars",

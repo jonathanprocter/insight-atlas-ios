@@ -217,11 +217,30 @@ actor NarrationService {
 
     /// Synthesize narration for `itemId`: MiniMax writes the bounded
     /// audio-summary script, then installed on-device Kokoro speaks it.
+    /// Directory holding the per-chunk files of an in-flight streamed
+    /// narration. Cleared when synthesis finishes or fails.
+    static func segmentDirectory(for itemId: UUID) -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("narration-segments", isDirectory: true)
+            .appendingPathComponent(itemId.uuidString, isDirectory: true)
+    }
+
+    /// Discards an item's streamed chunks. Safe to call once playback has moved
+    /// to the combined asset or been stopped.
+    static func clearSegments(for itemId: UUID) {
+        try? FileManager.default.removeItem(at: segmentDirectory(for: itemId))
+    }
+
+    /// - Parameter onSegment: when supplied, each rendered chunk is reported as
+    ///   a playable file the moment it lands, so a long narration can start
+    ///   playing on chunk 1 instead of after the whole render. Only the
+    ///   on-device Kokoro route streams; other routes simply never call it.
     func synthesize(
         text: String,
         itemId: UUID,
         summaryType: SummaryType? = nil,
-        progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in }
+        progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in },
+        onSegment: (@Sendable (URL, Int, Int) -> Void)? = nil
     ) async throws -> NarrationAsset {
         // Keep a deterministic bounded edition as the safe fallback, but let
         // MiniMax create the actual audio-first summary when it is configured.
@@ -259,6 +278,20 @@ actor NarrationService {
         )
         guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
 
+        // Per-chunk files live only for the duration of this render; the
+        // combined asset in Documents remains the durable one.
+        let segmentRoot: URL? = onSegment == nil ? nil : Self.segmentDirectory(for: itemId)
+        if let segmentRoot {
+            try? FileManager.default.removeItem(at: segmentRoot)
+            try? FileManager.default.createDirectory(
+                at: segmentRoot, withIntermediateDirectories: true
+            )
+        }
+        // Deliberately not cleaned up here: playback continues from these files
+        // after this call returns, so removing them would pull audio out from
+        // under the player. The next render for this item clears them, and the
+        // caller clears them when playback is replaced or stopped.
+
         var lastFailure: Error?
 
         for route in routes {
@@ -278,6 +311,7 @@ actor NarrationService {
                         try await KokoroAudioService.shared.generateAudio(
                             text: spokenText,
                             voiceID: voice.voiceID,
+                            segmentDirectory: segmentRoot,
                             onModelLoadStart: {
                                 progress(.loadingModel(narrator: narrator))
                                 Task { await heartbeat.beat() }
@@ -285,7 +319,8 @@ actor NarrationService {
                             onProgress: { completed, total in
                                 progress(.synthesizing(narrator: narrator, completed: completed, total: total))
                                 Task { await heartbeat.beat() }
-                            }
+                            },
+                            onSegment: onSegment
                         )
                     }
                     let asset = try await persist(audio: audio, itemId: itemId)

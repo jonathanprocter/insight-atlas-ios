@@ -24,6 +24,7 @@ final class NarrationControlViewModel: ObservableObject {
     @Published private(set) var canRetry = false
 
     private var generationTask: Task<Void, Never>?
+    private var isStreamingPlayback = false
 
     /// Retry is offered whenever any on-device engine (Kokoro or an Apple
     /// system voice) can attempt synthesis again.
@@ -54,12 +55,18 @@ final class NarrationControlViewModel: ObservableObject {
                 let asset = try await NarrationService.shared.synthesize(
                     text: summary,
                     itemId: item.id,
-                    summaryType: item.summaryType
-                ) { [weak self] update in
-                    Task { @MainActor in
-                        self?.progress = update
+                    summaryType: item.summaryType,
+                    progress: { [weak self] update in
+                        Task { @MainActor in
+                            self?.progress = update
+                        }
+                    },
+                    onSegment: { [weak self] url, index, total in
+                        Task { @MainActor in
+                            self?.handleSegment(url: url, index: index, total: total, item: item)
+                        }
                     }
-                }
+                )
                 if Task.isCancelled { throw CancellationError() }
 
                 DataManager.shared.applyNarration(asset, for: item.id)
@@ -67,31 +74,75 @@ final class NarrationControlViewModel: ObservableObject {
                 generationTask = nil
                 progress = .ready(narrator: narratorName(for: asset.voiceID))
                 if let url = Self.audioURL(for: asset.relativeFileName) {
-                    do {
-                        try NarrationPlaybackController.shared.play(
-                            url: url,
-                            title: item.title,
-                            author: item.author,
-                            coverImagePath: item.coverImagePath
+                    if isStreamingPlayback {
+                        // Already playing from the streamed chunks; just hand
+                        // the player the durable asset for scrubbing and for
+                        // every later play.
+                        NarrationPlaybackController.shared.finishStreaming(
+                            finalURL: url,
+                            duration: asset.duration
                         )
-                    } catch {
-                        errorMessage = NarrationPlaybackFailureMessage.message(for: error)
-                        canRetry = retryAvailable
+                        isStreamingPlayback = false
+                    } else {
+                        do {
+                            try NarrationPlaybackController.shared.play(
+                                url: url,
+                                title: item.title,
+                                author: item.author,
+                                coverImagePath: item.coverImagePath
+                            )
+                        } catch {
+                            errorMessage = NarrationPlaybackFailureMessage.message(for: error)
+                            canRetry = retryAvailable
+                        }
                     }
                 }
             } catch is CancellationError {
                 isPreparing = false
                 generationTask = nil
                 progress = nil
+                endStreamingPlayback(for: item.id)
                 DataManager.shared.setNarrationState(.notGenerated, for: item.id)
             } catch {
                 isPreparing = false
                 generationTask = nil
+                endStreamingPlayback(for: item.id)
                 DataManager.shared.markNarrationFailed(for: item.id)
                 errorMessage = error.localizedDescription
                 canRetry = retryAvailable
             }
         }
+    }
+
+    /// Starts playback on the first rendered chunk and feeds in the rest as
+    /// they land, so a 16-minute narration is audible in seconds instead of
+    /// after the whole render.
+    private func handleSegment(url: URL, index: Int, total: Int, item: LibraryItem) {
+        do {
+            if !isStreamingPlayback {
+                try NarrationPlaybackController.shared.beginStreaming(
+                    title: item.title,
+                    author: item.author,
+                    coverImagePath: item.coverImagePath,
+                    expectedSegments: total
+                )
+                isStreamingPlayback = true
+            }
+            NarrationPlaybackController.shared.appendStreamingSegment(url: url)
+        } catch {
+            // Streaming is an accelerator, never a requirement: on failure the
+            // render continues and plays from the combined file at the end.
+            isStreamingPlayback = false
+            NarrationPlaybackController.shared.cancelStreaming()
+        }
+    }
+
+    private func endStreamingPlayback(for itemId: UUID) {
+        if isStreamingPlayback {
+            NarrationPlaybackController.shared.cancelStreaming()
+            isStreamingPlayback = false
+        }
+        NarrationService.clearSegments(for: itemId)
     }
 
     func cancel() {
@@ -319,7 +370,12 @@ struct NarrationControlsView: View {
                 .accessibilityHint("Collapses the panel to a small button. Playback continues.")
             }
 
-            if model.isPreparing {
+            if playback.isStreaming {
+                // Audio is already playing from rendered chunks; show the
+                // transport plus how much is still being written.
+                playbackControls
+                streamingProgressRow
+            } else if model.isPreparing {
                 preparingRow
             } else if hasAudio {
                 playbackControls
@@ -415,6 +471,24 @@ struct NarrationControlsView: View {
         "Listen with \(selectedEngineVoiceName)"
     }
 
+    /// Shown under the transport while later chunks are still rendering.
+    private var streamingProgressRow: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .scaleEffect(0.7)
+            Text(playback.expectedSegments > 0
+                 ? "Still writing audio · part \(playback.streamedSegments) of \(playback.expectedSegments)"
+                 : "Still writing audio…")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Cancel") { model.cancel() }
+                .font(.caption.weight(.semibold))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Narration is playing while the rest is still being written")
+    }
+
     private var playbackControls: some View {
         VStack(spacing: 8) {
             Slider(
@@ -425,6 +499,7 @@ struct NarrationControlsView: View {
                 in: 0...max(max(playback.duration, currentItem.audioDuration ?? 1), 1)
             )
             .tint(PremiumUI.gold)
+            .disabled(playback.isStreaming)
             .accessibilityLabel("Narration position")
             .accessibilityValue("\(timeLabel(playback.currentTime)) of \(timeLabel(max(playback.duration, currentItem.audioDuration ?? 0)))")
 

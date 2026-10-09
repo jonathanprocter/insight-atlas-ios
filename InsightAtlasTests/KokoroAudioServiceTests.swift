@@ -166,12 +166,17 @@ private actor KokoroSynthesisSpy: KokoroSynthesizing {
     var callCount: Int { calls.count }
     var lastCall: Call? { calls.last }
 
+    /// Segment URLs published for streaming playback, in order.
+    private(set) var emittedSegments: [URL] = []
+
     func generate(
         text: String,
         speakerID: Int,
         modelDirectory: URL,
+        segmentDirectory: URL?,
         onModelLoadStart: (@Sendable () -> Void)?,
-        onProgress: (@Sendable (Int, Int) -> Void)?
+        onProgress: (@Sendable (Int, Int) -> Void)?,
+        onSegment: (@Sendable (URL, Int, Int) -> Void)?
     ) async throws -> KokoroSynthesisResult {
         modelLoadSignals += 1
         onModelLoadStart?()
@@ -179,6 +184,15 @@ private actor KokoroSynthesisSpy: KokoroSynthesizing {
         for completed in 0...2 {
             reportedProgress.append((completed, 2))
             onProgress?(completed, 2)
+        }
+        if let segmentDirectory, let onSegment {
+            for index in 0..<2 {
+                let url = segmentDirectory.appendingPathComponent(
+                    String(format: "seg_%04d.wav", index)
+                )
+                emittedSegments.append(url)
+                onSegment(url, index, 2)
+            }
         }
         calls.append(
             Call(
