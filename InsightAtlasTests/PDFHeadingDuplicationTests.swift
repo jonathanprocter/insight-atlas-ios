@@ -49,6 +49,97 @@ final class PDFHeadingDuplicationTests: XCTestCase {
         }
     }
 
+    /// Page 22 of a shipped guide printed a borderless pipe table as prose even
+    /// though `parse` has a borderless-table branch. Reproduce the exact shape.
+    func testBorderlessPipeTableBecomesATableBlock() {
+        let content = """
+        Fourth, and most usefully, it provides an ethical orientation.
+
+        Aspect | Mirror | Filtered mind
+        Selection | None | Active
+        Effort | None | Constant
+        Distortion | None | Substantial
+        Effect of content | Unchanged | Changed
+        """
+        let produced = blocks(content)
+        print("[TableShape] \(produced.map { "\($0.type):\($0.content.prefix(24))" })")
+        XCTAssertTrue(
+            produced.contains { $0.type == .table },
+            "the pipe rows must render as a table, not prose"
+        )
+        XCTAssertFalse(
+            produced.contains { $0.type == .paragraph && $0.content.contains("|") },
+            "no pipe row may survive as a paragraph"
+        )
+    }
+
+    /// Page 55 dumped a VISUAL_NETWORK payload (`Node:` / `Link:` lines) as prose.
+    func testUntaggedNodeLinkPayloadIsNotPrintedAsProse() {
+        let content = """
+        The practice is built around three foundational questions.
+
+        Node: content | Content of experience | what is noticed
+        Node: awareness | Awareness | what notices
+        Node: mind | The mind | obstacle and instrument
+        Link: content -> awareness
+        Link: mind -> play
+        """
+        let produced = blocks(content)
+        print("[GraphShape] \(produced.map { "\($0.type):\($0.content.prefix(24))" })")
+        XCTAssertFalse(
+            produced.contains { $0.type == .paragraph && ($0.content.hasPrefix("Node:") || $0.content.hasPrefix("Link:")) },
+            "raw Node:/Link: DSL must never reach the page as prose"
+        )
+    }
+
+    /// The shipped leak most likely came from a tagged visual whose payload
+    /// failed to parse and was then dumped verbatim. Report what each tagged
+    /// shape produces.
+    func testTaggedVisualPayloadsNeverDumpRawDSL() {
+        let shapes: [(String, String)] = [
+            ("network", "[VISUAL_NETWORK: Reader's Map]\nNode: content | Content of experience | what is noticed\nNode: awareness | Awareness | what notices\nLink: content -> awareness\n[/VISUAL_NETWORK]"),
+            ("network-arrow", "[VISUAL_NETWORK: Map]\nNode: content | Content of experience | what is noticed\nLink: content → awareness\n[/VISUAL_NETWORK]"),
+            ("table-tagged", "[VISUAL_TABLE: Mirror]\nAspect | Mirror | Filtered mind\nSelection | None | Active\n[/VISUAL_TABLE]"),
+            ("concept-map", "[CONCEPT_MAP: Reader's Map]\nCentral: Awareness\nNode: content | Content | noticed\n[/CONCEPT_MAP]")
+        ]
+        for (name, content) in shapes {
+            let produced = blocks(content)
+            print("[TaggedShape] \(name): \(produced.map { "\($0.type):\($0.content.prefix(30))" })")
+            XCTAssertFalse(
+                produced.contains { $0.type == .paragraph && ($0.content.contains("Node:") || $0.content.contains("Link:")) },
+                "\(name) dumped raw DSL as prose"
+            )
+        }
+    }
+
+    /// An unrecognized visual tag degrades to `.generic`, which used to print
+    /// its payload verbatim — the path that put a pipe table on page 22 and a
+    /// node/link graph on page 55 of a shipped guide.
+    func testUnknownVisualTagRecoversStructureInsteadOfDumpingText() {
+        let table = PDFAnalysisDocument.structuredBlocksFromGenericPayload("""
+        Aspect | Mirror | Filtered mind
+        Selection | None | Active
+        Effort | None | Constant
+        """)
+        XCTAssertEqual(table.first?.type, .table, "pipe rows must become a table")
+        XCTAssertEqual(table.first?.tableData?.count, 3)
+        XCTAssertEqual(table.first?.tableData?[1], ["Selection", "None", "Active"])
+
+        let graph = PDFAnalysisDocument.structuredBlocksFromGenericPayload("""
+        Node: content | Content of experience | what is noticed
+        Node: awareness | Awareness | what notices
+        Link: content -> awareness
+        """)
+        XCTAssertEqual(graph.first?.type, .flowchart, "node/link DSL must become a flow")
+        XCTAssertEqual(graph.first?.listItems, ["Content of experience", "Awareness"])
+
+        // Ordinary prose is untouched.
+        let prose = PDFAnalysisDocument.structuredBlocksFromGenericPayload(
+            "A sentence that merely mentions a | pipe character."
+        )
+        XCTAssertEqual(prose.first?.type, .paragraph)
+    }
+
     /// Bracket-only lines are tag debris, never body copy.
     func testOrphanedBracketLinesAreNotRenderedAsParagraphs() {
         let content = "[\n]\n\nPersuasion Skills Black Book sits in a specific tradition."

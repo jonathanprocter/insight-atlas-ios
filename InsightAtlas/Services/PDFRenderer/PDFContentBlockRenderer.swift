@@ -740,11 +740,24 @@ final class PDFContentBlockRenderer {
         case expansion      // extends the idea — distinct accent
         case challenge      // limitation / counterpoint — strongest treatment
 
+        /// Border and accent-bar tint. May be pale: it is only ever a fill.
         var accentColor: UIColor {
             switch self {
             case .challenge: return PDFStyleConfiguration.Colors.semanticNotes      // deep burgundy/maroon
             case .expansion: return PDFStyleConfiguration.Colors.primaryGold        // gold
             case .corroboration: return PDFStyleConfiguration.BlockStyles.insightNoteBorderColor
+            }
+        }
+
+        /// Header label tint. Separate from `accentColor` because corroboration's
+        /// accent is a pale border wash (#EDEBE5) — drawing the label in it put
+        /// near-white text on a cream card (~1.1:1) and made every
+        /// "CORROBORATION" header invisible in shipped PDFs. Corroboration still
+        /// reads as the quiet variant, just legibly so.
+        var labelColor: UIColor {
+            switch self {
+            case .challenge, .expansion: return accentColor
+            case .corroboration: return PDFStyleConfiguration.Colors.textSecondary
             }
         }
 
@@ -818,7 +831,7 @@ final class PDFContentBlockRenderer {
     private func renderInsightNote(content: String, title: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let parsed = parseInsightNoteContent(content)
         let noteType = Self.classifyInsightNote(content: content, title: title)
-        return drawInsightNoteCard(parsed: parsed, accentColor: noteType.accentColor, headerLabel: noteType.label(defaultTitle: title), to: context, at: point, maxWidth: maxWidth)
+        return drawInsightNoteCard(parsed: parsed, accentColor: noteType.accentColor, labelColor: noteType.labelColor, headerLabel: noteType.label(defaultTitle: title), to: context, at: point, maxWidth: maxWidth)
     }
 
     /// Draws one insight-note card — or one fragment of a split note. The caller
@@ -826,7 +839,7 @@ final class PDFContentBlockRenderer {
     /// label; a continuation fragment passes a SUBSET of sections and a
     /// "… (CONTINUED)" label. Total height comes from the shared
     /// insightNoteCardHeight so the drawn card matches every measurer.
-    private func drawInsightNoteCard(parsed: InsightNoteParsed, accentColor: UIColor, headerLabel: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    private func drawInsightNoteCard(parsed: InsightNoteParsed, accentColor: UIColor, labelColor: UIColor, headerLabel: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let padding: CGFloat = 14
         let headerHeight: CGFloat = 30
         let sectionSpacing: CGFloat = 8
@@ -867,7 +880,7 @@ final class PDFContentBlockRenderer {
         let headerAttributes: [NSAttributedString.Key: Any] = [
             .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
             .ligature: 0,
-            .foregroundColor: accentColor,
+            .foregroundColor: labelColor,
             .kern: 1.2
         ]
         let headerText = NSAttributedString(string: headerLabel, attributes: headerAttributes)
@@ -989,6 +1002,7 @@ final class PDFContentBlockRenderer {
         let goDeeper: String?
         let headerLabel: String
         let accentColor: UIColor
+        let labelColor: UIColor
         let plannedHeight: CGFloat   // == renderInsightNoteFragment's return (measure==draw)
         var parsed: InsightNoteParsed { (core, keyDistinction, practicalImplication, goDeeper) }
     }
@@ -1023,6 +1037,7 @@ final class PDFContentBlockRenderer {
         let parsed = parseInsightNoteContent(content)
         let baseLabel = noteType.label(defaultTitle: title)
         let accent = noteType.accentColor
+        let labelTint = noteType.labelColor
         let heights = insightNoteSectionHeights(parsed, maxWidth: maxWidth)
 
         enum Sec { case core, keyDist, practical, goDeeper }
@@ -1073,14 +1088,14 @@ final class PDFContentBlockRenderer {
             }
             let label = gi == 0 ? baseLabel : "\(baseLabel) (CONTINUED)"
             let planned = insightNoteCardHeight(fp, maxWidth: maxWidth) + PDFStyleConfiguration.Spacing.blockSpacing
-            fragments.append(InsightNoteFragment(core: fp.coreConnection, keyDistinction: fp.keyDistinction, practicalImplication: fp.practicalImplication, goDeeper: fp.goDeeper, headerLabel: label, accentColor: accent, plannedHeight: planned))
+            fragments.append(InsightNoteFragment(core: fp.coreConnection, keyDistinction: fp.keyDistinction, practicalImplication: fp.practicalImplication, goDeeper: fp.goDeeper, headerLabel: label, accentColor: accent, labelColor: labelTint, plannedHeight: planned))
         }
         return fragments
     }
 
     /// Draw one planned note fragment (used by the paginating renderer).
     func renderInsightNoteFragment(_ fragment: InsightNoteFragment, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
-        drawInsightNoteCard(parsed: fragment.parsed, accentColor: fragment.accentColor, headerLabel: fragment.headerLabel, to: context, at: point, maxWidth: maxWidth)
+        drawInsightNoteCard(parsed: fragment.parsed, accentColor: fragment.accentColor, labelColor: fragment.labelColor, headerLabel: fragment.headerLabel, to: context, at: point, maxWidth: maxWidth)
     }
 
     /// Strip a redundant leading type prefix ("Key Challenge:" / "Key

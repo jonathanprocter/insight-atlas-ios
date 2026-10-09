@@ -2346,10 +2346,71 @@ extension PDFAnalysisDocument {
 
         case .generic(let data):
             addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .paragraph, content: data))
+            // A visual whose tag the renderer does not recognize degrades to
+            // `.generic`, which used to print its payload verbatim — that is how
+            // a pipe table and a `Node:`/`Link:` graph reached shipped pages as
+            // prose. Recover the structure from the payload itself so an
+            // unknown or misspelled tag costs styling, never legibility.
+            blocks.append(contentsOf: structuredBlocksFromGenericPayload(data))
         }
 
         return blocks
+    }
+
+    /// Rescues structure from an unrecognized visual payload.
+    ///
+    /// Handles the two shapes that actually leaked onto shipped pages: pipe
+    /// rows (`A | B | C`) and node/link graph DSL (`Node: id | label | kind`,
+    /// `Link: a -> b`). Anything else stays a paragraph, exactly as before.
+    static func structuredBlocksFromGenericPayload(_ data: String) -> [PDFContentBlock] {
+        let lines = data
+            .components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return [] }
+
+        // Node/Link graph DSL → the node labels as an ordered flow.
+        let nodeLines = lines.filter { $0.lowercased().hasPrefix("node:") }
+        let linkLines = lines.filter { $0.lowercased().hasPrefix("link:") }
+        if !nodeLines.isEmpty, nodeLines.count + linkLines.count >= lines.count - 1 {
+            var labels: [String] = []
+            for line in nodeLines {
+                let payload = String(line.dropFirst("node:".count))
+                let parts = payload
+                    .components(separatedBy: "|")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                // "Node: id | label | kind" — the label is the human-readable
+                // part; a two-field node has no separate id.
+                if parts.count >= 2 {
+                    labels.append(parts[1])
+                } else if let only = parts.first {
+                    labels.append(only)
+                }
+            }
+            if !labels.isEmpty {
+                return [PDFContentBlock(type: .flowchart, content: "", listItems: labels)]
+            }
+        }
+
+        // Pipe rows → a table, keeping blank cells in position.
+        let pipeRows = lines.filter { $0.contains("|") && !$0.contains("---") }
+        if pipeRows.count >= 2, pipeRows.count >= lines.count - 1 {
+            let rows: [[String]] = pipeRows.map { row in
+                var cells = row
+                    .components(separatedBy: "|")
+                    .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) }
+                if cells.first?.isEmpty == true { cells.removeFirst() }
+                if cells.last?.isEmpty == true { cells.removeLast() }
+                return cells
+            }
+            let width = rows[0].count
+            if width >= 2, rows.allSatisfy({ $0.count == width }) {
+                return [PDFContentBlock(type: .table, content: "", tableData: rows)]
+            }
+        }
+
+        return [PDFContentBlock(type: .paragraph, content: data)]
     }
 
     private static func parsePremiumQuote(from lines: [String]) -> (text: String, cite: String) {
