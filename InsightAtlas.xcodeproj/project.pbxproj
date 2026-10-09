@@ -52,6 +52,7 @@
 		C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */; };
 		C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */; };
 		IAPALETTETEST0000000002 /* PaletteCongruenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */; };
+		IAPDFDUPTEST0000000002 /* PDFHeadingDuplicationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */; };
 		E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */; };
 		E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */; };
 		E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */; };
@@ -230,6 +231,7 @@
 		C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationService.swift; sourceTree = "<group>"; };
 		C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationTests.swift; sourceTree = "<group>"; };
 		IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaletteCongruenceTests.swift; sourceTree = "<group>"; };
+		IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFHeadingDuplicationTests.swift; sourceTree = "<group>"; };
 		E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialHeadingParsingTests.swift; sourceTree = "<group>"; };
 		E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisualCoverageTests.swift; sourceTree = "<group>"; };
 		E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualPayloadContractTests.swift; sourceTree = "<group>"; };
@@ -398,6 +400,7 @@
 				C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */,
 				C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */,
 				IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */,
+				IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */,
 				E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */,
 				E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */,
 				E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */,
@@ -856,6 +859,7 @@
 				C2ED8F11302A1214003096F3 /* InsightNoteFragmentationTests.swift in Sources */,
 				C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */,
 				IAPALETTETEST0000000002 /* PaletteCongruenceTests.swift in Sources */,
+				IAPDFDUPTEST0000000002 /* PDFHeadingDuplicationTests.swift in Sources */,
 				E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */,
 				E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */,
 				E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */,
@@ -1156,7 +1160,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026100901;
+				CURRENT_PROJECT_VERSION = 2026100902;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1189,7 +1193,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026100901;
+				CURRENT_PROJECT_VERSION = 2026100902;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;

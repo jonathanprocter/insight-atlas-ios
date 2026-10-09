@@ -969,8 +969,13 @@ final class InsightAtlasPDFRenderer {
                 // Track special block types for TOC
                 switch block.type {
                 case .heading3:
-                    // Add H3 subheadings to TOC
-                    tableOfContents.append((title: block.content, page: estimatedPage, isSubsection: true))
+                    // Add H3 subheadings to TOC. This was the only case without
+                    // the duplicate guard the others carry, so a repeated
+                    // subheading listed itself once per occurrence.
+                    let h3Title = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !h3Title.isEmpty && !tableOfContents.contains(where: { $0.title == h3Title }) {
+                        tableOfContents.append((title: h3Title, page: estimatedPage, isSubsection: true))
+                    }
 
                 case .foundationalNarrative:
                     // Add "The Story Behind the Ideas" to TOC

@@ -993,6 +993,10 @@ extension PDFAnalysisDocument {
                 if !titleText.isEmpty {
                     currentBlocks.append(PDFContentBlock(type: .premiumH2, content: titleText))
                 }
+                // Every other block handler empties its buffer here. Leaving it
+                // full let a later flush re-emit the same heading, which is how
+                // one heading rendered two and three times in a shipped guide.
+                premiumH2Content = []
                 i += 1
                 continue
             }
@@ -1329,7 +1333,14 @@ extension PDFAnalysisDocument {
             // Regular paragraph - strip any remaining markdown syntax
             if !line.isEmpty && !line.hasPrefix("|") && !line.contains("┌") && !line.contains("│") && !line.contains("└") && !line.contains("↓") {
                 let cleanedLine = stripMarkdownFromLine(line)
-                if !cleanedLine.isEmpty {
+                // A line made only of brackets is debris from a tag whose name
+                // was stripped; prose never consists solely of "[" or "]".
+                // (An elided quotation renders as "[...]", which has dots and
+                // so is kept.)
+                let isBracketDebris = !cleanedLine.isEmpty && cleanedLine.allSatisfy {
+                    $0 == "[" || $0 == "]" || $0.isWhitespace
+                }
+                if !cleanedLine.isEmpty && !isBracketDebris {
                     currentBlocks.append(PDFContentBlock(
                         type: .paragraph,
                         content: cleanedLine
