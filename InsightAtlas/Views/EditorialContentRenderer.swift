@@ -213,6 +213,14 @@ enum EditorialMarkupCanonicalizer {
         var output: [String] = []
         var previousWasEmpty = false
         for line in lines {
+            // Debris from a tag whose name was stripped, or from a tag the
+            // model split across lines. Prose is never a lone bracket, and
+            // leaving these in printed "[" and "]" as body paragraphs in
+            // shipped PDFs. Dropped here so every downstream parser — reader,
+            // PDF, and HTML export — is rid of them at one choke point.
+            if line.allSatisfy({ $0 == "[" || $0 == "]" || $0.isWhitespace }), !line.isEmpty {
+                continue
+            }
             if line.isEmpty {
                 if !previousWasEmpty, !output.isEmpty { output.append("") }
                 previousWasEmpty = true

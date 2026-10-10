@@ -140,6 +140,140 @@ final class PDFHeadingDuplicationTests: XCTestCase {
         XCTAssertEqual(prose.first?.type, .paragraph)
     }
 
+    /// The reader shows these headings once; the PDF shows them two or three
+    /// times. So the duplication is not in the content — it is the PDF path
+    /// emitting a heading as BOTH a section title and a block. Print sections
+    /// and blocks together, which the earlier block-only diagnostic missed.
+    func testReportSectionsAndBlocksTogether() {
+        let shapes: [(String, String)] = [
+            ("h1+h2", "[PREMIUM_H1]Part One[/PREMIUM_H1]\n[PREMIUM_H2]From Hexaflex to Two Lines[/PREMIUM_H2]\n\nBody."),
+            ("md h2", "## From Hexaflex to Two Lines\n\nBody."),
+            ("md h2 + premium", "## From Hexaflex to Two Lines\n[PREMIUM_H2]From Hexaflex to Two Lines[/PREMIUM_H2]\n\nBody."),
+            ("h1 only", "[PREMIUM_H1]From Hexaflex to Two Lines[/PREMIUM_H1]\n\nBody."),
+            ("md h1+h2 same", "# From Hexaflex to Two Lines\n## From Hexaflex to Two Lines\n\nBody.")
+        ]
+        for (name, content) in shapes {
+            let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+            let rendered = doc.sections.map { section in
+                "§\(section.heading)[\(section.headingLevel)]{"
+                    + section.blocks.map { "\($0.type):\($0.content.prefix(20))" }.joined(separator: ",")
+                    + "}"
+            }
+            print("[SectionShape] \(name): \(rendered.joined(separator: " "))")
+        }
+    }
+
+    /// Reproduces the shipped ACT Matrix guide, where the reader showed each
+    /// heading once but the PDF showed it two or three times.
+    func testHeadingAppearsOnceHoweverTheModelTitlesIt() {
+        func rendered(_ content: String) -> [String] {
+            let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
+            return doc.sections.flatMap { section -> [String] in
+                let title = section.heading.map { [$0] } ?? []
+                let headingBlocks = section.blocks
+                    .filter { $0.type == .premiumH2 || $0.type == .heading2 || $0.type == .heading3 }
+                    .map(\.content)
+                return title + headingBlocks
+            }
+        }
+
+        let title = "From Hexaflex to Two Lines"
+
+        // Markdown heading (a section) plus a premium heading block — two.
+        XCTAssertEqual(
+            rendered("## \(title)\n[PREMIUM_H2]\(title)[/PREMIUM_H2]\n\nBody.").filter { $0 == title }.count,
+            1
+        )
+        // `#` then `##` with one title — two sections.
+        XCTAssertEqual(
+            rendered("# \(title)\n## \(title)\n\nBody.").filter { $0 == title }.count,
+            1
+        )
+        // All three at once — the page-7 case.
+        XCTAssertEqual(
+            rendered("# \(title)\n## \(title)\n[PREMIUM_H2]\(title)[/PREMIUM_H2]\n\nBody.")
+                .filter { $0 == title }.count,
+            1
+        )
+        // A genuinely different subheading inside a section is kept.
+        let mixed = rendered("## \(title)\n[PREMIUM_H2]A Different Subheading[/PREMIUM_H2]\n\nBody.")
+        XCTAssertTrue(mixed.contains(title))
+        XCTAssertTrue(mixed.contains("A Different Subheading"))
+    }
+
+    /// Bracket debris is dropped during canonicalization, so no downstream
+    /// renderer can print it.
+    func testCanonicalizerStripsBracketDebris() {
+        let canonical = EditorialMarkupCanonicalizer.canonicalize("Body one.\n[\n]\nBody two.")
+        XCTAssertFalse(canonical.contains("\n[\n"), "a bare [ survived canonicalization")
+        XCTAssertFalse(canonical.contains("\n]\n"), "a bare ] survived canonicalization")
+        XCTAssertTrue(canonical.contains("Body one."))
+        XCTAssertTrue(canonical.contains("Body two."))
+    }
+
+    /// Page 13 of the ACT Matrix guide printed a workability matrix as prose.
+    /// Its cells rate items "---", and the parser treated any row containing
+    /// "---" as a markdown separator, so the table ended after its header.
+    func testTableRowsMayContainDashRatings() {
+        let content = """
+        This three-column functional analysis is replicable.
+
+        Rating target | Short-term | Long-term | Toward what matters
+        Avoidance | +++ (highly effective) | -- (worse) | --- (far from values)
+        Reassurance-seeking | ++ | - | --
+        Substance use | +++ | -- | ---
+        """
+        let produced = blocks(content)
+        guard let table = produced.first(where: { $0.type == .table }) else {
+            return XCTFail("the matrix must render as a table, got \(produced.map(\.type))")
+        }
+        XCTAssertEqual(table.tableData?.count, 4, "header plus three rated rows")
+        XCTAssertEqual(table.tableData?.last, ["Substance use", "+++", "--", "---"])
+        XCTAssertFalse(
+            produced.contains { $0.type == .paragraph && $0.content.contains("|") },
+            "no rated row may survive as prose"
+        )
+    }
+
+    /// A real markdown alignment row is still dropped.
+    func testGenuineAlignmentRowIsStillSkipped() {
+        let content = """
+        Intro line.
+
+        Frame | Claim | Note
+        --- | --- | ---
+        Stoic | Assent precedes emotion | Classical
+        Modern | Appraisal precedes emotion | Empirical
+        """
+        let produced = blocks(content)
+        guard let table = produced.first(where: { $0.type == .table }) else {
+            return XCTFail("expected a table, got \(produced.map(\.type))")
+        }
+        XCTAssertEqual(table.tableData?.count, 3, "the --- row must not become a data row")
+        XCTAssertEqual(table.tableData?[0], ["Frame", "Claim", "Note"])
+    }
+
+    /// The reader showed Quick Glance bullets as literal "- " with wrapped
+    /// lines running back to the margin, while the PDF showed real bullets.
+    func testQuickGlanceBulletsAreParsedNotLeftAsLiteralDashes() {
+        let lines = QuickGlanceLine.parse("""
+        The ACT Matrix is a two-line diagram.
+        - "Away moves" are rewarded in the short term.
+        - Cognitive fusion is reframed as "hooks" plus "biting".
+        • Already-bulleted lines are recognized too.
+        """)
+
+        XCTAssertEqual(lines.first, .paragraph("The ACT Matrix is a two-line diagram."))
+        XCTAssertEqual(lines.filter { if case .bullet = $0 { return true } else { return false } }.count, 3)
+        XCTAssertEqual(lines[1], .bullet("\"Away moves\" are rewarded in the short term."))
+        for line in lines {
+            if case .bullet(let text) = line {
+                XCTAssertFalse(text.hasPrefix("-"), "the marker must be stripped, not rendered")
+                XCTAssertFalse(text.hasPrefix("•"), "the marker must be stripped, not rendered")
+            }
+        }
+    }
+
     /// Bracket-only lines are tag debris, never body copy.
     func testOrphanedBracketLinesAreNotRenderedAsParagraphs() {
         let content = "[\n]\n\nPersuasion Skills Black Book sits in a specific tradition."

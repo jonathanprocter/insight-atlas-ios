@@ -1312,9 +1312,21 @@ extension PDFAnalysisDocument {
                     while i < lines.count {
                         let t = lines[i].trimmingCharacters(in: .whitespaces)
                         guard !t.isEmpty, !t.hasPrefix("|"), t.contains("|"),
-                              pipeColumns(t) == cols, !t.contains("---") else { break }
-                        rows.append(t.components(separatedBy: "|")
-                            .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) })
+                              pipeColumns(t) == cols else { break }
+                        let cells = t.components(separatedBy: "|")
+                            .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) }
+                        // Skip a markdown alignment row, but only when EVERY
+                        // cell is dashes. Testing the whole line for "---"
+                        // aborted the table on legitimate content: a workability
+                        // matrix rates cells "---", so the table stopped after
+                        // its header and the rest printed as prose.
+                        if cells.allSatisfy({ cell in
+                            !cell.isEmpty && cell.allSatisfy { $0 == "-" || $0 == ":" }
+                        }) {
+                            i += 1
+                            continue
+                        }
+                        rows.append(cells)
                         i += 1
                     }
                     if rows.count >= 2 {
@@ -1361,6 +1373,8 @@ extension PDFAnalysisDocument {
         } else if !currentBlocks.isEmpty {
             sections.append(PDFSection(heading: nil, blocks: currentBlocks))
         }
+
+        sections = deduplicatedHeadings(in: sections)
 
         // Calculate metadata
         let wordCount = content.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
@@ -2355,6 +2369,55 @@ extension PDFAnalysisDocument {
         }
 
         return blocks
+    }
+
+    /// Removes headings the PDF would otherwise draw more than once.
+    ///
+    /// The reader shows each heading once; the PDF showed some two or three
+    /// times. The content is not at fault — the model titles a section in more
+    /// than one way at once, and each way lands in a different place:
+    /// `## Title` opens a *section* (drawn as the section title) while
+    /// `[PREMIUM_H2]Title[/PREMIUM_H2]` becomes a *block* inside it, and
+    /// `# Title` followed by `## Title` opens two sections with one heading.
+    /// Both collapse here, where the whole document is visible.
+    static func deduplicatedHeadings(in sections: [PDFSection]) -> [PDFSection] {
+        func key(_ text: String?) -> String? {
+            guard let text else { return nil }
+            let folded = text
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+                .filter { $0.isLetter || $0.isNumber }
+            return folded.isEmpty ? nil : folded
+        }
+
+        let headingBlockTypes: Set<PDFContentBlock.BlockType> = [.premiumH2, .heading2, .heading3]
+
+        // 1. A section whose own title is repeated by a heading block inside it.
+        var cleaned: [PDFSection] = sections.map { section in
+            guard let sectionKey = key(section.heading) else { return section }
+            var updated = section
+            updated.blocks = section.blocks.filter { block in
+                guard headingBlockTypes.contains(block.type),
+                      key(block.content) == sectionKey else { return true }
+                return false
+            }
+            return updated
+        }
+
+        // 2. An empty section immediately followed by one with the same title.
+        var merged: [PDFSection] = []
+        for section in cleaned {
+            if let previous = merged.last,
+               previous.blocks.isEmpty,
+               let previousKey = key(previous.heading),
+               previousKey == key(section.heading) {
+                merged.removeLast()
+            }
+            merged.append(section)
+        }
+        cleaned = merged
+
+        return cleaned
     }
 
     /// Rescues structure from an unrecognized visual payload.
