@@ -743,9 +743,18 @@ final class PDFContentBlockRenderer {
         /// Border and accent-bar tint. May be pale: it is only ever a fill.
         var accentColor: UIColor {
             switch self {
-            case .challenge: return PDFStyleConfiguration.Colors.semanticNotes      // deep burgundy/maroon
+            // A challenge is the strongest editorial move in the guide, so it
+            // reads in the brand's deep red. It pointed at `semanticNotes`,
+            // which the palette consolidation repointed to deep indigo — the
+            // comment still said burgundy while shipped PDFs drew navy.
+            case .challenge: return PDFStyleConfiguration.Colors.accentCrimson
             case .expansion: return PDFStyleConfiguration.Colors.primaryGold        // gold
-            case .corroboration: return PDFStyleConfiguration.BlockStyles.insightNoteBorderColor
+            // The rail is a fill, and this one was the pale border wash
+            // (#EDEBE5) — invisible on a cream card, so corroboration notes
+            // rendered with no rail at all while the other two had one. It
+            // carries the brand terracotta like the in-app card; the label
+            // below is what keeps corroboration the quiet variant.
+            case .corroboration: return PDFStyleConfiguration.Colors.terracotta
             }
         }
 

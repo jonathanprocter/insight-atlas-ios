@@ -1256,14 +1256,55 @@ struct InsightAtlasPromptGenerator {
         1. Use the book structure analysis above to identify the book's deepest organizing logic — its framework, model, or thematic pillars. Use THAT as your structural spine, NOT the chapter sequence.
         2. Synthesize ideas across the entire book - draw connections between early and late concepts. Consolidate repeated ideas. Surface buried insights.
         3. TRIANGULATE EVERY MAJOR CLAIM: For each significant argument or strategy, include at least one [INSIGHT_NOTE] that corroborates, complicates, expands, or contradicts it with a named external source. This is the core value-add — do not skip it.
-        4. Vary your block types. Do not use the same pattern of blocks repeatedly. Mix [INSIGHT_NOTE], [SYNTHESIS_INSERT], [ACTION_BOX], [EXERCISE_*], and prose paragraphs organically.
+        4. Vary your block types. Do not use the same pattern of blocks repeatedly. Mix [INSIGHT_NOTE], [SYNTHESIS_INSERT], [ACTION_BOX], [EXERCISE_*], [VISUAL_*] diagrams, and prose paragraphs organically. Never go more than two major sections without a visual.
         5. Ensure prose paragraphs are substantial (3-5 sentences) before introducing callout blocks.
         6. Ensure visuals are additive: add interpretation before and after each visual, not just the diagram.
         7. DIAGNOSIS BEFORE INTERVENTION: When presenting strategies, always name the failure mode or obstacle first, explain why it happens, then present the remedies.
         8. GRACEFUL COMPLETION: Always ensure your guide concludes properly with a Closing Exercise, Final Integration section, Key Takeaways summary, and closing thoughts. Never end abruptly mid-section.
         9. QUICK GLANCE MUST contain ACTUAL insights from the book - never use placeholder text or generic wisdom.
         10. Include 2–5 [SYNTHESIS_INSERT] blocks across the guide for deeper multi-source comparative analysis.
+        11. VISUALS ARE REQUIRED, NOT OPTIONAL: emit between 4 and 8 [VISUAL_*] diagrams across the guide, using at least 3 different types. The guidance above about restraint governs WHICH visual you choose and whether a payload is well formed — it is not permission to omit visuals. A guide that ships with none has failed this instruction.
+            - A book built on a 2x2 grid, coordinate plane, or four-way sorting model (an ACT matrix, Eisenhower matrix, Johari window) MUST get a [VISUAL_QUADRANT] for that core model, with both axis labels named.
+            - Reinforcing loops and behavioural cycles → [VISUAL_CYCLE]; ordered sequences → [VISUAL_FLOWCHART].
+            - Two opposing poles with a middle ground → [VISUAL_SPECTRUM].
+            - Side-by-side contrasts → [VISUAL_COMPARISON_MATRIX] or [VISUAL_TABLE].
+            Introduce each visual in the prose before it and interpret it after, so it carries argument rather than decoration.
         """
+    }
+
+    /// Suggests visual types the source's own vocabulary implies, so the
+    /// generator is told which diagram this book needs rather than being left
+    /// to infer that any are wanted. Sampled from the opening of the text,
+    /// which is where a book names its framework.
+    static func visualFrameworkHints(for bookText: String) -> String {
+        let sample = bookText.prefix(400_000).lowercased()
+        var hints: [String] = []
+
+        let hasQuadrantLanguage = sample.contains("quadrant")
+            || sample.contains("2x2") || sample.contains("2 x 2")
+            || sample.contains("four quadrants")
+            || (sample.contains("matrix") && sample.contains("axis"))
+            || (sample.contains("toward") && sample.contains("away") && sample.contains("matrix"))
+        if hasQuadrantLanguage {
+            hints.append("• A two-axis / four-quadrant model is central to this book. Emit [VISUAL_QUADRANT] for it, naming BOTH axes and placing items in all four cells.")
+        }
+        if sample.contains("feedback loop") || sample.contains("vicious cycle")
+            || sample.contains("reinforcing") || sample.contains("self-perpetuating") {
+            hints.append("• Reinforcing or self-perpetuating dynamics appear here. Emit [VISUAL_CYCLE] for the loop.")
+        }
+        if sample.contains("continuum") || sample.contains("spectrum") {
+            hints.append("• A continuum between two poles appears here. Emit [VISUAL_SPECTRUM] with both poles named.")
+        }
+        if sample.contains("stages") || sample.contains("step 1") || sample.contains("phases") {
+            hints.append("• An ordered sequence appears here. Emit [VISUAL_FLOWCHART] or [VISUAL_TIMELINE].")
+        }
+        if sample.contains(" versus ") || sample.contains(" vs. ") || sample.contains("compared with") {
+            hints.append("• Explicit contrasts appear here. Emit [VISUAL_COMPARISON_MATRIX] or [VISUAL_TABLE].")
+        }
+
+        guard !hints.isEmpty else { return "" }
+        return "Visual Frameworks This Source Calls For (emit these, not just prose about them):\n"
+            + hints.joined(separator: "\n") + "\n"
     }
 
     /// Analyze book structure to provide context for generation
@@ -1295,6 +1336,12 @@ struct InsightAtlasPromptGenerator {
             }
             analysis += "Recommendation: Extract the book's core framework or thematic architecture and use it as the structural spine. Synthesize across chapters into 4–8 thematic arcs — do NOT summarize chapter by chapter.\n"
         }
+
+        // Name the visual the book's own shape calls for. A generic "use
+        // visuals" instruction produced guides with none at all — including a
+        // book whose core model is a 2x2 matrix — so the structural cue has to
+        // be concrete and tied to this source.
+        analysis += visualFrameworkHints(for: bookText)
 
         // Word count estimate for pacing
         let wordCount = bookText.split(separator: " ").count

@@ -274,6 +274,41 @@ final class PDFHeadingDuplicationTests: XCTestCase {
         }
     }
 
+    /// A 41-page guide on a book whose core model is a 2x2 matrix shipped with
+    /// ZERO visual cards. The per-request guidelines listed every block type
+    /// except [VISUAL_*], so the most proximate instruction never asked for one.
+    func testPerRequestGuidelinesRequireVisuals() {
+        let message = InsightAtlasPromptGenerator.generateUserMessage(
+            title: "T",
+            author: "A",
+            bookText: "The matrix has two axes. Toward moves and away moves sort into four quadrants."
+        )
+        XCTAssertTrue(message.contains("[VISUAL_"), "the guidelines must name visual blocks")
+        XCTAssertTrue(
+            message.lowercased().contains("4 and 8") || message.lowercased().contains("required"),
+            "visuals must be mandated, not merely permitted"
+        )
+    }
+
+    /// The generator is told which diagram THIS book needs, rather than being
+    /// left to infer that any are wanted.
+    func testVisualFrameworkHintsNameTheBooksOwnShape() {
+        let quadrant = InsightAtlasPromptGenerator.visualFrameworkHints(
+            for: "The ACT Matrix sorts experience along two axes into four quadrants."
+        )
+        XCTAssertTrue(quadrant.contains("VISUAL_QUADRANT"), "a 2x2 book must be told to draw one")
+
+        let cycle = InsightAtlasPromptGenerator.visualFrameworkHints(
+            for: "Worry becomes a self-perpetuating feedback loop."
+        )
+        XCTAssertTrue(cycle.contains("VISUAL_CYCLE"))
+
+        // Prose with no structural vocabulary adds nothing.
+        XCTAssertTrue(
+            InsightAtlasPromptGenerator.visualFrameworkHints(for: "A gentle memoir about a childhood summer.").isEmpty
+        )
+    }
+
     /// Bracket-only lines are tag debris, never body copy.
     func testOrphanedBracketLinesAreNotRenderedAsParagraphs() {
         let content = "[\n]\n\nPersuasion Skills Black Book sits in a specific tradition."

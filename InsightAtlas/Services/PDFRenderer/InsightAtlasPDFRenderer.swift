@@ -322,9 +322,17 @@ final class InsightAtlasPDFRenderer {
                 // if the block is so tall that heading+block can't co-exist on
                 // any page, keeping them together is impossible — reserve a
                 // minimum instead (the unavoidable case).
-                let headingReserve = (headingHeight + firstBlockHeight) <= contentRect.height
-                    ? firstBlockHeight
-                    : minContentAfterHeading
+                let firstCanFragment = section.blocks.first.map(blockCanFragment) ?? true
+                let headingReserve: CGFloat
+                if (headingHeight + firstBlockHeight) <= contentRect.height {
+                    headingReserve = firstBlockHeight
+                } else if firstCanFragment {
+                    headingReserve = minContentAfterHeading
+                } else {
+                    // Atomic and taller than a page: it starts on a fresh page
+                    // regardless, so the heading must travel with it.
+                    headingReserve = contentRect.height
+                }
                 let combinedHeight = headingHeight + headingReserve
 
                 // Check if heading + its content fits, otherwise start new page
@@ -553,9 +561,17 @@ final class InsightAtlasPDFRenderer {
                     let nextBlockHeight = (index + 1 < section.blocks.count) ?
                         blockRenderer.calculateBlockHeight(block: section.blocks[index + 1], maxWidth: contentRect.width) : 0
                     // Keep together only if both fit on one page (see above).
-                    let nextReserve = (blockHeight + nextBlockHeight) <= contentRect.height
-                        ? nextBlockHeight
-                        : minContentAfterHeading
+                    let nextCanFragment = (index + 1 < section.blocks.count)
+                        ? blockCanFragment(section.blocks[index + 1])
+                        : true
+                    let nextReserve: CGFloat
+                    if (blockHeight + nextBlockHeight) <= contentRect.height {
+                        nextReserve = nextBlockHeight
+                    } else if nextCanFragment {
+                        nextReserve = minContentAfterHeading
+                    } else {
+                        nextReserve = contentRect.height
+                    }
                     let combinedHeight = blockHeight + nextReserve
 
                     if currentY + combinedHeight > contentRect.maxY - 30 {
@@ -609,6 +625,24 @@ final class InsightAtlasPDFRenderer {
     /// Record the trailing gap left on the current page at the moment a block is
     /// pushed to the next one. `cause` is an @autoclosure so its (potentially
     /// parsing) work is skipped entirely in release builds.
+
+    /// Whether a block can render partially on one page and continue on the
+    /// next. Paragraphs, insight notes and lists fragment; a visual card,
+    /// table or exercise is drawn whole.
+    ///
+    /// Keep-with-next depends on this: reserving a small slice below a heading
+    /// is only safe when the next block can use that slice. An atomic block
+    /// leaves it unused and jumps wholesale to the following page, stranding
+    /// the heading at the footer.
+    private func blockCanFragment(_ block: PDFContentBlock) -> Bool {
+        switch block.type {
+        case .paragraph, .insightNote, .bulletList, .numberedList:
+            return true
+        default:
+            return false
+        }
+    }
+
     private func recordTrailingGap(at currentY: CGFloat, cause: @autoclosure () -> String) {
         #if DEBUG
         let gap = contentRect.maxY - currentY
@@ -841,9 +875,17 @@ final class InsightAtlasPDFRenderer {
                 // Mirror the render-time keep-together reserve so estimated page
                 // numbers track where headings actually land.
                 let firstBlockHeight = section.blocks.first.map { blockRenderer.calculateBlockHeight(block: $0, maxWidth: contentRect.width) } ?? 0
-                let headingReserve = (headingHeight + firstBlockHeight) <= contentRect.height
-                    ? firstBlockHeight
-                    : minContentAfterHeading
+                let firstCanFragment = section.blocks.first.map(blockCanFragment) ?? true
+                let headingReserve: CGFloat
+                if (headingHeight + firstBlockHeight) <= contentRect.height {
+                    headingReserve = firstBlockHeight
+                } else if firstCanFragment {
+                    headingReserve = minContentAfterHeading
+                } else {
+                    // Atomic and taller than a page: it starts on a fresh page
+                    // regardless, so the heading must travel with it.
+                    headingReserve = contentRect.height
+                }
                 let combinedHeight = headingHeight + headingReserve
 
                 if currentY + combinedHeight > contentRect.maxY - 50 {

@@ -334,14 +334,36 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
             // MARK: - Quality Validation & Improvement Pass
 
-            let allowImprovementPass = settings.preferredMode == .deepResearch ||
+            // Validation always runs. It used to be skipped once a guide passed
+            // 70% of its word ceiling, which is most full guides — so the
+            // "insufficient visuals" and truncation checks never evaluated, and
+            // a 41-page guide shipped with zero diagrams.
+            let allIssues = validateOutputQuality(content: finalResult.content, governor: governor)
+
+            // A long guide still must not be grown further, but structural
+            // defects — no visuals, a truncated ending — are worth a pass even
+            // when the prose budget is nearly spent.
+            let isStructuralIssue: (String) -> Bool = { issue in
+                let lowered = issue.lowercased()
+                return lowered.contains("visual") || lowered.contains("truncat")
+                    || lowered.contains("ends mid-sentence") || lowered.contains("unclosed")
+            }
+            let hasRoomToGrow = !finalResult.cutPolicyActivated
+                && finalResult.wordCount < governor.maxWordCeiling
+            let wantsDeepResearch = settings.preferredMode == .deepResearch ||
                 settings.preferredSummaryType == .deepResearch
-            let improvementThreshold = Int(Double(governor.maxWordCeiling) * 0.7)
-            let shouldSkipImprovementPass = !allowImprovementPass ||
-                finalResult.cutPolicyActivated ||
-                finalResult.wordCount >= governor.maxWordCeiling ||
-                finalResult.wordCount >= improvementThreshold
-            let qualityIssues = shouldSkipImprovementPass ? [] : validateOutputQuality(content: finalResult.content, governor: governor)
+            let belowProseThreshold = finalResult.wordCount < Int(Double(governor.maxWordCeiling) * 0.7)
+
+            let qualityIssues: [String]
+            if hasRoomToGrow && (allIssues.contains(where: isStructuralIssue)
+                                 || (wantsDeepResearch && belowProseThreshold)) {
+                qualityIssues = allIssues
+            } else {
+                qualityIssues = []
+                if !allIssues.isEmpty {
+                    governorLog("Quality issues found but no improvement pass is possible: \(allIssues.count)")
+                }
+            }
 
             if !qualityIssues.isEmpty {
                 governorLog("⚠️ Quality issues detected: \(qualityIssues.count)")
