@@ -103,10 +103,21 @@ actor NarrationScriptService {
                     )
                 }
                 let elapsed = Date().timeIntervalSince(start)
+                let scriptWords = script.split(whereSeparator: { $0.isWhitespace }).count
                 print(String(
-                    format: "[Timing] narration script: %.1fs (%d → %d chars) for %@",
-                    elapsed, trimmed.count, script.count, itemId.uuidString
+                    format: "[Timing] narration script: %.1fs (%d → %d chars, %d words, target %d) for %@",
+                    elapsed, trimmed.count, script.count, scriptWords, targetWords, itemId.uuidString
                 ))
+                // A model asked for 2,400 words sometimes returns a few hundred.
+                // That was accepted verbatim and cached, so a 16-minute guide
+                // narrated for 90 seconds and every retry replayed it. Too
+                // short is a failed rewrite, not a valid one.
+                guard scriptWords >= Self.minimumAcceptableWords(forTarget: targetWords) else {
+                    scriptLog.error(
+                        "Narration-script rewrite returned \(scriptWords, privacy: .public) words against a target of \(targetWords, privacy: .public) — narrating the full bounded edition instead"
+                    )
+                    return safeFallback
+                }
                 return script
             } catch is CancellationError {
                 return safeFallback
@@ -169,7 +180,17 @@ actor NarrationScriptService {
         }
     }
 
+    /// A rewrite shorter than this is treated as a failure. Models undershoot
+    /// a long target routinely; they do not legitimately deliver a third of it.
+    static func minimumAcceptableWords(forTarget target: Int) -> Int {
+        max(120, Int(Double(target) * 0.55))
+    }
+
     // MARK: - Cache
+
+    /// Bumped when a cached script could be invalid. v2: scripts cached before
+    /// the length check could be truncated, and would otherwise replay forever.
+    private static let cacheVersion = "v2"
 
     private static func cacheURL(for itemId: UUID, content: String, targetWords: Int) -> URL? {
         guard let caches = FileManager.default.urls(
@@ -178,7 +199,7 @@ actor NarrationScriptService {
         let dir = caches.appendingPathComponent("narration-scripts", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let hash = Self.stableHash(content)
-        return dir.appendingPathComponent("\(itemId.uuidString)-\(hash)-\(targetWords).txt")
+        return dir.appendingPathComponent("\(itemId.uuidString)-\(hash)-\(targetWords)-\(cacheVersion).txt")
     }
 
     /// Stable (seed-independent) FNV-1a hash so cache keys survive app restarts,

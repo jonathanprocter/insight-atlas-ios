@@ -333,6 +333,9 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     /// within the whole narration.
     private var segmentDurations: [TimeInterval] = []
     private var finishedSegments = 0
+    /// Distinguishes "the listener paused" from "the queue ran dry while the
+    /// next chunk was still rendering" — only the former must stay stopped.
+    private var isPausedByUser = false
 
     private var playedSegmentsDuration: TimeInterval {
         segmentDurations.prefix(finishedSegments).reduce(0, +)
@@ -386,6 +389,7 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
         self.coverImagePath = coverImagePath
         self.expectedSegments = expectedSegments
         isStreaming = true
+        isPausedByUser = false
         currentURL = nil
         currentTime = 0
         duration = 0
@@ -400,10 +404,11 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
         streamedSegments = segmentDurations.count
         duration = segmentDurations.reduce(0, +)
 
-        if player.rate == 0 && isPlaying {
-            // The queue ran dry while more audio was still rendering.
-            player.playImmediately(atRate: playbackRate)
-        } else if streamedSegments == 1 {
+        // Start on the first chunk, and resume whenever the queue drained
+        // because rendering briefly fell behind. `isPlaying` cannot gate this:
+        // running dry sets it false, which would then strand playback forever
+        // with chunks still arriving. Only a deliberate pause should stop it.
+        if streamedSegments == 1 || (player.rate == 0 && !isPausedByUser) {
             player.playImmediately(atRate: playbackRate)
             isPlaying = true
         }
@@ -447,6 +452,7 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     }
 
     private func resetQueue() {
+        isPausedByUser = false
         player.pause()
         player.removeAllItems()
         itemEndObservers.forEach(NotificationCenter.default.removeObserver)
@@ -472,12 +478,14 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     }
 
     func pause() {
+        isPausedByUser = true
         player.pause()
         isPlaying = false
         updateNowPlayingInfo()
     }
 
     func resume() {
+        isPausedByUser = false
         guard player.currentItem != nil else { return }
         player.playImmediately(atRate: playbackRate)
         isPlaying = true

@@ -130,6 +130,53 @@ final class StreamingNarrationTests: XCTestCase {
         controller.stop()
     }
 
+    /// A narration rendered only ~90 seconds of a 16-minute guide: the model
+    /// returned a few hundred words against a 2,400-word target, that was
+    /// accepted verbatim, and it was cached so every retry replayed it.
+    func testShortRewritesAreRejectedAgainstTheTarget() {
+        // A plausible undershoot must be refused.
+        XCTAssertLessThan(
+            225, NarrationScriptService.minimumAcceptableWords(forTarget: 2_400),
+            "225 words against a 2,400-word target must not be accepted"
+        )
+        // A reasonable undershoot is still accepted — models rarely hit a long
+        // target exactly, and rejecting those would narrate the fallback always.
+        XCTAssertGreaterThan(
+            2_000, NarrationScriptService.minimumAcceptableWords(forTarget: 2_400),
+            "a 2,000-word script against a 2,400-word target is fine"
+        )
+        // Short formats keep a sane floor rather than scaling to nothing.
+        XCTAssertGreaterThanOrEqual(NarrationScriptService.minimumAcceptableWords(forTarget: 100), 120)
+    }
+
+    /// If rendering briefly falls behind and the queue drains, playback has to
+    /// resume when the next chunk lands. It must NOT resume after a deliberate
+    /// pause.
+    func testQueueResumesAfterRunningDryButNotAfterUserPause() throws {
+        let controller = NarrationPlaybackController.shared
+        controller.stop()
+
+        let first = try writeSegment(named: "seg_0000.wav", seconds: 0.4)
+        let second = try writeSegment(named: "seg_0001.wav", seconds: 0.4)
+
+        try controller.beginStreaming(
+            title: "T", author: "A", coverImagePath: nil, expectedSegments: 2
+        )
+        controller.appendStreamingSegment(url: first)
+        XCTAssertTrue(controller.isPlaying, "the first chunk starts playback")
+
+        controller.pause()
+        XCTAssertFalse(controller.isPlaying)
+
+        controller.appendStreamingSegment(url: second)
+        XCTAssertFalse(
+            controller.isPlaying,
+            "a chunk arriving must not override a deliberate pause"
+        )
+
+        controller.stop()
+    }
+
     /// Segment files live in a per-item directory that is cleared between runs.
     func testSegmentDirectoryIsPerItemAndClearable() throws {
         let itemId = UUID()
