@@ -235,8 +235,11 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertFalse(AIProvider.minimax.supportsDirectAudioGeneration)
     }
 
-    func testFirstNarrationUsesMiniMaxAudioSummaryStage() {
-        XCTAssertTrue(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
+    func testFirstNarrationDoesNotBlockOnOptionalMiniMaxRewrite() {
+        // Optional script rewriting may warm a cache in the background, but
+        // first-listen synthesis must start from the deterministic listening
+        // edition immediately (see Aug 27 audio reliability design).
+        XCTAssertFalse(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
     }
 
     func testProfessionalListeningEditionHasPracticalSpokenWordBudget() {

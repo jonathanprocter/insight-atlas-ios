@@ -83,6 +83,33 @@ final class VisualPayloadContractTests: XCTestCase {
         )
     }
 
+    /// INFOGRAPHIC / GAUGE used to accept the prompt's `Label: 62` shape as a
+    /// typed-but-empty card (not `.generic`), so contract tests passed while the
+    /// reader showed a blank "basic" visual. Require real stats.
+    func testInfographicAndGaugePromptShapesProduceStats() {
+        let cases: [(String, [String])] = [
+            ("VISUAL_INFOGRAPHIC", ["Adults reporting impostor feelings: 62", "Who never disclose it: 75"]),
+            ("VISUAL_GAUGE", ["Current distress rating: 72", "Target range: 40"]),
+            ("VISUAL_INFOGRAPHIC", ["stat: Practice adherence | 84", "highlight: Gains held at 6 weeks"])
+        ]
+
+        for (tag, lines) in cases {
+            let visual = InsightVisualParser.parse(tag: tag, title: "Title", lines: lines)
+            guard case .infographic(let data)? = visual?.payload else {
+                return XCTFail("\(tag) should parse to an infographic payload")
+            }
+            XCTAssertFalse(data.stats.isEmpty, "\(tag) produced an empty stats card")
+        }
+    }
+
+    func testCanonicalizeTagUnifiesReaderPDFAndAliases() {
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_MATRIX"), "VISUAL_TABLE")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_GAUGE"), "VISUAL_INFOGRAPHIC")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_SPECTRUM"), "VISUAL_SPECTRUM")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("process_timeline"), "VISUAL_TIMELINE")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_TABLE"), "VISUAL_TABLE")
+    }
+
     /// Every documented tag must resolve to a renderer, directly or by alias.
     func testEveryDocumentedTagResolves() {
         for (tag, _) in Self.documentedPayloads {

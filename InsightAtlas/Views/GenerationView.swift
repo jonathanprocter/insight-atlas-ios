@@ -705,7 +705,20 @@ struct GenerationView: View {
         switch result {
         case .success(_, let itemId, _, _):
             if let itemId = itemId,
-               let item = environment.dataManager.getLibraryItem(id: itemId) {
+               var item = environment.dataManager.getLibraryItem(id: itemId) {
+                // Resume and other coordinator completions surface here. Match the
+                // primary generate path: never block on Kokoro, but do kick off
+                // deferred narration when auto-audio is on and no asset exists yet.
+                let hasNarrationProvider = KokoroModelStore.isInstalled
+                let needsNarration = environment.userSettings.autoGenerateAudio
+                    && hasNarrationProvider
+                    && item.audioFileURL == nil
+                    && item.narrationState != .generating
+                if needsNarration {
+                    item.narrationState = .generating
+                    environment.updateLibraryItem(item)
+                    startBackgroundNarration(for: item)
+                }
                 generatedItem = item
             }
             generationState = .completed

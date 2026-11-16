@@ -94,20 +94,27 @@ actor NarrationScriptService {
                 try Task.checkCancellation()
                 progress?(.generating(narrator: "Writing audio script · \(scriptGenerator)"))
                 let start = Date()
+                // Rewrite the already-bounded listening edition, not the full
+                // guide. Sending the whole manuscript inflated tokens, latency,
+                // and the number of serial Kokoro chunks that followed.
                 let script = try await Self.withRewriteDeadline {
                     try await aiService.generateNarrationScript(
-                        from: trimmed,
+                        from: safeFallback,
                         title: title,
                         author: author,
                         targetWordCount: targetWords
                     )
                 }
+                let clamped = NarrationListeningEdition.prepare(
+                    script,
+                    summaryType: summaryType
+                )
                 let elapsed = Date().timeIntervalSince(start)
                 print(String(
                     format: "[Timing] narration script: %.1fs (%d → %d chars) for %@",
-                    elapsed, trimmed.count, script.count, itemId.uuidString
+                    elapsed, safeFallback.count, clamped.count, itemId.uuidString
                 ))
-                return script
+                return clamped.isEmpty ? safeFallback : clamped
             } catch is CancellationError {
                 return safeFallback
             } catch is NarrationScriptTimeout {
@@ -130,8 +137,10 @@ actor NarrationScriptService {
         defer { inFlight[key] = nil }
         let result = await task.value
 
-        // Cache only a genuine rewrite (not the raw-content fallback).
-        if let cacheURL, result != safeFallback {
+        // Always cache the outcome — including the listening-edition fallback —
+        // so a timed-out or failed rewrite cannot re-impose a 75s wait on every
+        // retry or auto-narrate of the same guide.
+        if let cacheURL {
             try? result.write(to: cacheURL, atomically: true, encoding: .utf8)
         }
         return result

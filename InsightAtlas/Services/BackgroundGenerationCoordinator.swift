@@ -664,27 +664,19 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             endBackgroundTask()
             isGenerating = false
 
-            // Build metadata from governor enforcement result
+            // Build metadata from governor enforcement result. Match the primary
+            // generation path: do not await narration here — resume used to block
+            // guide completion on full Kokoro synthesis.
             let metadata: GenerationMetadata?
             if let govResult = governorResult {
-                // Generate audio if available
-                let audioResult = await generateAudioIfAvailable(
-                    content: result,
-                    title: state.title,
-                    generationId: state.id,
-                    libraryItemId: state.existingItemId,
-                    readerProfile: settings.preferredReaderProfile,
-                    summaryType: state.summaryType
-                )
-
                 metadata = GenerationMetadata(
                     summaryType: state.summaryType,
                     governedWordCount: govResult.wordCount,
                     cutPolicyActivated: govResult.cutPolicyActivated,
                     cutEventCount: govResult.cutEventCount,
-                    audioFileURL: audioResult?.fileURL,
-                    audioVoiceID: audioResult?.voiceID,
-                    audioDuration: audioResult?.duration
+                    audioFileURL: nil,
+                    audioVoiceID: nil,
+                    audioDuration: nil
                 )
             } else {
                 metadata = nil

@@ -198,8 +198,8 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             onProgress?(chunkIndex, chunks.count)
             let chunkStart = Date()
             let config = SherpaOnnxGenerationConfigSwift(
-                silenceScale: 0.2,
-                speed: 0.96,
+                silenceScale: 0.15,
+                speed: 1.0,
                 sid: speakerID
             )
             let generated = tts.generateWithConfig(

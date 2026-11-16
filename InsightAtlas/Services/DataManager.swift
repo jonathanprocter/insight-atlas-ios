@@ -856,18 +856,7 @@ class DataManager: ObservableObject {
     }
 
     nonisolated private func canonicalizeVisualTag(_ tag: String) -> String {
-        switch tag {
-        case "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
-            return "VISUAL_COMPARISON_MATRIX"
-        case "VISUAL_FLOW_DIAGRAM":
-            return "VISUAL_FLOWCHART"
-        case "PROCESS_TIMELINE":
-            return "VISUAL_TIMELINE"
-        case "HIERARCHY_DIAGRAM":
-            return "VISUAL_HIERARCHY"
-        default:
-            return tag
-        }
+        InsightVisualParser.canonicalizeTag(tag)
     }
 
     nonisolated private func visualHeader(for type: InsightVisualType) -> (icon: String, title: String) {

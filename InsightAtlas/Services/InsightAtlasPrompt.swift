@@ -841,10 +841,8 @@ struct InsightAtlasPromptGenerator {
         Relapse-prevention planning
         [/VISUAL_JOURNEY_MAP]
 
-        [VISUAL_GENERIC: Title]
-        One point per line
-        Use only if no type above fits
-        [/VISUAL_GENERIC]
+        Prefer a specific typed visual above. Emit [VISUAL_GENERIC] only when no
+        catalogue type can express the relationship — never as a default shortcut.
 
         VISUAL COVERAGE STANDARD (GLOBAL):
         - Use the full visual library (30+ supported visual types) across guides to avoid repetition.

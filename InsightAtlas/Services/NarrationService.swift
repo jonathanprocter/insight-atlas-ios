@@ -27,8 +27,10 @@ enum NarrationFallbackPolicy {
 }
 
 enum NarrationPreparationPolicy {
-    /// MiniMax writes the bounded, audio-first summary before Kokoro speaks it.
-    static let rewritesBeforeInitialSynthesis = true
+    /// First-time narration starts from deterministic sanitized guide prose.
+    /// Optional MiniMax rewriting may warm a script cache in the background,
+    /// but must never block local Kokoro synthesis startup (up to 75s).
+    static let rewritesBeforeInitialSynthesis = false
 }
 
 enum NarrationListeningEdition {
@@ -203,16 +205,18 @@ actor NarrationService {
         }
     }
 
-    /// Synthesize narration for `itemId`: MiniMax M2.7 writes the bounded
-    /// audio-summary script, then installed on-device Kokoro speaks it.
+    /// Synthesize narration for `itemId` using installed on-device Kokoro.
+    /// MiniMax may optionally warm a spoken-script cache for a later regen, but
+    /// first playback always starts from the deterministic listening edition.
     func synthesize(
         text: String,
         itemId: UUID,
         summaryType: SummaryType? = nil,
         progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in }
     ) async throws -> NarrationAsset {
-        // Keep a deterministic bounded edition as the safe fallback, but let
-        // MiniMax create the actual audio-first summary when it is configured.
+        // Start local synthesis immediately. Waiting on an optional MiniMax
+        // rewrite previously delayed first audio by up to 75 seconds even when
+        // Kokoro was already installed and ready.
         // Hold a background assertion for the whole attempt so leaving the app
         // does not suspend an in-flight render.
         let assertion = await NarrationBackgroundAssertion()
@@ -229,13 +233,28 @@ actor NarrationService {
             text,
             summaryType: summaryType
         )
-        let spokenText = await NarrationScriptService.shared.spokenScript(
-            for: itemId,
-            guideContent: text,
-            summaryType: summaryType,
-            fallbackContent: fallbackText,
-            progress: progress
-        )
+        let spokenText: String
+        if NarrationPreparationPolicy.rewritesBeforeInitialSynthesis {
+            spokenText = await NarrationScriptService.shared.spokenScript(
+                for: itemId,
+                guideContent: text,
+                summaryType: summaryType,
+                fallbackContent: fallbackText,
+                progress: progress
+            )
+        } else {
+            spokenText = fallbackText
+            // Warm the script cache off the critical path so a later regenerate
+            // can pick up a richer MiniMax edition without delaying this listen.
+            Task {
+                _ = await NarrationScriptService.shared.spokenScript(
+                    for: itemId,
+                    guideContent: text,
+                    summaryType: summaryType,
+                    fallbackContent: fallbackText
+                )
+            }
+        }
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
         let routes = NarrationFallbackPolicy.orderedRoutes(
