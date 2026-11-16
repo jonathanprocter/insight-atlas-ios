@@ -305,11 +305,11 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertFalse(AIProvider.minimax.supportsDirectAudioGeneration)
     }
 
-    func testFirstNarrationDoesNotBlockOnOptionalMiniMaxRewrite() {
-        // Optional script rewriting may warm a cache in the background, but
-        // first-listen synthesis must start from the deterministic listening
-        // edition immediately (see Aug 27 audio reliability design).
-        XCTAssertFalse(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
+    func testNarrationSpeaksTheMiniMaxScript() {
+        // MiniMax narration is on: synthesis speaks the rewritten audio-first
+        // script (falling back to the listening edition on failure/timeout).
+        // With this false, the rewrite only warmed a cache nothing ever read.
+        XCTAssertTrue(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
     }
 
     func testProfessionalListeningEditionHasPracticalSpokenWordBudget() {

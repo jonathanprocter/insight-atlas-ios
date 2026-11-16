@@ -148,10 +148,11 @@ actor NarrationScriptService {
         defer { inFlight[key] = nil }
         let result = await task.value
 
-        // Always cache the outcome — including the listening-edition fallback —
-        // so a timed-out or failed rewrite cannot re-impose a 75s wait on every
-        // retry or auto-narrate of the same guide.
-        if let cacheURL {
+        // Cache only a genuine rewrite. Caching the fallback would pin a guide
+        // to the plain listening edition forever after one timeout or one
+        // too-short reply, which is the same "stuck on a bad script" failure
+        // the minimum-word guard exists to prevent.
+        if let cacheURL, result != safeFallback {
             try? result.write(to: cacheURL, atomically: true, encoding: .utf8)
         }
         return result

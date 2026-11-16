@@ -39,10 +39,13 @@ enum NarrationFallbackPolicy {
 }
 
 enum NarrationPreparationPolicy {
-    /// First-time narration starts from deterministic sanitized guide prose.
-    /// Optional MiniMax rewriting may warm a script cache in the background,
-    /// but must never block local Kokoro synthesis startup (up to 75s).
-    static let rewritesBeforeInitialSynthesis = false
+    /// MiniMax writes the bounded, audio-first summary before Pocket speaks it.
+    /// A cached script plays immediately; a fresh one waits for the rewrite
+    /// (bounded by NarrationScriptService.rewriteDeadline), and any failure,
+    /// timeout or too-short rewrite falls back to the listening edition.
+    /// Set to false to always start from the listening edition and only warm
+    /// the script cache in the background.
+    static let rewritesBeforeInitialSynthesis = true
 }
 
 enum NarrationListeningEdition {
@@ -231,9 +234,9 @@ actor NarrationService {
         try? FileManager.default.removeItem(at: segmentDirectory(for: itemId))
     }
 
-    /// Synthesize narration for `itemId` using installed on-device Pocket.
-    /// MiniMax may optionally warm a spoken-script cache for a later regen, but
-    /// first playback always starts from the deterministic listening edition.
+    /// Synthesize narration for `itemId`: MiniMax writes the bounded
+    /// audio-summary script (see NarrationPreparationPolicy), then installed
+    /// on-device Pocket speaks it.
     ///
     /// - Parameter onSegment: when supplied, each rendered chunk is reported as
     ///   a playable file the moment it lands, so a long narration can start
@@ -246,9 +249,8 @@ actor NarrationService {
         progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in },
         onSegment: (@Sendable (URL, Int, Int) -> Void)? = nil
     ) async throws -> NarrationAsset {
-        // Start local synthesis immediately. Waiting on an optional MiniMax
-        // rewrite previously delayed first audio by up to 75 seconds even when
-        // Kokoro was already installed and ready.
+        // Keep a deterministic bounded edition as the safe fallback, and let
+        // MiniMax write the actual audio-first summary when it is configured.
         // Hold a background assertion for the whole attempt so leaving the app
         // does not suspend an in-flight render.
         let assertion = await NarrationBackgroundAssertion()
