@@ -149,33 +149,39 @@ final class ConceptMapGeometryTests: XCTestCase {
         XCTAssertEqual(branches.count, 10, "all ten concepts — header dropped, none capped, none spilled")
     }
 
-    // BACKWARD-SAFETY GATE for the radar/hierarchy OFFER removal (2026-08-10,
-    // ruling (d)). The types are no longer offered, but a STORED guide generated
-    // before the cut may still carry the tags; re-export renders from persisted
-    // markdown, so the parse-side must stay TOLERANT: legacy content degrades to
-    // clean bullets, never leaks raw tag text, never vanishes. This makes the cut
-    // permanently safe rather than observably safe — it passes before AND after
-    // the offer removal precisely because the cut never touched the parse path.
-    func testRemovedVisualTypesStillDegradeCleanlyOnLegacyContent() {
-        for tag in ["VISUAL_RADAR", "VISUAL_HIERARCHY"] {
+    // BACKWARD-SAFETY GATE for legacy radar/hierarchy tags in stored guides.
+    // Parse stays tolerant, but export now prefers native diagram blocks over
+    // bare bullet lists so re-exports look like charts rather than "basics".
+    func testLegacyRadarAndHierarchyRenderAsNativeDiagrams() {
+        let cases: [(tag: String, expected: PDFContentBlock.BlockType)] = [
+            ("VISUAL_RADAR", .barChart),
+            ("VISUAL_HIERARCHY", .pyramid)
+        ]
+        for c in cases {
             let content = """
             ## Legacy Section
 
-            [\(tag): Legacy]
+            [\(c.tag): Legacy]
             first axis
             second axis
             third axis
-            [/\(tag)]
+            [/\(c.tag)]
             """
             let doc = PDFAnalysisDocument.parse(from: content, title: "T", author: "A")
             let blocks = doc.sections.flatMap { $0.blocks }
-            XCTAssertTrue(blocks.contains { $0.type == .bulletList },
-                          "\(tag): legacy content must still degrade to a bullet list")
+            XCTAssertTrue(
+                blocks.contains { $0.type == c.expected },
+                "\(c.tag): expected native \(c.expected) block, got \(blocks.map(\.type))"
+            )
+            XCTAssertFalse(
+                blocks.contains { $0.type == .bulletList },
+                "\(c.tag): must not fall back to a bare bullet list"
+            )
             let leaked = blocks.contains { block in
-                block.content.contains("[\(tag)") ||
-                (block.listItems ?? []).contains { $0.contains("[\(tag)") }
+                block.content.contains("[\(c.tag)") ||
+                (block.listItems ?? []).contains { $0.contains("[\(c.tag)") }
             }
-            XCTAssertFalse(leaked, "\(tag): raw tag text leaked into the render")
+            XCTAssertFalse(leaked, "\(c.tag): raw tag text leaked into the render")
         }
     }
 
