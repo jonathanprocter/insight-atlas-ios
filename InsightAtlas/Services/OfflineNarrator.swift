@@ -167,7 +167,8 @@ final class AppleSpeechAudioService: NSObject, @unchecked Sendable {
     func generateAudio(
         text: String,
         voiceID: String,
-        onProgress: @escaping @Sendable (Int, Int) -> Void = { _, _ in }
+        onProgress: @escaping @Sendable (Int, Int) -> Void = { _, _ in },
+        onActivity: @escaping @Sendable () -> Void = {}
     ) async throws -> GeneratedAudio {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw AppleSpeechAudioError.emptyText }
@@ -192,7 +193,8 @@ final class AppleSpeechAudioService: NSObject, @unchecked Sendable {
                     voice: voice,
                     synthesizer: synthesizer,
                     into: tempURL,
-                    state: state
+                    state: state,
+                    onActivity: onActivity
                 )
             } onCancel: {
                 synthesizer.stopSpeaking(at: .immediate)
@@ -215,10 +217,12 @@ final class AppleSpeechAudioService: NSObject, @unchecked Sendable {
         )
     }
 
-    /// Longest a chunk may go without a single PCM buffer before the render
-    /// is abandoned. Some voices (notably premium ones) silently emit nothing
-    /// from `write`, and the end-of-utterance callback never arrives — without
-    /// this watchdog that chunk would hang its continuation forever.
+    /// Longest a chunk may go without any synthesizer activity before the
+    /// render is abandoned. Some voices (notably premium ones) silently emit
+    /// nothing from `write`, and the end-of-utterance callback never arrives -
+    /// without this watchdog that chunk would hang its continuation forever.
+    /// This is an idle limit, not a total one: a 2,500-character chunk takes
+    /// well over 30 s to render on a phone.
     static let bufferIdleTimeout: TimeInterval = 30
 
     private func render(
@@ -226,46 +230,107 @@ final class AppleSpeechAudioService: NSObject, @unchecked Sendable {
         voice: AVSpeechSynthesisVoice,
         synthesizer: AVSpeechSynthesizer,
         into fileURL: URL,
-        state: RenderState
+        state: RenderState,
+        onActivity: @escaping @Sendable () -> Void
     ) async throws {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         utterance.prefersAssistiveTechnologySettings = false
 
-        // Guards finish/activity state: buffer callbacks arrive serially, but
-        // the watchdog fires from a detached task.
-        let gate = RenderWatchdogGate()
+        let session = UtteranceRenderSession(
+            synthesizer: synthesizer,
+            fileURL: fileURL,
+            state: state,
+            idleTimeout: Self.bufferIdleTimeout,
+            onActivity: onActivity
+        )
+        try await session.run(utterance)
+    }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let watchdog = Task.detached {
-                while !Task.isCancelled {
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    if gate.isFinished() { return }
-                    if gate.idleSeconds() > Self.bufferIdleTimeout {
-                        if gate.tryFinish() {
-                            synthesizer.stopSpeaking(at: .immediate)
-                            continuation.resume(throwing: AppleSpeechAudioError.noAudioProduced)
+    /// One `AVSpeechSynthesizer.write` pass for a single chunk.
+    ///
+    /// `write` delivers a zero-length buffer at the end of EVERY sentence, not
+    /// once at the end of the utterance (measured on macOS: a 40-sentence
+    /// utterance produced 20 empty buffers at roughly 12 s audio intervals).
+    /// Treating the first empty buffer as "finished" - which this service used
+    /// to do - resolved the chunk after its opening sentence and discarded the
+    /// rest, so every system-voice narration was cut short. Completion is now
+    /// taken from the delegate's `didFinish`, empty buffers are treated as the
+    /// sentence markers they are, and an idle watchdog still catches voices
+    /// that never deliver anything.
+    private final class UtteranceRenderSession: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
+        private let synthesizer: AVSpeechSynthesizer
+        private let fileURL: URL
+        private let state: RenderState
+        private let idleTimeout: TimeInterval
+        private let onActivity: @Sendable () -> Void
+
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<Void, Error>?
+        private var completedSuccessfully = false
+        private var lastActivity = Date()
+        private var sawSentenceBoundary = false
+        private var wroteAudio = false
+        private var watchdog: Task<Void, Never>?
+
+        init(
+            synthesizer: AVSpeechSynthesizer,
+            fileURL: URL,
+            state: RenderState,
+            idleTimeout: TimeInterval,
+            onActivity: @escaping @Sendable () -> Void
+        ) {
+            self.synthesizer = synthesizer
+            self.fileURL = fileURL
+            self.state = state
+            self.idleTimeout = idleTimeout
+            self.onActivity = onActivity
+            super.init()
+        }
+
+        func run(_ utterance: AVSpeechUtterance) async throws {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                lock.withLock {
+                    self.continuation = continuation
+                    self.lastActivity = Date()
+                }
+                synthesizer.delegate = self
+                watchdog = Task.detached { [weak self] in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        guard let self, !Task.isCancelled else { return }
+                        if self.idleSeconds() > self.idleTimeout {
+                            self.handleIdleTimeout()
+                            return
                         }
-                        return
                     }
+                }
+                synthesizer.write(utterance) { [self] buffer in
+                    self.handle(buffer)
                 }
             }
+        }
 
-            synthesizer.write(utterance) { buffer in
-                gate.touch()
-                guard !gate.isFinished() else { return }
+        // MARK: Buffer handling
+
+        private func handle(_ buffer: AVAudioBuffer) {
+            var failure: Error?
+            var boundary = false
+            lock.withLock {
+                // Buffers that trail a resolved session may only be appended
+                // if the session completed normally; after a failure or a
+                // watchdog abort nothing more goes into the file.
+                let live = continuation != nil
+                guard live || completedSuccessfully else { return }
+                lastActivity = Date()
                 guard let pcm = buffer as? AVAudioPCMBuffer else { return }
-
-                // A zero-length buffer marks the end of the utterance.
                 guard pcm.frameLength > 0 else {
-                    if gate.tryFinish() {
-                        watchdog.cancel()
-                        continuation.resume()
-                    }
+                    // End of a sentence, not of the utterance. Keep going.
+                    sawSentenceBoundary = true
+                    boundary = true
                     return
                 }
-
                 do {
                     if state.audioFile == nil {
                         state.sampleRate = pcm.format.sampleRate
@@ -278,50 +343,57 @@ final class AppleSpeechAudioService: NSObject, @unchecked Sendable {
                     }
                     try state.audioFile?.write(from: pcm)
                     state.totalFrames += AVAudioFramePosition(pcm.frameLength)
+                    wroteAudio = true
                 } catch {
-                    if gate.tryFinish() {
-                        watchdog.cancel()
-                        synthesizer.stopSpeaking(at: .immediate)
-                        continuation.resume(throwing: error)
-                    }
+                    failure = error
                 }
             }
-        }
-    }
-
-    /// Lock-protected finish/activity state shared between the serial buffer
-    /// callback and the detached watchdog task. Synchronous accessors keep the
-    /// lock usage legal from async contexts.
-    private final class RenderWatchdogGate: @unchecked Sendable {
-        private let lock = NSLock()
-        private var finished = false
-        private var lastActivity = Date()
-
-        func touch() {
-            lock.lock()
-            lastActivity = Date()
-            lock.unlock()
+            if boundary { onActivity() }
+            if let failure {
+                finish(.failure(failure))
+                synthesizer.stopSpeaking(at: .immediate)
+            }
         }
 
-        func isFinished() -> Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            return finished
+        private func idleSeconds() -> TimeInterval {
+            lock.withLock { Date().timeIntervalSince(lastActivity) }
         }
 
-        func idleSeconds() -> TimeInterval {
-            lock.lock()
-            defer { lock.unlock() }
-            return Date().timeIntervalSince(lastActivity)
+        private func handleIdleTimeout() {
+            // Going quiet right after a sentence boundary with audio already
+            // on disk means the terminal delegate callback was dropped; the
+            // chunk is complete. Anything else is a genuine stall. Resolve
+            // first: stopping the synthesizer fires `didCancel`, which must
+            // find nothing left to fail.
+            let complete = lock.withLock { wroteAudio && sawSentenceBoundary }
+            finish(complete ? .success(()) : .failure(AppleSpeechAudioError.noAudioProduced))
+            synthesizer.stopSpeaking(at: .immediate)
         }
 
-        /// Marks finished; returns true only for the caller that won the race.
-        func tryFinish() -> Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            if finished { return false }
-            finished = true
-            return true
+        private func finish(_ result: Result<Void, Error>) {
+            let pending: CheckedContinuation<Void, Error>? = lock.withLock {
+                defer { continuation = nil }
+                if case .success = result, continuation != nil { completedSuccessfully = true }
+                return continuation
+            }
+            guard let pending else { return }
+            watchdog?.cancel()
+            watchdog = nil
+            synthesizer.delegate = nil
+            pending.resume(with: result)
+        }
+
+        // MARK: AVSpeechSynthesizerDelegate
+
+        func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+            finish(.success(()))
+        }
+
+        func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+            // Reached only when something other than this session stopped the
+            // synthesizer (task cancellation in `generateAudio`); our own stops
+            // have already resolved the continuation.
+            finish(.failure(CancellationError()))
         }
     }
 

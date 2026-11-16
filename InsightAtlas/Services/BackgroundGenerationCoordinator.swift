@@ -347,6 +347,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 let lowered = issue.lowercased()
                 return lowered.contains("visual") || lowered.contains("truncat")
                     || lowered.contains("ends mid-sentence") || lowered.contains("unclosed")
+                    || lowered.hasPrefix("structure:")
             }
             let hasRoomToGrow = !finalResult.cutPolicyActivated
                 && finalResult.wordCount < governor.maxWordCeiling
@@ -482,6 +483,53 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 }
             }
 
+            // MARK: - Provenance Verification Pass (elevation spec C3)
+            //
+            // A second model pass lists every name, date, number, title and
+            // quotation, corrects the errors it is confident about (misnamed
+            // authors, journals cited as books) and attributes or softens the
+            // numbers nobody sourced. Bounded by a deadline and never fatal:
+            // a guide with an unverified figure still ships, a hung pass does
+            // not hold the user's guide hostage.
+            if settings.preferredSummaryType != .quickReference {
+                progress = GenerationProgress(
+                    phase: "Verifying names, dates and numbers...",
+                    percentComplete: 0.95,
+                    wordCount: finalResult.wordCount,
+                    model: "\(state.provider.displayName) (Verification)",
+                    content: finalResult.content
+                )
+                let chapterTitles = ChapterDetector.detect(text: bookText, fallbackStrategy: .treatAsMonolith).chapters.map(\.title)
+                let guideForVerification = finalResult.content
+                do {
+                    let report = try await Self.withDeadline(seconds: 180) {
+                        try await self.aiService.verifyProvenance(
+                            guide: guideForVerification,
+                            title: state.title,
+                            author: state.author,
+                            chapterTitles: chapterTitles,
+                            settings: settings
+                        )
+                    }
+                    let outcome = AIService.applyProvenanceReport(report, to: finalResult.content)
+                    governorLog("Verification pass: \(report.corrections.count) corrections, \(report.consistency.count) consistency fixes, \(report.unverified.count) unverified items; applied \(outcome.applied), skipped \(outcome.skipped)")
+                    for item in report.unverified where item.action.lowercased() == "keep" || item.replacement == nil {
+                        governorLog("  UNVERIFIED (left as is): \(item.text.prefix(120))")
+                    }
+                    if outcome.applied > 0 {
+                        let revised = sanitizeGeneratedContent(outcome.guide)
+                        finalResult = GovernorEnforcementResult(
+                            content: revised,
+                            wordCount: revised.split(separator: " ").count,
+                            cutPolicyActivated: finalResult.cutPolicyActivated,
+                            cutEventCount: finalResult.cutEventCount
+                        )
+                    }
+                } catch {
+                    governorLog("Verification pass skipped: \(error.localizedDescription)")
+                }
+            }
+
             // Soft enforcement: log warning but don't throw for minor violations
             if finalResult.wordCount > governor.maxWordCeiling {
                 let overagePercent = Float(finalResult.wordCount - governor.maxWordCeiling) / Float(governor.maxWordCeiling) * 100
@@ -566,6 +614,20 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
             // Keep state for potential retry
             throw error
+        }
+    }
+
+    /// Race an async operation against a wall-clock deadline.
+    static func withDeadline<T: Sendable>(seconds: Double, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw GenerationError.verificationTimedOut
+            }
+            let first = try await group.next()!
+            group.cancelAll()
+            return first
         }
     }
 
@@ -1474,6 +1536,7 @@ enum GenerationError: LocalizedError {
     case bookTextNotFound
     case cancelled
     case governorViolation(wordCount: Int, limit: Int)
+    case verificationTimedOut
 
     var errorDescription: String? {
         switch self {
@@ -1487,6 +1550,8 @@ enum GenerationError: LocalizedError {
             return "Generation was cancelled"
         case .governorViolation(let wordCount, let limit):
             return "Summary exceeded word limit (\(wordCount) > \(limit)). Strict enforcement halted generation."
+        case .verificationTimedOut:
+            return "The verification pass did not finish in time"
         }
     }
 }

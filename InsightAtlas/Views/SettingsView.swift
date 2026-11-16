@@ -30,7 +30,7 @@ struct SettingsView: View {
             ) ?? KokoroVoiceRegistry.defaultVoice.voiceID
             let voice = KokoroVoiceRegistry.voice(byVoiceID: voiceID)
                 ?? KokoroVoiceRegistry.defaultVoice
-            return "Kokoro · \(voice.name)"
+            return "Pocket · \(voice.name)"
         }
         return "Liam"
     }
@@ -395,7 +395,7 @@ struct SettingsView: View {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults — the installed Kokoro voice, playback speed, and
+        // Audio defaults — the installed Pocket voice, playback speed, and
         // auto-generation setting are user-configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
@@ -996,7 +996,7 @@ struct AudioSettingsView: View {
             } footer: {
                 Text(engine == .apple
                     ? "Apple voices synthesize instantly with no model download. For the best quality, download a Premium or Enhanced voice in iOS Settings → Accessibility → Spoken Content → Voices → English, then pick it below."
-                    : "Kokoro generates premium narration privately on this iPhone after a one-time 132 MB model download.")
+                    : "Pocket generates premium narration privately on this iPhone after a one-time 99 MB model download.")
             }
 
             if engine == .apple {
@@ -1031,7 +1031,7 @@ struct AudioSettingsView: View {
                     }
                 }
             } header: {
-                Text(engine == .kokoro ? "Kokoro On-Device Voice (Primary)" : "Kokoro On-Device Voice")
+                Text(engine == .kokoro ? "Pocket On-Device Voice (Primary)" : "Pocket On-Device Voice")
             } footer: {
                 Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The download is about 132 MB and uses about 186 MB once installed.")
             }
@@ -1051,7 +1051,7 @@ struct AudioSettingsView: View {
             } footer: {
                 Text(engine == .apple
                     ? "New narration is generated privately on this device with the selected Apple voice, \(selectedAppleVoice?.name ?? "the system default")."
-                    : "New narration is generated privately on this device with the selected Kokoro voice, \(selectedKokoroVoice.name).")
+                    : "New narration is generated privately on this device with the selected Pocket voice, \(selectedKokoroVoice.name).")
             }
 
             Section {
@@ -1083,7 +1083,7 @@ struct AudioSettingsView: View {
         switch kokoroModelManager.state {
         case .notInstalled:
             Label("Not downloaded", systemImage: "arrow.down.circle")
-            Button("Download Kokoro Model") {
+            Button("Download Pocket Model") {
                 kokoroModelManager.install()
             }
 
@@ -1128,7 +1128,7 @@ struct AudioSettingsView: View {
     }
 }
 
-// MARK: - Kokoro Voice Selection
+// MARK: - Pocket Voice Selection
 
 struct KokoroVoiceSelectionView: View {
     @EnvironmentObject private var environment: AppEnvironment
@@ -1155,11 +1155,11 @@ struct KokoroVoiceSelectionView: View {
                     )
                 }
             } header: {
-                Text("Kokoro On-Device Voices")
+                Text("Pocket On-Device Voices")
             } footer: {
                 Text(KokoroModelStore.isInstalled
                      ? "Tap a voice to select it, then play a completely offline preview."
-                     : "Download the Kokoro model in Audio Settings to enable previews.")
+                     : "Download the Pocket model in Audio Settings to enable previews.")
             }
         }
         .premiumSettingsList(title: "Offline Voice")

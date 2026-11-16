@@ -380,6 +380,23 @@ extension Font {
         return .system(size: 17, design: .serif)
     }
 
+    /// Bold run inside body prose. Stays in the serif family so inline
+    /// `**emphasis**` does not drop into the system sans face mid-sentence.
+    static func analysisBodyBold() -> Font {
+        if UIFont(name: "CormorantGaramond-Bold", size: 17) != nil {
+            return .custom("CormorantGaramond-Bold", size: 17, relativeTo: .body)
+        }
+        return .system(size: 17, weight: .bold, design: .serif)
+    }
+
+    /// Italic run inside body prose; same family rule as `analysisBodyBold`.
+    static func analysisBodyItalic() -> Font {
+        if UIFont(name: "CormorantGaramond-Italic", size: 17) != nil {
+            return .custom("CormorantGaramond-Italic", size: 17, relativeTo: .body)
+        }
+        return .system(size: 17, design: .serif).italic()
+    }
+
     static func analysisBodyLarge() -> Font {
         if UIFont(name: "CormorantGaramond-Regular", size: 19) != nil {
             return .custom("CormorantGaramond-Regular", size: 19, relativeTo: .body)

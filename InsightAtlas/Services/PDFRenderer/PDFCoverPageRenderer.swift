@@ -30,7 +30,8 @@ final class PDFCoverPageRenderer {
         to context: CGContext,
         title: String,
         author: String,
-        logoImage: UIImage? = nil
+        logoImage: UIImage? = nil,
+        readingMinutes: Int? = nil
     ) {
         // Fill background with parchment color
         context.setFillColor(PDFStyleConfiguration.Colors.bgPrimary.cgColor)
@@ -48,6 +49,11 @@ final class PDFCoverPageRenderer {
         // Draw title and author
         drawTitleBlock(context: context, title: title, author: author)
 
+        // Reading-time badge (elevation spec D): computed from the final word count.
+        if let readingMinutes, readingMinutes > 0 {
+            drawReadingTimeBadge(context: context, minutes: readingMinutes)
+        }
+
         // Draw bottom tagline and branding
         drawBottomBranding(context: context)
 
@@ -56,6 +62,29 @@ final class PDFCoverPageRenderer {
     }
 
     // MARK: - Private Drawing Methods
+
+    private func drawReadingTimeBadge(context: CGContext, minutes: Int) {
+        let text = "\(minutes) MIN READ"
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
+            .ligature: 0,
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGoldDark,
+            .kern: 1.6
+        ]
+        let string = NSAttributedString(string: text, attributes: attributes)
+        let size = string.size()
+        let pillWidth = size.width + 28
+        let pillHeight = size.height + 12
+        let pillRect = CGRect(x: (pageSize.width - pillWidth) / 2,
+                              y: pageSize.height - PDFStyleConfiguration.PageLayout.marginBottom - 120,
+                              width: pillWidth, height: pillHeight)
+        let path = UIBezierPath(roundedRect: pillRect, cornerRadius: pillHeight / 2)
+        context.addPath(path.cgPath)
+        context.setStrokeColor(PDFStyleConfiguration.Colors.primaryGold.cgColor)
+        context.setLineWidth(1.0)
+        context.strokePath()
+        string.draw(at: CGPoint(x: pillRect.midX - size.width / 2, y: pillRect.midY - size.height / 2))
+    }
 
     private func drawDecorativeBorder(context: CGContext) {
         let inset: CGFloat = 36 // 0.5 inch from edge
@@ -404,7 +433,7 @@ extension PDFCoverPageRenderer {
     @discardableResult
     func renderTableOfContents(
         to context: CGContext,
-        sections: [(title: String, page: Int, isSubsection: Bool)],
+        sections: [InsightAtlasPDFRenderer.TOCEntry],
         pdfRenderer: UIGraphicsPDFRendererContext? = nil
     ) -> Int {
         let marginLeft = PDFStyleConfiguration.PageLayout.marginLeft
@@ -465,12 +494,16 @@ extension PDFCoverPageRenderer {
         drawHeader()
 
         // Draw TOC entries with improved leader lines
-        for (title, page, isSubsection) in sections {
+        for entry in sections {
+            let title = entry.title
+            let page = entry.page
+            let isSubsection = entry.isSubsection
             let indent: CGFloat = isSubsection ? 24 : 0  // Increased indent for clearer hierarchy
             let font = isSubsection ? PDFStyleConfiguration.Typography.body() : PDFStyleConfiguration.Typography.bodyBold()
             let color = isSubsection ? PDFStyleConfiguration.Colors.textBody : PDFStyleConfiguration.Colors.textHeading
             let pageNumberWidth: CGFloat = 30
-            let maxTitleWidth = contentWidth - indent - pageNumberWidth - 24
+            let minutesWidth: CGFloat = entry.minutes == nil ? 0 : 54
+            let maxTitleWidth = contentWidth - indent - pageNumberWidth - minutesWidth - 24
 
             // Title wraps to as many lines as needed so long headings are never clipped
             let titleParagraph = NSMutableParagraphStyle()
@@ -497,8 +530,25 @@ extension PDFCoverPageRenderer {
                 context: nil
             )
             let titleHeight = max(ceil(titleBounds.height), lineHeight)
+            // One-line descriptor under the entry (elevation spec A2).
+            var descriptorText: NSAttributedString?
+            var descriptorHeight: CGFloat = 0
+            if let descriptor = entry.descriptor, !descriptor.isEmpty {
+                let style = NSMutableParagraphStyle()
+                style.lineBreakMode = .byWordWrapping
+                let attributed = NSAttributedString(string: descriptor, attributes: [
+                    .font: PDFStyleConfiguration.Typography.bodySmallItalic(),
+                    .ligature: 0,
+                    .foregroundColor: PDFStyleConfiguration.Colors.textSecondary,
+                    .paragraphStyle: style
+                ])
+                let bounds = attributed.boundingRect(with: CGSize(width: maxTitleWidth, height: .greatestFiniteMagnitude),
+                                                     options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+                descriptorText = attributed
+                descriptorHeight = ceil(bounds.height) + 2
+            }
             let rowPadding: CGFloat = isSubsection ? 8 : 10
-            let entryHeight = titleHeight + rowPadding
+            let entryHeight = titleHeight + descriptorHeight + rowPadding
 
             // Page break using the actual (possibly multi-line) height
             if currentY + entryHeight > maxY {
@@ -508,14 +558,30 @@ extension PDFCoverPageRenderer {
             // Draw the wrapped title
             let titleRect = CGRect(x: marginLeft + indent, y: currentY, width: maxTitleWidth, height: titleHeight)
             titleText.draw(with: titleRect, options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+            if let descriptorText {
+                descriptorText.draw(with: CGRect(x: marginLeft + indent, y: currentY + titleHeight, width: maxTitleWidth, height: descriptorHeight),
+                                    options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+            }
 
             let firstLineCenterY = currentY + lineHeight / 2
+
+            // Per-section reading time, right of the leader, left of the page number.
+            if let minutes = entry.minutes {
+                let minutesText = NSAttributedString(string: "\(minutes) min", attributes: [
+                    .font: PDFStyleConfiguration.Typography.caption(),
+                    .ligature: 0,
+                    .foregroundColor: PDFStyleConfiguration.Colors.textMuted
+                ])
+                let w = minutesText.size().width
+                minutesText.draw(at: CGPoint(x: self.pageSize.width - marginRight - pageNumberWidth - 8 - w,
+                                             y: currentY + (lineHeight - minutesText.size().height) / 2))
+            }
 
             // Dotted leader — only for single-line entries (a leader mid-wrap looks broken)
             let isSingleLine = titleHeight <= lineHeight + 1
             if isSingleLine {
                 let leaderStartX = marginLeft + indent + min(ceil(titleBounds.width), maxTitleWidth) + 8
-                let leaderEndX = self.pageSize.width - marginRight - pageNumberWidth - 4
+                let leaderEndX = self.pageSize.width - marginRight - pageNumberWidth - 4 - minutesWidth
                 if leaderEndX > leaderStartX + 10 {
                     context.setStrokeColor(PDFStyleConfiguration.Colors.borderMedium.cgColor)
                     context.setLineWidth(0.5)

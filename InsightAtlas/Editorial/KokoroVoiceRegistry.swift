@@ -2,7 +2,12 @@
 //  KokoroVoiceRegistry.swift
 //  InsightAtlas
 //
-//  Offline Kokoro v1.0 English voice catalog.
+//  On-device voice catalogue for the Pocket TTS engine (Kyutai, via
+//  sherpa-onnx). Pocket is a reference-audio model: each voice is a 10-second
+//  clip shipped inside the model bundle under `voices/`, from which the engine
+//  derives a speaker embedding. The type names keep their Kokoro prefix so the
+//  persisted settings keys, the provider raw value and the rest of the
+//  narration pipeline stay untouched.
 //
 
 import Foundation
@@ -11,6 +16,7 @@ struct KokoroVoice: UnifiedVoice, Codable, Equatable, Identifiable, Sendable {
     enum Accent: String, Codable, Sendable {
         case american
         case british
+        case scottish
     }
 
     enum Presentation: String, Codable, Sendable {
@@ -19,6 +25,8 @@ struct KokoroVoice: UnifiedVoice, Codable, Equatable, Identifiable, Sendable {
     }
 
     let voiceID: String
+    /// Stable index into the registry; Pocket has no speaker ids of its own,
+    /// so this only identifies the reference clip to load.
     let speakerID: Int
     let name: String
     let accent: Accent
@@ -27,6 +35,9 @@ struct KokoroVoice: UnifiedVoice, Codable, Equatable, Identifiable, Sendable {
     var id: String { voiceID }
     var provider: VoiceProvider { .kokoro }
     var previewText: String { VoicePreviewScript.primary }
+
+    /// Reference clip inside the installed model directory.
+    var referenceAudioRelativePath: String { "voices/\(voiceID).wav" }
 
     var description: String {
         "\(accent.displayName) English · \(presentation.displayName) presentation"
@@ -38,6 +49,7 @@ private extension KokoroVoice.Accent {
         switch self {
         case .american: return "American"
         case .british: return "British"
+        case .scottish: return "Scottish"
         }
     }
 }
@@ -53,40 +65,25 @@ private extension KokoroVoice.Presentation {
 
 enum KokoroVoiceRegistry {
     static let selectedVoiceStorageKey = "kokoro_selected_voice_id"
-    static let version = "1.0.0"
+    static let version = "pocket-1.0.0"
 
+    /// Clips come from Kyutai's published voice catalogue
+    /// (huggingface.co/kyutai/tts-voices); names follow Kyutai's own labels.
     static let allVoices: [KokoroVoice] = [
-        voice("af_alloy", 0, "Alloy", .american, .feminine),
-        voice("af_aoede", 1, "Aoede", .american, .feminine),
-        voice("af_bella", 2, "Bella", .american, .feminine),
-        voice("af_heart", 3, "Heart", .american, .feminine),
-        voice("af_jessica", 4, "Jessica", .american, .feminine),
-        voice("af_kore", 5, "Kore", .american, .feminine),
-        voice("af_nicole", 6, "Nicole", .american, .feminine),
-        voice("af_nova", 7, "Nova", .american, .feminine),
-        voice("af_river", 8, "River", .american, .feminine),
-        voice("af_sarah", 9, "Sarah", .american, .feminine),
-        voice("af_sky", 10, "Sky", .american, .feminine),
-        voice("am_adam", 11, "Adam", .american, .masculine),
-        voice("am_echo", 12, "Echo", .american, .masculine),
-        voice("am_eric", 13, "Eric", .american, .masculine),
-        voice("am_fenrir", 14, "Fenrir", .american, .masculine),
-        voice("am_liam", 15, "Liam", .american, .masculine),
-        voice("am_michael", 16, "Michael", .american, .masculine),
-        voice("am_onyx", 17, "Onyx", .american, .masculine),
-        voice("am_puck", 18, "Puck", .american, .masculine),
-        voice("am_santa", 19, "Santa", .american, .masculine),
-        voice("bf_alice", 20, "Alice", .british, .feminine),
-        voice("bf_emma", 21, "Emma", .british, .feminine),
-        voice("bf_isabella", 22, "Isabella", .british, .feminine),
-        voice("bf_lily", 23, "Lily", .british, .feminine),
-        voice("bm_daniel", 24, "Daniel", .british, .masculine),
-        voice("bm_fable", 25, "Fable", .british, .masculine),
-        voice("bm_george", 26, "George", .british, .masculine),
-        voice("bm_lewis", 27, "Lewis", .british, .masculine)
+        voice("alba", 0, "Alba", .scottish, .feminine),
+        voice("anna", 1, "Anna", .british, .feminine),
+        voice("eve", 2, "Eve", .british, .feminine),
+        voice("fantine", 3, "Fantine", .british, .feminine),
+        voice("jane", 4, "Jane", .american, .feminine),
+        voice("charles", 5, "Charles", .british, .masculine),
+        voice("george", 6, "George", .american, .masculine),
+        voice("michael", 7, "Michael", .american, .masculine),
+        voice("paul", 8, "Paul", .british, .masculine),
+        voice("javert", 9, "Javert", .american, .masculine),
+        voice("marius", 10, "Marius", .american, .masculine)
     ]
 
-    static let defaultVoice = allVoices[3]
+    static let defaultVoice = allVoices[0]
 
     static func voice(byID id: String) -> KokoroVoice? {
         voice(byVoiceID: id)
@@ -107,13 +104,13 @@ enum KokoroVoiceRegistry {
     static func recommendedVoice(for profile: ReaderProfile) -> KokoroVoice {
         switch profile {
         case .executive:
-            return voice(byVoiceID: "bm_daniel") ?? defaultVoice
+            return voice(byVoiceID: "charles") ?? defaultVoice
         case .practitioner:
             return defaultVoice
         case .academic:
-            return voice(byVoiceID: "bf_emma") ?? defaultVoice
+            return voice(byVoiceID: "fantine") ?? defaultVoice
         case .skeptic:
-            return voice(byVoiceID: "am_puck") ?? defaultVoice
+            return voice(byVoiceID: "javert") ?? defaultVoice
         }
     }
 

@@ -381,7 +381,7 @@ struct NarrationControlsView: View {
                 playbackControls
             } else if !narrationAvailable {
                 HStack {
-                    Text("No narration voice is available on this device. Download Kokoro in Settings → Audio & Narration, or install an Apple voice in iOS Settings → Accessibility → Spoken Content.")
+                    Text("No narration voice is available on this device. Download Pocket in Settings → Audio & Narration, or install an Apple voice in iOS Settings → Accessibility → Spoken Content.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -420,7 +420,7 @@ struct NarrationControlsView: View {
         }
     }
 
-    /// Synthesis progress. Kokoro reports a real fraction per rendered text
+    /// Synthesis progress. Pocket reports a real fraction per rendered text
     /// chunk, so this shows a determinate bar and percentage; stages that
     /// genuinely cannot know their progress fall back to a spinner.
     private var preparingRow: some View {
@@ -462,7 +462,7 @@ struct NarrationControlsView: View {
     private var readySubtitle: String {
         guard narrationAvailable else { return "No narration voice available" }
         switch activeEngine {
-        case .kokoro: return "Kokoro on-device · \(selectedKokoroVoiceName)"
+        case .kokoro: return "Pocket on-device · \(selectedKokoroVoiceName)"
         case .apple: return "Apple voice on-device · \(selectedEngineVoiceName)"
         }
     }

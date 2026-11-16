@@ -7,8 +7,8 @@ final class ProviderConfigurationTests: XCTestCase {
         // Kokoro plus the Apple system voice — both fully on-device; no hosted
         // provider ever returns to this list.
         XCTAssertEqual(VoiceProvider.allCases, [.kokoro, .apple])
-        XCTAssertEqual(VoiceProvider.kokoro.displayName, "Kokoro (On-Device)")
-        XCTAssertEqual(VoiceProvider.kokoro.defaultVoiceID, "af_heart")
+        XCTAssertEqual(VoiceProvider.kokoro.displayName, "Pocket (On-Device)")
+        XCTAssertEqual(VoiceProvider.kokoro.defaultVoiceID, "alba")
         XCTAssertEqual(VoiceProvider.kokoro.audioFileExtension, "wav")
         XCTAssertFalse(VoiceProvider.kokoro.requiresSeparateApiKey)
         XCTAssertEqual(VoiceProvider.apple.displayName, "Apple Voice (On-Device)")

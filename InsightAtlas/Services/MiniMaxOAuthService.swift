@@ -64,7 +64,9 @@ enum MiniMaxOAuthConfig {
     /// Anthropic-compatible endpoint.
     static let m3ContextWindowTokens = 1_000_000
     static let legacyContextWindowTokens = 204_800
-    static let standardOutputTokenLimit = 16_000
+    // 9,500–12,000-word guides need ~16k visible tokens; leave headroom so the
+    // legacy (non-M3) models do not truncate the back matter.
+    static let standardOutputTokenLimit = 24_000
     static let deepResearchOutputTokenLimit = 64_000
 
     static func contextWindowTokens(for model: String) -> Int {

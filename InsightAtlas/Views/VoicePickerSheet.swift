@@ -64,7 +64,7 @@ struct VoicePickerSheet: View {
                 VStack(alignment: .leading, spacing: 24) {
                     Text(provider == .apple
                         ? "Choose an installed Apple voice for private on-device previews and full-guide narration. Premium voices install via iOS Settings → Accessibility → Spoken Content."
-                        : "Choose an installed Kokoro voice for private on-device previews and full-guide narration.")
+                        : "Choose an installed Pocket voice for private on-device previews and full-guide narration.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)

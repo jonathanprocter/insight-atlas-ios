@@ -2,7 +2,7 @@ import XCTest
 import AVFoundation
 @testable import InsightAtlas
 
-/// Drives the real Kokoro model through real synthesis.
+/// Drives the real Pocket TTS model through real synthesis.
 ///
 /// Every other narration test uses a spy, so a broken model configuration
 /// passes them all and fails only on a device. This one loads the actual
@@ -80,10 +80,10 @@ final class KokoroLiveSynthesisTests: XCTestCase {
         }
         let sentence = "Daniel explains one complete idea at a time so the listening edition remains natural, accurate, and easy to follow."
         let text = Array(repeating: sentence, count: 24).joined(separator: " ")
-        guard let voice = KokoroVoiceRegistry.voice(byVoiceID: "bm_daniel") else {
-            return XCTFail("Daniel must remain registered in the production Kokoro model")
+        guard let voice = KokoroVoiceRegistry.voice(byVoiceID: "charles") else {
+            return XCTFail("Charles must remain registered in the production voice bundle")
         }
-        XCTAssertEqual(voice.speakerID, 24)
+        XCTAssertEqual(voice.speakerID, 5)
 
         var timings: [(label: String, chunks: Int, wall: TimeInterval)] = []
         for (label, ceiling) in [("legacy", 1_200), ("optimized", 1_500)] {

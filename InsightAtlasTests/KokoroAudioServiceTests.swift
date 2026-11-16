@@ -30,7 +30,7 @@ final class KokoroAudioServiceTests: XCTestCase {
         )
 
         do {
-            _ = try await service.generateAudio(text: "  \n ", voiceID: "af_heart")
+            _ = try await service.generateAudio(text: "  \n ", voiceID: "alba")
             XCTFail("Expected empty text to fail")
         } catch KokoroAudioError.emptyText {
             let callCount = await engine.callCount
@@ -48,7 +48,7 @@ final class KokoroAudioServiceTests: XCTestCase {
         )
 
         do {
-            _ = try await service.generateAudio(text: "Hello", voiceID: "af_heart")
+            _ = try await service.generateAudio(text: "Hello", voiceID: "alba")
             XCTFail("Expected unavailable model to fail")
         } catch KokoroAudioError.modelNotInstalled {
             let callCount = await engine.callCount
@@ -76,7 +76,7 @@ final class KokoroAudioServiceTests: XCTestCase {
         }
     }
 
-    func testGenerateRoutesHeartToSpeakerThreeAndPreservesMetadata() async throws {
+    func testGenerateRoutesAlbaToSpeakerZeroAndPreservesMetadata() async throws {
         let expectedData = Data([0x52, 0x49, 0x46, 0x46])
         let modelDirectory = URL(fileURLWithPath: "/tmp/kokoro-test-model", isDirectory: true)
         let engine = KokoroSynthesisSpy(
@@ -90,17 +90,17 @@ final class KokoroAudioServiceTests: XCTestCase {
 
         let audio = try await service.generateAudio(
             text: "  Hello world  ",
-            voiceID: "af_heart"
+            voiceID: "alba"
         )
 
         XCTAssertEqual(audio.data, expectedData)
         XCTAssertEqual(audio.duration, 2.5, accuracy: 0.001)
         XCTAssertEqual(audio.characterCount, 11)
-        XCTAssertEqual(audio.voiceID, "af_heart")
+        XCTAssertEqual(audio.voiceID, "alba")
 
         let call = await engine.lastCall
         XCTAssertEqual(call?.text, "Hello world")
-        XCTAssertEqual(call?.speakerID, 3)
+        XCTAssertEqual(call?.speakerID, 0)
         XCTAssertEqual(call?.modelDirectory, modelDirectory)
     }
 
@@ -114,7 +114,7 @@ final class KokoroAudioServiceTests: XCTestCase {
         let error = await Task { () -> Error? in
             withUnsafeCurrentTask { $0?.cancel() }
             do {
-                _ = try await service.generateAudio(text: "Hello", voiceID: "af_heart")
+                _ = try await service.generateAudio(text: "Hello", voiceID: "alba")
                 return nil
             } catch {
                 return error

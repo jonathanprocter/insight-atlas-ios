@@ -13,11 +13,14 @@ struct PDFStyleConfiguration {
         static let pageHeight: CGFloat = 792.0 // US Letter height in points (11")
         static let pageSize = CGSize(width: pageWidth, height: pageHeight)
 
-        // Margins - scholarly generous margins
+        // Margins. Side margins were 1.25" with a 17pt body, which measured
+        // 8–9 words per line and tired readers over a 30-page guide; 1" sides
+        // with a 16pt body give the 11–13 words per line the elevation spec
+        // asks for (Part D).
         static let marginTop: CGFloat = 72.0    // 1 inch
         static let marginBottom: CGFloat = 72.0 // 1 inch
-        static let marginLeft: CGFloat = 90.0   // 1.25 inches
-        static let marginRight: CGFloat = 90.0  // 1.25 inches
+        static let marginLeft: CGFloat = 72.0   // 1 inch
+        static let marginRight: CGFloat = 72.0  // 1 inch
 
         static let contentWidth: CGFloat = pageWidth - marginLeft - marginRight
         static let contentHeight: CGFloat = pageHeight - marginTop - marginBottom
@@ -152,6 +155,9 @@ struct PDFStyleConfiguration {
         private static let serifSemiBoldFontName = "CormorantGaramond-SemiBold"
         private static let serifMediumFontName = "CormorantGaramond-Medium"
         private static let serifItalicFontName = "CormorantGaramond-Italic"
+        // One weight up from Italic: the light italic was low-contrast on the
+        // cream ground (elevation spec D). Falls back to Italic if absent.
+        private static let serifMediumItalicFontName = "CormorantGaramond-MediumItalic"
         private static let uiFontName = "Inter-Regular"
         private static let uiBoldFontName = "Inter-SemiBold"
 
@@ -193,9 +199,11 @@ struct PDFStyleConfiguration {
             make(serifMediumFontName, 19, .systemFont(ofSize: 19, weight: .medium))
         }
 
-        // Body fonts
+        // Body fonts — 16pt on a 468pt measure ≈ 11–13 words per line.
+        static let bodyPointSize: CGFloat = 16
+
         static func body() -> UIFont {
-            make(serifFontName, 17, .systemFont(ofSize: 17))
+            make(serifFontName, bodyPointSize, .systemFont(ofSize: bodyPointSize))
         }
 
         static func bodyLarge() -> UIFont {
@@ -203,15 +211,62 @@ struct PDFStyleConfiguration {
         }
 
         static func bodySmall() -> UIFont {
-            make(serifFontName, 15, .systemFont(ofSize: 15))
+            make(serifFontName, 14, .systemFont(ofSize: 14))
+        }
+
+        static func bodySmallItalic() -> UIFont {
+            make(serifMediumItalicFontName, 14, UIFont(name: serifItalicFontName, size: 14) ?? .italicSystemFont(ofSize: 14))
         }
 
         static func bodyBold() -> UIFont {
-            make(serifBoldFontName, 17, .boldSystemFont(ofSize: 17))
+            make(serifBoldFontName, bodyPointSize, .boldSystemFont(ofSize: bodyPointSize))
         }
 
         static func bodyItalic() -> UIFont {
-            make(serifItalicFontName, 17, .italicSystemFont(ofSize: 17))
+            make(serifMediumItalicFontName, bodyPointSize, UIFont(name: serifItalicFontName, size: bodyPointSize) ?? .italicSystemFont(ofSize: bodyPointSize))
+        }
+
+        /// Serif bold / italic at an arbitrary size (table cells, captions).
+        static func serifBold(size: CGFloat) -> UIFont {
+            make(serifBoldFontName, size, .boldSystemFont(ofSize: size))
+        }
+
+        static func serifItalic(size: CGFloat) -> UIFont {
+            make(serifMediumItalicFontName, size, UIFont(name: serifItalicFontName, size: size) ?? .italicSystemFont(ofSize: size))
+        }
+
+        /// Section-opener descriptor line under a numbered heading.
+        static func descriptor() -> UIFont {
+            make(serifMediumItalicFontName, 15, UIFont(name: serifItalicFontName, size: 15) ?? .italicSystemFont(ofSize: 15))
+        }
+
+        /// THE one callout label face (elevation spec A8): every card header,
+        /// figure/table caption label and takeaways header uses this.
+        static func calloutLabel() -> UIFont {
+            make(uiBoldFontName, 11, .boldSystemFont(ofSize: 11))
+        }
+
+        // Table faces — one step below body so four columns fit without
+        // breaking words (elevation spec A6).
+        static func tableBody() -> UIFont {
+            make(serifFontName, 13, .systemFont(ofSize: 13))
+        }
+
+        static func tableHeader() -> UIFont {
+            make(serifBoldFontName, 13, .boldSystemFont(ofSize: 13))
+        }
+
+        static func tableBodySmall() -> UIFont {
+            make(serifFontName, 11.5, .systemFont(ofSize: 11.5))
+        }
+
+        static func tableHeaderSmall() -> UIFont {
+            make(serifBoldFontName, 11.5, .boldSystemFont(ofSize: 11.5))
+        }
+
+        /// Running header / footer face.
+        static func runningHeader() -> UIFont {
+            make(uiFontName, 9, .systemFont(ofSize: 9))
         }
 
         // UI fonts (for labels, captions)
@@ -231,9 +286,9 @@ struct PDFStyleConfiguration {
             make(uiFontName, 12, .systemFont(ofSize: 12))
         }
 
-        // Block header fonts
+        // Block header fonts — unified with calloutLabel (elevation spec A8).
         static func blockHeader() -> UIFont {
-            make(uiBoldFontName, 13, .boldSystemFont(ofSize: 13))
+            calloutLabel()
         }
     }
 
@@ -251,7 +306,7 @@ struct PDFStyleConfiguration {
         static let xl4: CGFloat = 48
 
         // Line heights
-        static let bodyLineHeight: CGFloat = 22
+        static let bodyLineHeight: CGFloat = 21
         static let headingLineHeight: CGFloat = 34
 
         // Paragraph spacing
@@ -510,6 +565,16 @@ extension PDFStyleConfiguration {
             .foregroundColor: color,
             .ligature: 0,
             .paragraphStyle: paragraphStyle(alignment: alignment)
+        ]
+    }
+
+    /// Attributes for the one-line descriptor under a section heading.
+    static func descriptorAttributes() -> [NSAttributedString.Key: Any] {
+        [
+            .font: Typography.descriptor(),
+            .foregroundColor: Colors.textSecondary,
+            .ligature: 0,
+            .paragraphStyle: paragraphStyle(lineHeight: 19, alignment: .left, paragraphSpacing: 0)
         ]
     }
 

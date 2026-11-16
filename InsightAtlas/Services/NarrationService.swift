@@ -216,7 +216,7 @@ actor NarrationService {
     }
 
     /// Synthesize narration for `itemId`: MiniMax writes the bounded
-    /// audio-summary script, then installed on-device Kokoro speaks it.
+    /// audio-summary script, then installed on-device Pocket speaks it.
     /// Directory holding the per-chunk files of an in-flight streamed
     /// narration. Cleared when synthesis finishes or fails.
     static func segmentDirectory(for itemId: UUID) -> URL {
@@ -234,7 +234,7 @@ actor NarrationService {
     /// - Parameter onSegment: when supplied, each rendered chunk is reported as
     ///   a playable file the moment it lands, so a long narration can start
     ///   playing on chunk 1 instead of after the whole render. Only the
-    ///   on-device Kokoro route streams; other routes simply never call it.
+    ///   on-device Pocket route streams; other routes simply never call it.
     func synthesize(
         text: String,
         itemId: UUID,
@@ -300,7 +300,7 @@ actor NarrationService {
             switch route {
             case .kokoro:
                 let voice = Self.selectedKokoroVoice()
-                let narrator = "Kokoro · \(voice.name)"
+                let narrator = "Pocket · \(voice.name)"
                 progress(.generating(narrator: narrator))
                 let heartbeat = ProgressHeartbeat()
                 do {
@@ -326,7 +326,7 @@ actor NarrationService {
                     let asset = try await persist(audio: audio, itemId: itemId)
                     progress(.ready(narrator: narrator))
                     narrationLog.info(
-                        "Narration via on-device Kokoro (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
+                        "Narration via on-device Pocket (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
                     )
                     return asset
                 } catch is CancellationError {
@@ -334,7 +334,7 @@ actor NarrationService {
                 } catch {
                     lastFailure = error
                     narrationLog.error(
-                        "On-device Kokoro could not complete narration [\(error.localizedDescription, privacy: .public)]"
+                        "On-device Pocket could not complete narration [\(error.localizedDescription, privacy: .public)]"
                     )
                 }
 
@@ -356,6 +356,12 @@ actor NarrationService {
                             voiceID: voice.identifier,
                             onProgress: { completed, total in
                                 progress(.synthesizing(narrator: narrator, completed: completed, total: total))
+                                Task { await heartbeat.beat() }
+                            },
+                            // A single chunk can take minutes to render on a
+                            // phone, longer than the stall timeout; every
+                            // sentence boundary proves the voice is alive.
+                            onActivity: {
                                 Task { await heartbeat.beat() }
                             }
                         )

@@ -2,7 +2,7 @@
 //  KokoroAudioService.swift
 //  InsightAtlas
 //
-//  On-device Kokoro text-to-speech powered by sherpa-onnx.
+//  On-device text-to-speech (Kyutai Pocket TTS) powered by sherpa-onnx.
 //
 
 import AVFoundation
@@ -30,17 +30,17 @@ enum KokoroAudioError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .modelNotInstalled:
-            return "Download the Kokoro on-device voice model in Settings → Audio & Narration before generating audio."
+            return "Download the Pocket on-device voice model in Settings → Audio & Narration before generating audio."
         case .invalidVoiceID:
-            return "The selected Kokoro voice is not available."
+            return "The selected Pocket voice is not available."
         case .emptyText:
             return "There is no narration text to read."
         case .invalidModel:
-            return "The installed Kokoro model could not be loaded. Delete it in Settings and download it again."
+            return "The installed Pocket model could not be loaded. Delete it in Settings and download it again."
         case .generationFailed:
-            return "Kokoro could not generate playable speech for this text."
+            return "Pocket could not generate playable speech for this text."
         case .audioWritingFailed:
-            return "Kokoro generated speech, but Insight Atlas could not save the audio file."
+            return "Pocket generated speech, but Insight Atlas could not save the audio file."
         }
     }
 }
@@ -189,6 +189,7 @@ struct KokoroSynthesisResult: Sendable {
 actor KokoroSynthesisEngine: KokoroSynthesizing {
     private var tts: KokoroNativeTTS?
     private var loadedDirectory: URL?
+    private var referenceAudio: [Int: (samples: [Float], sampleRate: Int)] = [:]
     private let chunker: KokoroTextChunker
 
     /// ONNX inference threads for synthesis. Scales with the device but leaves a
@@ -206,6 +207,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
     func reset() async {
         tts = nil
         loadedDirectory = nil
+        referenceAudio.removeAll()
     }
 
     /// - Parameters:
@@ -233,11 +235,12 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         }
         let loadStart = Date()
         let tts = try loadModelIfNeeded(from: modelDirectory)
+        let reference = try referenceAudio(for: speakerID, in: modelDirectory)
         let loadElapsed = Date().timeIntervalSince(loadStart)
         if loadElapsed > 0.1 {
-            print(String(format: "[Timing] Kokoro model load: %.1fs", loadElapsed))
+            print(String(format: "[Timing] Pocket model load: %.1fs", loadElapsed))
         }
-        print("[Timing] Kokoro synthesis starting: \(chunks.count) chunk(s), \(text.count) chars")
+        print("[Timing] Pocket synthesis starting: \(chunks.count) chunk(s), \(text.count) chars")
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-\(UUID().uuidString).wav")
         defer { try? FileManager.default.removeItem(at: outputURL) }
@@ -252,10 +255,15 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             // rather than sitting blank until the first chunk lands.
             onProgress?(chunkIndex, chunks.count)
             let chunkStart = Date()
+            // Fixed seed: Pocket samples its flow with noise, and a different
+            // seed per chunk would make the narrator drift between chunks.
             let config = SherpaOnnxGenerationConfigSwift(
                 silenceScale: 0.2,
-                speed: 0.96,
-                sid: speakerID
+                speed: 1.0,
+                sid: 0,
+                referenceAudio: reference.samples,
+                referenceSampleRate: reference.sampleRate,
+                extra: ["max_reference_audio_len": 10.0, "seed": 42]
             )
             let generated = tts.generateWithConfig(
                 text: chunk,
@@ -317,7 +325,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
 
             onProgress?(chunkIndex + 1, chunks.count)
             print(String(
-                format: "[Timing] Kokoro chunk %d/%d: %.1fs for %d chars",
+                format: "[Timing] Pocket chunk %d/%d: %.1fs for %d chars",
                 chunkIndex + 1, chunks.count,
                 Date().timeIntervalSince(chunkStart), chunk.count
             ))
@@ -335,7 +343,7 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         let elapsed = Date().timeIntervalSince(synthesisStart)
         let rtf = audioDuration > 0 ? elapsed / audioDuration : 0
         print(String(
-            format: "[Timing] Kokoro synthesis: %.1fs wall for %.1fs audio across %d chunk(s) — RTF %.2f (threads: %d)",
+            format: "[Timing] Pocket synthesis: %.1fs wall for %.1fs audio across %d chunk(s) — RTF %.2f (threads: %d)",
             elapsed, audioDuration, chunks.count, rtf, Self.synthesisThreadCount
         ))
 
@@ -355,34 +363,59 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
             throw KokoroAudioError.modelNotInstalled
         }
 
-        let kokoro = sherpaOnnxOfflineTtsKokoroModelConfig(
-            model: standardizedDirectory
-                .appendingPathComponent("model.int8.onnx").path,
-            voices: standardizedDirectory
-                .appendingPathComponent("voices.bin").path,
-            tokens: standardizedDirectory
-                .appendingPathComponent("tokens.txt").path,
-            dataDir: standardizedDirectory
-                .appendingPathComponent("espeak-ng-data", isDirectory: true).path,
-            lexicon: standardizedDirectory
-                .appendingPathComponent("lexicon-us-en.txt").path
+        func path(_ name: String) -> String {
+            standardizedDirectory.appendingPathComponent(name).path
+        }
+        let pocket = sherpaOnnxOfflineTtsPocketModelConfig(
+            lmFlow: path("lm_flow.int8.onnx"),
+            lmMain: path("lm_main.int8.onnx"),
+            encoder: path("encoder.onnx"),
+            decoder: path("decoder.int8.onnx"),
+            textConditioner: path("text_conditioner.onnx"),
+            vocabJson: path("vocab.json"),
+            tokenScoresJson: path("token_scores.json"),
+            voiceEmbeddingCacheCapacity: KokoroVoiceRegistry.allVoices.count
         )
         let modelConfig = sherpaOnnxOfflineTtsModelConfig(
-            kokoro: kokoro,
             numThreads: Int(Self.synthesisThreadCount),
             debug: 0,
-            provider: "cpu"
+            provider: "cpu",
+            pocket: pocket
         )
         var config = sherpaOnnxOfflineTtsConfig(model: modelConfig)
         let wrapper = KokoroNativeTTS(config: &config)
-        guard wrapper.tts != nil,
-              wrapper.numSpeakers >= Int32(KokoroVoiceRegistry.allVoices.count) else {
+        guard wrapper.tts != nil else {
             throw KokoroAudioError.invalidModel
         }
 
         tts = wrapper
         loadedDirectory = standardizedDirectory
+        referenceAudio.removeAll()
         return wrapper
+    }
+
+    /// Pocket derives its speaker from a reference clip rather than an id. The
+    /// decoded clip is kept per voice so every chunk reuses the same samples
+    /// (and the engine's embedding cache keeps hitting).
+    private func referenceAudio(
+        for speakerID: Int,
+        in directory: URL
+    ) throws -> (samples: [Float], sampleRate: Int) {
+        if let cached = referenceAudio[speakerID] { return cached }
+        guard let voice = KokoroVoiceRegistry.voice(speakerID: speakerID) else {
+            throw KokoroAudioError.invalidVoiceID
+        }
+        let clipURL = directory.standardizedFileURL
+            .appendingPathComponent(voice.referenceAudioRelativePath)
+        let wave = SherpaOnnxWaveWrapper.readWave(filename: clipURL.path)
+        guard wave.wave != nil, wave.sampleRate > 0 else {
+            throw KokoroAudioError.invalidModel
+        }
+        let samples = wave.samples
+        guard !samples.isEmpty else { throw KokoroAudioError.invalidModel }
+        let decoded = (samples: samples, sampleRate: Int(wave.sampleRate))
+        referenceAudio[speakerID] = decoded
+        return decoded
     }
 
     private func makeAudioFile(

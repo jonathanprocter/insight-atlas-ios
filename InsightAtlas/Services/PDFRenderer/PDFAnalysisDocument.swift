@@ -31,17 +31,21 @@ struct PDFAnalysisDocument: Codable {
     struct PDFSection: Codable {
         var heading: String?
         var headingLevel: Int = 2  // 1 for H1 (#), 2 for H2 (##)
+        /// One-line descriptor under the heading (also shown in the TOC).
+        var descriptor: String?
         var blocks: [PDFContentBlock]
 
         enum CodingKeys: String, CodingKey {
             case heading
             case headingLevel
+            case descriptor
             case blocks
         }
 
-        init(heading: String? = nil, headingLevel: Int = 2, blocks: [PDFContentBlock]) {
+        init(heading: String? = nil, headingLevel: Int = 2, descriptor: String? = nil, blocks: [PDFContentBlock]) {
             self.heading = heading
             self.headingLevel = headingLevel
+            self.descriptor = descriptor
             self.blocks = blocks
         }
 
@@ -49,6 +53,7 @@ struct PDFAnalysisDocument: Codable {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             heading = try container.decodeIfPresent(String.self, forKey: .heading)
             headingLevel = try container.decodeIfPresent(Int.self, forKey: .headingLevel) ?? 2
+            descriptor = try container.decodeIfPresent(String.self, forKey: .descriptor)
             blocks = try container.decodeIfPresent([PDFContentBlock].self, forKey: .blocks) ?? []
         }
     }
@@ -1238,7 +1243,17 @@ extension PDFAnalysisDocument {
                         break
                     }
                 }
-                if !listItems.isEmpty {
+                if listItems.count == 1,
+                   let numeral = line.range(of: "^\\d+\\.", options: .regularExpression),
+                   let title = ContentBlockParser.implicitHeading(
+                        line: listItems[0],
+                        previousLine: nil,
+                        nextLine: ContentBlockParser.nextNonEmptyLine(in: lines, after: i - 1)
+                   ) {
+                    // "3. The Boundary Problem" alone, followed by prose, is a
+                    // numbered section title, not a one-item list.
+                    currentBlocks.append(PDFContentBlock(type: .premiumH2, content: "\(line[numeral]) \(title)"))
+                } else if !listItems.isEmpty {
                     currentBlocks.append(PDFContentBlock(
                         type: .numberedList,
                         content: "",
@@ -1336,6 +1351,19 @@ extension PDFAnalysisDocument {
                 }
             }
 
+            // A section title the model forgot to mark up ("The Boundary
+            // Problem" on its own line). Checked before the implicit-visual
+            // scan so a heading is never swallowed into a step list.
+            if let implicitHeading = ContentBlockParser.implicitHeading(
+                line: line,
+                previousLine: i > 0 ? lines[i - 1] : nil,
+                nextLine: ContentBlockParser.nextNonEmptyLine(in: lines, after: i)
+            ) {
+                currentBlocks.append(PDFContentBlock(type: .premiumH2, content: implicitHeading))
+                i += 1
+                continue
+            }
+
             if let implicit = parseImplicitVisualBlocks(from: lines, startIndex: i) {
                 currentBlocks.append(contentsOf: implicit.blocks)
                 i += implicit.consumed
@@ -1375,6 +1403,8 @@ extension PDFAnalysisDocument {
         }
 
         sections = deduplicatedHeadings(in: sections)
+        sections = attachSectionDescriptors(to: sections)
+        sections = coalesceOrphanShortLines(in: sections)
 
         // Calculate metadata
         let wordCount = content.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
@@ -2120,16 +2150,16 @@ extension PDFAnalysisDocument {
             ))
 
         case .comparison(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
+            // The title rides the table as its caption ("Table N: Title"),
+            // never as a detached heading above it.
             let header = data.columns
             let table = header.isEmpty ? data.rows : [header] + data.rows
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
+            blocks.append(PDFContentBlock(type: .table, content: "", metadata: title.map { ["title": $0] }, tableData: table))
 
         case .table(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
             let header = data.columns
             let table = header.isEmpty ? data.rows : [header] + data.rows
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
+            blocks.append(PDFContentBlock(type: .table, content: "", metadata: title.map { ["title": $0] }, tableData: table))
 
         case .conceptMap(let data):
             // Defect-C diagnostic (no behavior change): dump the parsed branch
@@ -2240,21 +2270,20 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .pyramid, content: "", listItems: items, metadata: ["title": title ?? "Pyramid"]))
 
         case .spectrum(let data):
-            // No native spectrum figure in the PDF renderer yet. Emit the poles
-            // as a heading line plus the positioned items as a list so the
-            // exported document keeps the meaning rather than dropping it.
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(
-                type: .paragraph,
-                content: "\(data.leftPole) → \(data.rightPole)"
-            ))
+            // Native spectrum figure: a horizontal axis with labelled poles and
+            // 3–6 ordered, positioned nodes. (Formerly degraded to a "A → B"
+            // paragraph plus a bare list — p.8 of a shipped guide.)
+            var meta: [String: String] = ["title": title ?? "Spectrum"]
             if !data.items.isEmpty {
-                blocks.append(PDFContentBlock(
-                    type: .bulletList,
-                    content: "",
-                    listItems: data.items.map(\.label)
-                ))
+                meta["nodes"] = data.items.map { $0.label.replacingOccurrences(of: "|", with: "/") }.joined(separator: "|")
+                meta["positions"] = data.items.map { String(format: "%.3f", min(1, max(0, $0.position))) }.joined(separator: "|")
             }
+            blocks.append(PDFContentBlock(
+                type: .spectrum,
+                content: "",
+                listItems: [data.leftPole, data.rightPole],
+                metadata: meta
+            ))
 
         case .cycleDiagram(let data):
             // Native cycle renderer (capability-audit Batch 2): draw a ring of
@@ -2359,6 +2388,11 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
 
         case .generic(let data):
+            // Fail loudly: an unknown component must never silently become
+            // prose. The export still proceeds (a reader waiting on a file must
+            // not get a hard failure), but the defect is visible in the log and
+            // the payload is recovered as structure, never as orphan lines.
+            print("❌ [PDF Visual] UNKNOWN component type \(visual.type) (title=\(title ?? "—")) — payload recovered structurally; fix the generator")
             addHeadingIfNeeded(useInlineTitle: false)
             // A visual whose tag the renderer does not recognize degrades to
             // `.generic`, which used to print its payload verbatim — that is how
@@ -2418,6 +2452,91 @@ extension PDFAnalysisDocument {
         cleaned = merged
 
         return cleaned
+    }
+
+    /// An italic-only line directly under a heading is that section's one-line
+    /// descriptor ("*Why brains must lie to function*"). It moves into the
+    /// heading's metadata so the section opener and the table of contents can
+    /// carry it, instead of printing as a lone italic paragraph.
+    static func attachSectionDescriptors(to sections: [PDFSection]) -> [PDFSection] {
+        let headingTypes: Set<PDFContentBlock.BlockType> = [.premiumH2, .premiumH1, .heading2, .heading3]
+        return sections.map { section in
+            var updated = section
+            var blocks: [PDFContentBlock] = []
+            var index = 0
+            // Descriptor for the section's own heading.
+            if section.heading != nil, let first = section.blocks.first,
+               let descriptor = descriptorText(first) {
+                updated.descriptor = descriptor
+                index = 1
+            }
+            while index < section.blocks.count {
+                let block = section.blocks[index]
+                if headingTypes.contains(block.type), index + 1 < section.blocks.count,
+                   let descriptor = descriptorText(section.blocks[index + 1]) {
+                    var meta = block.metadata ?? [:]
+                    meta["descriptor"] = descriptor
+                    blocks.append(block.replacingMetadata(meta))
+                    index += 2
+                    continue
+                }
+                blocks.append(block)
+                index += 1
+            }
+            updated.blocks = blocks
+            return updated
+        }
+    }
+
+    /// The descriptor text if `block` is a short italic-only paragraph.
+    static func descriptorText(_ block: PDFContentBlock) -> String? {
+        guard block.type == .paragraph else { return nil }
+        let text = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count > 4 else { return nil }
+        let inner: String
+        if text.hasPrefix("*"), text.hasSuffix("*"), !text.hasPrefix("**") {
+            inner = String(text.dropFirst().dropLast())
+        } else if text.hasPrefix("_"), text.hasSuffix("_"), !text.hasPrefix("__") {
+            inner = String(text.dropFirst().dropLast())
+        } else {
+            return nil
+        }
+        guard !inner.contains("*"), !inner.contains("_") else { return nil }
+        let words = inner.split(whereSeparator: { $0.isWhitespace }).count
+        guard (2...24).contains(words) else { return nil }
+        return inner.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Three or more consecutive one-line paragraphs of ≤ 8 words with no
+    /// terminal punctuation are a list or a figure payload that lost its
+    /// markup, never prose. They become a bullet list so the page never shows a
+    /// stack of orphaned fragments (p.8 of a shipped guide).
+    static func coalesceOrphanShortLines(in sections: [PDFSection]) -> [PDFSection] {
+        func isOrphan(_ block: PDFContentBlock) -> Bool {
+            guard block.type == .paragraph else { return false }
+            let text = block.content.trimmingCharacters(in: .whitespaces)
+            guard !text.isEmpty, let last = text.last, !".!?:".contains(last) else { return false }
+            return text.split(whereSeparator: { $0.isWhitespace }).count <= 8
+        }
+        return sections.map { section in
+            var updated = section
+            var blocks: [PDFContentBlock] = []
+            var run: [PDFContentBlock] = []
+            func flush() {
+                if run.count >= 3 {
+                    blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: run.map(\.content)))
+                } else {
+                    blocks.append(contentsOf: run)
+                }
+                run = []
+            }
+            for block in section.blocks {
+                if isOrphan(block) { run.append(block) } else { flush(); blocks.append(block) }
+            }
+            flush()
+            updated.blocks = blocks
+            return updated
+        }
     }
 
     /// Rescues structure from an unrecognized visual payload.

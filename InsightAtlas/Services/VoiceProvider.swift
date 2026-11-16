@@ -22,7 +22,7 @@ enum VoiceProvider: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .kokoro: return "Kokoro (On-Device)"
+        case .kokoro: return "Pocket (On-Device)"
         case .apple: return "Apple Voice (On-Device)"
         }
     }
@@ -139,7 +139,7 @@ enum VoiceRoutingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noConfiguredProvider:
-            return "On-device narration is not ready. Narration uses an installed Kokoro model or an Apple system voice."
+            return "On-device narration is not ready. Narration uses an installed Pocket model or an Apple system voice."
         case .allProvidersFailed(let detail):
             return "On-device narration failed. \(detail)"
         }

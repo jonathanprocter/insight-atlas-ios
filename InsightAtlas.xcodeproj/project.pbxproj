@@ -54,6 +54,9 @@
 		IAPALETTETEST0000000002 /* PaletteCongruenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */; };
 		IASTREAMTEST0000000002 /* StreamingNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IASTREAMTEST0000000001 /* StreamingNarrationTests.swift */; };
 		IAPDFDUPTEST0000000002 /* PDFHeadingDuplicationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */; };
+		IAELEVPARSE0000000002 /* ElevationSpecParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELEVPARSE0000000001 /* ElevationSpecParsingTests.swift */; };
+		IAELEVRENDR0000000002 /* ElevationSpecRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELEVRENDR0000000001 /* ElevationSpecRenderingTests.swift */; };
+		IAELEVFIXTR0000000002 /* ElevationSpecFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELEVFIXTR0000000001 /* ElevationSpecFixture.swift */; };
 		E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */; };
 		E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */; };
 		E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */; };
@@ -234,6 +237,9 @@
 		IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaletteCongruenceTests.swift; sourceTree = "<group>"; };
 		IASTREAMTEST0000000001 /* StreamingNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingNarrationTests.swift; sourceTree = "<group>"; };
 		IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFHeadingDuplicationTests.swift; sourceTree = "<group>"; };
+		IAELEVPARSE0000000001 /* ElevationSpecParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationSpecParsingTests.swift; sourceTree = "<group>"; };
+		IAELEVRENDR0000000001 /* ElevationSpecRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationSpecRenderingTests.swift; sourceTree = "<group>"; };
+		IAELEVFIXTR0000000001 /* ElevationSpecFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationSpecFixture.swift; sourceTree = "<group>"; };
 		E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialHeadingParsingTests.swift; sourceTree = "<group>"; };
 		E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisualCoverageTests.swift; sourceTree = "<group>"; };
 		E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualPayloadContractTests.swift; sourceTree = "<group>"; };
@@ -404,6 +410,9 @@
 				IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */,
 				IASTREAMTEST0000000001 /* StreamingNarrationTests.swift */,
 				IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */,
+				IAELEVPARSE0000000001 /* ElevationSpecParsingTests.swift */,
+				IAELEVRENDR0000000001 /* ElevationSpecRenderingTests.swift */,
+				IAELEVFIXTR0000000001 /* ElevationSpecFixture.swift */,
 				E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */,
 				E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */,
 				E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */,
@@ -864,6 +873,9 @@
 				IAPALETTETEST0000000002 /* PaletteCongruenceTests.swift in Sources */,
 				IASTREAMTEST0000000002 /* StreamingNarrationTests.swift in Sources */,
 				IAPDFDUPTEST0000000002 /* PDFHeadingDuplicationTests.swift in Sources */,
+				IAELEVPARSE0000000002 /* ElevationSpecParsingTests.swift in Sources */,
+				IAELEVRENDR0000000002 /* ElevationSpecRenderingTests.swift in Sources */,
+				IAELEVFIXTR0000000002 /* ElevationSpecFixture.swift in Sources */,
 				E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */,
 				E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */,
 				E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */,
@@ -1164,7 +1176,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026100907;
+				CURRENT_PROJECT_VERSION = 2026101205;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1197,7 +1209,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026100907;
+				CURRENT_PROJECT_VERSION = 2026101205;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;

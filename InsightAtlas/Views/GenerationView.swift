@@ -270,7 +270,7 @@ struct GenerationView: View {
                             .foregroundColor(AnalysisTheme.textMuted)
                         Text(environment.userSettings.voiceProvider == .apple
                             ? "Apple voice on-device · selected voice"
-                            : "Kokoro on-device · selected voice")
+                            : "Pocket on-device · selected voice")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
                         Text("MiniMax writes the guide; it does not synthesize audio.")
@@ -285,7 +285,7 @@ struct GenerationView: View {
                 .accessibilityIdentifier("generation_voice_liam_label")
 
                 if !KokoroModelStore.isInstalled {
-                    Text("Kokoro isn't installed yet — narration will use an Apple system voice. Download Kokoro in Settings → Audio & Narration for premium audio.")
+                    Text("Pocket isn't installed yet — narration will use an Apple system voice. Download Pocket in Settings → Audio & Narration for premium audio.")
                         .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.accentHighlight)
                 }
@@ -626,7 +626,7 @@ struct GenerationView: View {
 
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
-                    // has auto-narration on and any engine (Kokoro or an Apple system
+                    // has auto-narration on and any engine (Pocket or an Apple system
                     // voice) can speak it.
                     let availability = VoiceProviderAvailability.current
                     let hasNarrationProvider = availability.kokoro || availability.apple

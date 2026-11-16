@@ -179,7 +179,7 @@ final class AIServiceTests: XCTestCase {
             MiniMaxOAuthConfig.outputTokenLimit(
                 mode: .standard, summaryType: .professional, model: "MiniMax-M2.7"
             ),
-            16_000
+            24_000
         )
         XCTAssertEqual(
             MiniMaxOAuthConfig.outputTokenLimit(
@@ -265,7 +265,7 @@ final class AIServiceTests: XCTestCase {
         )
 
         XCTAssertTrue(prompt.contains("Write approximately 9000 words"))
-        XCTAssertTrue(prompt.contains("never exceed 12000 words"))
+        XCTAssertTrue(prompt.contains("never exceed 15000 words"))
     }
 
     // MARK: - MiniMax -> OpenRouter Fallback Policy

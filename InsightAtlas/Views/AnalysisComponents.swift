@@ -49,6 +49,23 @@ func parseBookReferences(from text: String) -> [BookReference] {
         }
     }
 
+    // Pattern 3: Author Name, *Book Title* (Year) — the Go Deeper / Further
+    // Reading form mandated by the elevation spec (author first, italic title).
+    let authorFirstPattern = #"([A-Z][a-zA-Z\.'\-]+(?:\s+[A-Z][a-zA-Z\.'\-]+){0,3}),\s+\*([^*]+)\*\s*\((?:c\.\s*)?\d{4}[a-z]?\)"#
+    if let regex = try? NSRegularExpression(pattern: authorFirstPattern, options: []) {
+        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        for match in matches {
+            if let authorRange = Range(match.range(at: 1), in: text),
+               let titleRange = Range(match.range(at: 2), in: text) {
+                let title = String(text[titleRange]).trimmingCharacters(in: .whitespaces)
+                let author = String(text[authorRange]).trimmingCharacters(in: .whitespaces)
+                if !title.isEmpty && !author.isEmpty && !references.contains(where: { $0.title == title }) {
+                    references.append(BookReference(title: title, author: author))
+                }
+            }
+        }
+    }
+
     // Pattern 2: *Book Title* by Author Name (italicized)
     let italicPattern = #"\*([^*]+)\*\s+by\s+([A-Z][a-zA-Z\s\.]+?)(?:\s*[-–—]|\s*$|\s*\.|,)"#
     if let regex = try? NSRegularExpression(pattern: italicPattern, options: []) {
@@ -173,7 +190,7 @@ func parseMarkdownBold(_ text: String) -> AttributedString {
         to: &result,
         pattern: #"\*\*([^*]+)\*\*"#,
         wrap: { "**\($0)**" },
-        font: .system(size: 17, weight: .bold)
+        font: .analysisBodyBold()
     )
 
     // 3. Process italic markdown (*text* and _text_).
@@ -186,13 +203,13 @@ func parseMarkdownBold(_ text: String) -> AttributedString {
         to: &result,
         pattern: #"(?<![\*\w])\*([^\*\n]+)\*(?![\*\w])"#,
         wrap: { "*\($0)*" },
-        font: .system(size: 17).italic()
+        font: .analysisBodyItalic()
     )
     applyInlineEmphasis(
         to: &result,
         pattern: #"(?<![_\w])_([^_\n]+)_(?![_\w])"#,
         wrap: { "_\($0)_" },
-        font: .system(size: 17).italic()
+        font: .analysisBodyItalic()
     )
 
     return result

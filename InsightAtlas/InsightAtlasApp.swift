@@ -31,6 +31,11 @@ struct InsightAtlasApp: App {
             ContentView()
                 .environmentObject(environment)
                 .environmentObject(environment.dataManager)
+                .task {
+                    #if DEBUG
+                    DebugGuideSnapshot.runIfRequested(environment: environment)
+                    #endif
+                }
         }
     }
     
@@ -67,3 +72,45 @@ struct InsightAtlasApp: App {
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
     }
 }
+
+#if DEBUG
+/// `-ia-render-guide` launch argument: render the first library guide through
+/// the real reader renderer into Documents/debug-guide.png. Lets the reader be
+/// reviewed headlessly in a simulator that has no Simulator.app window.
+@MainActor
+enum DebugGuideSnapshot {
+    static func runIfRequested(environment: AppEnvironment) {
+        guard ProcessInfo.processInfo.arguments.contains("-ia-render-guide"),
+              let item = environment.dataManager.libraryItems.first,
+              let content = item.summaryContent else { return }
+
+        let view = EditorialContentRenderer(
+            content: content,
+            searchQuery: "",
+            title: item.title,
+            author: item.author
+        )
+        .padding(.horizontal, 20)
+        .frame(width: 430, alignment: .leading)
+        .background(AnalysisTheme.paper)
+        .environment(\.colorScheme, .light)
+        .environmentObject(environment)
+        .environmentObject(environment.dataManager)
+
+        let renderer = ImageRenderer(content: view)
+        renderer.proposedSize = ProposedViewSize(width: 430, height: 16_000)
+        renderer.scale = 2
+        guard let image = renderer.uiImage,
+              let data = image.pngData(),
+              let documents = FileManager.default.urls(
+                for: .documentDirectory, in: .userDomainMask
+              ).first else {
+            print("[DebugGuideSnapshot] render failed")
+            return
+        }
+        let url = documents.appendingPathComponent("debug-guide.png")
+        try? data.write(to: url)
+        print("[DebugGuideSnapshot] wrote \(Int(image.size.width))x\(Int(image.size.height)) to \(url.path)")
+    }
+}
+#endif

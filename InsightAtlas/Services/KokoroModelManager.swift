@@ -18,17 +18,18 @@ struct KokoroModelManifest: Equatable, Sendable {
     let sha256: String
     let minimumAvailableCapacity: Int64
 
+    /// Kyutai Pocket TTS (int8 ONNX export packaged by sherpa-onnx) plus the
+    /// reference voice clips, hosted on our own R2 bucket. The upstream GitHub
+    /// release asset was re-uploaded in place on 2026-09-08, which silently
+    /// broke the size/checksum gate; a bucket we control cannot change under us.
+    /// Size and hash measured on the uploaded archive (2026-10-12):
+    ///   curl -sL <downloadURL> -o a.tar.bz2 && shasum -a 256 a.tar.bz2
     static let production = KokoroModelManifest(
-        version: "kokoro-int8-multi-lang-v1_0",
-        archiveRootName: "kokoro-int8-multi-lang-v1_0",
-        downloadURL: URL(
-            string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
-        )!,
-        // Measured from the live GitHub release asset on 2026-10-09
-        // (curl + shasum). The previous values never matched the published
-        // archive, so verification failed on every install attempt.
-        archiveByteCount: 132_303_094,
-        sha256: "4c3052abaa60943a341f193888cf6abd68787dae6ab8ae5c925a706caa247e4e",
+        version: "pocket-tts-int8-2026-01-26-ia1",
+        archiveRootName: "pocket-tts-int8-2026-01-26-ia1",
+        downloadURL: URL(string: "https://models.procterai.cc/pocket-tts/pocket-tts-int8-2026-01-26-ia1.tar.bz2")!,
+        archiveByteCount: 98_882_041,
+        sha256: "9070eac57cd5fb7d09af334ceb9b810f078e0a89c4f9b27143c6e6aea4e1810e",
         minimumAvailableCapacity: 450 * 1_024 * 1_024
     )
 }
@@ -42,7 +43,7 @@ enum KokoroModelStore {
 
         return applicationSupport
             .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent("Kokoro", isDirectory: true)
+            .appendingPathComponent("Pocket", isDirectory: true)
     }
 
     static func modelDirectory(
@@ -62,14 +63,15 @@ enum KokoroModelStore {
 
 enum KokoroModelInstallationValidator {
     static let requiredRelativePaths = [
-        "model.int8.onnx",
-        "voices.bin",
-        "tokens.txt",
-        "lexicon-us-en.txt",
-        "lexicon-gb-en.txt",
-        "LICENSE",
-        "espeak-ng-data/phondata"
-    ]
+        "lm_main.int8.onnx",
+        "lm_flow.int8.onnx",
+        "encoder.onnx",
+        "decoder.int8.onnx",
+        "text_conditioner.onnx",
+        "vocab.json",
+        "token_scores.json",
+        "LICENSE"
+    ] + KokoroVoiceRegistry.allVoices.map(\.referenceAudioRelativePath)
 
     static func isInstalled(
         at directory: URL,
@@ -97,12 +99,15 @@ enum KokoroModelInstallationValidator {
 
 enum KokoroArchivePathPolicy {
     private static let exactAllowedPaths: Set<String> = [
-        "model.int8.onnx",
-        "voices.bin",
-        "tokens.txt",
-        "lexicon-us-en.txt",
-        "lexicon-gb-en.txt",
-        "LICENSE"
+        "lm_main.int8.onnx",
+        "lm_flow.int8.onnx",
+        "encoder.onnx",
+        "decoder.int8.onnx",
+        "text_conditioner.onnx",
+        "vocab.json",
+        "token_scores.json",
+        "LICENSE",
+        "NOTICE.md"
     ]
 
     static func destinationRelativePath(
@@ -130,7 +135,10 @@ enum KokoroArchivePathPolicy {
             return relativePath
         }
 
-        if relativeComponents.first == "espeak-ng-data", relativeComponents.count > 1 {
+        // Reference voice clips: flat `voices/<name>.wav`, nothing deeper.
+        if relativeComponents.count == 2,
+           relativeComponents[0] == "voices",
+           relativeComponents[1].hasSuffix(".wav") {
             return relativePath
         }
 
@@ -170,17 +178,17 @@ enum KokoroModelError: LocalizedError {
         case .insufficientStorage(let required, let available):
             let formatter = ByteCountFormatter()
             formatter.countStyle = .file
-            return "Kokoro needs at least \(formatter.string(fromByteCount: required)) free. This device currently reports \(formatter.string(fromByteCount: available))."
+            return "Pocket needs at least \(formatter.string(fromByteCount: required)) free. This device currently reports \(formatter.string(fromByteCount: available))."
         case .invalidResponse:
-            return "The Kokoro model download did not return a valid response."
+            return "The Pocket model download did not return a valid response."
         case .unexpectedArchiveSize:
-            return "The Kokoro model download was incomplete. Please try again."
+            return "The Pocket model download was incomplete. Please try again."
         case .checksumMismatch:
-            return "The downloaded Kokoro model failed its integrity check and was discarded."
+            return "The downloaded Pocket model failed its integrity check and was discarded."
         case .extractionFailed:
-            return "The Kokoro model archive could not be safely extracted."
+            return "The Pocket model archive could not be safely extracted."
         case .incompleteInstallation:
-            return "The Kokoro model is missing one or more required files."
+            return "The Pocket model is missing one or more required files."
         }
     }
 }
@@ -349,6 +357,7 @@ private enum KokoroModelInstaller {
         ) else {
             throw KokoroModelError.incompleteInstallation
         }
+        removeSupersededVersions(in: root, keeping: manifest.version, fileManager: fileManager)
 
         let finalModel = KokoroModelStore.modelDirectory(
             manifest: manifest,
@@ -480,6 +489,23 @@ private enum KokoroModelInstaller {
         let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
         guard digest == manifest.sha256 else {
             throw KokoroModelError.checksumMismatch
+        }
+    }
+
+    /// Earlier engines (the Pocket installs) live beside the current version
+    /// under the same root; once a new version is verified they are dead weight.
+    private static func removeSupersededVersions(
+        in root: URL,
+        keeping version: String,
+        fileManager: FileManager
+    ) {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey]
+        ) else { return }
+        for entry in entries {
+            let name = entry.lastPathComponent
+            guard name != version, !name.hasPrefix(".") else { continue }
+            try? fileManager.removeItem(at: entry)
         }
     }
 

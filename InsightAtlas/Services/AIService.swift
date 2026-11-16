@@ -254,7 +254,7 @@ actor AIService {
                 apiKey: settings.openRouterApiKey ?? "",
                 endpoint: openRouterEndpoint,
                 model: OpenRouterConfig.resolvedModel,
-                maxTokens: 16000,
+                maxTokens: 24000,
                 providerLabel: "OpenRouter",
                 previousContent: previousContent,
                 improvementHints: improvementHints,
@@ -324,7 +324,7 @@ actor AIService {
                     apiKey: openRouterKey,
                     endpoint: openRouterEndpoint,
                     model: OpenRouterConfig.resolvedModel,
-                    maxTokens: 16000,
+                    maxTokens: 24000,
                     providerLabel: "OpenRouter",
                     previousContent: previousContent,
                     improvementHints: improvementHints,
@@ -470,7 +470,132 @@ actor AIService {
     - INFOGRAPHIC / GAUGE: speak the headline statistics and highlights.
     Use the visual's title and surrounding text to keep the description in context. If a visual restates nearby prose, integrate it so you don't repeat yourself.
 
+    WHAT TO SKIP AND WHAT TO KEEP (the guide's fixed skeleton)
+    - Skip entirely: "How to Use This Guide", "Who This Is For", the Glossary, the Chapter Map table, Further Reading, and any contents-like list of section titles. A listener gains nothing from hearing a glossary or a bibliography read out.
+    - Open with the Quick Glance thesis, then use the Executive Summary as the spine of the narration before compressing the numbered sections in order.
+    - Fold at most two of the Key Quotations into the narration where they land naturally, introduced as the author's own words.
+    - Always narrate the Key Takeaways near the end, as spoken advice ("First, …"), and finish on the final takeaway.
+    - Section numerals are never read aloud ("The Boundary Problem", not "Section three, The Boundary Problem").
+
     Begin directly with the narration of the guide's content.
+    """
+
+    // MARK: - Provenance Verification (elevation spec C3)
+
+    /// What the verification pass returns: exact-substring corrections for
+    /// errors the model is confident about (a misnamed author, a journal cited
+    /// as a book, a wrong year) and a list of claims it could not verify, each
+    /// with an action and an optional replacement that attributes or softens.
+    struct ProvenanceReport: Decodable {
+        struct Correction: Decodable {
+            let find: String
+            let replace: String
+            let reason: String?
+        }
+        struct Unverified: Decodable {
+            let text: String
+            let action: String          // "attribute" | "remove" | "keep"
+            let replacement: String?
+            let reason: String?
+        }
+        var corrections: [Correction] = []
+        var unverified: [Unverified] = []
+        var consistency: [Correction] = []
+
+        enum CodingKeys: String, CodingKey { case corrections, unverified, consistency }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            corrections = try c.decodeIfPresent([Correction].self, forKey: .corrections) ?? []
+            unverified = try c.decodeIfPresent([Unverified].self, forKey: .unverified) ?? []
+            consistency = try c.decodeIfPresent([Correction].self, forKey: .consistency) ?? []
+        }
+        init() {}
+    }
+
+    /// Run the verification agent over a finished guide. Lists every proper
+    /// noun, date, number, title and quotation; marks each VERIFIED /
+    /// ATTRIBUTED-TO-BOOK / UNVERIFIED; returns corrections and the
+    /// unverifiable items as JSON. Never throws for a malformed answer — an
+    /// empty report is returned so the guide still ships.
+    func verifyProvenance(
+        guide: String,
+        title: String,
+        author: String,
+        chapterTitles: [String],
+        settings: UserSettings
+    ) async throws -> ProvenanceReport {
+        let chapters = chapterTitles.isEmpty ? "(chapter titles unavailable)"
+            : chapterTitles.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
+        let user = """
+        Book: "\(title)" by \(author).
+        Chapters of the book:
+        \(chapters)
+
+        ---GUIDE START---
+        \(guide)
+        ---GUIDE END---
+        """
+        let raw = try await oneShotCompletion(
+            system: Self.provenanceSystemPrompt, user: user, settings: settings, maxTokens: 6_000
+        )
+        return Self.parseProvenanceReport(raw)
+    }
+
+    static func parseProvenanceReport(_ raw: String) -> ProvenanceReport {
+        guard let start = raw.firstIndex(of: "{"), let end = raw.lastIndex(of: "}"), start < end else { return ProvenanceReport() }
+        let json = String(raw[start...end])
+        guard let data = json.data(using: .utf8),
+              let report = try? JSONDecoder().decode(ProvenanceReport.self, from: data) else {
+            Self.logger.warning("Provenance report was not valid JSON; ignoring")
+            return ProvenanceReport()
+        }
+        return report
+    }
+
+    /// Apply a report to the guide: exact-substring replacements only, never
+    /// touching tags, capped so a runaway report cannot rewrite the guide.
+    /// Returns the revised guide and counts of applied and skipped edits.
+    static func applyProvenanceReport(_ report: ProvenanceReport, to guide: String) -> (guide: String, applied: Int, skipped: Int) {
+        var text = guide
+        var applied = 0
+        var skipped = 0
+        func tagCount(_ s: String) -> Int { s.filter { $0 == "[" }.count }
+        func apply(find: String, replace: String) {
+            let f = find.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard applied < 60, f.count >= 3, f.count <= 400, text.contains(f),
+                  tagCount(f) == tagCount(replace), f != replace else { skipped += 1; return }
+            text = text.replacingOccurrences(of: f, with: replace)
+            applied += 1
+        }
+        for c in report.corrections + report.consistency { apply(find: c.find, replace: c.replace) }
+        for u in report.unverified {
+            switch u.action.lowercased() {
+            case "attribute", "remove":
+                if let r = u.replacement, !r.isEmpty { apply(find: u.text, replace: r) } else { skipped += 1 }
+            default:
+                skipped += 1
+            }
+        }
+        return (text, applied, skipped)
+    }
+
+    static let provenanceSystemPrompt: String = """
+    You are the verification agent for Insight Atlas, a study-guide generator. You receive a finished guide to a book plus the book's chapter list. Your brief: list every proper noun, date, number, title and quotation in the guide; mark each VERIFIED (you are confident it is correct), ATTRIBUTED-TO-BOOK (the guide clearly attributes it to the book itself), or UNVERIFIED (you cannot confirm it, or it is wrong). Then return corrections.
+
+    Return ONLY a JSON object, no prose, in exactly this shape:
+    {
+      "corrections": [{"find": "<exact substring from the guide>", "replace": "<exact replacement>", "reason": "<why>"}],
+      "consistency": [{"find": "<exact substring>", "replace": "<canonical form>", "reason": "<the inconsistency>"}],
+      "unverified": [{"text": "<exact substring>", "action": "attribute|remove|keep", "replacement": "<replacement text or null>", "reason": "<why>"}]
+    }
+
+    RULES
+    - "corrections" is for errors you are confident about: a misnamed author (e.g. the 2012 Nature feature "The split brain: A tale of two halves" is by David Wolman, not Daniel), a journal cited as if it were a book, a wrong title, a wrong year, a quotation attributed to the wrong person. Replace with the correct form and keep the surrounding words identical.
+    - "consistency" is for the same entity, date or number appearing in more than one form (a surgery dated 1996 in one place and 1998 in another). Pick one canonical form and give the exact substrings to change.
+    - "unverified" is for every number (counts, percentages, frequencies, sample sizes) and every factual claim about the world that has no named source and is not attributed to the book. For each: action "attribute" with a replacement that attributes it to the book ("House reports approximately…") ONLY if the guide's context makes clear the book is the source; otherwise action "remove" with a replacement sentence that keeps the point but drops the unsupported number or detail; "keep" only if the item is common knowledge.
+    - Every "find"/"text" must be copied EXACTLY from the guide (same characters, same markdown asterisks, no tags). Keep each under 300 characters. Never include a bracketed tag like [INSIGHT_NOTE] in a find or a replacement.
+    - Never invent a source, a year or a number to replace an unverified one. When unsure, prefer "remove" with a softened sentence over a confident substitute.
+    - At most 40 items in total. Nothing else in your answer.
     """
 
     // MARK: - Closing Section (conclusion pass)

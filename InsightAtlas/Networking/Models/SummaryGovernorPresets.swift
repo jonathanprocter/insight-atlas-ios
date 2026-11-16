@@ -62,23 +62,25 @@ extension SummaryTypeGovernor {
 
     /// Professional governor for comprehensive business summaries.
     ///
-    /// Target: 3,000-4,000 words, ~18 minutes audio
+    /// Target: 9,500-12,000 words (Shortform-class depth: every thematic
+    /// section ≥ 900 words with the six-part skeleton, plus front and back
+    /// matter). Narration is bounded separately by NarrationListeningEdition.
     /// Use case: Knowledge workers needing thorough understanding
     static let professional = SummaryTypeGovernor(
         summaryType: .professional,
-        baseWordCount: 3_000,
+        baseWordCount: 9_500,
         sourceScalingFactor: 0.02,
         minSourceLengthForScaling: 20_000,
         maxScaledAddition: 1_500,
-        maxWordCeiling: 4_000,
-        maxAudioMinutes: 18,
+        maxWordCeiling: 12_000,
+        maxAudioMinutes: 60,
         maxSynthesisPerSection: 2,
         sectionBudget: SectionBudget(
             introPercent: 0.10,
             chapterPoolPercent: 0.80,
             conclusionPercent: 0.10,
-            minPerChapter: 250,
-            maxPerChapter: 600,
+            minPerChapter: 600,
+            maxPerChapter: 1_600,
             fallbackStrategy: .inferSections
         ),
         cutPolicy: CutPolicy(
@@ -93,7 +95,7 @@ extension SummaryTypeGovernor {
             replacementStrategy: .synthesize
         ),
         visualBudget: VisualBudget(
-            maxVisuals: 3,
+            maxVisuals: 8,
             wordsPerVisualEquivalent: 200
         ),
         strictEnforcement: true
@@ -103,23 +105,24 @@ extension SummaryTypeGovernor {
 
     /// Accessible governor for reader-friendly, educational summaries.
     ///
-    /// Target: 4,500-6,000 words, ~25 minutes audio
+    /// Target: 9,000-11,500 words (same depth contract as Professional,
+    /// warmer register). Narration is bounded separately.
     /// Use case: General readers seeking accessible, engaging content
     static let accessible = SummaryTypeGovernor(
         summaryType: .accessible,
-        baseWordCount: 4_500,
+        baseWordCount: 9_000,
         sourceScalingFactor: 0.025,
         minSourceLengthForScaling: 20_000,
         maxScaledAddition: 2_000,
-        maxWordCeiling: 6_000,
-        maxAudioMinutes: 25,
+        maxWordCeiling: 11_500,
+        maxAudioMinutes: 60,
         maxSynthesisPerSection: 3,
         sectionBudget: SectionBudget(
             introPercent: 0.12,
             chapterPoolPercent: 0.76,
             conclusionPercent: 0.12,
-            minPerChapter: 300,
-            maxPerChapter: 800,
+            minPerChapter: 600,
+            maxPerChapter: 1_500,
             fallbackStrategy: .inferSections
         ),
         cutPolicy: CutPolicy(
@@ -133,7 +136,7 @@ extension SummaryTypeGovernor {
             replacementStrategy: .synthesize
         ),
         visualBudget: VisualBudget(
-            maxVisuals: 4,
+            maxVisuals: 8,
             wordsPerVisualEquivalent: 200
         ),
         strictEnforcement: true
@@ -143,23 +146,23 @@ extension SummaryTypeGovernor {
 
     /// Deep Research governor for comprehensive academic/research summaries.
     ///
-    /// Target: 7,000-12,000 words, ~50 minutes audio
+    /// Target: 11,000-15,000 words. Narration is bounded separately.
     /// Use case: Researchers and scholars needing exhaustive analysis
     static let deepResearch = SummaryTypeGovernor(
         summaryType: .deepResearch,
-        baseWordCount: 7_000,
+        baseWordCount: 11_000,
         sourceScalingFactor: 0.03,
         minSourceLengthForScaling: 25_000,
-        maxScaledAddition: 5_000,
-        maxWordCeiling: 12_000,
-        maxAudioMinutes: 50,
+        maxScaledAddition: 4_000,
+        maxWordCeiling: 15_000,
+        maxAudioMinutes: 80,
         maxSynthesisPerSection: 4,
         sectionBudget: SectionBudget(
             introPercent: 0.08,
             chapterPoolPercent: 0.84,
             conclusionPercent: 0.08,
-            minPerChapter: 400,
-            maxPerChapter: 1_200,
+            minPerChapter: 700,
+            maxPerChapter: 2_000,
             fallbackStrategy: .inferSections
         ),
         cutPolicy: CutPolicy(
@@ -172,7 +175,7 @@ extension SummaryTypeGovernor {
             replacementStrategy: .synthesize
         ),
         visualBudget: VisualBudget(
-            maxVisuals: 6,
+            maxVisuals: 10,
             wordsPerVisualEquivalent: 200
         ),
         strictEnforcement: true

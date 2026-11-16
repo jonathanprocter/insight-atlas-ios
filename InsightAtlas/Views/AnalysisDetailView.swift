@@ -1859,6 +1859,17 @@ struct ParsedAnalysisContent {
                 continue
             }
 
+            // A section title the model forgot to mark up.
+            if let implicit = ContentBlockParser.implicitHeading(
+                line: line,
+                previousLine: i > 0 ? lines[i - 1] : nil,
+                nextLine: ContentBlockParser.nextNonEmptyLine(in: lines, after: i)
+            ) {
+                currentBlocks.append(AnalysisContentBlock(type: .premiumH2, content: implicit))
+                i += 1
+                continue
+            }
+
             // Regular paragraph
             if !line.isEmpty && !line.hasPrefix("-") && !line.hasPrefix("*") && !line.hasPrefix("|") {
                 currentBlocks.append(AnalysisContentBlock(

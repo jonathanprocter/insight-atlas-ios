@@ -233,6 +233,74 @@ final class KokoroNarrationTests: XCTestCase {
         )
     }
 
+    /// `AVSpeechSynthesizer.write` emits a zero-length buffer after every
+    /// sentence. The renderer used to treat the first one as the end of the
+    /// utterance, so every system-voice narration was cut to its opening
+    /// sentence. Runs on real speech synthesis only (device, or the
+    /// "Designed for iPad" Mac destination); the simulator renders nothing.
+    func testAppleSpeechRendersEverySentenceNotJustTheFirst() async throws {
+#if targetEnvironment(simulator)
+        throw XCTSkip("AVSpeechSynthesizer does not deliver offline render buffers in the iOS simulator")
+#else
+        guard let voice = AppleVoiceCatalog.defaultVoice() else {
+            throw XCTSkip("No system voice installed")
+        }
+        let sentence = "Self-compassion means treating yourself with the same kindness you would offer a good friend."
+        let single = try await AppleSpeechAudioService.shared.generateAudio(text: sentence, voiceID: voice.identifier)
+        XCTAssertGreaterThan(single.duration, 1)
+
+        let paragraph = Array(repeating: sentence, count: 8).joined(separator: " ")
+        let whole = try await AppleSpeechAudioService.shared.generateAudio(text: paragraph, voiceID: voice.identifier)
+
+        // Eight sentences must take materially longer than one; allow generous
+        // slack for prosody differences but reject anything near a single sentence.
+        XCTAssertGreaterThan(
+            whole.duration,
+            single.duration * 5,
+            "narration stopped at the first sentence boundary (\(whole.duration)s vs \(single.duration)s for one sentence)"
+        )
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("apple-narration-multi-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try whole.data.write(to: url)
+        let validated = try await NarrationAudioValidation.validatedDuration(
+            at: url,
+            declaredDuration: whole.duration
+        )
+        XCTAssertEqual(validated, whole.duration, accuracy: 0.5)
+#endif
+    }
+
+    /// Multi-chunk renders share one synthesizer and one output file; every
+    /// chunk's sentences must land, in order, in the single asset.
+    func testAppleSpeechMultiChunkRenderKeepsEveryChunk() async throws {
+#if targetEnvironment(simulator)
+        throw XCTSkip("AVSpeechSynthesizer does not deliver offline render buffers in the iOS simulator")
+#else
+        guard let voice = AppleVoiceCatalog.defaultVoice() else {
+            throw XCTSkip("No system voice installed")
+        }
+        let sentence = "Each chunk of the narration must be rendered in full before the next one begins. "
+        // Three paragraphs, each over half the default chunk limit, so the
+        // production chunker (not a test-only limit) yields exactly three.
+        let paragraph = String(repeating: sentence, count: 16)
+        let text = Array(repeating: paragraph, count: 3).joined(separator: "\n\n")
+        XCTAssertEqual(AppleSpeechAudioService.chunk(text).count, 3)
+
+        let one = try await AppleSpeechAudioService.shared.generateAudio(text: paragraph, voiceID: voice.identifier)
+        var reported: [(Int, Int)] = []
+        let lock = NSLock()
+        let all = try await AppleSpeechAudioService.shared.generateAudio(
+            text: text,
+            voiceID: voice.identifier,
+            onProgress: { done, total in lock.withLock { reported.append((done, total)) } }
+        )
+        XCTAssertGreaterThan(all.duration, one.duration * 2.5)
+        XCTAssertEqual(lock.withLock { reported.map(\.0) }, [1, 2, 3])
+#endif
+    }
+
     func testMiniMaxM3IsAWrittenGuideProviderNotAnAudioSynthesizer() {
         XCTAssertFalse(AIProvider.minimax.supportsDirectAudioGeneration)
     }

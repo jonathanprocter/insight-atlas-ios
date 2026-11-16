@@ -37,8 +37,9 @@ final class PDFDiagramRenderer {
 
         var totalContentHeight: CGFloat = 0
 
+        let nodeInnerWidth = maxWidth - padding * 2 - 40 - boxPadding * 2
         for step in steps {
-            let textHeight = calculateTextHeight(step, font: PDFStyleConfiguration.Typography.body(), maxWidth: maxWidth - padding * 2 - boxPadding * 2)
+            let textHeight = calculateTextHeight(step, font: PDFStyleConfiguration.Typography.body(), maxWidth: nodeInnerWidth)
             let actualStepHeight = max(stepHeight, textHeight + boxPadding * 2)
             totalContentHeight += actualStepHeight
         }
@@ -73,8 +74,12 @@ final class PDFDiagramRenderer {
         var totalContentHeight: CGFloat = 0
         var stepHeights: [CGFloat] = []
 
+        // Node boxes are inset 20pt each side (stepWidth below) and the text a
+        // further 8pt; measuring at the box's real inner width is what keeps
+        // the last words of a long node from being cut off (elevation spec A5).
+        let nodeInnerWidth = maxWidth - padding * 2 - 40 - boxPadding * 2
         for step in steps {
-            let textHeight = calculateTextHeight(step, font: PDFStyleConfiguration.Typography.body(), maxWidth: maxWidth - padding * 2 - boxPadding * 2)
+            let textHeight = calculateTextHeight(step, font: PDFStyleConfiguration.Typography.body(), maxWidth: nodeInnerWidth)
             let actualStepHeight = max(stepHeight, textHeight + boxPadding * 2)
             stepHeights.append(actualStepHeight)
             totalContentHeight += actualStepHeight
@@ -203,7 +208,7 @@ final class PDFDiagramRenderer {
         ]
         let attributedText = NSAttributedString(string: text, attributes: textAttributes)
         let textRect = rect.insetBy(dx: 8, dy: 8)
-        attributedText.draw(in: textRect)
+        attributedText.draw(with: textRect, options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
     }
 
     private func drawFlowchartArrow(context: CGContext, from point: CGPoint, length: CGFloat) {
@@ -1355,11 +1360,23 @@ final class PDFDiagramRenderer {
 
     // MARK: - Spectrum / Slider (two-pole construct — Directives §A4)
 
-    func calculateSpectrumHeight(maxWidth: CGFloat) -> CGFloat {
+    func calculateSpectrumHeight(maxWidth: CGFloat, nodes: [(label: String, position: Double)] = []) -> CGFloat {
         let headerHeight: CGFloat = 28
         let padding: CGFloat = 16
         let bodyHeight: CGFloat = 96
-        return headerHeight + padding * 2 + bodyHeight + PDFStyleConfiguration.Spacing.blockSpacing
+        return headerHeight + padding * 2 + bodyHeight + spectrumLegendHeight(nodes: nodes, maxWidth: maxWidth) + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    /// Height of the numbered node legend drawn under the axis (0 without nodes).
+    private func spectrumLegendHeight(nodes: [(label: String, position: Double)], maxWidth: CGFloat) -> CGFloat {
+        guard !nodes.isEmpty else { return 0 }
+        let padding: CGFloat = 16
+        let legendWidth = maxWidth - padding * 2 - 22
+        var total: CGFloat = 8
+        for node in nodes {
+            total += calculateTextHeight(node.label, font: PDFStyleConfiguration.Typography.bodySmall(), maxWidth: legendWidth) + 4
+        }
+        return total
     }
 
     /// Render a two-pole spectrum with the healthy target zone marked in the
@@ -1370,6 +1387,7 @@ final class PDFDiagramRenderer {
         leftPole: String,
         rightPole: String,
         zoneLabel: String,
+        nodes: [(label: String, position: Double)] = [],
         to context: CGContext,
         at point: CGPoint,
         maxWidth: CGFloat
@@ -1378,7 +1396,8 @@ final class PDFDiagramRenderer {
         let padding: CGFloat = 16
         let bodyHeight: CGFloat = 96
         let borderRadius = PDFStyleConfiguration.Radius.md
-        let totalHeight = headerHeight + padding * 2 + bodyHeight
+        let legendHeight = spectrumLegendHeight(nodes: nodes, maxWidth: maxWidth)
+        let totalHeight = headerHeight + padding * 2 + bodyHeight + legendHeight
 
         // Container
         let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
@@ -1429,23 +1448,44 @@ final class PDFDiagramRenderer {
         context.setLineWidth(1.0)
         context.strokePath()
 
-        // Healthy zone: outlined pill spanning the central 32%–68%.
-        let zoneRect = CGRect(x: innerX + innerW * 0.32, y: trackY - 6, width: innerW * 0.36, height: trackH + 12)
-        let zonePath = UIBezierPath(roundedRect: zoneRect, cornerRadius: (trackH + 12) / 2)
-        context.addPath(zonePath.cgPath)
-        context.setStrokeColor(PDFStyleConfiguration.Colors.accentTeal.cgColor)
-        context.setLineWidth(1.5)
-        context.strokePath()
+        if nodes.isEmpty {
+            // Two-pole construct with a target zone (the promoted "A ↔ B" form):
+            // outlined pill spanning the central 32%–68%.
+            let zoneRect = CGRect(x: innerX + innerW * 0.32, y: trackY - 6, width: innerW * 0.36, height: trackH + 12)
+            let zonePath = UIBezierPath(roundedRect: zoneRect, cornerRadius: (trackH + 12) / 2)
+            context.addPath(zonePath.cgPath)
+            context.setStrokeColor(PDFStyleConfiguration.Colors.accentTeal.cgColor)
+            context.setLineWidth(1.5)
+            context.strokePath()
 
-        // Zone label above the pill.
-        let zoneAttributes: [NSAttributedString.Key: Any] = [
-            .font: PDFStyleConfiguration.Typography.captionBold(),
-            .ligature: 0,
-            .foregroundColor: PDFStyleConfiguration.Colors.accentTeal,
-            .paragraphStyle: centeredParagraphStyle()
-        ]
-        NSAttributedString(string: zoneLabel.isEmpty ? "healthy range" : zoneLabel, attributes: zoneAttributes)
-            .draw(in: CGRect(x: zoneRect.minX - 20, y: zoneRect.minY - 20, width: zoneRect.width + 40, height: 16))
+            // Zone label above the pill.
+            let zoneAttributes: [NSAttributedString.Key: Any] = [
+                .font: PDFStyleConfiguration.Typography.captionBold(),
+                .ligature: 0,
+                .foregroundColor: PDFStyleConfiguration.Colors.accentTeal,
+                .paragraphStyle: centeredParagraphStyle()
+            ]
+            NSAttributedString(string: zoneLabel.isEmpty ? "healthy range" : zoneLabel, attributes: zoneAttributes)
+                .draw(in: CGRect(x: zoneRect.minX - 20, y: zoneRect.minY - 20, width: zoneRect.width + 40, height: 16))
+        } else {
+            // Ordered, positioned nodes: a numbered marker on the axis for each,
+            // with the legend below (numbers keep labels from colliding on the
+            // track whatever their length). Elevation spec A4.
+            let markerAttributes: [NSAttributedString.Key: Any] = [
+                .font: PDFStyleConfiguration.Typography.captionBold(),
+                .ligature: 0,
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: centeredParagraphStyle()
+            ]
+            for (index, node) in nodes.enumerated() {
+                let cx = innerX + 10 + (innerW - 20) * CGFloat(node.position)
+                let radius: CGFloat = 9
+                context.setFillColor(PDFStyleConfiguration.Colors.primaryGold.cgColor)
+                context.fillEllipse(in: CGRect(x: cx - radius, y: trackY + trackH / 2 - radius, width: radius * 2, height: radius * 2))
+                NSAttributedString(string: "\(index + 1)", attributes: markerAttributes)
+                    .draw(in: CGRect(x: cx - radius, y: trackY + trackH / 2 - 7, width: radius * 2, height: 14))
+            }
+        }
 
         // Pole labels.
         let leftAttributes: [NSAttributedString.Key: Any] = [
@@ -1462,6 +1502,33 @@ final class PDFDiagramRenderer {
             .draw(with: CGRect(x: innerX, y: poleY, width: innerW * 0.4, height: 34), options: [.usesLineFragmentOrigin], context: nil)
         NSAttributedString(string: rightPole, attributes: rightAttributes)
             .draw(with: CGRect(x: innerX + innerW * 0.6, y: poleY, width: innerW * 0.4, height: 34), options: [.usesLineFragmentOrigin], context: nil)
+
+        // Legend: "1  label" rows, in order, word-wrapped to the card.
+        if !nodes.isEmpty {
+            var legendY = point.y + headerHeight + padding + bodyHeight + 8
+            let legendWidth = innerW - 22
+            let numberAttributes: [NSAttributedString.Key: Any] = [
+                .font: PDFStyleConfiguration.Typography.captionBold(),
+                .ligature: 0,
+                .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
+            ]
+            let labelStyle = NSMutableParagraphStyle()
+            labelStyle.lineBreakMode = .byWordWrapping
+            let labelAttributes: [NSAttributedString.Key: Any] = [
+                .font: PDFStyleConfiguration.Typography.bodySmall(),
+                .ligature: 0,
+                .foregroundColor: PDFStyleConfiguration.Colors.textBody,
+                .paragraphStyle: labelStyle
+            ]
+            for (index, node) in nodes.enumerated() {
+                let h = calculateTextHeight(node.label, font: PDFStyleConfiguration.Typography.bodySmall(), maxWidth: legendWidth)
+                NSAttributedString(string: "\(index + 1)", attributes: numberAttributes)
+                    .draw(in: CGRect(x: innerX, y: legendY + 1, width: 18, height: 14))
+                NSAttributedString(string: node.label, attributes: labelAttributes)
+                    .draw(with: CGRect(x: innerX + 22, y: legendY, width: legendWidth, height: h + 2), options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+                legendY += h + 4
+            }
+        }
 
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
     }
