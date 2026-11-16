@@ -2035,7 +2035,11 @@ extension PDFAnalysisDocument {
     /// Deterministic cache key for a visual's pre-rendered image. Content-sensitive
     /// so distinct visuals get distinct images and identical ones are reused.
     static func visualCacheURL(for visual: InsightVisual) -> URL {
-        let raw = visual.type.rawValue + "|" + (visual.title ?? "") + "|" + String(describing: visual.payload)
+        // Hash a stable fingerprint — never `String(describing:)` of the payload.
+        // Several payload models regenerate `UUID()` on every parse, so describing
+        // them made prerender writes and layout reads use different keys and the
+        // SwiftUI raster cache never hit (permanent table/basic fallback).
+        let raw = visual.type.rawValue + "|" + (visual.title ?? "") + "|" + visual.stablePayloadFingerprint
         var hash: UInt64 = 5381
         for byte in raw.utf8 { hash = (hash &* 33) ^ UInt64(byte) }   // djb2
         return URL(string: "insightvisual://\(String(hash, radix: 16))")!

@@ -9,15 +9,18 @@
 //  words, so the narration is exactly as informative as the page.
 //
 //  Design notes:
-//    - Safe no-op: if the user is not signed into MiniMax, or the rewrite fails,
-//      it returns the original guide content unchanged, preserving today's
-//      behavior. Audio generation can never be blocked by this stage.
-//    - Cached: the script is keyed by item id + a stable content hash and cached
-//      on disk, so regenerating audio with a different voice or replaying does
-//      not re-invoke the LLM.
+//    - When MiniMax/OpenRouter is configured and reachable, the rewrite runs on
+//      the first-listen critical path (see NarrationPreparationPolicy) with a
+//      hard deadline so a stalled network call cannot hang forever.
+//    - Offline, unreachable, timed-out, or too-short rewrites fall back to the
+//      deterministic listening edition immediately.
+//    - Only genuine rewrites are cached. Transient failures use a short TTL
+//      skip marker so retries do not re-pay the full deadline, without pinning
+//      a guide to the plain edition forever.
 //
 
 import Foundation
+import Network
 import os.log
 
 private let scriptLog = Logger(subsystem: "com.insightatlas", category: "NarrationScriptService")
@@ -48,8 +51,8 @@ actor NarrationScriptService {
 
     /// Return a spoken narration script for `guideContent`, generating it via
     /// MiniMax (and caching) when possible. On any failure — or when MiniMax
-    /// is unavailable — returns `guideContent` unchanged so the caller can fall
-    /// back to the existing sanitize-and-speak path.
+    /// is unavailable — returns the listening-edition fallback so the caller
+    /// can speak immediately.
     func spokenScript(
         for itemId: UUID,
         guideContent: String,
@@ -69,9 +72,10 @@ actor NarrationScriptService {
 
         let cacheURL = Self.cacheURL(for: itemId, content: trimmed, targetWords: targetWords)
 
-        // Reuse a previously generated script for identical content.
+        // Reuse a previously generated genuine rewrite for identical content.
+        // Reject empty files and accidental fallback caches (v2 hangover).
         if let cacheURL, let cached = try? String(contentsOf: cacheURL, encoding: .utf8),
-           !cached.isEmpty {
+           !cached.isEmpty, cached != safeFallback {
             return cached
         }
 
@@ -79,6 +83,26 @@ actor NarrationScriptService {
             scriptLog.info(
                 "Neither MiniMax nor OpenRouter configured — narrating raw guide content for \(itemId.uuidString)"
             )
+            return safeFallback
+        }
+
+        // A recent timeout/network failure should not re-impose the full
+        // rewrite deadline on every Listen tap. Skip markers expire so MiniMax
+        // can try again later without pinning the plain edition forever.
+        if Self.hasFreshSkipMarker(for: itemId, content: trimmed, targetWords: targetWords) {
+            scriptLog.info(
+                "Skipping narration rewrite — fresh failure marker for \(itemId.uuidString)"
+            )
+            return safeFallback
+        }
+
+        // Credentials present does not mean the network is. Waiting for
+        // connectivity under AIService's session burned up to 75s offline.
+        guard await Self.hasSatisfiedNetworkPath() else {
+            scriptLog.info(
+                "No network path — narrating listening edition for \(itemId.uuidString)"
+            )
+            Self.writeSkipMarker(for: itemId, content: trimmed, targetWords: targetWords)
             return safeFallback
         }
 
@@ -96,7 +120,7 @@ actor NarrationScriptService {
                 let start = Date()
                 // Rewrite the already-bounded listening edition, not the full
                 // guide. Sending the whole manuscript inflated tokens, latency,
-                // and the number of serial Kokoro chunks that followed.
+                // and the number of serial Pocket chunks that followed.
                 let script = try await Self.withRewriteDeadline {
                     try await aiService.generateNarrationScript(
                         from: safeFallback,
@@ -148,12 +172,12 @@ actor NarrationScriptService {
         defer { inFlight[key] = nil }
         let result = await task.value
 
-        // Cache only a genuine rewrite. Caching the fallback would pin a guide
-        // to the plain listening edition forever after one timeout or one
-        // too-short reply, which is the same "stuck on a bad script" failure
-        // the minimum-word guard exists to prevent.
-        if let cacheURL, result != safeFallback {
+        if result == safeFallback {
+            Self.writeSkipMarker(for: itemId, content: trimmed, targetWords: targetWords)
+        } else if let cacheURL {
+            // Cache only a genuine rewrite.
             try? result.write(to: cacheURL, atomically: true, encoding: .utf8)
+            Self.clearSkipMarker(for: itemId, content: trimmed, targetWords: targetWords)
         }
         return result
     }
@@ -169,6 +193,10 @@ actor NarrationScriptService {
     /// the 300s budget meant a stalled rewrite blocked playback for five
     /// minutes with no visible progress before falling back.
     static let rewriteDeadline: Duration = .seconds(75)
+
+    /// How long a failed rewrite should short-circuit before MiniMax is tried
+    /// again for the same guide content.
+    static let skipMarkerTTL: TimeInterval = 30 * 60
 
     /// Run `work`, giving up after `rewriteDeadline` so a stalled rewrite
     /// cannot hold up synthesis.
@@ -196,20 +224,84 @@ actor NarrationScriptService {
         max(120, Int(Double(target) * 0.55))
     }
 
+    // MARK: - Connectivity
+
+    /// One-shot path check so offline devices with stored MiniMax tokens do
+    /// not sit on `waitsForConnectivity` until the rewrite deadline.
+    static func hasSatisfiedNetworkPath() async -> Bool {
+        await withCheckedContinuation { continuation in
+            let monitor = NWPathMonitor()
+            let queue = DispatchQueue(label: "com.insightatlas.narration-path")
+            let lock = NSLock()
+            var resumed = false
+            func finish(_ value: Bool) {
+                lock.lock()
+                defer { lock.unlock() }
+                guard !resumed else { return }
+                resumed = true
+                monitor.cancel()
+                continuation.resume(returning: value)
+            }
+            monitor.pathUpdateHandler = { path in
+                finish(path.status == .satisfied)
+            }
+            monitor.start(queue: queue)
+            queue.asyncAfter(deadline: .now() + 0.4) {
+                finish(false)
+            }
+        }
+    }
+
     // MARK: - Cache
 
-    /// Bumped when a cached script could be invalid. v2: scripts cached before
-    /// the length check could be truncated, and would otherwise replay forever.
-    private static let cacheVersion = "v2"
+    /// Bumped when a cached script could be invalid.
+    /// v3: ignores v2 files that may contain listening-edition fallbacks from
+    /// the brief "always cache" window, and introduces TTL skip markers.
+    private static let cacheVersion = "v3"
 
     private static func cacheURL(for itemId: UUID, content: String, targetWords: Int) -> URL? {
+        guard let dir = scriptCacheDirectory() else { return nil }
+        let hash = Self.stableHash(content)
+        return dir.appendingPathComponent("\(itemId.uuidString)-\(hash)-\(targetWords)-\(cacheVersion).txt")
+    }
+
+    private static func skipMarkerURL(for itemId: UUID, content: String, targetWords: Int) -> URL? {
+        guard let dir = scriptCacheDirectory() else { return nil }
+        let hash = Self.stableHash(content)
+        return dir.appendingPathComponent("\(itemId.uuidString)-\(hash)-\(targetWords)-\(cacheVersion).skip")
+    }
+
+    private static func scriptCacheDirectory() -> URL? {
         guard let caches = FileManager.default.urls(
             for: .cachesDirectory, in: .userDomainMask
         ).first else { return nil }
         let dir = caches.appendingPathComponent("narration-scripts", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let hash = Self.stableHash(content)
-        return dir.appendingPathComponent("\(itemId.uuidString)-\(hash)-\(targetWords)-\(cacheVersion).txt")
+        return dir
+    }
+
+    private static func writeSkipMarker(for itemId: UUID, content: String, targetWords: Int) {
+        guard let url = skipMarkerURL(for: itemId, content: content, targetWords: targetWords) else { return }
+        let stamp = String(Date().timeIntervalSince1970)
+        try? stamp.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func clearSkipMarker(for itemId: UUID, content: String, targetWords: Int) {
+        guard let url = skipMarkerURL(for: itemId, content: content, targetWords: targetWords) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private static func hasFreshSkipMarker(for itemId: UUID, content: String, targetWords: Int) -> Bool {
+        guard let url = skipMarkerURL(for: itemId, content: content, targetWords: targetWords),
+              let stamp = try? String(contentsOf: url, encoding: .utf8),
+              let epoch = TimeInterval(stamp.trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return false }
+        let age = Date().timeIntervalSince1970 - epoch
+        if age < 0 || age > skipMarkerTTL {
+            try? FileManager.default.removeItem(at: url)
+            return false
+        }
+        return true
     }
 
     /// Stable (seed-independent) FNV-1a hash so cache keys survive app restarts,

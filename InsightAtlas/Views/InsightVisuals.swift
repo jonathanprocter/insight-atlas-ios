@@ -41,6 +41,54 @@ struct InsightVisual {
     let type: InsightVisualType
     let title: String?
     let payload: InsightVisualPayload
+
+    /// Stable fingerprint for PDF prerender cache keys. Encodes Codable payload
+    /// data (CodingKeys already omit ephemeral `UUID`s) so re-parsing the same
+    /// visual hits the same cache entry.
+    var stablePayloadFingerprint: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        func encode<T: Encodable>(_ value: T) -> String {
+            guard let data = try? encoder.encode(value),
+                  let text = String(data: data, encoding: .utf8) else {
+                return String(describing: value)
+            }
+            return text
+        }
+        switch payload {
+        case .spectrum(let data): return encode(data)
+        case .timeline(let data): return encode(data)
+        case .flowchart(let data): return encode(data)
+        case .comparison(let data), .table(let data): return encode(data)
+        case .conceptMap(let data): return encode(data)
+        case .radar(let data): return encode(data)
+        case .hierarchy(let data): return encode(data)
+        case .network(let data): return encode(data)
+        case .barChart(let data): return encode(data)
+        case .quadrant(let data): return encode(data)
+        case .pieChart(let data): return encode(data)
+        case .lineChart(let data): return encode(data)
+        case .areaChart(let data): return encode(data)
+        case .scatterPlot(let data): return encode(data)
+        case .vennDiagram(let data): return encode(data)
+        case .ganttChart(let data): return encode(data)
+        case .funnelDiagram(let data): return encode(data)
+        case .pyramidDiagram(let data): return encode(data)
+        case .cycleDiagram(let data): return encode(data)
+        case .fishboneDiagram(let data): return encode(data)
+        case .swotMatrix(let data): return encode(data)
+        case .sankeyDiagram(let data): return encode(data)
+        case .treemap(let data): return encode(data)
+        case .heatmap(let data): return encode(data)
+        case .bubbleChart(let data): return encode(data)
+        case .infographic(let data): return encode(data)
+        case .storyboard(let data): return encode(data)
+        case .journeyMap(let data): return encode(data)
+        case .barChartStacked(let data): return encode(data)
+        case .barChartGrouped(let data): return encode(data)
+        case .generic(let text): return text
+        }
+    }
 }
 
 enum InsightVisualPayload {
@@ -900,9 +948,10 @@ struct InsightVisualParser {
                     stats.append(InfographicData.Stat(label: label, value: value))
                 }
             }
-            // Empty stats previously returned a typed-but-blank infographic that
-            // looked like a "basic" empty card while still passing isGeneric checks.
-            guard !stats.isEmpty || !highlights.isEmpty else { return nil }
+            // Highlights-only used to produce a typed card with an empty stats
+            // grid (and an always-on "Highlights" header). Require at least one
+            // real statistic so the visual reads as an infographic, not a box.
+            guard !stats.isEmpty else { return nil }
             return InsightVisual(
                 type: type,
                 title: titleValue,
@@ -1883,7 +1932,9 @@ private struct InfographicCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
-            VisualHeader(label: data.title, icon: "doc.text.image")
+            // Outer InsightVisualView already prints visual.title — keep the
+            // inner header as a type label to avoid duplicating the title.
+            VisualHeader(label: "Infographic", icon: "doc.text.image")
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: AnalysisTheme.Spacing.md) {
                 ForEach(Array(data.stats.enumerated()), id: \.offset) { _, stat in
                     VStack(spacing: 4) {
@@ -1899,14 +1950,16 @@ private struct InfographicCardView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Highlights")
-                    .font(.analysisUIBold())
-                    .foregroundColor(AnalysisTheme.textHeading)
-                ForEach(data.highlights, id: \.self) { highlight in
-                    Text("• \(highlight)")
-                        .font(.analysisUI())
-                        .foregroundColor(AnalysisTheme.textBody)
+            if !data.highlights.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Highlights")
+                        .font(.analysisUIBold())
+                        .foregroundColor(AnalysisTheme.textHeading)
+                    ForEach(data.highlights, id: \.self) { highlight in
+                        Text("• \(highlight)")
+                            .font(.analysisUI())
+                            .foregroundColor(AnalysisTheme.textBody)
+                    }
                 }
             }
         }

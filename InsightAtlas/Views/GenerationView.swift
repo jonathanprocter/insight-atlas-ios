@@ -711,9 +711,10 @@ struct GenerationView: View {
             if let itemId = itemId,
                var item = environment.dataManager.getLibraryItem(id: itemId) {
                 // Resume and other coordinator completions surface here. Match the
-                // primary generate path: never block on Kokoro, but do kick off
+                // primary generate path: never block on synthesis, but do kick off
                 // deferred narration when auto-audio is on and no asset exists yet.
-                let hasNarrationProvider = KokoroModelStore.isInstalled
+                let availability = VoiceProviderAvailability.current
+                let hasNarrationProvider = availability.kokoro || availability.apple
                 let needsNarration = environment.userSettings.autoGenerateAudio
                     && hasNarrationProvider
                     && item.audioFileURL == nil

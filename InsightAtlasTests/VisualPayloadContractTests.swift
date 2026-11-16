@@ -100,6 +100,20 @@ final class VisualPayloadContractTests: XCTestCase {
             }
             XCTAssertFalse(data.stats.isEmpty, "\(tag) produced an empty stats card")
         }
+
+        // Highlights without stats must not become a typed empty grid.
+        let highlightsOnly = InsightVisualParser.parse(
+            tag: "VISUAL_INFOGRAPHIC",
+            title: "Title",
+            lines: ["highlight: Gains held at 6 weeks"]
+        )
+        XCTAssertTrue(
+            highlightsOnly == nil || {
+                if case .generic = highlightsOnly?.payload { return true }
+                return false
+            }(),
+            "highlights-only payloads must not produce a blank infographic card"
+        )
     }
 
     func testCanonicalizeTagUnifiesReaderPDFAndAliases() {
@@ -108,6 +122,26 @@ final class VisualPayloadContractTests: XCTestCase {
         XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_SPECTRUM"), "VISUAL_SPECTRUM")
         XCTAssertEqual(InsightVisualParser.canonicalizeTag("process_timeline"), "VISUAL_TIMELINE")
         XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_TABLE"), "VISUAL_TABLE")
+    }
+
+    /// Timeline/network/etc regenerate UUIDs on every parse. Cache keys must
+    /// ignore those so PDF prerender writes and layout reads hit the same URL.
+    func testVisualCacheURLIsStableAcrossReparse() {
+        let lines = [
+            "1952: Existential therapy emerges — May publishes on anxiety",
+            "1979: Cognitive turn — Beck formalises schema work"
+        ]
+        let first = InsightVisualParser.parse(tag: "VISUAL_TIMELINE", title: "Title", lines: lines)
+        let second = InsightVisualParser.parse(tag: "VISUAL_TIMELINE", title: "Title", lines: lines)
+        guard let first, let second else {
+            return XCTFail("timeline should parse")
+        }
+        XCTAssertEqual(
+            PDFAnalysisDocument.visualCacheURL(for: first),
+            PDFAnalysisDocument.visualCacheURL(for: second)
+        )
+        XCTAssertEqual(first.stablePayloadFingerprint, second.stablePayloadFingerprint)
+        XCTAssertFalse(first.stablePayloadFingerprint.contains("UUID"))
     }
 
     /// Every documented tag must resolve to a renderer, directly or by alias.

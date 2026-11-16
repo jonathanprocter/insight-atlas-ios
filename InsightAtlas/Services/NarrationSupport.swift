@@ -627,14 +627,23 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     }
 
     private func updateNowPlayingInfo() {
-        guard currentURL != nil else { return }
+        // During first-chunk streaming currentURL is nil until the combined
+        // asset lands — still publish Now Playing so Control Center works.
+        guard currentURL != nil || isStreaming else { return }
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
             MPMediaItemPropertyArtist: author,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? playbackRate : 0
         ]
-        if duration > 0 { info[MPMediaItemPropertyPlaybackDuration] = duration }
+        if duration > 0 {
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+        } else if isStreaming, expectedSegments > 0, streamedSegments > 0 {
+            // Rough remaining estimate from average segment length so the
+            // scrubber is not empty during progressive playback.
+            let average = currentTime / Double(max(streamedSegments, 1))
+            info[MPMediaItemPropertyPlaybackDuration] = average * Double(expectedSegments)
+        }
 
         if let coverImagePath,
            let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
