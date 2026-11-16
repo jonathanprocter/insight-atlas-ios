@@ -2074,20 +2074,7 @@ extension PDFAnalysisDocument {
     }
 
     private static func canonicalizeVisualTag(_ tag: String) -> String {
-        switch tag {
-        case "VISUAL_TABLE", "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
-            return "VISUAL_COMPARISON_MATRIX"
-        case "VISUAL_FLOW_DIAGRAM":
-            return "VISUAL_FLOWCHART"
-        case "PROCESS_TIMELINE":
-            return "VISUAL_TIMELINE"
-        case "HIERARCHY_DIAGRAM":
-            return "VISUAL_HIERARCHY"
-        case "VISUAL_CONCEPT_MAP":
-            return "VISUAL_CONCEPT_MAP"
-        default:
-            return tag
-        }
+        InsightVisualParser.canonicalizeTag(tag)
     }
 
     private static func pdfBlocks(for visual: InsightVisual) -> [PDFContentBlock] {
@@ -2177,13 +2164,26 @@ extension PDFAnalysisDocument {
             ))
 
         case .radar(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: data.dimensions))
+            // No dedicated radar geometry yet. Prefer a labeled bar chart over a
+            // bare bullet list so the export still reads as a chart, not prose.
+            let values = Array(repeating: "1", count: data.dimensions.count).joined(separator: "|")
+            blocks.append(PDFContentBlock(
+                type: .barChart,
+                content: "",
+                listItems: data.dimensions,
+                metadata: ["title": title ?? "Assessment", "values": values]
+            ))
 
         case .hierarchy(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .paragraph, content: data.root))
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: data.children))
+            // Pyramid bands already exist in PDFDiagramRenderer; use them instead
+            // of degrading hierarchy/iceberg/ladder-shaped content to bullets.
+            let items = [data.root] + data.children
+            blocks.append(PDFContentBlock(
+                type: .pyramid,
+                content: "",
+                listItems: items,
+                metadata: ["title": title ?? "Hierarchy"]
+            ))
 
         case .network(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2216,14 +2216,28 @@ extension PDFAnalysisDocument {
                 metadata: ["title": title ?? "Pie Chart", "values": data.segments.map { String($0.value) }.joined(separator: "|")]))
 
         case .lineChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Point", "Value"]] + rows))
+            // Native line geometry is not wired for typed payloads yet; a bar
+            // chart preserves magnitude far better than a Point/Value table.
+            blocks.append(PDFContentBlock(
+                type: .barChart,
+                content: "",
+                listItems: data.labels,
+                metadata: [
+                    "title": title ?? "Trend",
+                    "values": data.values.map { formatNumber($0) }.joined(separator: "|")
+                ]
+            ))
 
         case .areaChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Point", "Value"]] + rows))
+            blocks.append(PDFContentBlock(
+                type: .barChart,
+                content: "",
+                listItems: data.labels,
+                metadata: [
+                    "title": title ?? "Trend",
+                    "values": data.values.map { formatNumber($0) }.joined(separator: "|")
+                ]
+            ))
 
         case .scatterPlot(let data):
             addHeadingIfNeeded(useInlineTitle: false)

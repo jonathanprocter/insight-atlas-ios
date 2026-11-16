@@ -39,8 +39,10 @@ enum NarrationFallbackPolicy {
 }
 
 enum NarrationPreparationPolicy {
-    /// MiniMax writes the bounded, audio-first summary before Kokoro speaks it.
-    static let rewritesBeforeInitialSynthesis = true
+    /// First-time narration starts from deterministic sanitized guide prose.
+    /// Optional MiniMax rewriting may warm a script cache in the background,
+    /// but must never block local Kokoro synthesis startup (up to 75s).
+    static let rewritesBeforeInitialSynthesis = false
 }
 
 enum NarrationListeningEdition {
@@ -215,8 +217,6 @@ actor NarrationService {
         }
     }
 
-    /// Synthesize narration for `itemId`: MiniMax writes the bounded
-    /// audio-summary script, then installed on-device Pocket speaks it.
     /// Directory holding the per-chunk files of an in-flight streamed
     /// narration. Cleared when synthesis finishes or fails.
     static func segmentDirectory(for itemId: UUID) -> URL {
@@ -231,6 +231,10 @@ actor NarrationService {
         try? FileManager.default.removeItem(at: segmentDirectory(for: itemId))
     }
 
+    /// Synthesize narration for `itemId` using installed on-device Pocket.
+    /// MiniMax may optionally warm a spoken-script cache for a later regen, but
+    /// first playback always starts from the deterministic listening edition.
+    ///
     /// - Parameter onSegment: when supplied, each rendered chunk is reported as
     ///   a playable file the moment it lands, so a long narration can start
     ///   playing on chunk 1 instead of after the whole render. Only the
@@ -242,8 +246,9 @@ actor NarrationService {
         progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in },
         onSegment: (@Sendable (URL, Int, Int) -> Void)? = nil
     ) async throws -> NarrationAsset {
-        // Keep a deterministic bounded edition as the safe fallback, but let
-        // MiniMax create the actual audio-first summary when it is configured.
+        // Start local synthesis immediately. Waiting on an optional MiniMax
+        // rewrite previously delayed first audio by up to 75 seconds even when
+        // Kokoro was already installed and ready.
         // Hold a background assertion for the whole attempt so leaving the app
         // does not suspend an in-flight render.
         let assertion = await NarrationBackgroundAssertion()
@@ -260,13 +265,28 @@ actor NarrationService {
             text,
             summaryType: summaryType
         )
-        let spokenText = await NarrationScriptService.shared.spokenScript(
-            for: itemId,
-            guideContent: text,
-            summaryType: summaryType,
-            fallbackContent: fallbackText,
-            progress: progress
-        )
+        let spokenText: String
+        if NarrationPreparationPolicy.rewritesBeforeInitialSynthesis {
+            spokenText = await NarrationScriptService.shared.spokenScript(
+                for: itemId,
+                guideContent: text,
+                summaryType: summaryType,
+                fallbackContent: fallbackText,
+                progress: progress
+            )
+        } else {
+            spokenText = fallbackText
+            // Warm the script cache off the critical path so a later regenerate
+            // can pick up a richer MiniMax edition without delaying this listen.
+            Task {
+                _ = await NarrationScriptService.shared.spokenScript(
+                    for: itemId,
+                    guideContent: text,
+                    summaryType: summaryType,
+                    fallbackContent: fallbackText
+                )
+            }
+        }
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
         let preferredProvider = VoiceProvider(

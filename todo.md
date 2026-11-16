@@ -61,6 +61,11 @@
 - [x] Run targeted, full-suite, live-production-model, Release, analyzer, and strict-concurrency checks
 - [x] Complete iPhone and iPad visual verification
 - [x] Complete independent code review
+- [x] Restore audio fast-path after MiniMax rewrite regression (policy gate + background cache warm)
+- [x] Cache rewrite failures so retries do not re-pay the 75s deadline
+- [x] Fix INFOGRAPHIC/GAUGE prompt payload parsing and stop empty typed cards
+- [x] Route tagged SPECTRUM / HIERARCHY / LINE/AREA to native PDF diagram blocks
+- [x] Unify visual tag canonicalize across reader, PDF, and HTML
 - [ ] Integrate and synchronize local and GitHub branches
 - [ ] Assign the next unique TestFlight build number
 - [ ] Archive, upload, and verify internal TestFlight availability

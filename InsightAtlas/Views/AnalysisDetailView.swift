@@ -2188,21 +2188,7 @@ struct ParsedAnalysisContent {
     }
 
     private static func canonicalVisualTag(_ tag: String) -> String {
-        let upper = tag.uppercased()
-        switch upper {
-        case "VISUAL_TABLE", "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
-            return InsightVisualType.comparisonMatrix.rawValue
-        case "CONCEPT_MAP":
-            return InsightVisualType.conceptMap.rawValue
-        case "PROCESS_TIMELINE":
-            return InsightVisualType.timeline.rawValue
-        case "HIERARCHY_DIAGRAM":
-            return InsightVisualType.hierarchy.rawValue
-        case "VISUAL_FLOW_DIAGRAM":
-            return InsightVisualType.flowchart.rawValue
-        default:
-            return upper
-        }
+        InsightVisualParser.canonicalizeTag(tag)
     }
 
     /// Parse premium quote content into quote text, attribution, and source

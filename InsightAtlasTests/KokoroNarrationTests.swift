@@ -305,8 +305,11 @@ final class KokoroNarrationTests: XCTestCase {
         XCTAssertFalse(AIProvider.minimax.supportsDirectAudioGeneration)
     }
 
-    func testFirstNarrationUsesMiniMaxAudioSummaryStage() {
-        XCTAssertTrue(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
+    func testFirstNarrationDoesNotBlockOnOptionalMiniMaxRewrite() {
+        // Optional script rewriting may warm a cache in the background, but
+        // first-listen synthesis must start from the deterministic listening
+        // edition immediately (see Aug 27 audio reliability design).
+        XCTAssertFalse(NarrationPreparationPolicy.rewritesBeforeInitialSynthesis)
     }
 
     func testProfessionalListeningEditionHasPracticalSpokenWordBudget() {
@@ -357,9 +360,12 @@ final class KokoroNarrationTests: XCTestCase {
     }
 
     func testPlaybackSessionPolicyAvoidsDeviceInvalidBluetoothOption() {
+        // Keep the playback session on `.default` with no CategoryOptions.
+        // Older SDKs exposed `.allowBluetoothHFP`; referencing that symbol no
+        // longer compiles on current Xcode, and A2DP is also deliberately off
+        // to avoid device `paramErr` failures observed in TestFlight.
         XCTAssertEqual(NarrationPlaybackPolicy.mode, .default)
-        XCTAssertFalse(NarrationPlaybackPolicy.options.contains(.allowBluetoothHFP))
-        XCTAssertFalse(NarrationPlaybackPolicy.options.contains(.allowBluetoothA2DP))
+        XCTAssertTrue(NarrationPlaybackPolicy.options.isEmpty)
     }
 
     func testUnsupportedAudioContainerCannotBePromoted() {

@@ -399,8 +399,25 @@ struct InsightVisualParser {
         "VISUAL_LADDER": "VISUAL_PYRAMID"                  // progressive levels
     ]
 
+    /// Single source of truth for prompt / legacy / alias tag resolution.
+    /// PDF, HTML, and reader parsers must call this instead of private maps so
+    /// the same guide cannot resolve a tag to different diagram types.
+    static func canonicalizeTag(_ tag: String) -> String {
+        let upper = tag.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        switch upper {
+        case "PROCESS_TIMELINE":
+            return InsightVisualType.timeline.rawValue
+        case "HIERARCHY_DIAGRAM":
+            return InsightVisualType.hierarchy.rawValue
+        case "CONCEPT_MAP":
+            return InsightVisualType.conceptMap.rawValue
+        default:
+            return tagAliases[upper] ?? upper
+        }
+    }
+
     static func parse(tag: String, title: String?, lines: [String]) -> InsightVisual? {
-        let canonicalTag = tagAliases[tag] ?? tag
+        let canonicalTag = canonicalizeTag(tag)
         guard let type = InsightVisualType(rawValue: canonicalTag) else {
             return nil
         }
@@ -862,18 +879,35 @@ struct InsightVisualParser {
             var stats: [InfographicData.Stat] = []
             var highlights: [String] = []
             for line in trimmed {
-                if line.lowercased().hasPrefix("title:") {
+                let lower = line.lowercased()
+                if lower.hasPrefix("title:") {
                     titleValue = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                } else if line.lowercased().hasPrefix("stat:") {
+                } else if lower.hasPrefix("highlight:") {
+                    highlights.append(String(line.dropFirst(10)).trimmingCharacters(in: .whitespaces))
+                } else if lower.hasPrefix("stat:") {
+                    // Explicit machine format: `stat: Label | 62`
                     let parts = line.dropFirst(5).split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }
                     if parts.count == 2 {
                         stats.append(InfographicData.Stat(label: parts[0], value: parts[1]))
                     }
-                } else if line.lowercased().hasPrefix("highlight:") {
-                    highlights.append(String(line.dropFirst(10)).trimmingCharacters(in: .whitespaces))
+                } else if let colon = line.firstIndex(of: ":") {
+                    // Prompt catalogue shape for INFOGRAPHIC and aliased GAUGE:
+                    // `Adults reporting impostor feelings: 62`
+                    // `Current distress rating: 72`
+                    let label = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
+                    let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+                    guard !label.isEmpty, !value.isEmpty else { continue }
+                    stats.append(InfographicData.Stat(label: label, value: value))
                 }
             }
-            return InsightVisual(type: type, title: titleValue, payload: .infographic(InfographicData(title: titleValue, stats: stats, highlights: highlights)))
+            // Empty stats previously returned a typed-but-blank infographic that
+            // looked like a "basic" empty card while still passing isGeneric checks.
+            guard !stats.isEmpty || !highlights.isEmpty else { return nil }
+            return InsightVisual(
+                type: type,
+                title: titleValue,
+                payload: .infographic(InfographicData(title: titleValue, stats: stats, highlights: highlights))
+            )
 
         case .storyboard:
             let scenes = trimmed.compactMap { line -> StoryboardData.Scene? in
@@ -1424,23 +1458,70 @@ private struct PieChartCardView: View {
     let data: PieChartData
 
     var body: some View {
+        let total = max(data.segments.map(\.value).reduce(0, +), 0.001)
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Distribution", icon: "chart.pie")
-            let total = data.segments.map { $0.value }.reduce(0, +)
-            ForEach(Array(data.segments.enumerated()), id: \.offset) { index, segment in
-                HStack(spacing: 10) {
-                    Circle()
-                        .fill(colorForIndex(index))
-                        .frame(width: 10, height: 10)
-                    Text(segment.label)
-                        .font(.analysisUI())
-                    Spacer()
-                    Text(String(format: "%.1f%%", total > 0 ? (segment.value / total) * 100 : 0))
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
+            HStack(alignment: .center, spacing: AnalysisTheme.Spacing.lg) {
+                ZStack {
+                    ForEach(Array(wedgeRanges(total: total).enumerated()), id: \.offset) { index, range in
+                        PieWedge(start: range.lowerBound, end: range.upperBound)
+                            .fill(colorForIndex(index))
+                    }
+                }
+                .frame(width: 120, height: 120)
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(data.segments.enumerated()), id: \.offset) { index, segment in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(colorForIndex(index))
+                                .frame(width: 10, height: 10)
+                            Text(segment.label)
+                                .font(.analysisUI())
+                                .foregroundColor(AnalysisTheme.textHeading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Text(String(format: "%.0f%%", (segment.value / total) * 100))
+                                .font(.analysisUISmall())
+                                .foregroundColor(AnalysisTheme.textMuted)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private func wedgeRanges(total: Double) -> [Range<Double>] {
+        var cursor = 0.0
+        return data.segments.map { segment in
+            let start = cursor
+            cursor += segment.value / total
+            return start..<cursor
+        }
+    }
+}
+
+private struct PieWedge: Shape {
+    let start: Double
+    let end: Double
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let startAngle = Angle(degrees: -90 + start * 360)
+        let endAngle = Angle(degrees: -90 + end * 360)
+        path.move(to: center)
+        path.addArc(
+            center: center,
+            radius: radius,
+            startAngle: startAngle,
+            endAngle: endAngle,
+            clockwise: false
+        )
+        path.closeSubpath()
+        return path
     }
 }
 
