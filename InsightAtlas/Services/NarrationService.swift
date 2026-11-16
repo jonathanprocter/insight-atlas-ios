@@ -190,6 +190,10 @@ actor NarrationService {
 
     static let shared = NarrationService()
 
+    /// Concurrent Listen + auto-narrate for the same item share one synthesis
+    /// instead of racing segment directories and WAV writes.
+    private var inFlightSynthesis: [UUID: Task<NarrationAsset, Error>] = [:]
+
     /// Longest narration may go without any observable progress before the
     /// route is abandoned. On-device synthesis reports per chunk, so healthy
     /// work never approaches this.
@@ -248,6 +252,31 @@ actor NarrationService {
         summaryType: SummaryType? = nil,
         progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in },
         onSegment: (@Sendable (URL, Int, Int) -> Void)? = nil
+    ) async throws -> NarrationAsset {
+        if let existing = inFlightSynthesis[itemId] {
+            return try await existing.value
+        }
+
+        let task = Task {
+            try await self.synthesizeUniquely(
+                text: text,
+                itemId: itemId,
+                summaryType: summaryType,
+                progress: progress,
+                onSegment: onSegment
+            )
+        }
+        inFlightSynthesis[itemId] = task
+        defer { inFlightSynthesis[itemId] = nil }
+        return try await task.value
+    }
+
+    private func synthesizeUniquely(
+        text: String,
+        itemId: UUID,
+        summaryType: SummaryType?,
+        progress: @escaping @Sendable (NarrationPreparationProgress) -> Void,
+        onSegment: (@Sendable (URL, Int, Int) -> Void)?
     ) async throws -> NarrationAsset {
         // Keep a deterministic bounded edition as the safe fallback, and let
         // MiniMax write the actual audio-first summary when it is configured.

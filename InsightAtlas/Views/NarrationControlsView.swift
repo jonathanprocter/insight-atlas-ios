@@ -25,6 +25,9 @@ final class NarrationControlViewModel: ObservableObject {
 
     private var generationTask: Task<Void, Never>?
     private var isStreamingPlayback = false
+    /// Once streaming fails mid-render, ignore later segments so playback does
+    /// not restart from a middle chunk. Cleared when synthesis ends/cancels.
+    private var streamingAbandoned = false
 
     /// Retry is offered whenever any on-device engine (Kokoro or an Apple
     /// system voice) can attempt synthesis again.
@@ -47,6 +50,7 @@ final class NarrationControlViewModel: ObservableObject {
         isPreparing = true
         errorMessage = nil
         canRetry = false
+        streamingAbandoned = false
         DataManager.shared.setNarrationState(.generating, for: item.id)
 
         generationTask = Task { [weak self] in
@@ -118,6 +122,7 @@ final class NarrationControlViewModel: ObservableObject {
     /// they land, so a 16-minute narration is audible in seconds instead of
     /// after the whole render.
     private func handleSegment(url: URL, index: Int, total: Int, item: LibraryItem) {
+        guard !streamingAbandoned else { return }
         do {
             if !isStreamingPlayback {
                 try NarrationPlaybackController.shared.beginStreaming(
@@ -132,6 +137,7 @@ final class NarrationControlViewModel: ObservableObject {
         } catch {
             // Streaming is an accelerator, never a requirement: on failure the
             // render continues and plays from the combined file at the end.
+            streamingAbandoned = true
             isStreamingPlayback = false
             NarrationPlaybackController.shared.cancelStreaming()
         }
@@ -142,6 +148,7 @@ final class NarrationControlViewModel: ObservableObject {
             NarrationPlaybackController.shared.cancelStreaming()
             isStreamingPlayback = false
         }
+        streamingAbandoned = false
         NarrationService.clearSegments(for: itemId)
     }
 
@@ -169,6 +176,12 @@ final class NarrationControlViewModel: ObservableObject {
     }
 
     func play(item: LibraryItem) {
+        // During first-chunk streaming there is no library audioFileURL yet —
+        // pause/resume must toggle the live queue player instead of failing.
+        if NarrationPlaybackController.shared.isStreaming {
+            NarrationPlaybackController.shared.toggle()
+            return
+        }
         guard let filename = item.audioFileURL, let url = Self.audioURL(for: filename) else {
             errorMessage = "The local narration file is missing. Generate it again."
             canRetry = true
