@@ -16,7 +16,3 @@ struct RoundedCorner: Shape {
         return Path(path.cgPath)
     }
 }
-
-// MARK: - Accent Color for Coral (muted)
-
-private let accentCoralMuted = PremiumUI.emberMark.opacity(0.25)
