@@ -23,7 +23,7 @@ struct GenerationView: View {
     @State private var selectedFileType: FileType?
     @State private var cachedFileData: Data?
 
-    // Narration state — voice is fixed (Pocket / Apple Voice); no selection UI.
+    // Narration state — voice selection lives in Settings (Pocket / Apple).
     @State private var audioSpeed: Double = 1.0
 
     // MARK: - Body

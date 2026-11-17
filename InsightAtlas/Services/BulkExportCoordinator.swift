@@ -310,10 +310,8 @@ final class BulkExportCoordinator: ObservableObject {
             )
 
             do {
-                // Call existing export method off the MainActor to avoid UI blocking
-                let exportedURL = try await Task.detached(priority: .userInitiated) { [dataManager] in
-                    try dataManager.exportGuide(item, format: format)
-                }.value
+                // Async export hops to MainActor for PDF layout without main.sync.
+                let exportedURL = try await dataManager.exportGuideAsync(item, format: format)
 
                 // Copy to our export directory with unique name
                 let destinationURL = exportDir.appendingPathComponent(exportedURL.lastPathComponent)

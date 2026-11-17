@@ -68,9 +68,9 @@
 - [x] Fix INFOGRAPHIC/GAUGE prompt payload parsing and stop empty typed cards
 - [x] Route tagged SPECTRUM / HIERARCHY / LINE/AREA to native PDF diagram blocks
 - [x] Unify visual tag canonicalize across reader, PDF, and HTML
-- [ ] Integrate and synchronize local and GitHub branches
+- [x] Integrate and synchronize local and GitHub branches (audit PR #9 on `cursor/full-app-fixes-9243`)
 - [ ] Assign the next unique TestFlight build number
 - [ ] Archive, upload, and verify internal TestFlight availability
 - [ ] Tag the accepted build and deliver release evidence
 
-> For current tip status (MiniMax generation + Pocket/Apple narration, audit PR #9 follow-ups), see **`docs/STATUS.md`**.
+> Audit backlog is complete on tip — see **`docs/STATUS.md`** and **`docs/audits/2026-11-17-full-app-audit.md`**. Next step is TestFlight via `scripts/release-testflight.sh`.

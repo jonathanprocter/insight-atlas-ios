@@ -330,7 +330,7 @@ struct LibraryView: View {
     private func exportItem(_ item: LibraryItem) {
         Task {
             do {
-                let url = try environment.dataManager.exportGuide(item, format: .pdf)
+                let url = try await environment.dataManager.exportGuideAsync(item, format: .pdf)
                 await MainActor.run { sharePayload = LibrarySharePayload(url: url) }
             } catch {
                 await MainActor.run { exportError = error.localizedDescription }

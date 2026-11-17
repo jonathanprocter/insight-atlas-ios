@@ -2382,6 +2382,16 @@ enum VisualRasterizer {
 @MainActor
 enum PDFVisualPrerenderer {
     private static let maxPrerenderedVisuals = 40
+    /// Soft peak for rasterized PNG bytes written during one export pass.
+    private static let maxPrerenderBytes = 24 * 1024 * 1024
+
+    /// Types with strong native PDF diagram/table paths. Skipping ImageRenderer
+    /// for these cuts main-actor time and memory without blank figures.
+    private static let prefersNativePDF: Set<InsightVisualType> = [
+        .table, .comparisonMatrix, .swotMatrix,
+        .spectrum, .hierarchy, .pyramidDiagram, .cycleDiagram,
+        .flowchart, .timeline, .funnelDiagram
+    ]
 
     /// - Parameter progress: `(done, total)` callback after each visual attempt.
     static func prerender(
@@ -2393,24 +2403,36 @@ enum PDFVisualPrerenderer {
             progress?(0, 0)
             return
         }
-        // Bound main-actor work and peak memory; visuals past the cap take their
-        // native table/text fallback at draw time.
-        let visuals = Array(allVisuals.prefix(maxPrerenderedVisuals))
+        // Prefer SwiftUI raster only where native PDF fallback is weaker.
+        let candidates = allVisuals.filter { !prefersNativePDF.contains($0.type) }
+        let visuals = Array(candidates.prefix(maxPrerenderedVisuals))
         let total = visuals.count
         #if DEBUG
-        if allVisuals.count > maxPrerenderedVisuals {
-            print("🖼️ [PDF Visual] capping prerender at \(maxPrerenderedVisuals) of \(allVisuals.count) visuals")
+        if allVisuals.count != candidates.count {
+            print("🖼️ [PDF Visual] skipping \(allVisuals.count - candidates.count) native-preferred visuals")
+        }
+        if candidates.count > maxPrerenderedVisuals {
+            print("🖼️ [PDF Visual] capping prerender at \(maxPrerenderedVisuals) of \(candidates.count) visuals")
         }
         #endif
 
         let cache = VisualAssetCache.shared
+        var writtenBytes = 0
         for (index, visual) in visuals.enumerated() {
             progress?(index, total)
+            if writtenBytes >= maxPrerenderBytes {
+                #if DEBUG
+                print("🖼️ [PDF Visual] byte budget reached (\(writtenBytes) bytes); remaining visuals use native PDF")
+                #endif
+                progress?(total, total)
+                return
+            }
             let url = PDFAnalysisDocument.visualCacheURL(for: visual)
             if cache.cachedImage(for: url) == nil,
                let image = VisualRasterizer.image(for: visual),
                let data = image.pngData() {
                 try? data.write(to: cache.localURL(for: url), options: .atomic)
+                writtenBytes += data.count
             } else if cache.cachedImage(for: url) == nil {
                 #if DEBUG
                 print("🖼️ [PDF Visual] prerender could NOT rasterize type=\(visual.type) title=\(visual.title ?? "—") — payload not decodable")

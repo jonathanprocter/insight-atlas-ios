@@ -748,7 +748,7 @@ struct GuideView: View {
         isExporting = true
         Task {
             do {
-                let url = try environment.dataManager.exportGuide(item, format: format)
+                let url = try await environment.dataManager.exportGuideAsync(item, format: format)
                 await MainActor.run {
                     isExporting = false
                     shareItem = url

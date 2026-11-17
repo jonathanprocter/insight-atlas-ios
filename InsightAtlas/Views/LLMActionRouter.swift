@@ -237,7 +237,9 @@ public enum LLMActionRouter {
             environment.saveSettings()
             return .success("Summary type set to \(s.displayName)")
         case "generation_voice_provider_picker":
-            return .failure("Narration voice is fixed (Pocket / Apple Voice); the voice provider is not configurable.")
+            // Generation screen has no local voice UI; alias to Settings APIs.
+            return handleSettings(identifier: "voice_provider_picker", value: value, environment: environment)
+                ?? .failure("Provide a voice provider value (kokoro/pocket or apple).")
         case "generation_audio_speed_slider":
             return .failure("Slider changes require UI context.")
         case "generation_choose_file_button", "generation_generate_button":
@@ -302,10 +304,11 @@ public enum LLMActionRouter {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults — narration order is fixed; only playback speed and the
-        // auto-generate toggle are configurable.
+        // Audio defaults — Pocket/Apple providers stay selectable in Settings.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
+        environment.userSettings.voiceProvider = .kokoro
+        environment.updateVoiceProvider(.kokoro)
 
         environment.saveSettings()
         UISelectionFeedbackGenerator().selectionChanged()

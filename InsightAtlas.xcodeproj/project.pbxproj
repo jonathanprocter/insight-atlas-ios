@@ -120,6 +120,8 @@
 		E81AF0082D000021007AAAAA /* TruncationRepairTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */; };
 		C7EE0BD362E74B7A8BC98105 /* SettingsSourceOfTruthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4799B174E74C3D817B6D0A /* SettingsSourceOfTruthTests.swift */; };
 		59195645F06E449C8B40C4F5 /* SourceTextStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC069F36AAB435DB42F07BD /* SourceTextStoreTests.swift */; };
+		B2C3D4E5F60718293A4B5C6E /* MiniMaxCredentialHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* MiniMaxCredentialHelperTests.swift */; };
+		A1B2C3D4E5F60718293A4B5D /* ManuscriptGateExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* ManuscriptGateExportTests.swift */; };
 		E81AF00C2D000025007AAAAA /* GuideBodyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */; };
 		E81AF00E2D000027007AAAAA /* ParserRobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */; };
 		E81AF0102D000029007AAAAA /* BookProcessorRobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00F2D000028007AAAAA /* BookProcessorRobustnessTests.swift */; };
@@ -326,6 +328,8 @@
 		E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TruncationRepairTests.swift; sourceTree = "<group>"; };
 		DF4799B174E74C3D817B6D0A /* SettingsSourceOfTruthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSourceOfTruthTests.swift; sourceTree = "<group>"; };
 		EDC069F36AAB435DB42F07BD /* SourceTextStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceTextStoreTests.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* MiniMaxCredentialHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxCredentialHelperTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* ManuscriptGateExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptGateExportTests.swift; sourceTree = "<group>"; };
 		E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideBodyStoreTests.swift; sourceTree = "<group>"; };
 		E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserRobustnessTests.swift; sourceTree = "<group>"; };
 		E81AF00F2D000028007AAAAA /* BookProcessorRobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessorRobustnessTests.swift; sourceTree = "<group>"; };
@@ -465,6 +469,8 @@
 				E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */,
 				E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */,
 				EDC069F36AAB435DB42F07BD /* SourceTextStoreTests.swift */,
+				B2C3D4E5F60718293A4B5C6D /* MiniMaxCredentialHelperTests.swift */,
+				A1B2C3D4E5F60718293A4B5C /* ManuscriptGateExportTests.swift */,
 				DF4799B174E74C3D817B6D0A /* SettingsSourceOfTruthTests.swift */,
 				E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */,
 				E81AF00F2D000028007AAAAA /* BookProcessorRobustnessTests.swift */,
@@ -910,6 +916,8 @@
 				E81AF0082D000021007AAAAA /* TruncationRepairTests.swift in Sources */,
 				E81AF00C2D000025007AAAAA /* GuideBodyStoreTests.swift in Sources */,
 				59195645F06E449C8B40C4F5 /* SourceTextStoreTests.swift in Sources */,
+				B2C3D4E5F60718293A4B5C6E /* MiniMaxCredentialHelperTests.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5D /* ManuscriptGateExportTests.swift in Sources */,
 				C7EE0BD362E74B7A8BC98105 /* SettingsSourceOfTruthTests.swift in Sources */,
 				E81AF00E2D000027007AAAAA /* ParserRobustnessTests.swift in Sources */,
 				E81AF0102D000029007AAAAA /* BookProcessorRobustnessTests.swift in Sources */,

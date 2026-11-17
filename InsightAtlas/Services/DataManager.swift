@@ -603,7 +603,17 @@ class DataManager: ObservableObject {
     // MARK: - PDF Generation
 
     nonisolated private func generatePDF(content: String, title: String, author: String, to url: URL) throws {
-        try GuidePDFExporter.generate(content: content, title: title, author: author, to: url)
+        // Hard requirement: PDF rendering is MainActor-only. Prefer
+        // `exportGuideAsync` which hops with `await MainActor.run`. Sync
+        // `exportGuide` remains for on-main UI callers (Analysis export sheet).
+        guard Thread.isMainThread else {
+            throw DataManagerError.pdfGenerationFailed(
+                reason: "PDF export must run on the main actor; use exportGuideAsync."
+            )
+        }
+        try MainActor.assumeIsolated {
+            try GuidePDFExporter.generate(content: content, title: title, author: author, to: url)
+        }
     }
 
     // MARK: - DOCX Generation

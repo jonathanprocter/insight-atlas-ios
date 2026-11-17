@@ -10,61 +10,42 @@ import PDFKit
 enum GuidePDFExporter {
 // MARK: - PDF Generation
 
+/// PDF layout uses UIKit/PDFKit APIs that must run on the main actor.
+/// Callers off the main thread must use `DataManager.exportGuideAsync`.
+@MainActor
 static func generate(content: String, title: String, author: String, to url: URL) throws {
-    let renderOnMain: () throws -> Void = {
-        // Use the new InsightAtlasPDFRenderer for premium PDF generation
-        let pdfRenderer = InsightAtlasPDFRenderer()
+    // Use the new InsightAtlasPDFRenderer for premium PDF generation
+    let pdfRenderer = InsightAtlasPDFRenderer()
 
-        var options = InsightAtlasPDFRenderer.RenderOptions.default
-        options.includeCoverPage = true
-        options.includeTableOfContents = true
-        options.includePageNumbers = true
-        options.includeHeader = false
-        options.logoImage = ExportBrandAssets.getLogoImage()
+    var options = InsightAtlasPDFRenderer.RenderOptions.default
+    options.includeCoverPage = true
+    options.includeTableOfContents = true
+    options.includePageNumbers = true
+    options.includeHeader = false
+    options.logoImage = ExportBrandAssets.getLogoImage()
 
-        do {
-            let parsedContent = ParsedAnalysisContent.parse(from: content)
-            if !parsedContent.sections.isEmpty || parsedContent.quickGlance != nil {
-                let pdfData = try pdfRenderer.generatePDFData(
-                    from: parsedContent,
-                    title: title,
-                    author: author,
-                    options: options
-                )
-                try pdfData.write(to: url)
-            } else {
-                try pdfRenderer.generatePDF(
-                    from: content,
-                    title: title,
-                    author: author,
-                    to: url,
-                    options: options
-                )
-            }
-        } catch {
-            // Fall back to legacy PDF generation if new renderer fails
-            try generateLegacyPDF(content: content, title: title, author: author, to: url)
+    do {
+        let parsedContent = ParsedAnalysisContent.parse(from: content)
+        if !parsedContent.sections.isEmpty || parsedContent.quickGlance != nil {
+            let pdfData = try pdfRenderer.generatePDFData(
+                from: parsedContent,
+                title: title,
+                author: author,
+                options: options
+            )
+            try pdfData.write(to: url)
+        } else {
+            try pdfRenderer.generatePDF(
+                from: content,
+                title: title,
+                author: author,
+                to: url,
+                options: options
+            )
         }
-    }
-
-    if Thread.isMainThread {
-        try MainActor.assumeIsolated { try renderOnMain() }
-        return
-    }
-
-    // Prefer `exportGuideAsync`, which hops with `await MainActor.run` and
-    // never uses main.sync. Sync off-main callers are rare; keep a last-
-    // resort hop that cannot run while already holding the main thread.
-    var renderError: Error?
-    DispatchQueue.main.sync {
-        do {
-            try renderOnMain()
-        } catch {
-            renderError = error
-        }
-    }
-    if let renderError {
-        throw renderError
+    } catch {
+        // Fall back to legacy PDF generation if new renderer fails
+        try generateLegacyPDF(content: content, title: title, author: author, to: url)
     }
 }
 
