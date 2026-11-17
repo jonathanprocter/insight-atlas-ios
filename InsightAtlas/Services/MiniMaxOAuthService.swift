@@ -29,24 +29,82 @@ enum MiniMaxOAuthConfig {
     static let scopes        = "group_id profile model.completion"
     static let grantType     = "urn:ietf:params:oauth:grant-type:user_code"
 
-    /// Primary model served through this OAuth (Anthropic Messages endpoint).
-    static let defaultModel = "MiniMax-M2.7"
+    /// UserDefaults key backing the user-selected MiniMax model.
+    static let modelStorageKey = "insight_atlas_minimax_model"
 
-    /// MiniMax M2.7 has a 204,800-token context window. Deep Research needs a
-    /// larger output allowance because reasoning tokens share `max_tokens` with
-    /// the visible answer on the Anthropic-compatible endpoint.
-    static let contextWindowTokens = 204_800
-    static let standardOutputTokenLimit = 16_000
+    /// Primary model served through this OAuth (Anthropic Messages endpoint).
+    static let defaultModel = "MiniMax-M3"
+
+    /// Models this OAuth serves on the Anthropic-compatible endpoint, newest
+    /// first. Offered as suggestions in Settings; any valid identifier is
+    /// accepted so a newly released model works without an app update.
+    static let candidateModels = [
+        "MiniMax-M3",
+        "MiniMax-M2.7",
+        "MiniMax-M2.7-highspeed",
+        "MiniMax-M2.5",
+        "MiniMax-M2.5-highspeed",
+        "MiniMax-M2.1",
+        "MiniMax-M2.1-highspeed",
+        "MiniMax-M2"
+    ]
+
+    /// The model identifier to send: a non-empty user override, otherwise the
+    /// default.
+    static var resolvedModel: String {
+        let stored = UserDefaults.standard.string(forKey: modelStorageKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let stored, !stored.isEmpty { return stored }
+        return defaultModel
+    }
+
+    /// MiniMax M3 carries a 1,000,000-token context window; the M2.x family
+    /// carries 204,800. Deep Research needs a larger output allowance because
+    /// reasoning tokens share `max_tokens` with the visible answer on the
+    /// Anthropic-compatible endpoint.
+    static let m3ContextWindowTokens = 1_000_000
+    static let legacyContextWindowTokens = 204_800
+    // 9,500–12,000-word guides need ~16k visible tokens; leave headroom so the
+    // legacy (non-M3) models do not truncate the back matter.
+    static let standardOutputTokenLimit = 24_000
     static let deepResearchOutputTokenLimit = 64_000
 
-    static func outputTokenLimit(mode: GenerationMode, summaryType: SummaryType) -> Int {
-        mode == .deepResearch || summaryType == .deepResearch
+    static func contextWindowTokens(for model: String) -> Int {
+        model.hasPrefix("MiniMax-M3") ? m3ContextWindowTokens : legacyContextWindowTokens
+    }
+
+    /// M3 interleaves far heavier reasoning than the M2.x family, and those
+    /// reasoning tokens come out of the same `max_tokens` budget as the guide
+    /// text. Under the old 16k standard cap the visible output was starved and
+    /// guides truncated mid-document (missing sections, sparse TOC). M3 gets
+    /// the 64k allowance for every mode — a value this endpoint is known to
+    /// accept, and the 1M context leaves ample input room for it.
+    static func outputTokenLimit(
+        mode: GenerationMode,
+        summaryType: SummaryType,
+        model: String = resolvedModel
+    ) -> Int {
+        if model.hasPrefix("MiniMax-M3") { return deepResearchOutputTokenLimit }
+        return mode == .deepResearch || summaryType == .deepResearch
             ? deepResearchOutputTokenLimit
             : standardOutputTokenLimit
     }
 
-    static func inputTokenLimit(mode: GenerationMode, summaryType: SummaryType) -> Int {
-        contextWindowTokens - outputTokenLimit(mode: mode, summaryType: summaryType)
+    static func inputTokenLimit(
+        mode: GenerationMode,
+        summaryType: SummaryType,
+        model: String = resolvedModel
+    ) -> Int {
+        contextWindowTokens(for: model)
+            - outputTokenLimit(mode: mode, summaryType: summaryType, model: model)
+    }
+
+    /// Extra `max_tokens` to grant M3 on small one-shot calls (narration
+    /// scripts, closing sections) whose budgets were sized for the visible
+    /// answer alone. M3's reasoning shares the budget, so without headroom the
+    /// visible output truncates.
+    static func reasoningHeadroom(for model: String = resolvedModel) -> Int {
+        model.hasPrefix("MiniMax-M3") ? 16_384 : 0
     }
 
     /// The client_id is a production value, so sign-in is always available.
@@ -134,7 +192,9 @@ final class MiniMaxOAuthService: ObservableObject {
 
     /// Non-isolated snapshot for use off the main actor (e.g. AIService).
     nonisolated static var hasStoredCredentials: Bool {
-        KeychainService.shared.minimaxAccessToken?.isEmpty == false
+        let keychain = KeychainService.shared
+        return keychain.minimaxAccessToken?.isEmpty == false
+            || keychain.minimaxRefreshToken?.isEmpty == false
     }
 
     // MARK: Sign in / out

@@ -75,7 +75,7 @@ struct LibraryHeaderView: View {
         }
         .frame(height: 64)  // Fixed header height per Design System
         .background(
-            Color(hex: "#F8F8F8").opacity(0.85)
+            PremiumUI.background.opacity(0.85)
                 .background(.ultraThinMaterial)
         )
     }
@@ -155,7 +155,7 @@ struct LibraryAccentDivider: View {
                         startPoint: .leading,
                         endPoint: .trailing
                     ))
-                    : AnyShapeStyle(Color(hex: "#EAEAEA"))  // Design System: ui-border
+                    : AnyShapeStyle(PremiumUI.divider)  // Design System: ui-border
             )
             .frame(height: 1)
     }
@@ -334,7 +334,7 @@ struct LibraryRowView: View {
 
     // Derive status from item
     private var status: BookStatus {
-        if item.summaryContent != nil {
+        if item.hasGuideBody {
             return .completed
         } else {
             return .inProgress
@@ -603,17 +603,10 @@ struct LibraryListView: View {
         self.onDelete = onDelete
     }
 
-    // Accent colors for visual variety
-    private static let accentColors: [Color] = [
-        InsightAtlasColors.gold,
-        InsightAtlasColors.burgundy,
-        InsightAtlasColors.coral,
-        InsightAtlasColors.teal
-    ]
-
+    /// Row accent by status — the same mapping the list layout uses. See
+    /// `PremiumGuideStatus.accentColor` for why this is not keyed on the title.
     private func accentColor(for item: LibraryItem) -> Color {
-        let index = abs(item.title.hashValue) % Self.accentColors.count
-        return Self.accentColors[index]
+        PremiumGuideStatus(item: item).accentColor
     }
 
     var body: some View {

@@ -44,13 +44,6 @@ private func governorLog(_ message: String) {
     #endif
 }
 
-/// Debug logging for audio generation
-private func audioLog(_ message: String) {
-    #if DEBUG
-    logger.debug("[Audio] \(message)")
-    #endif
-}
-
 // MARK: - Generation State
 
 /// Persisted state for in-progress generation
@@ -173,7 +166,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let aiService = AIService()
+    private let aiService = AIService.shared
     private let bookProcessor = BookProcessor()
     private let fileManager = FileManager.default
     private var generationTask: Task<String, Error>?
@@ -313,12 +306,14 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 settings: settings,
                 governorContext: governorContext
             )
+            #if DEBUG
             print(String(
                 format: "[Timing] text generation: %.1fs (%d chars) via %@",
                 Date().timeIntervalSince(textGenStart),
                 rawResult.count,
                 state.provider.displayName
             ))
+            #endif
 
             // Use governor result (streaming enforcement already applied)
             var finalResult = governorResult ?? GovernorEnforcementResult(
@@ -334,14 +329,42 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
             // MARK: - Quality Validation & Improvement Pass
 
-            let allowImprovementPass = settings.preferredMode == .deepResearch ||
+            // Validation always runs. It used to be skipped once a guide passed
+            // 70% of its word ceiling, which is most full guides — so the
+            // "insufficient visuals" and truncation checks never evaluated, and
+            // a 41-page guide shipped with zero diagrams.
+            let allIssues = validateOutputQuality(content: finalResult.content, governor: governor)
+
+            // A long guide still must not be grown further, but structural
+            // defects — no visuals, a truncated ending — are worth a pass even
+            // when the prose budget is nearly spent.
+            let isStructuralIssue: (String) -> Bool = { issue in
+                let lowered = issue.lowercased()
+                return lowered.contains("visual") || lowered.contains("truncat")
+                    || lowered.contains("ends mid-sentence") || lowered.contains("unclosed")
+                    || lowered.hasPrefix("structure:")
+            }
+            let hasRoomToGrow = !finalResult.cutPolicyActivated
+                && finalResult.wordCount < governor.maxWordCeiling
+            let wantsDeepResearch = settings.preferredMode == .deepResearch ||
                 settings.preferredSummaryType == .deepResearch
-            let improvementThreshold = Int(Double(governor.maxWordCeiling) * 0.7)
-            let shouldSkipImprovementPass = !allowImprovementPass ||
-                finalResult.cutPolicyActivated ||
-                finalResult.wordCount >= governor.maxWordCeiling ||
-                finalResult.wordCount >= improvementThreshold
-            let qualityIssues = shouldSkipImprovementPass ? [] : validateOutputQuality(content: finalResult.content, governor: governor)
+            let belowProseThreshold = finalResult.wordCount < Int(Double(governor.maxWordCeiling) * 0.7)
+
+            let qualityIssues: [String]
+            if hasRoomToGrow && (allIssues.contains(where: isStructuralIssue)
+                                 || (wantsDeepResearch && belowProseThreshold)) {
+                qualityIssues = allIssues
+            } else if allIssues.contains(where: isStructuralIssue) {
+                // Near the prose ceiling we still rewrite structural defects
+                // in place (missing visuals, truncation). Never drop those
+                // solely for lack of headroom.
+                qualityIssues = allIssues.filter(isStructuralIssue)
+            } else {
+                qualityIssues = []
+                if !allIssues.isEmpty {
+                    governorLog("Quality issues found but no improvement pass is possible: \(allIssues.count)")
+                }
+            }
 
             if !qualityIssues.isEmpty {
                 governorLog("⚠️ Quality issues detected: \(qualityIssues.count)")
@@ -460,6 +483,53 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 }
             }
 
+            // MARK: - Provenance Verification Pass (elevation spec C3)
+            //
+            // A second model pass lists every name, date, number, title and
+            // quotation, corrects the errors it is confident about (misnamed
+            // authors, journals cited as books) and attributes or softens the
+            // numbers nobody sourced. Bounded by a deadline and never fatal:
+            // a guide with an unverified figure still ships, a hung pass does
+            // not hold the user's guide hostage.
+            if settings.preferredSummaryType != .quickReference {
+                progress = GenerationProgress(
+                    phase: "Verifying names, dates and numbers...",
+                    percentComplete: 0.95,
+                    wordCount: finalResult.wordCount,
+                    model: "\(state.provider.displayName) (Verification)",
+                    content: finalResult.content
+                )
+                let chapterTitles = ChapterDetector.detect(text: bookText, fallbackStrategy: .treatAsMonolith).chapters.map(\.title)
+                let guideForVerification = finalResult.content
+                do {
+                    let report = try await Self.withDeadline(seconds: 180) {
+                        try await self.aiService.verifyProvenance(
+                            guide: guideForVerification,
+                            title: state.title,
+                            author: state.author,
+                            chapterTitles: chapterTitles,
+                            settings: settings
+                        )
+                    }
+                    let outcome = AIService.applyProvenanceReport(report, to: finalResult.content)
+                    governorLog("Verification pass: \(report.corrections.count) corrections, \(report.consistency.count) consistency fixes, \(report.unverified.count) unverified items; applied \(outcome.applied), skipped \(outcome.skipped)")
+                    for item in report.unverified where item.action.lowercased() == "keep" || item.replacement == nil {
+                        governorLog("  UNVERIFIED (left as is): \(item.text.prefix(120))")
+                    }
+                    if outcome.applied > 0 {
+                        let revised = sanitizeGeneratedContent(outcome.guide)
+                        finalResult = GovernorEnforcementResult(
+                            content: revised,
+                            wordCount: revised.split(separator: " ").count,
+                            cutPolicyActivated: finalResult.cutPolicyActivated,
+                            cutEventCount: finalResult.cutEventCount
+                        )
+                    }
+                } catch {
+                    governorLog("Verification pass skipped: \(error.localizedDescription)")
+                }
+            }
+
             // Soft enforcement: log warning but don't throw for minor violations
             if finalResult.wordCount > governor.maxWordCeiling {
                 let overagePercent = Float(finalResult.wordCount - governor.maxWordCeiling) / Float(governor.maxWordCeiling) * 100
@@ -480,7 +550,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             //
             // Narration is intentionally NOT generated here. Doing it inline used
             // to block completion: the guide text was already 100% done, but the
-            // coordinator awaited full Liam (Kokoro) narration before signaling
+            // coordinator awaited full Pocket (Kokoro) narration before signaling
             // completion — so if narration hung or was slow, the UI froze at 100%
             // with nothing shown. The guide now completes on text alone, and the
             // caller (GenerationView) kicks off narration in the background after
@@ -507,6 +577,13 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             endBackgroundTask()
             isGenerating = false
             lastResult = .success(content: finalResult.content, itemId: existingItemId, metadata: metadata, coverImagePath: coverImagePath)
+
+            // Persist the manuscript for future Regenerate before clearing the
+            // temporary generation cache. Without this, Regenerate would have to
+            // re-feed the guide body as if it were the book.
+            if let itemId = existingItemId {
+                SourceTextStore.save(bookText, for: itemId)
+            }
 
             // Clear persisted state after success
             clearPersistedState()
@@ -544,6 +621,20 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
             // Keep state for potential retry
             throw error
+        }
+    }
+
+    /// Race an async operation against a wall-clock deadline.
+    static func withDeadline<T: Sendable>(seconds: Double, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw GenerationError.verificationTimedOut
+            }
+            let first = try await group.next()!
+            group.cancelAll()
+            return first
         }
     }
 
@@ -664,44 +755,69 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             endBackgroundTask()
             isGenerating = false
 
-            // Build metadata from governor enforcement result
+            // Build metadata from governor enforcement result. Match the primary
+            // generation path: do not await narration here — resume used to block
+            // guide completion on full Kokoro synthesis.
             let metadata: GenerationMetadata?
             if let govResult = governorResult {
-                // Generate audio if available
-                let audioResult = await generateAudioIfAvailable(
-                    content: result,
-                    title: state.title,
-                    generationId: state.id,
-                    libraryItemId: state.existingItemId,
-                    readerProfile: settings.preferredReaderProfile,
-                    summaryType: state.summaryType
-                )
-
                 metadata = GenerationMetadata(
                     summaryType: state.summaryType,
                     governedWordCount: govResult.wordCount,
                     cutPolicyActivated: govResult.cutPolicyActivated,
                     cutEventCount: govResult.cutEventCount,
-                    audioFileURL: audioResult?.fileURL,
-                    audioVoiceID: audioResult?.voiceID,
-                    audioDuration: audioResult?.duration
+                    audioFileURL: nil,
+                    audioVoiceID: nil,
+                    audioDuration: nil
                 )
             } else {
                 metadata = nil
             }
 
-            // For resumed generations, cover image is not available (already saved previously)
-            lastResult = .success(content: result, itemId: state.existingItemId, metadata: metadata, coverImagePath: nil)
+            // Resume used to clear the generation cache without writing a
+            // LibraryItem or SourceTextStore, so the guide was lost. Persist
+            // both before discarding the temporary book text.
+            let itemId = state.existingItemId ?? UUID()
+            SourceTextStore.save(bookText, for: itemId)
+
+            if var existing = DataManager.shared.getLibraryItem(id: itemId) {
+                existing.summaryContent = result
+                existing.title = state.title
+                existing.author = state.author
+                existing.summaryType = state.summaryType
+                existing.governedWordCount = metadata?.governedWordCount
+                existing.cutPolicyActivated = metadata?.cutPolicyActivated
+                existing.cutEventCount = metadata?.cutEventCount
+                DataManager.shared.updateLibraryItem(existing)
+            } else {
+                let item = LibraryItem(
+                    id: itemId,
+                    title: state.title,
+                    author: state.author,
+                    fileType: state.fileType,
+                    summaryContent: result,
+                    provider: state.provider,
+                    mode: state.mode,
+                    summaryType: state.summaryType,
+                    governedWordCount: metadata?.governedWordCount,
+                    cutPolicyActivated: metadata?.cutPolicyActivated,
+                    cutEventCount: metadata?.cutEventCount
+                )
+                DataManager.shared.addLibraryItem(item)
+            }
+
+            lastResult = .success(content: result, itemId: itemId, metadata: metadata, coverImagePath: nil)
 
             clearPersistedState()
 
             return result
 
         } catch {
-            var failedState = state
-            failedState.phase = .failed
-            failedState.lastUpdated = Date()
-            persistState(failedState)
+            // Keep the interrupted phase so the next launch can offer Resume
+            // again. Flipping to `.failed` used to make startup scrub the run
+            // instead of retrying.
+            var interruptedState = state
+            interruptedState.lastUpdated = Date()
+            persistState(interruptedState)
 
             endBackgroundTask()
             isGenerating = false
@@ -714,6 +830,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
     /// Discard interrupted generation state
     func discardInterruptedGeneration() {
         clearPersistedState()
+        scrubOrphanBookTexts()
         isGenerating = false
         currentGenerationId = nil
         progress = .initial
@@ -1098,6 +1215,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     /// Check for interrupted generation on startup
     private func checkForInterruptedGeneration() async {
+        defer { scrubOrphanBookTexts() }
         guard let state = loadPersistedState() else { return }
 
         switch state.phase {
@@ -1222,6 +1340,31 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         }
     }
 
+    /// Deletes `generation_booktext_*` files in Caches that do not belong to the
+    /// currently persisted generation. A crash, a force-quit or a cleared
+    /// state would otherwise strand multi-megabyte manuscripts there forever.
+    func scrubOrphanBookTexts() {
+        // A live generation writes its book text before its state is persisted.
+        guard !isGenerating else { return }
+        let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        guard let names = try? fileManager.contentsOfDirectory(atPath: cachesDir.path) else { return }
+
+        let keep = loadPersistedState().map { $0.bookTextStorageKey }
+        var removed = 0
+        for name in names where name.hasPrefix("generation_booktext_") && name != keep {
+            do {
+                try fileManager.removeItem(at: cachesDir.appendingPathComponent(name))
+                removed += 1
+            } catch {
+                logger.warning("Failed to remove orphaned book text \(name, privacy: .public): \(error.localizedDescription)")
+            }
+        }
+        if removed > 0 {
+            logger.info("Removed \(removed) orphaned book text file(s)")
+        }
+    }
+
     private func bookTextStorageURL(for state: GenerationState) -> URL {
         let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? fileManager.temporaryDirectory
@@ -1312,90 +1455,6 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         return hints
     }
 
-    // MARK: - Audio Generation
-
-    /// Generate audio if the on-device Kokoro voice model is installed
-    /// - Parameters:
-    ///   - content: The text content to convert to audio
-    ///   - title: Title for logging purposes
-    ///   - generationId: UUID for unique file naming
-    ///   - readerProfile: Reader profile to select appropriate voice
-    private func generateAudioIfAvailable(
-        content: String,
-        title: String,
-        generationId: UUID,
-        libraryItemId: UUID? = nil,
-        readerProfile: ReaderProfile = .practitioner,
-        summaryType: SummaryType = .professional
-    ) async -> AudioGenerationResult? {
-
-        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let audioContent = sanitizeAudioContent(trimmedContent)
-        guard !audioContent.isEmpty else {
-            audioLog("⚠️ Skipping audio generation: empty content")
-            return nil
-        }
-
-        let wordCount = audioContent.split(whereSeparator: { $0.isWhitespace }).count
-        if wordCount < 200 {
-            audioLog("⚠️ Skipping audio generation: content too short (\(wordCount) words)")
-            return nil
-        }
-
-        // New narration is generated only with the installed on-device model.
-        // A stale hosted-token entry must not trigger the unavailable Liam route.
-        guard KokoroModelStore.isInstalled else {
-            audioLog("⚠️ No installed Kokoro model found - skipping audio generation")
-            return nil
-        }
-
-        // The item ID (or generation ID) owns the "audio_<id>.<ext>" file the
-        // service writes into Documents.
-        let audioOwnerId = libraryItemId ?? generationId
-        audioLog("Starting narration for: \(title)")
-
-        do {
-            let asset = try await NarrationService.shared.synthesize(
-                text: content,
-                itemId: audioOwnerId,
-                summaryType: summaryType
-            )
-
-            audioLog("✅ Narration generated successfully")
-            audioLog("Duration: \(String(format: "%.1f", asset.duration)) seconds")
-            audioLog("File: \(asset.relativeFileName)")
-
-            return AudioGenerationResult(
-                fileURL: asset.relativeFileName,
-                voiceID: asset.voiceID,
-                duration: asset.duration
-            )
-        } catch {
-            audioLog("❌ Narration failed: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    /// Calculate audio duration from file
-    private func calculateAudioDuration(from url: URL) async throws -> TimeInterval {
-        let asset = AVURLAsset(url: url)
-        let duration = try await asset.load(.duration)
-        return CMTimeGetSeconds(duration)
-    }
-
-    private func sanitizeAudioContent(_ content: String) -> String {
-        var cleaned = content
-        // Remove bracketed tags (e.g., [PREMIUM_H1], [VISUAL_FLOWCHART], [/VISUAL_FLOWCHART])
-        cleaned = cleaned.replacingOccurrences(
-            of: "\\[[^\\]]+\\]",
-            with: "",
-            options: .regularExpression
-        )
-        // Collapse excessive whitespace
-        cleaned = cleaned.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
-        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     // MARK: - Cover Image Saving
 
     /// Save cover image data to documents directory
@@ -1450,6 +1509,7 @@ enum GenerationError: LocalizedError {
     case bookTextNotFound
     case cancelled
     case governorViolation(wordCount: Int, limit: Int)
+    case verificationTimedOut
 
     var errorDescription: String? {
         switch self {
@@ -1463,6 +1523,8 @@ enum GenerationError: LocalizedError {
             return "Generation was cancelled"
         case .governorViolation(let wordCount, let limit):
             return "Summary exceeded word limit (\(wordCount) > \(limit)). Strict enforcement halted generation."
+        case .verificationTimedOut:
+            return "The verification pass did not finish in time"
         }
     }
 }
@@ -1474,14 +1536,6 @@ private struct GovernorEnforcementResult {
     let wordCount: Int
     let cutPolicyActivated: Bool
     let cutEventCount: Int
-}
-
-// MARK: - Audio Generation Result
-
-private struct AudioGenerationResult {
-    let fileURL: String
-    let voiceID: String
-    let duration: TimeInterval
 }
 
 // MARK: - Streaming Governor Context

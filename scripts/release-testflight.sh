@@ -34,6 +34,20 @@ BUILD_DIR="${BUILD_DIR:-$(mktemp -d)}"
 ARCHIVE="$BUILD_DIR/InsightAtlas.xcarchive"
 STUBS=(onnxruntime SherpaOnnxC)
 
+# DERIVED_DATA=<path>: reuse a DerivedData folder whose SourcePackages is
+# already populated (sherpa-onnx + onnxruntime are ~1 GB of binary artifacts;
+# on a slow link a fresh resolve takes longer than the build). With it set the
+# archive refuses to touch the network for packages.
+# SKIP_UPLOAD=1: archive and verify only; print the export command instead.
+DERIVED_DATA_ARGS=()
+if [ -n "${DERIVED_DATA:-}" ]; then
+  DERIVED_DATA_ARGS=(
+    -derivedDataPath "$DERIVED_DATA"
+    -skipPackageUpdates
+    -onlyUsePackageVersionsFromResolvedFile
+  )
+fi
+
 echo "==> Archiving to $ARCHIVE"
 xcodebuild archive \
   -project InsightAtlas.xcodeproj \
@@ -42,6 +56,7 @@ xcodebuild archive \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
   -allowProvisioningUpdates \
+  "${DERIVED_DATA_ARGS[@]}" \
   DEVELOPMENT_TEAM="$TEAM_ID"
 
 APP="$ARCHIVE/Products/Applications/InsightAtlas.app"
@@ -62,6 +77,16 @@ for stub in "${STUBS[@]}"; do
   echo "    removed $stub.framework"
 done
 rmdir "$APP/Frameworks" 2>/dev/null || true
+
+# Fail closed: a stub that survived the strip (e.g. a nested copy, or a
+# non-.framework layout) would be rejected by App Store Connect after a long
+# upload, so catch it here.
+leftover="$(find "$APP/Frameworks" \( -iname 'onnxruntime*' -o -iname 'SherpaOnnxC*' \) 2>/dev/null || true)"
+if [ -n "$leftover" ]; then
+  echo "error: unsupported onnxruntime/SherpaOnnxC stubs remain in the app bundle:" >&2
+  echo "$leftover" >&2
+  exit 1
+fi
 
 # The inference code lives in the app binary, not the stubs. If this is ever
 # zero, the static link broke and Kokoro would fail at runtime.
@@ -93,6 +118,12 @@ cat > "$EXPORT_OPTIONS" <<PLIST
 </dict>
 </plist>
 PLIST
+
+if [ "${SKIP_UPLOAD:-0}" = "1" ]; then
+  echo "==> SKIP_UPLOAD=1: archive verified at $ARCHIVE; not uploading."
+  echo "    xcodebuild -exportArchive -archivePath '$ARCHIVE' -exportOptionsPlist '$EXPORT_OPTIONS' -exportPath '$BUILD_DIR/export' -allowProvisioningUpdates"
+  exit 0
+fi
 
 echo "==> Uploading $BUILD_NUMBER to App Store Connect"
 xcodebuild -exportArchive \

@@ -38,8 +38,31 @@ final class InsightAtlasPDFRenderer {
 
     private static let densityLog = Logger(subsystem: "com.insightatlas", category: "PDFDensityAudit")
 
+    /// One table-of-contents row. Page numbers come from an actual layout pass
+    /// (the renderer runs the content layout, records where each heading
+    /// landed, and re-renders with those numbers), never from an estimate.
+    struct TOCEntry: Equatable {
+        var title: String
+        var page: Int
+        var isSubsection: Bool
+        var descriptor: String? = nil
+        var minutes: Int? = nil
+    }
+
     private var currentPage: Int = 0
-    private var tableOfContents: [(title: String, page: Int, isSubsection: Bool)] = []
+    /// Entries printed on the Contents page for the pass in progress.
+    private var tableOfContents: [TOCEntry] = []
+    /// Entries recorded while laying out content in the pass in progress.
+    private var recordedTOC: [TOCEntry] = []
+    /// Reading minutes per heading (and "Quick Glance"), computed once per document.
+    private var readingMinutes: [String: Int] = [:]
+    /// Running header state: the book title (short form) and the section in effect.
+    private var runningBookTitle: String = ""
+    private var runningSectionTitle: String = ""
+    private var documentHasLevelOneHeadings: Bool = false
+    /// Page index of the last front-matter page (cover + contents); the running
+    /// header starts after it.
+    private var lastFrontMatterPage: Int = 0
 
     /// DEBUG-only record of trailing whitespace left on each content page when a
     /// block is pushed to the next page. Used to quantify the "half-empty page"
@@ -75,14 +98,41 @@ final class InsightAtlasPDFRenderer {
         // Detection-only: report note "dumps" for authoring follow-up.
         auditNoteDensity(document)
 
+        readingMinutes = Self.computeReadingMinutes(document)
+        runningBookTitle = Self.shortTitle(document.book.title)
+        documentHasLevelOneHeadings = Self.hasLevelOneHeadings(document)
+
+        // Layout-verified table of contents (elevation spec A2): the first pass
+        // lays the content out against a placeholder Contents page with the
+        // right NUMBER of rows (so the content starts on the same page it will
+        // finally start on) and records where every heading lands; the next
+        // pass prints those numbers. A third pass only runs if the recorded
+        // entries still moved (a Contents page that spilled over).
+        var toc = Self.placeholderTOC(for: document)
+        var pdfData = Data()
+        for _ in 0..<3 {
+            pdfData = renderPass(document: document, options: options, toc: toc)
+            if recordedTOC == toc { break }
+            toc = recordedTOC
+        }
+
+        return RenderResult(
+            pdfData: pdfData,
+            pageCount: currentPage,
+            documentTitle: document.book.title
+        )
+    }
+
+    /// One complete render of the document with the given Contents rows.
+    private func renderPass(document: PDFAnalysisDocument, options: RenderOptions, toc: [TOCEntry]) -> Data {
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize))
         currentPage = 0
-        tableOfContents = []
+        tableOfContents = toc
+        recordedTOC = []
+        runningSectionTitle = ""
+        lastFrontMatterPage = 0
 
-        // First pass: build TOC (calculate page numbers)
-        buildTableOfContents(document: document, options: options)
-
-        let pdfData = pdfRenderer.pdfData { context in
+        return pdfRenderer.pdfData { context in
             // Cover page
             if options.includeCoverPage {
                 renderCoverPage(context: context, document: document, options: options)
@@ -92,16 +142,114 @@ final class InsightAtlasPDFRenderer {
             if options.includeTableOfContents && !tableOfContents.isEmpty {
                 renderTableOfContentsPage(context: context, options: options)
             }
+            lastFrontMatterPage = currentPage
 
             // Content pages
             renderContentPages(context: context, document: document, options: options)
         }
+    }
 
-        return RenderResult(
-            pdfData: pdfData,
-            pageCount: currentPage,
-            documentTitle: document.book.title
-        )
+    /// Titles the Contents page will carry, in order, with no page numbers yet.
+    /// Must mirror what `renderContentPages` records so the Contents page has
+    /// the same row count on the first pass as on the last.
+    static func placeholderTOC(for document: PDFAnalysisDocument) -> [TOCEntry] {
+        var entries: [TOCEntry] = []
+        var seen: Set<String> = []
+        func add(_ title: String, _ isSub: Bool, _ descriptor: String?) {
+            let key = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, !seen.contains(key) else { return }
+            seen.insert(key)
+            entries.append(TOCEntry(title: key, page: 0, isSubsection: isSub, descriptor: descriptor, minutes: nil))
+        }
+        let hasLevelOne = hasLevelOneHeadings(document)
+        if document.quickGlance != nil { add("Quick Glance", false, nil) }
+        for section in document.sections {
+            if section.blocks.isEmpty && section.heading == nil { continue }
+            if let heading = section.heading {
+                let isPART = heading.uppercased().hasPrefix("PART ")
+                add(heading, !(section.headingLevel == 1 || isPART || !hasLevelOne), section.descriptor)
+            }
+            for block in section.blocks {
+                switch block.type {
+                case .heading3, .heading2, .premiumH2:
+                    add(block.content, hasLevelOne, block.metadata?["descriptor"])
+                case .premiumH1:
+                    add(block.content, false, block.metadata?["descriptor"])
+                case .keyTakeaways:
+                    add("Key Takeaways", false, nil)
+                default:
+                    break
+                }
+            }
+        }
+        return entries
+    }
+
+    /// Whether the document has any level-1 headings (PART / # / PREMIUM_H1).
+    /// Without them, level-2 headings ARE the main sections and the Contents
+    /// page lists them flush left rather than as indented subsections.
+    static func hasLevelOneHeadings(_ document: PDFAnalysisDocument) -> Bool {
+        for section in document.sections {
+            if let h = section.heading, section.headingLevel == 1 || h.uppercased().hasPrefix("PART ") { return true }
+            if section.blocks.contains(where: { $0.type == .premiumH1 || $0.type == .heading1 }) { return true }
+        }
+        return false
+    }
+
+    /// Reading minutes for each heading: the words from that heading to the
+    /// next one, at 250 wpm. Keyed by heading text; "Quick Glance" included.
+    static func computeReadingMinutes(_ document: PDFAnalysisDocument) -> [String: Int] {
+        var words: [String: Int] = [:]
+        var order: [String] = []
+        func count(_ block: PDFContentBlock) -> Int {
+            var n = block.content.split(whereSeparator: { $0.isWhitespace }).count
+            n += (block.listItems ?? []).reduce(0) { $0 + $1.split(whereSeparator: { $0.isWhitespace }).count }
+            n += (block.tableData ?? []).flatMap { $0 }.reduce(0) { $0 + $1.split(whereSeparator: { $0.isWhitespace }).count }
+            return n
+        }
+        func open(_ key: String) {
+            if words[key] == nil { words[key] = 0; order.append(key) }
+        }
+        var current: String?
+        if let qg = document.quickGlance {
+            open("Quick Glance")
+            words["Quick Glance"] = qg.coreMessage.split(whereSeparator: { $0.isWhitespace }).count
+                + qg.keyPoints.reduce(0) { $0 + $1.split(whereSeparator: { $0.isWhitespace }).count }
+        }
+        for section in document.sections {
+            if let heading = section.heading { open(heading); current = heading }
+            for block in section.blocks {
+                switch block.type {
+                case .heading2, .heading3, .premiumH1, .premiumH2:
+                    open(block.content); current = block.content
+                default:
+                    if let current { words[current, default: 0] += count(block) }
+                }
+            }
+        }
+        var minutes: [String: Int] = [:]
+        for (key, n) in words { minutes[key] = max(1, Int((Double(n) / 250.0).rounded())) }
+        return minutes
+    }
+
+    /// Short form of the book title for the running header.
+    static func shortTitle(_ title: String) -> String {
+        var t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let colon = t.firstIndex(of: ":"), t.distance(from: t.startIndex, to: colon) >= 12 {
+            t = String(t[..<colon])
+        }
+        if t.count > 48 {
+            t = String(t.prefix(46)).trimmingCharacters(in: .whitespaces) + "…"
+        }
+        return t
+    }
+
+    /// Record where a heading landed, for the next pass's Contents page.
+    private func recordTOC(_ title: String, isSubsection: Bool, descriptor: String?) {
+        let key = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, !recordedTOC.contains(where: { $0.title == key }) else { return }
+        recordedTOC.append(TOCEntry(title: key, page: currentPage, isSubsection: isSubsection,
+                                    descriptor: descriptor, minutes: readingMinutes[key]))
     }
 
     /// Detection-only density audit. A card "dump" — consecutive Insight Notes
@@ -195,11 +343,16 @@ final class InsightAtlasPDFRenderer {
         context.beginPage()
         currentPage += 1
 
+        let totalWords = document.sections.flatMap(\.blocks).reduce(0) { total, block in
+            total + block.content.split(whereSeparator: { $0.isWhitespace }).count
+                + (block.listItems ?? []).reduce(0) { $0 + $1.split(whereSeparator: { $0.isWhitespace }).count }
+        }
         coverRenderer.render(
             to: context.cgContext,
             title: document.book.title,
             author: document.book.author,
-            logoImage: options.logoImage ?? UIImage(named: "Logo")
+            logoImage: options.logoImage ?? UIImage(named: "Logo"),
+            readingMinutes: totalWords > 0 ? max(1, Int((Double(totalWords) / 250.0).rounded())) : nil
         )
     }
 
@@ -230,14 +383,19 @@ final class InsightAtlasPDFRenderer {
         var currentY = contentRect.minY
         var needsNewPage = true
         let minContentAfterHeading: CGFloat = 100 // Minimum content to keep with heading to avoid orphans
+        /// Below this much free space, float-ahead is not attempted (nothing
+        /// useful fits and the lookahead would only add churn).
+        let minFloatAheadSpace: CGFloat = 70
 
         // Render Quick Glance if present
         if let quickGlance = document.quickGlance {
             if needsNewPage {
+                runningSectionTitle = "Quick Glance"
                 startNewContentPage(context: context, options: options)
                 currentY = contentRect.minY
                 needsNewPage = false
             }
+            recordTOC("Quick Glance", isSubsection: false, descriptor: nil)
 
             let quickGlanceBlock = PDFContentBlock(
                 type: .quickGlance,
@@ -250,28 +408,14 @@ final class InsightAtlasPDFRenderer {
             let pageBudget = contentRect.height
 
             if currentY + height <= contentRect.maxY {
-                // Fits in the remaining space on the current page.
-                blockRenderer.renderBlock(
-                    quickGlanceBlock,
-                    to: context.cgContext,
-                    at: CGPoint(x: contentRect.minX, y: currentY),
-                    maxWidth: contentRect.width
-                )
+                blockRenderer.renderBlock(quickGlanceBlock, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
                 currentY += height
             } else if height <= pageBudget {
-                // Fits on a fresh page as a single card.
                 startNewContentPage(context: context, options: options)
                 currentY = contentRect.minY
-                blockRenderer.renderBlock(
-                    quickGlanceBlock,
-                    to: context.cgContext,
-                    at: CGPoint(x: contentRect.minX, y: currentY),
-                    maxWidth: contentRect.width
-                )
+                blockRenderer.renderBlock(quickGlanceBlock, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
                 currentY += height
             } else {
-                // Taller than a whole page: split into self-contained cards,
-                // each on its own page, so nothing clips off the bottom edge.
                 let fragments = blockRenderer.planQuickGlanceFragments(
                     coreMessage: quickGlance.coreMessage,
                     keyPoints: quickGlance.keyPoints,
@@ -299,36 +443,33 @@ final class InsightAtlasPDFRenderer {
 
         // Render sections
         for section in document.sections {
-            // Skip sections with no content (empty heading + no blocks)
-            if section.blocks.isEmpty && section.heading == nil {
-                continue
-            }
+            if section.blocks.isEmpty && section.heading == nil { continue }
 
             // Render section heading if present
             if let heading = section.heading {
-                // Use the section heading height calculator which handles PART headers
-                let headingHeight = blockRenderer.calculateSectionHeadingHeight(heading, level: section.headingLevel, maxWidth: contentRect.width)
+                let headingHeight = blockRenderer.calculateSectionHeadingHeight(heading, level: section.headingLevel, descriptor: section.descriptor, maxWidth: contentRect.width)
 
-                // Calculate first block height to avoid orphaned headings.
                 // Keep the heading with its ENTIRE first block when that block
-                // fits on a page — otherwise the heading renders at the bottom
-                // and the (taller) block is pushed to the next page, stranding
-                // the heading. Only fall back to a minimum reserve when the
-                // following block is itself taller than a page (unavoidable).
+                // fits on a page; otherwise reserve a minimum (fragmentable) or
+                // a full page (atomic and taller than a page).
                 let firstBlockHeight = section.blocks.first.map {
                     blockRenderer.calculateBlockHeight(block: $0, maxWidth: contentRect.width)
                 } ?? 0
-                // Only keep them together if both actually fit on one page;
-                // if the block is so tall that heading+block can't co-exist on
-                // any page, keeping them together is impossible — reserve a
-                // minimum instead (the unavoidable case).
-                let headingReserve = (headingHeight + firstBlockHeight) <= contentRect.height
-                    ? firstBlockHeight
-                    : minContentAfterHeading
+                let firstCanFragment = section.blocks.first.map(blockCanFragment) ?? true
+                let headingReserve: CGFloat
+                if firstCanFragment {
+                    // The block can continue on the next page: keep the heading
+                    // with its first ~100pt rather than with all of it.
+                    headingReserve = min(firstBlockHeight, minContentAfterHeading)
+                } else if (headingHeight + firstBlockHeight) <= contentRect.height {
+                    headingReserve = firstBlockHeight
+                } else {
+                    headingReserve = contentRect.height
+                }
                 let combinedHeight = headingHeight + headingReserve
 
-                // Check if heading + its content fits, otherwise start new page
-                if needsNewPage || currentY + combinedHeight > contentRect.maxY - 30 {
+                runningSectionTitle = heading
+                if needsNewPage || currentY + combinedHeight > contentRect.maxY - 12 {
                     if !needsNewPage {
                         recordTrailingGap(at: currentY, cause: "section heading kept with next (\(heading))")
                     }
@@ -337,15 +478,17 @@ final class InsightAtlasPDFRenderer {
                     needsNewPage = false
                 }
 
-                // Render with the correct heading level
+                let isPART = heading.uppercased().hasPrefix("PART ")
+                recordTOC(heading, isSubsection: !(section.headingLevel == 1 || isPART || !documentHasLevelOneHeadings), descriptor: section.descriptor)
+
                 let renderedHeight = blockRenderer.renderSectionHeading(
                     heading,
                     level: section.headingLevel,
+                    descriptor: section.descriptor,
                     to: context.cgContext,
                     at: CGPoint(x: contentRect.minX, y: currentY),
                     maxWidth: contentRect.width
                 )
-
                 currentY += renderedHeight
             } else if needsNewPage {
                 startNewContentPage(context: context, options: options)
@@ -353,40 +496,42 @@ final class InsightAtlasPDFRenderer {
                 needsNewPage = false
             }
 
-            // Render section blocks
-            for (index, block) in section.blocks.enumerated() {
+            // Render section blocks. `floated` holds indices of paragraphs that
+            // were pulled ahead of an atomic block (float-ahead) and are
+            // therefore already drawn.
+            var floated: Set<Int> = []
+            let blocks = section.blocks
+            var index = 0
+            while index < blocks.count {
+                defer { index += 1 }
+                if floated.contains(index) { continue }
+                let block = blocks[index]
                 let blockHeight = blockRenderer.calculateBlockHeight(block: block, maxWidth: contentRect.width)
 
-                // Skip rendering empty content blocks. Metadata-only types
-                // (dividers, library entries, reading chips) carry no
-                // `content`/`listItems` by design — and so do TABLE blocks (data in
-                // `tableData`) and VISUAL blocks (image in `visualURL`), which have
-                // `content == ""`. Those were being silently dropped here despite
-                // being registered/numbered upstream — the exact cause of Table 1/
-                // Table 2 appearing in the 📊 manifest but never on the page. Treat
-                // tableData/visualURL as content so they are not filtered.
-                let metadataOnlyTypes: Set<PDFContentBlock.BlockType> = [.divider, .libraryEntry, .readingChip]
+                // Skip genuinely empty blocks (metadata-only and data-bearing
+                // types are kept — see the original diagnosis of Table 1/2
+                // vanishing from a shipped export).
+                let metadataOnlyTypes: Set<PDFContentBlock.BlockType> = [.divider, .libraryEntry, .readingChip, .premiumDivider]
                 let hasTableData = !(block.tableData?.isEmpty ?? true)
                 let hasVisual = block.visualURL != nil
+                let hasNodes = !(block.metadata?["nodes"] ?? "").isEmpty
                 if block.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
                    (block.listItems?.isEmpty ?? true) &&
-                   !hasTableData &&
-                   !hasVisual &&
+                   !hasTableData && !hasVisual && !hasNodes &&
                    !metadataOnlyTypes.contains(block.type) {
-                    // Log the skip — the whole reason Table 1/2 sat undiagnosed was
-                    // a silent drop between "manifest says exists" and "page shows
-                    // nothing". A genuinely-empty block now leaves a trace.
+                    #if DEBUG
                     print("⏭️ [PDF Renderer] skipped empty block (type=\(block.type)) — no content/listItems/tableData/visualURL")
+                    #endif
                     continue
                 }
 
-                // Oversized-exercise fragmentation (Option A). An exercise card
-                // that won't fit in the space left on this page is SPLIT into
-                // self-contained cards instead of being pushed whole to the next
-                // page (which stranded its section heading and left a trailing
-                // gap — the page-80 case). Fragment 1 fills the remaining space
-                // under the heading; the rest continue on fresh pages. Mirrors the
-                // Quick Glance fragmentation path above; see planExerciseFragments.
+                // TOC + running header for in-section headings.
+                let isHeadingBlock = [.heading1, .heading2, .heading3, .heading4, .premiumH1, .premiumH2].contains(block.type)
+                if isHeadingBlock {
+                    runningSectionTitle = block.content
+                }
+
+                // Exercise fragmentation (self-contained cards across pages).
                 if block.type == .exercise && currentY + blockHeight > contentRect.maxY {
                     let exTitle = block.metadata?["title"] ?? "Exercise"
                     let exTime = block.metadata?["time"]
@@ -394,61 +539,46 @@ final class InsightAtlasPDFRenderer {
                     var firstBudget = contentRect.maxY - currentY
                     let minFirst = blockRenderer.minExerciseFragmentHeight(title: exTitle, content: block.content, steps: exSteps, maxWidth: contentRect.width)
 
-                    // Not enough room to start a non-runt first fragment here —
-                    // break first, then fragment against a full page.
                     if firstBudget < minFirst {
+                        currentY = floatAhead(blocks: blocks, from: index, floated: &floated, currentY: currentY, context: context, minSpace: minFloatAheadSpace)
                         recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (exercise: insufficient head room to fragment)")
                         startNewContentPage(context: context, options: options)
                         currentY = contentRect.minY
                         firstBudget = contentRect.height
                     }
-
-                    // If it now fits whole (only overflowed the old page tail),
-                    // draw it atomically — no need to fragment.
                     if currentY + blockHeight <= contentRect.maxY {
-                        let drawn = blockRenderer.renderBlock(block, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
-                        currentY += drawn
+                        currentY += blockRenderer.renderBlock(block, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
                         continue
                     }
-
                     let fragments = blockRenderer.planExerciseFragments(
                         title: exTitle, content: block.content, steps: exSteps,
                         estimatedTime: exTime, maxWidth: contentRect.width,
                         firstBudget: firstBudget, pageBudget: contentRect.height)
-
                     if fragments.count > 1 {
+                        #if DEBUG
                         print("✂️ [PDF Renderer] fragmented exercise \"\(exTitle)\" into \(fragments.count) cards across pages (\(exSteps.count) steps)")
+                        #endif
                     }
-
                     for (fIndex, frag) in fragments.enumerated() {
                         if fIndex > 0 {
                             recordTrailingGap(at: currentY, cause: "exercise fragment \(fIndex) continues on next page")
                             startNewContentPage(context: context, options: options)
                             currentY = contentRect.minY
                         }
-                        let drawn = blockRenderer.renderExercise(
+                        currentY += blockRenderer.renderExercise(
                             content: frag.content, title: frag.title, steps: frag.steps,
                             estimatedTime: frag.estimatedTime,
                             to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY),
                             maxWidth: contentRect.width, continued: frag.continued, startNumber: frag.startNumber)
-                        currentY += drawn
                     }
                     continue
                 }
 
-                // Oversized-insight-note fragmentation (parallel to the exercise
-                // branch above). A SPLITTABLE note (not KEY CHALLENGE) that won't
-                // fit the space left on this page is split at section seams
-                // instead of pushed whole — the dominant whitespace source. KEY
-                // CHALLENGE notes and notes that can't split into floor-worthy
-                // fragments fall through to the normal push-whole path.
+                // Insight-note fragmentation at section seams.
                 if block.type == .insightNote && currentY + blockHeight > contentRect.maxY {
                     let noteTitle = block.metadata?["title"] ?? "Insight Atlas Note"
                     if blockRenderer.insightNoteIsSplittable(content: block.content, title: noteTitle) {
                         let remaining = contentRect.maxY - currentY
-                        // First try to fill the remaining space; if it can't host a
-                        // floor-worthy first fragment, break to a fresh page and
-                        // split against a full page (never into sub-floor space).
                         var fragments = blockRenderer.planInsightNoteFragments(content: block.content, title: noteTitle, maxWidth: contentRect.width, firstBudget: remaining, pageBudget: contentRect.height)
                         var brokeFirst = false
                         if fragments == nil {
@@ -456,8 +586,11 @@ final class InsightAtlasPDFRenderer {
                             brokeFirst = true
                         }
                         if let frags = fragments, frags.count > 1 {
+                            #if DEBUG
                             print("✂️ [PDF Renderer] fragmented insight note into \(frags.count) cards across pages")
+                            #endif
                             if brokeFirst {
+                                currentY = floatAhead(blocks: blocks, from: index, floated: &floated, currentY: currentY, context: context, minSpace: minFloatAheadSpace)
                                 recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (insight note: insufficient head room to fragment)")
                                 startNewContentPage(context: context, options: options)
                                 currentY = contentRect.minY
@@ -468,25 +601,18 @@ final class InsightAtlasPDFRenderer {
                                     startNewContentPage(context: context, options: options)
                                     currentY = contentRect.minY
                                 }
-                                let drawn = blockRenderer.renderInsightNoteFragment(frag, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
-                                currentY += drawn
+                                currentY += blockRenderer.renderInsightNoteFragment(frag, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
                             }
                             continue
                         }
-                        // else: not worth splitting → fall through to push-whole
                     }
                 }
 
-                // Oversized-table fragmentation (row-atomic, header repeats). A
-                // table that won't fit the space left on this page splits at row
-                // boundaries; each fragment is a complete small table (repeated
-                // header + a subset of data rows). The figure caption rides
-                // fragment 1 only. Tables with <4 data rows push whole.
+                // Table fragmentation (row-atomic, header repeats).
                 if block.type == .table && currentY + blockHeight > contentRect.maxY {
                     let rows = block.tableData ?? []
-                    let captionH = blockRenderer.tableCaptionHeight(for: block)
+                    let captionH = blockRenderer.tableCaptionHeight(for: block, maxWidth: contentRect.width)
                     let remaining = contentRect.maxY - currentY
-                    // Fragment 1 must leave room for the caption drawn above it.
                     var fragments = blockRenderer.planTableFragments(tableData: rows, maxWidth: contentRect.width, firstBudget: remaining - captionH, pageBudget: contentRect.height)
                     var brokeFirst = false
                     if fragments == nil {
@@ -494,13 +620,15 @@ final class InsightAtlasPDFRenderer {
                         brokeFirst = true
                     }
                     if let frags = fragments, frags.count > 1 {
+                        #if DEBUG
                         print("✂️ [PDF Renderer] fragmented table into \(frags.count) cards across pages (\(max(0, rows.count - 1)) data rows)")
+                        #endif
                         if brokeFirst {
+                            currentY = floatAhead(blocks: blocks, from: index, floated: &floated, currentY: currentY, context: context, minSpace: minFloatAheadSpace)
                             recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (table: insufficient head room to fragment)")
                             startNewContentPage(context: context, options: options)
                             currentY = contentRect.minY
                         }
-                        // Caption once, above fragment 1.
                         currentY += blockRenderer.renderTableCaption(for: block, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
                         for (fIndex, frag) in frags.enumerated() {
                             if fIndex > 0 {
@@ -508,80 +636,138 @@ final class InsightAtlasPDFRenderer {
                                 startNewContentPage(context: context, options: options)
                                 currentY = contentRect.minY
                             }
-                            let drawn = blockRenderer.renderTableFragment(frag, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
-                            currentY += drawn
+                            currentY += blockRenderer.renderTableFragment(frag, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
                         }
                         continue
                     }
-                    // else: not worth splitting → fall through to push-whole
                 }
 
-                // Diagram scale-to-fit. A vector diagram (flowchart/etc.) that
-                // would push whole and strand a big gap is instead scaled
-                // uniformly to fill the remaining space — unless that scale falls
-                // below the legibility floor, in which case it pushes whole at
-                // 100%. Diagrams scale continuously (unlike atomic text blocks),
-                // so this is the one lever that changes the height distribution.
+                // Key Takeaways fragmentation (≥ 2 items per card, "continued" header).
+                if block.type == .keyTakeaways && currentY + blockHeight > contentRect.maxY {
+                    let remaining = contentRect.maxY - currentY
+                    if let fragments = blockRenderer.planTakeawayFragments(items: block.listItems ?? [], maxWidth: contentRect.width, firstBudget: remaining, pageBudget: contentRect.height) {
+                        recordTOC("Key Takeaways", isSubsection: false, descriptor: nil)
+                        for (fIndex, frag) in fragments.enumerated() {
+                            if fIndex > 0 {
+                                startNewContentPage(context: context, options: options)
+                                currentY = contentRect.minY
+                            }
+                            currentY += blockRenderer.renderTakeawayFragment(frag, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
+                        }
+                        continue
+                    }
+                }
+
+                // Paragraph fragmentation (2-line widow/orphan minimum): the
+                // single largest source of half-empty pages was a paragraph
+                // pushed whole to the next page.
+                if block.type == .paragraph && currentY + blockHeight > contentRect.maxY {
+                    let remaining = contentRect.maxY - currentY
+                    if let fragments = blockRenderer.planParagraphFragments(text: block.content, maxWidth: contentRect.width, firstBudget: remaining, pageBudget: contentRect.height) {
+                        for (fIndex, frag) in fragments.enumerated() {
+                            if fIndex > 0 {
+                                startNewContentPage(context: context, options: options)
+                                currentY = contentRect.minY
+                            }
+                            currentY += blockRenderer.renderParagraphFragment(frag, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
+                        }
+                        continue
+                    }
+                }
+
+                // List fragmentation (≥ 2 items per fragment, numbering continues).
+                if (block.type == .bulletList || block.type == .numberedList) && currentY + blockHeight > contentRect.maxY {
+                    let numbered = block.type == .numberedList
+                    let remaining = contentRect.maxY - currentY
+                    if let fragments = blockRenderer.planListFragments(items: block.listItems ?? [], numbered: numbered, maxWidth: contentRect.width, firstBudget: remaining, pageBudget: contentRect.height) {
+                        for (fIndex, frag) in fragments.enumerated() {
+                            if fIndex > 0 {
+                                startNewContentPage(context: context, options: options)
+                                currentY = contentRect.minY
+                            }
+                            currentY += blockRenderer.renderListFragment(frag, numbered: numbered, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
+                        }
+                        continue
+                    }
+                }
+
+                // Diagram scale-to-fit.
                 if PDFContentBlockRenderer.scalableDiagramTypes.contains(block.type) {
                     let remaining = contentRect.maxY - currentY
                     switch blockRenderer.diagramScaleDecision(naturalHeight: blockHeight, remaining: remaining) {
                     case .fits:
-                        break   // fall through to the normal render path
+                        break
                     case .scale(let factor, let target):
                         let drawn = blockRenderer.renderDiagramScaledToFit(block, factor: factor, target: target, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
+                        #if DEBUG
                         print("🔎 [PDF Renderer] scaled \(block.type) to \(Int((factor * 100).rounded()))% to fill remaining space (\(Int(blockHeight.rounded()))pt → \(Int(target.rounded()))pt)")
+                        #endif
                         currentY += drawn
                         continue
                     case .pushWhole:
-                        // Scale would be illegible → fresh page at 100%.
+                        currentY = floatAhead(blocks: blocks, from: index, floated: &floated, currentY: currentY, context: context, minSpace: minFloatAheadSpace)
                         recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (diagram scale < legibility floor — pushed whole)")
                         startNewContentPage(context: context, options: options)
                         currentY = contentRect.minY
-                        let drawn = blockRenderer.renderBlock(block, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
-                        currentY += drawn
+                        if blockHeight > contentRect.height {
+                            // Taller than a whole page: scale to the page rather
+                            // than clip the bottom nodes off the sheet.
+                            let factor = contentRect.height / blockHeight
+                            currentY += blockRenderer.renderDiagramScaledToFit(block, factor: factor, target: contentRect.height, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
+                        } else {
+                            currentY += blockRenderer.renderBlock(block, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
+                        }
                         continue
                     }
                 }
 
-                // Check if this is a heading block - apply widow/orphan control
-                let isHeadingBlock = [.heading1, .heading2, .heading3, .heading4, .premiumH1, .premiumH2].contains(block.type)
                 if isHeadingBlock {
-                    // Look ahead to see if there's content after this heading.
                     // Keep the heading with its whole next block when that block
-                    // fits on a page (see section-heading logic above), so a
-                    // heading is never left stranded at the bottom of a page.
-                    let nextBlockHeight = (index + 1 < section.blocks.count) ?
-                        blockRenderer.calculateBlockHeight(block: section.blocks[index + 1], maxWidth: contentRect.width) : 0
-                    // Keep together only if both fit on one page (see above).
-                    let nextReserve = (blockHeight + nextBlockHeight) <= contentRect.height
-                        ? nextBlockHeight
-                        : minContentAfterHeading
-                    let combinedHeight = blockHeight + nextReserve
-
-                    if currentY + combinedHeight > contentRect.maxY - 30 {
+                    // fits on a page, so a heading is never stranded at the foot
+                    // of a page (elevation spec A1).
+                    let nextBlockHeight = (index + 1 < blocks.count) ?
+                        blockRenderer.calculateBlockHeight(block: blocks[index + 1], maxWidth: contentRect.width) : 0
+                    let nextCanFragment = (index + 1 < blocks.count) ? blockCanFragment(blocks[index + 1]) : true
+                    let nextReserve: CGFloat
+                    if nextCanFragment {
+                        nextReserve = min(nextBlockHeight, minContentAfterHeading)
+                    } else if (blockHeight + nextBlockHeight) <= contentRect.height {
+                        nextReserve = nextBlockHeight
+                    } else {
+                        nextReserve = contentRect.height
+                    }
+                    // Never let a heading start in the bottom 15% of the text block.
+                    let lowestHeadingY = contentRect.minY + contentRect.height * 0.85
+                    if currentY + blockHeight + nextReserve > contentRect.maxY - 12 || currentY > lowestHeadingY {
                         recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (heading kept with next)")
                         startNewContentPage(context: context, options: options)
                         currentY = contentRect.minY
                     }
+                    let isMain = block.type == .premiumH1 || block.type == .heading1 || !documentHasLevelOneHeadings
+                    recordTOC(block.content, isSubsection: !isMain, descriptor: block.metadata?["descriptor"])
                 } else if currentY + blockHeight > contentRect.maxY {
-                    // Regular block - just check if it fits
+                    // Atomic block that does not fit: let the paragraphs that
+                    // follow it flow into the gap first (float-ahead), then
+                    // start a fresh page for the block.
+                    currentY = floatAhead(blocks: blocks, from: index, floated: &floated, currentY: currentY, context: context, minSpace: minFloatAheadSpace)
                     recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " pushed whole")
                     startNewContentPage(context: context, options: options)
                     currentY = contentRect.minY
                 }
 
-                let renderedHeight = blockRenderer.renderBlock(
+                if block.type == .keyTakeaways {
+                    recordTOC("Key Takeaways", isSubsection: false, descriptor: nil)
+                }
+
+                currentY += blockRenderer.renderBlock(
                     block,
                     to: context.cgContext,
                     at: CGPoint(x: contentRect.minX, y: currentY),
                     maxWidth: contentRect.width
                 )
-
-                currentY += renderedHeight
             }
         }
 
-        // Record the final content page's trailing gap and print a summary.
         recordTrailingGap(at: currentY, cause: "end of content")
         logWhitespaceSummary()
 
@@ -589,16 +775,52 @@ final class InsightAtlasPDFRenderer {
         renderClosingPage(context: context, options: options)
     }
 
+    /// Float-ahead (elevation spec A3, option b): when the block at `index`
+    /// cannot fit the space left on the page, draw the plain paragraphs that
+    /// directly follow it into that space — they read identically whether a
+    /// callout sits before or after them — and mark them so the main loop
+    /// skips them. Stops at the first non-paragraph block, after three
+    /// paragraphs, or when nothing more fits. Returns the new `currentY`.
+    private func floatAhead(blocks: [PDFContentBlock], from index: Int, floated: inout Set<Int>, currentY: CGFloat, context: UIGraphicsPDFRendererContext, minSpace: CGFloat) -> CGFloat {
+        var y = currentY
+        guard contentRect.maxY - y >= minSpace else { return y }
+        var pulled = 0
+        var j = index + 1
+        while j < blocks.count, pulled < 3 {
+            let candidate = blocks[j]
+            guard candidate.type == .paragraph, !floated.contains(j) else { break }
+            // A paragraph that opens a labelled sub-part ("**Where it strains.**")
+            // belongs with what follows it; do not pull it above its callout.
+            if candidate.content.hasPrefix("**") && pulled == 0 && j + 1 < blocks.count && blocks[j + 1].type != .paragraph { break }
+            let h = blockRenderer.calculateBlockHeight(block: candidate, maxWidth: contentRect.width)
+            // Only pull a paragraph whole: a floated paragraph must never be
+            // split across the atomic block it was pulled ahead of.
+            guard y + h <= contentRect.maxY else { break }
+            y += blockRenderer.renderBlock(candidate, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: y), maxWidth: contentRect.width)
+            floated.insert(j)
+            pulled += 1
+            j += 1
+        }
+        if pulled > 0 {
+            #if DEBUG
+            print("↪️ [PDF Renderer] floated \(pulled) paragraph(s) ahead of an atomic block to fill the page")
+            #endif
+        }
+        return y
+    }
+
     private func startNewContentPage(context: UIGraphicsPDFRendererContext, options: RenderOptions) {
         context.beginPage()
         currentPage += 1
 
-        // Draw header
+        // Running header: book title left, current section right (elevation
+        // spec A10). The section is the one in effect when the page begins;
+        // heading branches update it before breaking the page.
         if options.includeHeader {
             drawPageHeader(context: context.cgContext, pageNumber: currentPage)
         }
 
-        // Draw footer
+        // Footer: brand mark + page number.
         if options.includeFooter {
             drawPageFooter(context: context.cgContext, pageNumber: currentPage, includePageNumber: options.includePageNumbers)
         }
@@ -609,6 +831,28 @@ final class InsightAtlasPDFRenderer {
     /// Record the trailing gap left on the current page at the moment a block is
     /// pushed to the next one. `cause` is an @autoclosure so its (potentially
     /// parsing) work is skipped entirely in release builds.
+
+    /// Whether a block can render partially on one page and continue on the
+    /// next. Paragraphs, insight notes and lists fragment; a visual card,
+    /// table or exercise is drawn whole.
+    ///
+    /// Keep-with-next depends on this: reserving a small slice below a heading
+    /// is only safe when the next block can use that slice. An atomic block
+    /// leaves it unused and jumps wholesale to the following page, stranding
+    /// the heading at the footer.
+    private func blockCanFragment(_ block: PDFContentBlock) -> Bool {
+        switch block.type {
+        case .paragraph, .insightNote, .bulletList, .numberedList, .exercise:
+            return true
+        case .keyTakeaways:
+            return (block.listItems?.count ?? 0) >= 4
+        case .table:
+            return (block.tableData?.count ?? 0) >= 5
+        default:
+            return false
+        }
+    }
+
     private func recordTrailingGap(at currentY: CGFloat, cause: @autoclosure () -> String) {
         #if DEBUG
         let gap = contentRect.maxY - currentY
@@ -750,7 +994,7 @@ final class InsightAtlasPDFRenderer {
     // MARK: - Header and Footer
 
     private func drawPageHeader(context: CGContext, pageNumber: Int) {
-        guard pageNumber > 2 else { return } // Skip header on cover and TOC
+        guard pageNumber > lastFrontMatterPage else { return } // Skip header on cover and contents
 
         let headerY: CGFloat = 36
         let headerHeight: CGFloat = 24
@@ -762,256 +1006,81 @@ final class InsightAtlasPDFRenderer {
         context.addLine(to: CGPoint(x: contentRect.maxX, y: headerY + headerHeight))
         context.strokePath()
 
-        // Draw "Insight Atlas" text
-        let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: PDFStyleConfiguration.Typography.caption(),
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.runningHeader(),
             .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.textSubtle,
-            .kern: 1.0
+            .kern: 0.5
         ]
-        let headerText = NSAttributedString(string: "INSIGHT ATLAS", attributes: headerAttributes)
-        // Was width: 100 — too narrow for "INSIGHT ATLAS" at 12pt + 1.0 kern, so it
-        // clipped to "INSIGHT". Give it real room (it renders left-aligned anyway).
-        let headerRect = CGRect(x: contentRect.minX, y: headerY, width: 240, height: headerHeight)
-        headerText.draw(in: headerRect)
+        let leftWidth = contentRect.width * 0.62
+        let halfWidth = contentRect.width - leftWidth - 16
+
+        // Left: the book's short title, shortened with an ellipsis if it would
+        // not fit its column (drawn text is clipped, never auto-truncated).
+        let left = Self.fitted(runningBookTitle.uppercased(), width: leftWidth, attributes: attributes)
+        left.draw(in: CGRect(x: contentRect.minX, y: headerY + 6, width: leftWidth, height: headerHeight - 6))
+
+        // Right: the current section, right-aligned, truncated to its half.
+        let (numeral, bare) = PDFContentBlockRenderer.splitSectionNumeral(runningSectionTitle)
+        let sectionText = numeral.map { "\($0) \(bare)" } ?? bare
+        if !sectionText.isEmpty {
+            let style = NSMutableParagraphStyle()
+            style.alignment = .right
+            var rightAttributes = attributes
+            rightAttributes[.paragraphStyle] = style
+            let right = Self.fitted(sectionText.uppercased(), width: halfWidth, attributes: rightAttributes)
+            right.draw(in: CGRect(x: contentRect.maxX - halfWidth, y: headerY + 6, width: halfWidth, height: headerHeight - 6))
+        }
+    }
+
+    /// The string, or its longest prefix plus "…", that fits `width`.
+    static func fitted(_ text: String, width: CGFloat, attributes: [NSAttributedString.Key: Any]) -> NSAttributedString {
+        var candidate = text
+        while !candidate.isEmpty {
+            let attributed = NSAttributedString(string: candidate, attributes: attributes)
+            if attributed.size().width <= width { return attributed }
+            candidate = String(candidate.dropLast(candidate.hasSuffix("…") ? 2 : 1)).trimmingCharacters(in: .whitespaces) + "…"
+            if candidate == "…" { break }
+        }
+        return NSAttributedString(string: candidate, attributes: attributes)
     }
 
     private func drawPageFooter(context: CGContext, pageNumber: Int, includePageNumber: Bool) {
         guard pageNumber > 1 else { return } // Skip footer on cover
 
-        // Reduced footer height: moved from 48pt to 36pt offset
         let footerY = pageSize.height - 36
         let footerHeight: CGFloat = 16
 
-        // Draw thin line closer to page number
         context.setStrokeColor(PDFStyleConfiguration.Colors.borderLight.cgColor)
         context.setLineWidth(0.5)
         context.move(to: CGPoint(x: contentRect.minX, y: footerY - 6))
         context.addLine(to: CGPoint(x: contentRect.maxX, y: footerY - 6))
         context.strokePath()
 
+        // Brand mark, left.
+        let brandAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.runningHeader(),
+            .ligature: 0,
+            .foregroundColor: PDFStyleConfiguration.Colors.textSubtle,
+            .kern: 0.8
+        ]
+        NSAttributedString(string: "INSIGHT ATLAS", attributes: brandAttributes)
+            .draw(in: CGRect(x: contentRect.minX, y: footerY + 2, width: 200, height: footerHeight))
+
         if includePageNumber {
-            // Draw page number centered
+            let style = NSMutableParagraphStyle()
+            style.alignment = .right
             let pageAttributes: [NSAttributedString.Key: Any] = [
                 .font: PDFStyleConfiguration.Typography.pageNumber(),
                 .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.textMuted,
-                .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: 14, alignment: .center, paragraphSpacing: 0)
+                .paragraphStyle: style
             ]
-            let pageText = NSAttributedString(string: "\(pageNumber)", attributes: pageAttributes)
-            let pageRect = CGRect(x: 0, y: footerY, width: pageSize.width, height: footerHeight)
-            pageText.draw(in: pageRect)
+            NSAttributedString(string: "\(pageNumber)", attributes: pageAttributes)
+                .draw(in: CGRect(x: contentRect.maxX - 60, y: footerY, width: 60, height: footerHeight))
         }
     }
 
-    // MARK: - Table of Contents Builder
-
-    private func buildTableOfContents(document: PDFAnalysisDocument, options: RenderOptions) {
-        tableOfContents = []
-        var estimatedPage = options.includeCoverPage ? 2 : 1
-        if options.includeTableOfContents { estimatedPage += 1 }
-
-        var currentY = contentRect.minY
-        let minContentAfterHeading: CGFloat = 100 // Minimum content to keep with heading
-
-        // Quick Glance - use safe optional binding to avoid force unwrap
-        if let quickGlance = document.quickGlance {
-            tableOfContents.append((title: "Quick Glance", page: estimatedPage, isSubsection: false))
-
-            let block = PDFContentBlock(
-                type: .quickGlance,
-                content: quickGlance.coreMessage,
-                listItems: quickGlance.keyPoints
-            )
-            currentY += blockRenderer.calculateBlockHeight(block: block, maxWidth: contentRect.width)
-
-            if currentY > contentRect.maxY {
-                estimatedPage += 1
-                currentY = contentRect.minY
-            }
-        }
-
-        // Sections
-        for section in document.sections {
-            if let heading = section.heading {
-                // Use the section heading height calculator which handles PART headers
-                let headingHeight = blockRenderer.calculateSectionHeadingHeight(heading, level: section.headingLevel, maxWidth: contentRect.width)
-
-                // Calculate first block height to ensure we don't orphan headings.
-                // Mirror the render-time keep-together reserve so estimated page
-                // numbers track where headings actually land.
-                let firstBlockHeight = section.blocks.first.map { blockRenderer.calculateBlockHeight(block: $0, maxWidth: contentRect.width) } ?? 0
-                let headingReserve = (headingHeight + firstBlockHeight) <= contentRect.height
-                    ? firstBlockHeight
-                    : minContentAfterHeading
-                let combinedHeight = headingHeight + headingReserve
-
-                if currentY + combinedHeight > contentRect.maxY - 50 {
-                    estimatedPage += 1
-                    currentY = contentRect.minY
-                }
-
-                // Determine if this is a main section or subsection
-                // PART headers and main titled sections are not subsections
-                let isPARTHeader = heading.uppercased().hasPrefix("PART ")
-                let isMainSection = section.headingLevel == 1 || isPARTHeader
-
-                tableOfContents.append((title: heading, page: estimatedPage, isSubsection: !isMainSection))
-                currentY += headingHeight
-            }
-
-            // Estimate block heights for pagination and add special blocks to TOC
-            for block in section.blocks {
-                let blockHeight = blockRenderer.calculateBlockHeight(block: block, maxWidth: contentRect.width)
-
-                // Mirror render-time exercise fragmentation (Option A) so page
-                // numbers for everything AFTER a tall exercise don't drift when
-                // that exercise now spans multiple pages. Kept in lockstep with
-                // the render loop above.
-                if block.type == .exercise && currentY + blockHeight > contentRect.maxY {
-                    let exTitle = block.metadata?["title"] ?? "Exercise"
-                    let exSteps = block.listItems ?? []
-                    var firstBudget = contentRect.maxY - currentY
-                    let minFirst = blockRenderer.minExerciseFragmentHeight(title: exTitle, content: block.content, steps: exSteps, maxWidth: contentRect.width)
-                    if firstBudget < minFirst {
-                        estimatedPage += 1
-                        currentY = contentRect.minY
-                        firstBudget = contentRect.height
-                    }
-                    if currentY + blockHeight <= contentRect.maxY {
-                        currentY += blockHeight
-                    } else {
-                        let fragments = blockRenderer.planExerciseFragments(
-                            title: exTitle, content: block.content, steps: exSteps,
-                            estimatedTime: block.metadata?["time"], maxWidth: contentRect.width,
-                            firstBudget: firstBudget, pageBudget: contentRect.height)
-                        for (fIndex, frag) in fragments.enumerated() {
-                            if fIndex > 0 {
-                                estimatedPage += 1
-                                currentY = contentRect.minY
-                            }
-                            currentY += frag.plannedHeight
-                        }
-                    }
-                    continue   // exercise is not a TOC-tracked type; skip the switch + tail add
-                }
-
-                // Mirror render-time insight-note fragmentation so page numbers
-                // don't drift when a splittable note spans multiple pages.
-                if block.type == .insightNote && currentY + blockHeight > contentRect.maxY {
-                    let noteTitle = block.metadata?["title"] ?? "Insight Atlas Note"
-                    if blockRenderer.insightNoteIsSplittable(content: block.content, title: noteTitle) {
-                        let remaining = contentRect.maxY - currentY
-                        var frags = blockRenderer.planInsightNoteFragments(content: block.content, title: noteTitle, maxWidth: contentRect.width, firstBudget: remaining, pageBudget: contentRect.height)
-                        var brokeFirst = false
-                        if frags == nil {
-                            frags = blockRenderer.planInsightNoteFragments(content: block.content, title: noteTitle, maxWidth: contentRect.width, firstBudget: contentRect.height, pageBudget: contentRect.height)
-                            brokeFirst = true
-                        }
-                        if let fragments = frags, fragments.count > 1 {
-                            if brokeFirst { estimatedPage += 1; currentY = contentRect.minY }
-                            for (fIndex, frag) in fragments.enumerated() {
-                                if fIndex > 0 { estimatedPage += 1; currentY = contentRect.minY }
-                                currentY += frag.plannedHeight
-                            }
-                            continue   // insight note is not a TOC-tracked type
-                        }
-                    }
-                }
-
-                // Mirror render-time table fragmentation so page numbers don't
-                // drift when a big table spans multiple pages.
-                if block.type == .table && currentY + blockHeight > contentRect.maxY {
-                    let rows = block.tableData ?? []
-                    let captionH = blockRenderer.tableCaptionHeight(for: block)
-                    let remaining = contentRect.maxY - currentY
-                    var frags = blockRenderer.planTableFragments(tableData: rows, maxWidth: contentRect.width, firstBudget: remaining - captionH, pageBudget: contentRect.height)
-                    var brokeFirst = false
-                    if frags == nil {
-                        frags = blockRenderer.planTableFragments(tableData: rows, maxWidth: contentRect.width, firstBudget: contentRect.height - captionH, pageBudget: contentRect.height)
-                        brokeFirst = true
-                    }
-                    if let fragments = frags, fragments.count > 1 {
-                        if brokeFirst { estimatedPage += 1; currentY = contentRect.minY }
-                        currentY += captionH
-                        for (fIndex, frag) in fragments.enumerated() {
-                            if fIndex > 0 { estimatedPage += 1; currentY = contentRect.minY }
-                            currentY += frag.plannedHeight
-                        }
-                        continue   // table is not a TOC-tracked type
-                    }
-                }
-
-                // Mirror render-time diagram scale-to-fit so page estimates track
-                // whether a diagram fills the current page (scaled) or pushes to a
-                // fresh one (floor-bound). Diagrams aren't TOC-tracked types.
-                if PDFContentBlockRenderer.scalableDiagramTypes.contains(block.type) {
-                    let remaining = contentRect.maxY - currentY
-                    switch blockRenderer.diagramScaleDecision(naturalHeight: blockHeight, remaining: remaining) {
-                    case .fits:
-                        currentY += blockHeight
-                        continue
-                    case .scale(_, let target):
-                        currentY += target          // fills to maxY; next block starts fresh
-                        continue
-                    case .pushWhole:
-                        estimatedPage += 1
-                        currentY = contentRect.minY + blockHeight
-                        continue
-                    }
-                }
-
-                if currentY + blockHeight > contentRect.maxY {
-                    estimatedPage += 1
-                    currentY = contentRect.minY
-                }
-
-                // Track special block types for TOC
-                switch block.type {
-                case .heading3:
-                    // Add H3 subheadings to TOC
-                    tableOfContents.append((title: block.content, page: estimatedPage, isSubsection: true))
-
-                case .foundationalNarrative:
-                    // Add "The Story Behind the Ideas" to TOC
-                    let title = block.metadata?["title"] ?? "The Story Behind the Ideas"
-                    if !tableOfContents.contains(where: { $0.title == title }) {
-                        tableOfContents.append((title: title, page: estimatedPage, isSubsection: false))
-                    }
-
-                case .keyTakeaways:
-                    // Add Key Takeaways to TOC (but avoid duplicates)
-                    if !tableOfContents.contains(where: { $0.title == "Key Takeaways" }) {
-                        tableOfContents.append((title: "Key Takeaways", page: estimatedPage, isSubsection: false))
-                    }
-
-                case .heading2:
-                    // Ensure H2 headings are captured (Comparative Analysis, Synthesis Arc, etc.)
-                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
-                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: true))
-                    }
-
-                case .premiumH1:
-                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
-                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: false))
-                    }
-
-                case .premiumH2:
-                    let headingTitle = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !headingTitle.isEmpty && !tableOfContents.contains(where: { $0.title == headingTitle }) {
-                        tableOfContents.append((title: headingTitle, page: estimatedPage, isSubsection: true))
-                    }
-
-                default:
-                    break
-                }
-
-                currentY += blockHeight
-            }
-        }
-    }
 }
 
 // MARK: - Convenience Extensions

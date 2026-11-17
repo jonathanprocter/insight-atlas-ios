@@ -33,6 +33,23 @@ final class MarkdownRenderingTests: XCTestCase {
         XCTAssertFalse(result.contains("_"))
     }
 
+    /// Emphasis used to be styled with `.system(...)`, so every bold or italic
+    /// word dropped out of the Cormorant serif body into the sans system face
+    /// mid-sentence. The runs must stay in the body family.
+    func testEmphasisRunsStayInTheSerifBodyFamily() {
+        let bold = parseMarkdownBold("A **strong** claim")
+        let boldRun = bold.runs.first { String(bold[$0.range].characters) == "strong" }
+        XCTAssertEqual(boldRun?.font, Font.analysisBodyBold())
+
+        let italic = parseMarkdownBold("A *subtle* claim")
+        let italicRun = italic.runs.first { String(italic[$0.range].characters) == "subtle" }
+        XCTAssertEqual(italicRun?.font, Font.analysisBodyItalic())
+
+        let underscore = parseMarkdownBold("A _subtle_ claim")
+        let underscoreRun = underscore.runs.first { String(underscore[$0.range].characters) == "subtle" }
+        XCTAssertEqual(underscoreRun?.font, Font.analysisBodyItalic())
+    }
+
     func testBoldAndItalicTogether() {
         let result = plainText(parseMarkdownBold("**Bold** and *italic* together"))
         XCTAssertEqual(result, "Bold and italic together")

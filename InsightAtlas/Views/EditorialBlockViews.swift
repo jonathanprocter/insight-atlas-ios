@@ -39,11 +39,34 @@ struct QuickGlanceBlockView: View {
             Divider()
                 .background(AnalysisTheme.primaryGoldSubtle)
 
-            // Content
-            Text(parseMarkdownBold(content))
-                .font(.analysisBody())
-                .foregroundColor(AnalysisTheme.textBody)
-                .lineSpacing(6)
+            // Content. Rendering the whole block as one Text left list markers
+            // as literal "- " and wrapped continuation lines back to the left
+            // margin, so the card read as run-on prose. Bullets get a real
+            // glyph and a hanging indent, matching the PDF.
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(QuickGlanceLine.parse(content).enumerated()), id: \.offset) { _, line in
+                    switch line {
+                    case .paragraph(let text):
+                        Text(parseMarkdownBold(text))
+                            .font(.analysisBody())
+                            .foregroundColor(AnalysisTheme.textBody)
+                            .lineSpacing(6)
+                            .fixedSize(horizontal: false, vertical: true)
+                    case .bullet(let text):
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text("•")
+                                .font(.analysisBody())
+                                .foregroundColor(AnalysisTheme.primaryGold)
+                            Text(parseMarkdownBold(text))
+                                .font(.analysisBody())
+                                .foregroundColor(AnalysisTheme.textBody)
+                                .lineSpacing(6)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+            }
         }
         .padding(20)
         .background(PremiumUI.card)
@@ -53,6 +76,41 @@ struct QuickGlanceBlockView: View {
                 .stroke(AnalysisTheme.primaryGoldSubtle, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
+    }
+}
+
+/// One line of a Quick Glance card: either a bullet or ordinary prose.
+enum QuickGlanceLine: Equatable {
+    case paragraph(String)
+    case bullet(String)
+
+    /// Consecutive prose lines are joined into one paragraph so a wrapped
+    /// sentence does not become several stacked blocks.
+    static func parse(_ content: String) -> [QuickGlanceLine] {
+        var result: [QuickGlanceLine] = []
+        var pending: [String] = []
+
+        func flush() {
+            let joined = pending.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+            if !joined.isEmpty { result.append(.paragraph(joined)) }
+            pending = []
+        }
+
+        for raw in content.components(separatedBy: "\n") {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty { flush(); continue }
+
+            let markers = ["- ", "– ", "— ", "* ", "• "]
+            if let marker = markers.first(where: { line.hasPrefix($0) }) {
+                flush()
+                let text = String(line.dropFirst(marker.count)).trimmingCharacters(in: .whitespaces)
+                if !text.isEmpty { result.append(.bullet(text)) }
+            } else {
+                pending.append(line)
+            }
+        }
+        flush()
+        return result
     }
 }
 
@@ -68,7 +126,7 @@ struct InsightNoteBlockView: View {
         HStack(spacing: 0) {
             // Coral left border
             Rectangle()
-                .fill(Color(hex: "#E8553A"))
+                .fill(PremiumUI.emberMark)
                 .frame(width: 3)
             
             VStack(alignment: .leading, spacing: 16) {
@@ -131,13 +189,13 @@ struct InsightNoteBlockView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(hex: "#FDF8F3")) // slightly off-white contrast against cream
+                    .background(PremiumUI.emberWash)
                     .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.sm))
                 }
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "#F5F4F0")) // Warm Cream
+            .background(PremiumUI.chipFill)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.vertical, 8)
@@ -442,7 +500,7 @@ struct PremiumQuoteBlockView: View {
         HStack(spacing: 0) {
             // Coral left border
             Rectangle()
-                .fill(Color(hex: "#E8553A"))
+                .fill(PremiumUI.emberMark)
                 .frame(width: 3)
             
             VStack(alignment: .leading, spacing: 16) {
@@ -461,13 +519,13 @@ struct PremiumQuoteBlockView: View {
                     Text("— \(attribution.uppercased())")
                         .font(.custom("Inter-SemiBold", size: 14))
                         .tracking(1)
-                        .foregroundColor(Color(hex: "#E8553A"))
+                        .foregroundColor(PremiumUI.ember)
                 }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "#F5F4F0")) // Warm Cream
+            .background(PremiumUI.chipFill)
         }
         .cornerRadius(12)
         .padding(.vertical, 8)
@@ -725,7 +783,7 @@ struct SectionHeaderBlockView: View {
             } else if level == 2 {
                 HStack(spacing: 8) {
                     Rectangle()
-                        .fill(Color(hex: "#E8553A")) // Coral accent
+                        .fill(PremiumUI.emberMark)
                         .frame(width: 3, height: 18)
                         
                     Text(text)

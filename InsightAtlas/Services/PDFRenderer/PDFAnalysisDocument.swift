@@ -31,17 +31,21 @@ struct PDFAnalysisDocument: Codable {
     struct PDFSection: Codable {
         var heading: String?
         var headingLevel: Int = 2  // 1 for H1 (#), 2 for H2 (##)
+        /// One-line descriptor under the heading (also shown in the TOC).
+        var descriptor: String?
         var blocks: [PDFContentBlock]
 
         enum CodingKeys: String, CodingKey {
             case heading
             case headingLevel
+            case descriptor
             case blocks
         }
 
-        init(heading: String? = nil, headingLevel: Int = 2, blocks: [PDFContentBlock]) {
+        init(heading: String? = nil, headingLevel: Int = 2, descriptor: String? = nil, blocks: [PDFContentBlock]) {
             self.heading = heading
             self.headingLevel = headingLevel
+            self.descriptor = descriptor
             self.blocks = blocks
         }
 
@@ -49,6 +53,7 @@ struct PDFAnalysisDocument: Codable {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             heading = try container.decodeIfPresent(String.self, forKey: .heading)
             headingLevel = try container.decodeIfPresent(Int.self, forKey: .headingLevel) ?? 2
+            descriptor = try container.decodeIfPresent(String.self, forKey: .descriptor)
             blocks = try container.decodeIfPresent([PDFContentBlock].self, forKey: .blocks) ?? []
         }
     }
@@ -993,6 +998,10 @@ extension PDFAnalysisDocument {
                 if !titleText.isEmpty {
                     currentBlocks.append(PDFContentBlock(type: .premiumH2, content: titleText))
                 }
+                // Every other block handler empties its buffer here. Leaving it
+                // full let a later flush re-emit the same heading, which is how
+                // one heading rendered two and three times in a shipped guide.
+                premiumH2Content = []
                 i += 1
                 continue
             }
@@ -1234,7 +1243,17 @@ extension PDFAnalysisDocument {
                         break
                     }
                 }
-                if !listItems.isEmpty {
+                if listItems.count == 1,
+                   let numeral = line.range(of: "^\\d+\\.", options: .regularExpression),
+                   let title = ContentBlockParser.implicitHeading(
+                        line: listItems[0],
+                        previousLine: nil,
+                        nextLine: ContentBlockParser.nextNonEmptyLine(in: lines, after: i - 1)
+                   ) {
+                    // "3. The Boundary Problem" alone, followed by prose, is a
+                    // numbered section title, not a one-item list.
+                    currentBlocks.append(PDFContentBlock(type: .premiumH2, content: "\(line[numeral]) \(title)"))
+                } else if !listItems.isEmpty {
                     currentBlocks.append(PDFContentBlock(
                         type: .numberedList,
                         content: "",
@@ -1308,9 +1327,21 @@ extension PDFAnalysisDocument {
                     while i < lines.count {
                         let t = lines[i].trimmingCharacters(in: .whitespaces)
                         guard !t.isEmpty, !t.hasPrefix("|"), t.contains("|"),
-                              pipeColumns(t) == cols, !t.contains("---") else { break }
-                        rows.append(t.components(separatedBy: "|")
-                            .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) })
+                              pipeColumns(t) == cols else { break }
+                        let cells = t.components(separatedBy: "|")
+                            .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) }
+                        // Skip a markdown alignment row, but only when EVERY
+                        // cell is dashes. Testing the whole line for "---"
+                        // aborted the table on legitimate content: a workability
+                        // matrix rates cells "---", so the table stopped after
+                        // its header and the rest printed as prose.
+                        if cells.allSatisfy({ cell in
+                            !cell.isEmpty && cell.allSatisfy { $0 == "-" || $0 == ":" }
+                        }) {
+                            i += 1
+                            continue
+                        }
+                        rows.append(cells)
                         i += 1
                     }
                     if rows.count >= 2 {
@@ -1318,6 +1349,19 @@ extension PDFAnalysisDocument {
                         continue
                     }
                 }
+            }
+
+            // A section title the model forgot to mark up ("The Boundary
+            // Problem" on its own line). Checked before the implicit-visual
+            // scan so a heading is never swallowed into a step list.
+            if let implicitHeading = ContentBlockParser.implicitHeading(
+                line: line,
+                previousLine: i > 0 ? lines[i - 1] : nil,
+                nextLine: ContentBlockParser.nextNonEmptyLine(in: lines, after: i)
+            ) {
+                currentBlocks.append(PDFContentBlock(type: .premiumH2, content: implicitHeading))
+                i += 1
+                continue
             }
 
             if let implicit = parseImplicitVisualBlocks(from: lines, startIndex: i) {
@@ -1329,7 +1373,14 @@ extension PDFAnalysisDocument {
             // Regular paragraph - strip any remaining markdown syntax
             if !line.isEmpty && !line.hasPrefix("|") && !line.contains("┌") && !line.contains("│") && !line.contains("└") && !line.contains("↓") {
                 let cleanedLine = stripMarkdownFromLine(line)
-                if !cleanedLine.isEmpty {
+                // A line made only of brackets is debris from a tag whose name
+                // was stripped; prose never consists solely of "[" or "]".
+                // (An elided quotation renders as "[...]", which has dots and
+                // so is kept.)
+                let isBracketDebris = !cleanedLine.isEmpty && cleanedLine.allSatisfy {
+                    $0 == "[" || $0 == "]" || $0.isWhitespace
+                }
+                if !cleanedLine.isEmpty && !isBracketDebris {
                     currentBlocks.append(PDFContentBlock(
                         type: .paragraph,
                         content: cleanedLine
@@ -1350,6 +1401,10 @@ extension PDFAnalysisDocument {
         } else if !currentBlocks.isEmpty {
             sections.append(PDFSection(heading: nil, blocks: currentBlocks))
         }
+
+        sections = deduplicatedHeadings(in: sections)
+        sections = attachSectionDescriptors(to: sections)
+        sections = coalesceOrphanShortLines(in: sections)
 
         // Calculate metadata
         let wordCount = content.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
@@ -1980,7 +2035,11 @@ extension PDFAnalysisDocument {
     /// Deterministic cache key for a visual's pre-rendered image. Content-sensitive
     /// so distinct visuals get distinct images and identical ones are reused.
     static func visualCacheURL(for visual: InsightVisual) -> URL {
-        let raw = visual.type.rawValue + "|" + (visual.title ?? "") + "|" + String(describing: visual.payload)
+        // Hash a stable fingerprint — never `String(describing:)` of the payload.
+        // Several payload models regenerate `UUID()` on every parse, so describing
+        // them made prerender writes and layout reads use different keys and the
+        // SwiftUI raster cache never hit (permanent table/basic fallback).
+        let raw = visual.type.rawValue + "|" + (visual.title ?? "") + "|" + visual.stablePayloadFingerprint
         var hash: UInt64 = 5381
         for byte in raw.utf8 { hash = (hash &* 33) ^ UInt64(byte) }   // djb2
         return URL(string: "insightvisual://\(String(hash, radix: 16))")!
@@ -2019,20 +2078,7 @@ extension PDFAnalysisDocument {
     }
 
     private static func canonicalizeVisualTag(_ tag: String) -> String {
-        switch tag {
-        case "VISUAL_TABLE", "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
-            return "VISUAL_COMPARISON_MATRIX"
-        case "VISUAL_FLOW_DIAGRAM":
-            return "VISUAL_FLOWCHART"
-        case "PROCESS_TIMELINE":
-            return "VISUAL_TIMELINE"
-        case "HIERARCHY_DIAGRAM":
-            return "VISUAL_HIERARCHY"
-        case "VISUAL_CONCEPT_MAP":
-            return "VISUAL_CONCEPT_MAP"
-        default:
-            return tag
-        }
+        InsightVisualParser.canonicalizeTag(tag)
     }
 
     private static func pdfBlocks(for visual: InsightVisual) -> [PDFContentBlock] {
@@ -2058,7 +2104,9 @@ extension PDFAnalysisDocument {
         // still degrades to clean bullets on re-export; there is simply no producible
         // type left that degrades, so the DEGRADED label retires as resolved-by-removal.
         // conceptMap likewise renders a real adaptive radial map (fixed 2026-08-10).
+        #if DEBUG
         print("🖼️ [PDF Visual] Prerender miss → native fallback (renders fine): type=\(visual.type) title=\(title ?? "—")")
+        #endif
 
         func addHeadingIfNeeded(useInlineTitle: Bool) {
             if !useInlineTitle, let title, !title.isEmpty {
@@ -2095,16 +2143,16 @@ extension PDFAnalysisDocument {
             ))
 
         case .comparison(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
+            // The title rides the table as its caption ("Table N: Title"),
+            // never as a detached heading above it.
             let header = data.columns
             let table = header.isEmpty ? data.rows : [header] + data.rows
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
+            blocks.append(PDFContentBlock(type: .table, content: "", metadata: title.map { ["title": $0] }, tableData: table))
 
         case .table(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
             let header = data.columns
             let table = header.isEmpty ? data.rows : [header] + data.rows
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
+            blocks.append(PDFContentBlock(type: .table, content: "", metadata: title.map { ["title": $0] }, tableData: table))
 
         case .conceptMap(let data):
             // Defect-C diagnostic (no behavior change): dump the parsed branch
@@ -2113,7 +2161,9 @@ extension PDFAnalysisDocument {
             // collection upstream (tag-boundary/generator) — not by this parser
             // or the radial renderer. If they're PRESENT here yet missing from
             // the drawn map, the defect is downstream. Reads against the PDF.
+            #if DEBUG
             print("🗺️ [PDF ConceptMap] central=\"\(data.center)\" branches(\(data.branches.count))=\(data.branches)")
+            #endif
             blocks.append(PDFContentBlock(
                 type: .conceptMap,
                 content: "",
@@ -2122,13 +2172,26 @@ extension PDFAnalysisDocument {
             ))
 
         case .radar(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: data.dimensions))
+            // No dedicated radar geometry yet. Prefer a labeled bar chart over a
+            // bare bullet list so the export still reads as a chart, not prose.
+            let values = Array(repeating: "1", count: data.dimensions.count).joined(separator: "|")
+            blocks.append(PDFContentBlock(
+                type: .barChart,
+                content: "",
+                listItems: data.dimensions,
+                metadata: ["title": title ?? "Assessment", "values": values]
+            ))
 
         case .hierarchy(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .paragraph, content: data.root))
-            blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: data.children))
+            // Pyramid bands already exist in PDFDiagramRenderer; use them instead
+            // of degrading hierarchy/iceberg/ladder-shaped content to bullets.
+            let items = [data.root] + data.children
+            blocks.append(PDFContentBlock(
+                type: .pyramid,
+                content: "",
+                listItems: items,
+                metadata: ["title": title ?? "Hierarchy"]
+            ))
 
         case .network(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2161,14 +2224,28 @@ extension PDFAnalysisDocument {
                 metadata: ["title": title ?? "Pie Chart", "values": data.segments.map { String($0.value) }.joined(separator: "|")]))
 
         case .lineChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Point", "Value"]] + rows))
+            // Native line geometry is not wired for typed payloads yet; a bar
+            // chart preserves magnitude far better than a Point/Value table.
+            blocks.append(PDFContentBlock(
+                type: .barChart,
+                content: "",
+                listItems: data.labels,
+                metadata: [
+                    "title": title ?? "Trend",
+                    "values": data.values.map { formatNumber($0) }.joined(separator: "|")
+                ]
+            ))
 
         case .areaChart(let data):
-            addHeadingIfNeeded(useInlineTitle: false)
-            let rows = zip(data.labels, data.values).map { [$0, formatNumber($1)] }
-            blocks.append(PDFContentBlock(type: .table, content: "", tableData: [["Point", "Value"]] + rows))
+            blocks.append(PDFContentBlock(
+                type: .barChart,
+                content: "",
+                listItems: data.labels,
+                metadata: [
+                    "title": title ?? "Trend",
+                    "values": data.values.map { formatNumber($0) }.joined(separator: "|")
+                ]
+            ))
 
         case .scatterPlot(let data):
             addHeadingIfNeeded(useInlineTitle: false)
@@ -2215,21 +2292,20 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .pyramid, content: "", listItems: items, metadata: ["title": title ?? "Pyramid"]))
 
         case .spectrum(let data):
-            // No native spectrum figure in the PDF renderer yet. Emit the poles
-            // as a heading line plus the positioned items as a list so the
-            // exported document keeps the meaning rather than dropping it.
-            addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(
-                type: .paragraph,
-                content: "\(data.leftPole) → \(data.rightPole)"
-            ))
+            // Native spectrum figure: a horizontal axis with labelled poles and
+            // 3–6 ordered, positioned nodes. (Formerly degraded to a "A → B"
+            // paragraph plus a bare list — p.8 of a shipped guide.)
+            var meta: [String: String] = ["title": title ?? "Spectrum"]
             if !data.items.isEmpty {
-                blocks.append(PDFContentBlock(
-                    type: .bulletList,
-                    content: "",
-                    listItems: data.items.map(\.label)
-                ))
+                meta["nodes"] = data.items.map { $0.label.replacingOccurrences(of: "|", with: "/") }.joined(separator: "|")
+                meta["positions"] = data.items.map { String(format: "%.3f", min(1, max(0, $0.position))) }.joined(separator: "|")
             }
+            blocks.append(PDFContentBlock(
+                type: .spectrum,
+                content: "",
+                listItems: [data.leftPole, data.rightPole],
+                metadata: meta
+            ))
 
         case .cycleDiagram(let data):
             // Native cycle renderer (capability-audit Batch 2): draw a ring of
@@ -2334,11 +2410,213 @@ extension PDFAnalysisDocument {
             blocks.append(PDFContentBlock(type: .table, content: "", tableData: table))
 
         case .generic(let data):
+            // Fail loudly: an unknown component must never silently become
+            // prose. The export still proceeds (a reader waiting on a file must
+            // not get a hard failure), but the defect is visible in the log and
+            // the payload is recovered as structure, never as orphan lines.
+            #if DEBUG
+            print("❌ [PDF Visual] UNKNOWN component type \(visual.type) (title=\(title ?? "—")) — payload recovered structurally; fix the generator")
+            #endif
             addHeadingIfNeeded(useInlineTitle: false)
-            blocks.append(PDFContentBlock(type: .paragraph, content: data))
+            // A visual whose tag the renderer does not recognize degrades to
+            // `.generic`, which used to print its payload verbatim — that is how
+            // a pipe table and a `Node:`/`Link:` graph reached shipped pages as
+            // prose. Recover the structure from the payload itself so an
+            // unknown or misspelled tag costs styling, never legibility.
+            blocks.append(contentsOf: structuredBlocksFromGenericPayload(data))
         }
 
         return blocks
+    }
+
+    /// Removes headings the PDF would otherwise draw more than once.
+    ///
+    /// The reader shows each heading once; the PDF showed some two or three
+    /// times. The content is not at fault — the model titles a section in more
+    /// than one way at once, and each way lands in a different place:
+    /// `## Title` opens a *section* (drawn as the section title) while
+    /// `[PREMIUM_H2]Title[/PREMIUM_H2]` becomes a *block* inside it, and
+    /// `# Title` followed by `## Title` opens two sections with one heading.
+    /// Both collapse here, where the whole document is visible.
+    static func deduplicatedHeadings(in sections: [PDFSection]) -> [PDFSection] {
+        func key(_ text: String?) -> String? {
+            guard let text else { return nil }
+            let folded = text
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+                .filter { $0.isLetter || $0.isNumber }
+            return folded.isEmpty ? nil : folded
+        }
+
+        let headingBlockTypes: Set<PDFContentBlock.BlockType> = [.premiumH2, .heading2, .heading3]
+
+        // 1. A section whose own title is repeated by a heading block inside it.
+        var cleaned: [PDFSection] = sections.map { section in
+            guard let sectionKey = key(section.heading) else { return section }
+            var updated = section
+            updated.blocks = section.blocks.filter { block in
+                guard headingBlockTypes.contains(block.type),
+                      key(block.content) == sectionKey else { return true }
+                return false
+            }
+            return updated
+        }
+
+        // 2. An empty section immediately followed by one with the same title.
+        var merged: [PDFSection] = []
+        for section in cleaned {
+            if let previous = merged.last,
+               previous.blocks.isEmpty,
+               let previousKey = key(previous.heading),
+               previousKey == key(section.heading) {
+                merged.removeLast()
+            }
+            merged.append(section)
+        }
+        cleaned = merged
+
+        return cleaned
+    }
+
+    /// An italic-only line directly under a heading is that section's one-line
+    /// descriptor ("*Why brains must lie to function*"). It moves into the
+    /// heading's metadata so the section opener and the table of contents can
+    /// carry it, instead of printing as a lone italic paragraph.
+    static func attachSectionDescriptors(to sections: [PDFSection]) -> [PDFSection] {
+        let headingTypes: Set<PDFContentBlock.BlockType> = [.premiumH2, .premiumH1, .heading2, .heading3]
+        return sections.map { section in
+            var updated = section
+            var blocks: [PDFContentBlock] = []
+            var index = 0
+            // Descriptor for the section's own heading.
+            if section.heading != nil, let first = section.blocks.first,
+               let descriptor = descriptorText(first) {
+                updated.descriptor = descriptor
+                index = 1
+            }
+            while index < section.blocks.count {
+                let block = section.blocks[index]
+                if headingTypes.contains(block.type), index + 1 < section.blocks.count,
+                   let descriptor = descriptorText(section.blocks[index + 1]) {
+                    var meta = block.metadata ?? [:]
+                    meta["descriptor"] = descriptor
+                    blocks.append(block.replacingMetadata(meta))
+                    index += 2
+                    continue
+                }
+                blocks.append(block)
+                index += 1
+            }
+            updated.blocks = blocks
+            return updated
+        }
+    }
+
+    /// The descriptor text if `block` is a short italic-only paragraph.
+    static func descriptorText(_ block: PDFContentBlock) -> String? {
+        guard block.type == .paragraph else { return nil }
+        let text = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count > 4 else { return nil }
+        let inner: String
+        if text.hasPrefix("*"), text.hasSuffix("*"), !text.hasPrefix("**") {
+            inner = String(text.dropFirst().dropLast())
+        } else if text.hasPrefix("_"), text.hasSuffix("_"), !text.hasPrefix("__") {
+            inner = String(text.dropFirst().dropLast())
+        } else {
+            return nil
+        }
+        guard !inner.contains("*"), !inner.contains("_") else { return nil }
+        let words = inner.split(whereSeparator: { $0.isWhitespace }).count
+        guard (2...24).contains(words) else { return nil }
+        return inner.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Three or more consecutive one-line paragraphs of ≤ 8 words with no
+    /// terminal punctuation are a list or a figure payload that lost its
+    /// markup, never prose. They become a bullet list so the page never shows a
+    /// stack of orphaned fragments (p.8 of a shipped guide).
+    static func coalesceOrphanShortLines(in sections: [PDFSection]) -> [PDFSection] {
+        func isOrphan(_ block: PDFContentBlock) -> Bool {
+            guard block.type == .paragraph else { return false }
+            let text = block.content.trimmingCharacters(in: .whitespaces)
+            guard !text.isEmpty, let last = text.last, !".!?:".contains(last) else { return false }
+            return text.split(whereSeparator: { $0.isWhitespace }).count <= 8
+        }
+        return sections.map { section in
+            var updated = section
+            var blocks: [PDFContentBlock] = []
+            var run: [PDFContentBlock] = []
+            func flush() {
+                if run.count >= 3 {
+                    blocks.append(PDFContentBlock(type: .bulletList, content: "", listItems: run.map(\.content)))
+                } else {
+                    blocks.append(contentsOf: run)
+                }
+                run = []
+            }
+            for block in section.blocks {
+                if isOrphan(block) { run.append(block) } else { flush(); blocks.append(block) }
+            }
+            flush()
+            updated.blocks = blocks
+            return updated
+        }
+    }
+
+    /// Rescues structure from an unrecognized visual payload.
+    ///
+    /// Handles the two shapes that actually leaked onto shipped pages: pipe
+    /// rows (`A | B | C`) and node/link graph DSL (`Node: id | label | kind`,
+    /// `Link: a -> b`). Anything else stays a paragraph, exactly as before.
+    static func structuredBlocksFromGenericPayload(_ data: String) -> [PDFContentBlock] {
+        let lines = data
+            .components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return [] }
+
+        // Node/Link graph DSL → the node labels as an ordered flow.
+        let nodeLines = lines.filter { $0.lowercased().hasPrefix("node:") }
+        let linkLines = lines.filter { $0.lowercased().hasPrefix("link:") }
+        if !nodeLines.isEmpty, nodeLines.count + linkLines.count >= lines.count - 1 {
+            var labels: [String] = []
+            for line in nodeLines {
+                let payload = String(line.dropFirst("node:".count))
+                let parts = payload
+                    .components(separatedBy: "|")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                // "Node: id | label | kind" — the label is the human-readable
+                // part; a two-field node has no separate id.
+                if parts.count >= 2 {
+                    labels.append(parts[1])
+                } else if let only = parts.first {
+                    labels.append(only)
+                }
+            }
+            if !labels.isEmpty {
+                return [PDFContentBlock(type: .flowchart, content: "", listItems: labels)]
+            }
+        }
+
+        // Pipe rows → a table, keeping blank cells in position.
+        let pipeRows = lines.filter { $0.contains("|") && !$0.contains("---") }
+        if pipeRows.count >= 2, pipeRows.count >= lines.count - 1 {
+            let rows: [[String]] = pipeRows.map { row in
+                var cells = row
+                    .components(separatedBy: "|")
+                    .map { stripMarkdownFromLine($0.trimmingCharacters(in: .whitespaces)) }
+                if cells.first?.isEmpty == true { cells.removeFirst() }
+                if cells.last?.isEmpty == true { cells.removeLast() }
+                return cells
+            }
+            let width = rows[0].count
+            if width >= 2, rows.allSatisfy({ $0.count == width }) {
+                return [PDFContentBlock(type: .table, content: "", tableData: rows)]
+            }
+        }
+
+        return [PDFContentBlock(type: .paragraph, content: data)]
     }
 
     private static func parsePremiumQuote(from lines: [String]) -> (text: String, cite: String) {

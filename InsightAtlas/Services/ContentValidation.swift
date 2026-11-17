@@ -40,17 +40,14 @@ enum ContentMarkers {
 
     // MARK: - Visual Markers
 
-    /// Modern visual block markers
-    static let visualMarkers: Set<String> = [
-        "[VISUAL_FLOWCHART",
-        "[VISUAL_FLOW_DIAGRAM",
-        "[VISUAL_TABLE",
-        "[VISUAL_COMPARISON_MATRIX",
-        "[VISUAL_CONCEPT_MAP",
-        "[VISUAL_TIMELINE",
-        "[VISUAL_BAR_CHART",
-        "[VISUAL_PIE_CHART"
-    ]
+    /// Modern visual block markers — every spelling the renderer accepts
+    /// (canonical `InsightVisualType` raw values plus parser aliases), so the
+    /// variety check counts the whole catalog the prompt offers, not a subset.
+    static let visualMarkers: Set<String> = Set(
+        (InsightVisualType.allCases.map(\.rawValue)
+            + InsightVisualParser.tagAliases.keys)
+            .map { "[" + $0 }
+    )
 
     /// Legacy visual markers (for backwards compatibility)
     static let legacyVisualMarkers: Set<String> = [
@@ -128,12 +125,6 @@ enum ContentMarkers {
     ]
 
     // MARK: - Cross-Book Synthesis
-
-    /// Phrases indicating proper cross-book synthesis
-    static let crossBookSynthesisPhrases: Set<String> = [
-        "cross-book synthesis",
-        "cross book synthesis"
-    ]
 
     /// Cross-disciplinary synthesis signals
     static let synthesisSignals: Set<String> = [
@@ -343,29 +334,10 @@ struct OutputQualityValidator {
             }
         }
 
-        // MARK: - Cross-Book Synthesis Validation
-
-        if !lowercased.containsAny(of: ContentMarkers.crossBookSynthesisPhrases) {
-            issues.append("Missing Cross-Book Synthesis sections")
-        }
+        // MARK: - Chapter Framing Validation
 
         if lowercased.containsAny(of: ContentMarkers.chapterFramingPhrases) {
             issues.append("Chapter-by-chapter framing is not allowed; use thematic synthesis")
-        }
-
-        // MARK: - Required Sections Validation
-
-        if !lowercased.contains("[section: comparative analysis]") &&
-            !lowercased.contains("[premium_h2]comparative analysis[/premium_h2]") {
-            issues.append("Missing Comparative Analysis section")
-        }
-
-        if !lowercased.contains("[premium_h2]synthesis interlude[/premium_h2]") {
-            issues.append("Missing Synthesis Interlude sections")
-        }
-
-        if !lowercased.contains("[premium_h2]applied implications[/premium_h2]") {
-            issues.append("Missing Applied Implications section")
         }
 
         // MARK: - Premium Formatting Validation
@@ -430,10 +402,10 @@ struct OutputQualityValidator {
 
         // Encourage richer visual variety for full guides
         if !isQuickReference {
-            if totalVisuals < 10 {
+            if totalVisuals < 6 {
                 issues.append("Insufficient visuals; add more varied diagrams to clarify key concepts")
             }
-            if uniqueVisualTypes < 8 && totalVisuals >= 8 {
+            if uniqueVisualTypes < 5 && totalVisuals >= 8 {
                 issues.append("Insufficient visual variety; use more distinct visual types")
             }
         }
@@ -504,10 +476,12 @@ struct OutputQualityValidator {
             issues.append("Insufficient perspective/research notes")
         }
 
-        // MARK: - Quick Glance Label
-
-        if !lowercased.contains("1-page summary") && !lowercased.contains("1‑page summary") {
-            issues.append("Quick Glance missing 1-Page Summary label")
+        // MARK: - Shortform-class skeleton (elevation spec, 2026-10-12)
+        //
+        // Prefixed "Structure:" so the coordinator treats them as structural
+        // defects worth an improvement pass (see isStructuralIssue).
+        if !isQuickReference {
+            issues.append(contentsOf: GuideSkeletonLint.issues(in: content))
         }
 
         // MARK: - Cross-Disciplinary Synthesis Signals
@@ -779,5 +753,198 @@ enum TagParser {
         }
 
         return nil
+    }
+}
+
+
+// MARK: - Guide Skeleton Lint (elevation spec, Parts B, C and F)
+
+/// Pre-emit checks for the fixed Shortform-class skeleton: front matter,
+/// numbered sections, back matter, Go Deeper format, and the Quick Glance vs
+/// Key Takeaways overlap rule. Pure functions over the raw tagged guide text so
+/// they can run before any parser and be unit-tested without a renderer.
+enum GuideSkeletonLint {
+
+    /// Required back/front-matter headings, matched case-insensitively against
+    /// `[PREMIUM_H2]…[/PREMIUM_H2]` (any shape) or `## …` headings.
+    static let requiredHeadings = [
+        "Executive Summary", "Key Takeaways", "Glossary", "Chapter Map", "Further Reading"
+    ]
+
+    /// Fixed Go Deeper pattern: `Author, *Title* (Year) — reason`.
+    static let goDeeperPattern = #"^\*{0,2}Go Deeper:\*{0,2}\s*[^,\n]{2,80},\s*\*[^*\n]{2,160}\*\s*\((?:c\.\s*)?\d{4}[a-z]?\)\s*[—–-]\s*\S"#
+
+    static func issues(in content: String) -> [String] {
+        var issues: [String] = []
+        let headings = headingTexts(in: content)
+        let folded = headings.map { fold($0) }
+
+        for required in requiredHeadings where !folded.contains(where: { $0.hasPrefix(fold(required)) }) {
+            issues.append("Structure: missing \(required) heading")
+        }
+
+        let numbered = headings.filter { $0.range(of: #"^\d{1,2}\.\s+\S"#, options: .regularExpression) != nil }
+        if numbered.count < 5 {
+            issues.append("Structure: only \(numbered.count) numbered body sections (need 5–8, numbered \"1. Title\" … with the Synthesis last)")
+        }
+        if let last = numbered.last, !fold(last).contains("synthesis") {
+            issues.append("Structure: the last numbered section must be the Synthesis")
+        }
+
+        for (title, words) in numberedSectionWordCounts(in: content) where words < 900 {
+            issues.append("Structure: section \"\(title)\" has \(words) words (each numbered section needs ≥ 900 with all six labelled parts)")
+        }
+
+        let badGoDeeper = goDeeperLines(in: content).filter { !matchesGoDeeperFormat($0) }
+        if !badGoDeeper.isEmpty {
+            issues.append("Structure: \(badGoDeeper.count) Go Deeper line(s) do not match \"Author, *Title* (Year) — reason\"")
+        }
+
+        if !lowercasedContains(content, "[VISUAL_TABLE: Chapter Map") && folded.contains(where: { $0.hasPrefix("chaptermap") }) {
+            issues.append("Structure: Chapter Map section has no [VISUAL_TABLE: Chapter Map] table")
+        }
+
+        if let overlap = quickGlanceTakeawayOverlap(in: content), overlap >= 0.3 {
+            issues.append(String(format: "Structure: Key Takeaways restate the Quick Glance (content-word overlap %.2f, must be < 0.30) — rewrite takeaways as actions with section references", overlap))
+        }
+        return issues
+    }
+
+    // MARK: Helpers
+
+    static func headingTexts(in content: String) -> [String] {
+        var out: [String] = []
+        let tagged = try? NSRegularExpression(pattern: #"\[PREMIUM_H[12]\]\s*([^\[\n]+?)\s*(?:\n\s*)?\[/PREMIUM_H[12]\]"#, options: [.caseInsensitive, .dotMatchesLineSeparators])
+        let ns = content as NSString
+        tagged?.matches(in: content, range: NSRange(location: 0, length: ns.length)).forEach {
+            out.append(ns.substring(with: $0.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        for line in content.components(separatedBy: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("## ") || t.hasPrefix("# ") {
+                out.append(t.drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces))
+            }
+        }
+        return out.map { $0.replacingOccurrences(of: "**", with: "") }
+    }
+
+    static func fold(_ s: String) -> String {
+        s.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    private static func lowercasedContains(_ content: String, _ needle: String) -> Bool {
+        content.lowercased().contains(needle.lowercased())
+    }
+
+    static func goDeeperLines(in content: String) -> [String] {
+        content.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.range(of: #"^\*{0,2}Go Deeper:"#, options: [.regularExpression, .caseInsensitive]) != nil }
+    }
+
+    static func matchesGoDeeperFormat(_ line: String) -> Bool {
+        line.range(of: goDeeperPattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    /// Word count of each numbered section's body (from its heading to the
+    /// next `[PREMIUM_H2]`/`## ` heading), with tags and payloads counted as
+    /// they stand — a cheap, stable proxy for prose length.
+    static func numberedSectionWordCounts(in content: String) -> [(String, Int)] {
+        let lines = content.components(separatedBy: "\n")
+        var result: [(String, Int)] = []
+        var currentTitle: String?
+        var buffer: [String] = []
+        func flush() {
+            if let t = currentTitle {
+                let words = buffer.joined(separator: " ")
+                    .split(whereSeparator: { $0.isWhitespace }).count
+                result.append((t, words))
+            }
+            buffer = []
+        }
+        var i = 0
+        while i < lines.count {
+            let t = lines[i].trimmingCharacters(in: .whitespaces)
+            if let title = headingOnLine(t, following: i + 1 < lines.count ? lines[i + 1] : nil) {
+                flush()
+                currentTitle = title.range(of: #"^\d{1,2}\.\s+\S"#, options: .regularExpression) != nil ? title : nil
+                if t.uppercased() == "[PREMIUM_H2]" || t.uppercased() == "[PREMIUM_H1]" { i += 2 } // multi-line heading
+                i += 1
+                continue
+            }
+            if currentTitle != nil { buffer.append(t) }
+            i += 1
+        }
+        flush()
+        return result
+    }
+
+    private static func headingOnLine(_ line: String, following next: String?) -> String? {
+        let upper = line.uppercased()
+        if upper.hasPrefix("[PREMIUM_H2]") || upper.hasPrefix("[PREMIUM_H1]") {
+            let body = line.dropFirst("[PREMIUM_H2]".count)
+            if let close = body.range(of: "[/", options: .caseInsensitive) {
+                return String(body[..<close.lowerBound]).replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespaces)
+            }
+            if body.trimmingCharacters(in: .whitespaces).isEmpty, let next {
+                return next.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "**", with: "")
+            }
+            return body.replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespaces)
+        }
+        if line.hasPrefix("## ") { return String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces) }
+        return nil
+    }
+
+    /// Jaccard overlap of content words between the Quick Glance bullets and
+    /// the [TAKEAWAYS] items. `nil` when either block is absent.
+    static func quickGlanceTakeawayOverlap(in content: String) -> Double? {
+        guard let glance = block("QUICK_GLANCE", in: content),
+              let takeaways = block("TAKEAWAYS", in: content) else { return nil }
+        let a = contentWords(bulletLines(in: glance))
+        let b = contentWords(bulletLines(in: takeaways))
+        guard !a.isEmpty, !b.isEmpty else { return nil }
+        let union = a.union(b).count
+        return union == 0 ? 0 : Double(a.intersection(b).count) / Double(union)
+    }
+
+    private static func block(_ tag: String, in content: String) -> String? {
+        guard let open = content.range(of: "[\(tag)]", options: .caseInsensitive),
+              let close = content.range(of: "[/\(tag)]", options: .caseInsensitive, range: open.upperBound..<content.endIndex) else { return nil }
+        return String(content[open.upperBound..<close.lowerBound])
+    }
+
+    private static func bulletLines(in block: String) -> [String] {
+        block.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.range(of: #"^([-*•]|\d+[.)])\s+"#, options: .regularExpression) != nil }
+    }
+
+    static let stopWords: Set<String> = [
+        "the","a","an","and","or","but","of","to","in","on","for","with","as","by","at","from","that","this","these","those",
+        "is","are","was","were","be","been","being","it","its","not","no","than","then","so","if","into","about","over",
+        "we","you","your","our","they","their","he","she","his","her","which","who","what","when","where","how","why",
+        "can","may","might","should","would","could","will","do","does","did","has","have","had","more","most","one",
+        "see","section","sections","each","every","all","any","some","such","also","only","very","just","between","own"
+    ]
+
+    static func contentWords(_ lines: [String]) -> Set<String> {
+        var words: Set<String> = []
+        for line in lines {
+            let cleaned = line.replacingOccurrences(of: #"\(see Section \d+[^)]*\)"#, with: "", options: [.regularExpression, .caseInsensitive])
+            for raw in cleaned.lowercased().split(whereSeparator: { !$0.isLetter && $0 != "-" }) {
+                let w = String(raw)
+                if w.count >= 4, !stopWords.contains(w) { words.insert(stem(w)) }
+            }
+        }
+        return words
+    }
+
+    /// Crude suffix stemmer so "theories"/"theory" and "explains"/"explain" count as one word.
+    private static func stem(_ w: String) -> String {
+        for suffix in ["ies", "ing", "ed", "es", "s"] where w.hasSuffix(suffix) && w.count - suffix.count >= 4 {
+            let base = String(w.dropLast(suffix.count))
+            return suffix == "ies" ? base + "y" : base
+        }
+        return w
     }
 }

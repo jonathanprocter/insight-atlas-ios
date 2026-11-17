@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3F6A1C2D9B7E4A58C0D1E2F4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3F6A1C2D9B7E4A58C0D1E2F3 /* PrivacyInfo.xcprivacy */; };
 		012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F60CC37C3314F47BC16C587 /* PDFCoverPageRenderer.swift */; };
 		3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */; };
 		47D938729D4D043EEA2D6060 /* InsightAtlas/Views/VoicePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DAF36A52505A41D8A10D838 /* InsightAtlas/Views/VoicePickerSheet.swift */; };
@@ -29,6 +30,15 @@
 		A11C0C0A0000000000002001 /* KokoroVoiceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */; };
 		A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001002 /* KokoroModelManager.swift */; };
 		A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001003 /* KokoroTextChunker.swift */; };
+		7D0B0EB210214DF8A52DD3CA /* EditorialMarkupCanonicalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */; };
+		5A3E6D053FDB43839E9176B7 /* GuidePDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D908DE44D28449948ACDEB13 /* GuidePDFExporter.swift */; };
+		A09422001E6C494A9F928927 /* GuideHTMLExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67B550B67AB481CA4A8D3AD /* GuideHTMLExporter.swift */; };
+		102128EF658849889EB0314C /* GuideDOCXExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */; };
+		16FDC468AA8C46BFBBF21139 /* ExportBrandAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512634D818DE4E3A8F6210C0 /* ExportBrandAssets.swift */; };
+		95E13BDD4EBB474CA90FF3EC /* ExportMarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44134526F7B5437391BD90C7 /* ExportMarkdownTable.swift */; };
+		377C740EE58C4FBA885E90E3 /* SourceTextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B9BD0FA20D3407389CD3E96 /* SourceTextStore.swift */; };
+		2419F7DC6A274E5F94B99203 /* NarrationVisualSpeechScrubber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1FD427826347ADB666FC71 /* NarrationVisualSpeechScrubber.swift */; };
+		0586740FA9E043CFA6F25631 /* NarrationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9B147D578D64310B6EC7853 /* NarrationModels.swift */; };
 		A11C0C0A0000000000002004 /* KokoroAudioService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001004 /* KokoroAudioService.swift */; };
 		A11C0C0A0000000000005001 /* sherpa-onnx in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004001 /* sherpa-onnx */; };
 		A11C0C0A0000000000005002 /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = A11C0C0A0000000000004002 /* SWCompression */; };
@@ -48,9 +58,15 @@
 		C207E5F33026236A00843994 /* PDFRedesignPhase456Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */; };
 		C207E5F5302624A100843994 /* DocumentStructureEnhancer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F4302624A100843994 /* DocumentStructureEnhancer.swift */; };
 		C207E5F7302624D300843994 /* PDFRedesignPhase6StructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */; };
-		C207E5F93026B37B00843994 /* KokoroTTSClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5F83026B37A00843994 /* KokoroTTSClient.swift */; };
-		C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */; };
+		
+		
 		C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */; };
+		IAPALETTETEST0000000002 /* PaletteCongruenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */; };
+		IASTREAMTEST0000000002 /* StreamingNarrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IASTREAMTEST0000000001 /* StreamingNarrationTests.swift */; };
+		IAPDFDUPTEST0000000002 /* PDFHeadingDuplicationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */; };
+		IAELEVPARSE0000000002 /* ElevationSpecParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELEVPARSE0000000001 /* ElevationSpecParsingTests.swift */; };
+		IAELEVRENDR0000000002 /* ElevationSpecRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELEVRENDR0000000001 /* ElevationSpecRenderingTests.swift */; };
+		IAELEVFIXTR0000000002 /* ElevationSpecFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAELEVFIXTR0000000001 /* ElevationSpecFixture.swift */; };
 		E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */; };
 		E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */; };
 		E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */; };
@@ -80,6 +96,12 @@
 		C21355BA2EE6360100B6662D /* Inter-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559E2EE6360100B6662D /* Inter-Variable.ttf */; };
 		C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */; };
 		C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C12EE63E0800B6662D /* AnalysisComponents.swift */; };
+		B4E91A2C7F8340D1A9C6E812 /* AnalysisBookReferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E813 /* AnalysisBookReferences.swift */; };
+		B4E91A2C7F8340D1A9C6E814 /* AnalysisChromeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E815 /* AnalysisChromeViews.swift */; };
+		B4E91A2C7F8340D1A9C6E816 /* AnalysisPremiumBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E817 /* AnalysisPremiumBlockViews.swift */; };
+		B4E91A2C7F8340D1A9C6E818 /* AnalysisShapeHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E819 /* AnalysisShapeHelpers.swift */; };
+		03D013BD2C2E45D9B1FE5555 /* AnalysisDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */; };
+		4EEE0273D6A14614B48D2832 /* AnalysisExportOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */; };
 		C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */; };
 		C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C52EE63E3500B6662D /* AnalysisTheme.swift */; };
 		C22353FB302507090022D852 /* LLMUIRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22353FA302507080022D852 /* LLMUIRegistry.swift */; };
@@ -96,6 +118,10 @@
 		C2D0D343302D9CEB00ABACC9 /* ManuscriptIntegrity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D0D342302D9CEB00ABACC9 /* ManuscriptIntegrity.swift */; };
 		C2D0D345302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */; };
 		E81AF0082D000021007AAAAA /* TruncationRepairTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */; };
+		C7EE0BD362E74B7A8BC98105 /* SettingsSourceOfTruthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF4799B174E74C3D817B6D0A /* SettingsSourceOfTruthTests.swift */; };
+		59195645F06E449C8B40C4F5 /* SourceTextStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC069F36AAB435DB42F07BD /* SourceTextStoreTests.swift */; };
+		B2C3D4E5F60718293A4B5C6E /* MiniMaxCredentialHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* MiniMaxCredentialHelperTests.swift */; };
+		A1B2C3D4E5F60718293A4B5D /* ManuscriptGateExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* ManuscriptGateExportTests.swift */; };
 		E81AF00C2D000025007AAAAA /* GuideBodyStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */; };
 		E81AF00E2D000027007AAAAA /* ParserRobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */; };
 		E81AF0102D000029007AAAAA /* BookProcessorRobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81AF00F2D000028007AAAAA /* BookProcessorRobustnessTests.swift */; };
@@ -147,7 +173,7 @@
 		IABULK0003AAAAAAAAAA003 /* LibraryComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */; };
 		IABULK0005AAAAAAAAAA005 /* BulkExportComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */; };
 		IACACHE001AAAAAAAAAA001 /* VisualAssetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */; };
-		IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */; };
+		IACGVTESTBLD000000000001 /* ProviderConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACGVTESTFILE00000000001 /* ProviderConfigurationTests.swift */; };
 		IACONTVAL01AAAAAA001 /* ContentValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = IACONTVAL02AAAAAA002 /* ContentValidation.swift */; };
 		IAEDIT001AAAAAAAAAA001 /* EditorialBlockTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */; };
 		IAEDITAUDIO01AAAAA001 /* AudioNarrationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */; };
@@ -183,6 +209,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3F6A1C2D9B7E4A58C0D1E2F3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		03A77D72C5EAC28A38E529C7 /* InsightAtlas/Views/EditorialContentRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlas/Views/EditorialContentRenderer.swift; sourceTree = SOURCE_ROOT; };
 		0D5ABA4F4EF1494880B275E6 /* PDFAnalysisDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFAnalysisDocument.swift; sourceTree = "<group>"; };
 		54C3C13FC0544699AFD073C1 /* InsightAtlasPDFRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightAtlasPDFRenderer.swift; sourceTree = "<group>"; };
@@ -207,6 +234,15 @@
 		A11C0C0A0000000000001001 /* KokoroVoiceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroVoiceRegistry.swift; sourceTree = "<group>"; };
 		A11C0C0A0000000000001002 /* KokoroModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroModelManager.swift; sourceTree = "<group>"; };
 		A11C0C0A0000000000001003 /* KokoroTextChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTextChunker.swift; sourceTree = "<group>"; };
+		7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialMarkupCanonicalizer.swift; sourceTree = "<group>"; };
+		D908DE44D28449948ACDEB13 /* GuidePDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidePDFExporter.swift; sourceTree = "<group>"; };
+		D67B550B67AB481CA4A8D3AD /* GuideHTMLExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideHTMLExporter.swift; sourceTree = "<group>"; };
+		BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideDOCXExporter.swift; sourceTree = "<group>"; };
+		512634D818DE4E3A8F6210C0 /* ExportBrandAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportBrandAssets.swift; sourceTree = "<group>"; };
+		44134526F7B5437391BD90C7 /* ExportMarkdownTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportMarkdownTable.swift; sourceTree = "<group>"; };
+		8B9BD0FA20D3407389CD3E96 /* SourceTextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceTextStore.swift; sourceTree = "<group>"; };
+		2C1FD427826347ADB666FC71 /* NarrationVisualSpeechScrubber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationVisualSpeechScrubber.swift; sourceTree = "<group>"; };
+		E9B147D578D64310B6EC7853 /* NarrationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationModels.swift; sourceTree = "<group>"; };
 		A11C0C0A0000000000001004 /* KokoroAudioService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroAudioService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D4 /* PDFTextFixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFTextFixer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F64789A0B1C2D6 /* PDFTextFixerPatterns.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = PDFTextFixerPatterns.json; sourceTree = "<group>"; };
@@ -225,9 +261,15 @@
 		C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFRedesignPhase456Tests.swift; sourceTree = "<group>"; };
 		C207E5F4302624A100843994 /* DocumentStructureEnhancer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentStructureEnhancer.swift; sourceTree = "<group>"; };
 		C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFRedesignPhase6StructureTests.swift; sourceTree = "<group>"; };
-		C207E5F83026B37A00843994 /* KokoroTTSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTTSClient.swift; sourceTree = "<group>"; };
-		C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationService.swift; sourceTree = "<group>"; };
+		
+		
 		C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroNarrationTests.swift; sourceTree = "<group>"; };
+		IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaletteCongruenceTests.swift; sourceTree = "<group>"; };
+		IASTREAMTEST0000000001 /* StreamingNarrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingNarrationTests.swift; sourceTree = "<group>"; };
+		IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFHeadingDuplicationTests.swift; sourceTree = "<group>"; };
+		IAELEVPARSE0000000001 /* ElevationSpecParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationSpecParsingTests.swift; sourceTree = "<group>"; };
+		IAELEVRENDR0000000001 /* ElevationSpecRenderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationSpecRenderingTests.swift; sourceTree = "<group>"; };
+		IAELEVFIXTR0000000001 /* ElevationSpecFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevationSpecFixture.swift; sourceTree = "<group>"; };
 		E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialHeadingParsingTests.swift; sourceTree = "<group>"; };
 		E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightVisualCoverageTests.swift; sourceTree = "<group>"; };
 		E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualPayloadContractTests.swift; sourceTree = "<group>"; };
@@ -262,6 +304,12 @@
 		C21355A52EE6360100B6662D /* Insight Atlas_ Custom Font Installation Guide.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Insight Atlas_ Custom Font Installation Guide.md"; sourceTree = "<group>"; };
 		C21355BE2EE6375A00B6662D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = InsightAtlas/Info.plist; sourceTree = "<group>"; };
 		C21355C12EE63E0800B6662D /* AnalysisComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisComponents.swift; path = InsightAtlas/Views/AnalysisComponents.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E813 /* AnalysisBookReferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisBookReferences.swift; path = InsightAtlas/Views/AnalysisBookReferences.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E815 /* AnalysisChromeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisChromeViews.swift; path = InsightAtlas/Views/AnalysisChromeViews.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E817 /* AnalysisPremiumBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisPremiumBlockViews.swift; path = InsightAtlas/Views/AnalysisPremiumBlockViews.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E819 /* AnalysisShapeHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisShapeHelpers.swift; path = InsightAtlas/Views/AnalysisShapeHelpers.swift; sourceTree = "<group>"; };
+		EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailModels.swift; path = InsightAtlas/Views/AnalysisDetailModels.swift; sourceTree = "<group>"; };
+		5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisExportOptionsView.swift; path = InsightAtlas/Views/AnalysisExportOptionsView.swift; sourceTree = "<group>"; };
 		C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailView.swift; path = InsightAtlas/Views/AnalysisDetailView.swift; sourceTree = "<group>"; };
 		C21355C52EE63E3500B6662D /* AnalysisTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisTheme.swift; path = InsightAtlas/Services/AnalysisTheme.swift; sourceTree = "<group>"; };
 		C22353FA302507080022D852 /* LLMUIRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMUIRegistry.swift; sourceTree = "<group>"; };
@@ -278,6 +326,10 @@
 		C2D0D342302D9CEB00ABACC9 /* ManuscriptIntegrity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptIntegrity.swift; sourceTree = "<group>"; };
 		C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptIntegrityTests.swift; sourceTree = "<group>"; };
 		E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TruncationRepairTests.swift; sourceTree = "<group>"; };
+		DF4799B174E74C3D817B6D0A /* SettingsSourceOfTruthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSourceOfTruthTests.swift; sourceTree = "<group>"; };
+		EDC069F36AAB435DB42F07BD /* SourceTextStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceTextStoreTests.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* MiniMaxCredentialHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxCredentialHelperTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* ManuscriptGateExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManuscriptGateExportTests.swift; sourceTree = "<group>"; };
 		E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideBodyStoreTests.swift; sourceTree = "<group>"; };
 		E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserRobustnessTests.swift; sourceTree = "<group>"; };
 		E81AF00F2D000028007AAAAA /* BookProcessorRobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookProcessorRobustnessTests.swift; sourceTree = "<group>"; };
@@ -328,7 +380,7 @@
 		IABULK0004AAAAAAAAAA004 /* LibraryComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryComponents.swift; sourceTree = "<group>"; };
 		IABULK0006AAAAAAAAAA006 /* BulkExportComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExportComponents.swift; sourceTree = "<group>"; };
 		IACACHE002AAAAAAAAAA002 /* VisualAssetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualAssetCache.swift; sourceTree = "<group>"; };
-		IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTVoiceProviderTests.swift; sourceTree = "<group>"; };
+		IACGVTESTFILE00000000001 /* ProviderConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderConfigurationTests.swift; sourceTree = "<group>"; };
 		IACONTVAL02AAAAAA002 /* ContentValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentValidation.swift; sourceTree = "<group>"; };
 		IAEDIT002AAAAAAAAAA002 /* EditorialBlockTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialBlockTypes.swift; sourceTree = "<group>"; };
 		IAEDITAUDIO02AAAAA002 /* AudioNarrationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioNarrationPlan.swift; sourceTree = "<group>"; };
@@ -385,7 +437,7 @@
 				7A1B2C3D4E5F678901234594 /* PDFTextFixerTests.swift */,
 				E81AF0052D00001E007AAAAA /* PDFOutputHygieneTests.swift */,
 				7A1B2C3D4E5F678901234595 /* SummaryGovernorTests.swift */,
-				IACGVTESTFILE00000000001 /* ChatGPTVoiceProviderTests.swift */,
+				IACGVTESTFILE00000000001 /* ProviderConfigurationTests.swift */,
 				A11C0C0A0000000000000101 /* KokoroVoiceRegistryTests.swift */,
 				A11C0C0A0000000000000102 /* KokoroModelManagerTests.swift */,
 				A11C0C0A0000000000000103 /* KokoroTextChunkerTests.swift */,
@@ -395,6 +447,12 @@
 				C207E5F23026236A00843994 /* PDFRedesignPhase456Tests.swift */,
 				C207E5F6302624D300843994 /* PDFRedesignPhase6StructureTests.swift */,
 				C207E5FC3026B59C00843994 /* KokoroNarrationTests.swift */,
+				IAPALETTETEST0000000001 /* PaletteCongruenceTests.swift */,
+				IASTREAMTEST0000000001 /* StreamingNarrationTests.swift */,
+				IAPDFDUPTEST0000000001 /* PDFHeadingDuplicationTests.swift */,
+				IAELEVPARSE0000000001 /* ElevationSpecParsingTests.swift */,
+				IAELEVRENDR0000000001 /* ElevationSpecRenderingTests.swift */,
+				IAELEVFIXTR0000000001 /* ElevationSpecFixture.swift */,
 				E81AFFF52D00000E007AAAAA /* EditorialHeadingParsingTests.swift */,
 				E81AFFF72D000010007AAAAA /* InsightVisualCoverageTests.swift */,
 				E81AFFF92D000012007AAAAA /* VisualPayloadContractTests.swift */,
@@ -410,6 +468,10 @@
 				C2D0D344302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift */,
 				E81AF0072D000020007AAAAA /* TruncationRepairTests.swift */,
 				E81AF00B2D000024007AAAAA /* GuideBodyStoreTests.swift */,
+				EDC069F36AAB435DB42F07BD /* SourceTextStoreTests.swift */,
+				B2C3D4E5F60718293A4B5C6D /* MiniMaxCredentialHelperTests.swift */,
+				A1B2C3D4E5F60718293A4B5C /* ManuscriptGateExportTests.swift */,
+				DF4799B174E74C3D817B6D0A /* SettingsSourceOfTruthTests.swift */,
 				E81AF00D2D000026007AAAAA /* ParserRobustnessTests.swift */,
 				E81AF00F2D000028007AAAAA /* BookProcessorRobustnessTests.swift */,
 			);
@@ -568,11 +630,18 @@
 				IAAPPENV002AAAAAAAAA002 /* AppEnvironment.swift */,
 				IAVOICEPROV02AAA002 /* VoiceProvider.swift */,
 				C207E5EA3026217B00843994 /* citation-taxonomy.json */,
-				C207E5F83026B37A00843994 /* KokoroTTSClient.swift */,
-				C207E5FA3026B40D00843994 /* KokoroNarrationService.swift */,
 				C2C8335D30291D5800305D9E /* OnDeviceInsightService.swift */,
 				C2C8335F30291D6200305D9E /* OfflineNarrator.swift */,
 				C2ED8EEA3029478F003096F3 /* NarrationService.swift */,
+				E9B147D578D64310B6EC7853 /* NarrationModels.swift */,
+				2C1FD427826347ADB666FC71 /* NarrationVisualSpeechScrubber.swift */,
+				8B9BD0FA20D3407389CD3E96 /* SourceTextStore.swift */,
+				44134526F7B5437391BD90C7 /* ExportMarkdownTable.swift */,
+				512634D818DE4E3A8F6210C0 /* ExportBrandAssets.swift */,
+				BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */,
+				D67B550B67AB481CA4A8D3AD /* GuideHTMLExporter.swift */,
+				D908DE44D28449948ACDEB13 /* GuidePDFExporter.swift */,
+				7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */,
 				E81AFFF12D00000A007AAAAA /* NarrationSupport.swift */,
 				E81AF0032D00001C007AAAAA /* MemoryPressureCoordinator.swift */,
 				E81AF0092D000022007AAAAA /* GuideBodyStore.swift */,
@@ -608,6 +677,7 @@
 				IATHEME000AAAAAAAAAA000 /* Theme */,
 				IAEDITORIAL00AAAAAA000 /* Editorial */,
 				E81A00042D000001007AAAAA /* Assets.xcassets */,
+				3F6A1C2D9B7E4A58C0D1E2F3 /* PrivacyInfo.xcprivacy */,
 				E81A00082D000001007AAAAA /* Preview Content */,
 			);
 			path = InsightAtlas;
@@ -618,7 +688,13 @@
 			children = (
 				C21355C52EE63E3500B6662D /* AnalysisTheme.swift */,
 				C21355C12EE63E0800B6662D /* AnalysisComponents.swift */,
+				B4E91A2C7F8340D1A9C6E813 /* AnalysisBookReferences.swift */,
+				B4E91A2C7F8340D1A9C6E815 /* AnalysisChromeViews.swift */,
+				B4E91A2C7F8340D1A9C6E817 /* AnalysisPremiumBlockViews.swift */,
+				B4E91A2C7F8340D1A9C6E819 /* AnalysisShapeHelpers.swift */,
 				C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */,
+				5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */,
+				EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */,
 				C21355BE2EE6375A00B6662D /* Info.plist */,
 				C21355A62EE6360100B6662D /* Fonts */,
 				E81AFFF02D000001007AAAAA /* InsightAtlas */,
@@ -819,6 +895,7 @@
 				C284A0062F0A3E5A004A223C /* PREMIUM_UPGRADE_SUMMARY.md in Resources */,
 				C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */,
 				E81A00052D000001007AAAAA /* Assets.xcassets in Resources */,
+				3F6A1C2D9B7E4A58C0D1E2F4 /* PrivacyInfo.xcprivacy in Resources */,
 				E81A00062D000001007AAAAA /* Preview Assets.xcassets in Resources */,
 				A1B2C3D4E5F64789A0B1C2D5 /* PDFTextFixerPatterns.json in Resources */,
 			);
@@ -838,6 +915,10 @@
 				C2D0D345302D9D5A00ABACC9 /* ManuscriptIntegrityTests.swift in Sources */,
 				E81AF0082D000021007AAAAA /* TruncationRepairTests.swift in Sources */,
 				E81AF00C2D000025007AAAAA /* GuideBodyStoreTests.swift in Sources */,
+				59195645F06E449C8B40C4F5 /* SourceTextStoreTests.swift in Sources */,
+				B2C3D4E5F60718293A4B5C6E /* MiniMaxCredentialHelperTests.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5D /* ManuscriptGateExportTests.swift in Sources */,
+				C7EE0BD362E74B7A8BC98105 /* SettingsSourceOfTruthTests.swift in Sources */,
 				E81AF00E2D000027007AAAAA /* ParserRobustnessTests.swift in Sources */,
 				E81AF0102D000029007AAAAA /* BookProcessorRobustnessTests.swift in Sources */,
 				C2ED8F13302A1E13003096F3 /* TableFragmentationTests.swift in Sources */,
@@ -852,6 +933,12 @@
 				C207E5F7302624D300843994 /* PDFRedesignPhase6StructureTests.swift in Sources */,
 				C2ED8F11302A1214003096F3 /* InsightNoteFragmentationTests.swift in Sources */,
 				C207E5FD3026B59C00843994 /* KokoroNarrationTests.swift in Sources */,
+				IAPALETTETEST0000000002 /* PaletteCongruenceTests.swift in Sources */,
+				IASTREAMTEST0000000002 /* StreamingNarrationTests.swift in Sources */,
+				IAPDFDUPTEST0000000002 /* PDFHeadingDuplicationTests.swift in Sources */,
+				IAELEVPARSE0000000002 /* ElevationSpecParsingTests.swift in Sources */,
+				IAELEVRENDR0000000002 /* ElevationSpecRenderingTests.swift in Sources */,
+				IAELEVFIXTR0000000002 /* ElevationSpecFixture.swift in Sources */,
 				E81AFFF62D00000F007AAAAA /* EditorialHeadingParsingTests.swift in Sources */,
 				E81AFFF82D000011007AAAAA /* InsightVisualCoverageTests.swift in Sources */,
 				E81AFFFA2D000013007AAAAA /* VisualPayloadContractTests.swift in Sources */,
@@ -859,7 +946,7 @@
 				E81AFFFE2D000017007AAAAA /* NarrationScriptDeadlineTests.swift in Sources */,
 				E81AF0002D000019007AAAAA /* KokoroLiveSynthesisTests.swift in Sources */,
 				E81AF0022D00001B007AAAAA /* ListAndCitationRenderingTests.swift in Sources */,
-				IACGVTESTBLD000000000001 /* ChatGPTVoiceProviderTests.swift in Sources */,
+				IACGVTESTBLD000000000001 /* ProviderConfigurationTests.swift in Sources */,
 				A11C0C0A0000000000000201 /* KokoroVoiceRegistryTests.swift in Sources */,
 				A11C0C0A0000000000000202 /* KokoroModelManagerTests.swift in Sources */,
 				A11C0C0A0000000000000203 /* KokoroTextChunkerTests.swift in Sources */,
@@ -882,8 +969,6 @@
 				012FF2D6DDC04831A242A3AF /* PDFCoverPageRenderer.swift in Sources */,
 				C207E5E130261B6A00843994 /* PDFDiagramGeometry.swift in Sources */,
 				65520DE6A28C40EBA5A337C2 /* PDFContentBlockRenderer.swift in Sources */,
-				C207E5F93026B37B00843994 /* KokoroTTSClient.swift in Sources */,
-				C207E5FB3026B40D00843994 /* KokoroNarrationService.swift in Sources */,
 				B5F10AC9F3E04773B690374F /* PDFDiagramRenderer.swift in Sources */,
 				3B44EE81A41C4D9E8D7D8718 /* InsightAtlasPDFRenderer.swift in Sources */,
 				E29C402FB823CF0FC43901BE /* PDFAudioBundler.swift in Sources */,
@@ -893,6 +978,15 @@
 				E81A00012D000001007AAAAA /* InsightAtlasApp.swift in Sources */,
 				E81A00032D000001007AAAAA /* ContentView.swift in Sources */,
 				C2ED8EEB3029478F003096F3 /* NarrationService.swift in Sources */,
+				0586740FA9E043CFA6F25631 /* NarrationModels.swift in Sources */,
+				2419F7DC6A274E5F94B99203 /* NarrationVisualSpeechScrubber.swift in Sources */,
+				377C740EE58C4FBA885E90E3 /* SourceTextStore.swift in Sources */,
+				95E13BDD4EBB474CA90FF3EC /* ExportMarkdownTable.swift in Sources */,
+				16FDC468AA8C46BFBBF21139 /* ExportBrandAssets.swift in Sources */,
+				102128EF658849889EB0314C /* GuideDOCXExporter.swift in Sources */,
+				A09422001E6C494A9F928927 /* GuideHTMLExporter.swift in Sources */,
+				5A3E6D053FDB43839E9176B7 /* GuidePDFExporter.swift in Sources */,
+				7D0B0EB210214DF8A52DD3CA /* EditorialMarkupCanonicalizer.swift in Sources */,
 				E81AFFF22D00000B007AAAAA /* NarrationSupport.swift in Sources */,
 				E81AF0042D00001D007AAAAA /* MemoryPressureCoordinator.swift in Sources */,
 				E81AF00A2D000023007AAAAA /* GuideBodyStore.swift in Sources */,
@@ -923,7 +1017,13 @@
 				E81A002C2D000016007AAAAA /* InsightAtlasStyle.swift in Sources */,
 				E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */,
 				C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E812 /* AnalysisBookReferences.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E814 /* AnalysisChromeViews.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E816 /* AnalysisPremiumBlockViews.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E818 /* AnalysisShapeHelpers.swift in Sources */,
 				C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */,
+				4EEE0273D6A14614B48D2832 /* AnalysisExportOptionsView.swift in Sources */,
+				03D013BD2C2E45D9B1FE5555 /* AnalysisDetailModels.swift in Sources */,
 				E81A00302D000018007AAAAB /* RegenerateView.swift in Sources */,
 				A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */,
 				IAAPI0001AAAAAAAAAAAAAA1 /* InsightAtlasAPI.swift in Sources */,
@@ -1152,7 +1252,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026082803;
+				CURRENT_PROJECT_VERSION = 2026111603;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;
@@ -1185,7 +1285,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2026082803;
+				CURRENT_PROJECT_VERSION = 2026111603;
 				DEVELOPMENT_ASSET_PATHS = "\"InsightAtlas/Preview Content\"";
 				DEVELOPMENT_TEAM = 7FLK8MJ588;
 				ENABLE_PREVIEWS = YES;

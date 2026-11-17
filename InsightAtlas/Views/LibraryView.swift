@@ -37,14 +37,13 @@ struct LibraryView: View {
                     .prefix(10)
             )
         case .drafts:
-            items = items.filter { $0.summaryContent?.isEmpty != false }
+            items = items.filter { !$0.hasGuideBody }
         }
 
         if !searchText.isEmpty {
             items = items.filter { item in
                 item.title.localizedCaseInsensitiveContains(searchText) ||
-                item.author.localizedCaseInsensitiveContains(searchText) ||
-                (item.summaryContent?.localizedCaseInsensitiveContains(searchText) ?? false)
+                item.author.localizedCaseInsensitiveContains(searchText)
             }
         }
 
@@ -331,7 +330,7 @@ struct LibraryView: View {
     private func exportItem(_ item: LibraryItem) {
         Task {
             do {
-                let url = try environment.dataManager.exportGuide(item, format: .pdf)
+                let url = try await environment.dataManager.exportGuideAsync(item, format: .pdf)
                 await MainActor.run { sharePayload = LibrarySharePayload(url: url) }
             } catch {
                 await MainActor.run { exportError = error.localizedDescription }
@@ -350,7 +349,7 @@ struct LibraryView: View {
             SwipeRowAction(title: "Export", icon: "square.and.arrow.up", tint: PremiumUI.teal) {
                 exportItem(item)
             },
-            SwipeRowAction(title: "Delete", icon: "trash", tint: Color(hex: "#C0392B")) {
+            SwipeRowAction(title: "Delete", icon: "trash", tint: PremiumUI.destructive) {
                 pendingDelete = item
             }
         ]
@@ -418,24 +417,11 @@ struct LibraryView: View {
     }
 
     private func status(for item: LibraryItem) -> PremiumGuideStatus {
-        if item.title == "Cognitive Defusion in Practice" { return .new }
-        if item.title == "Systems Thinking" { return .inProgress }
-        if item.title == "The Architecture of Attachment" { return .completed }
-        if item.title == "Field Notes: Kyoto" { return .new }
-
-        if item.summaryContent == nil { return .inProgress }
-        if item.audioFileURL != nil { return .completed }
-        return .new
+        PremiumGuideStatus(item: item)
     }
 
     private func accentColor(for item: LibraryItem) -> Color {
-        if item.title == "Cognitive Defusion in Practice" { return Color(hex: "#3A8FB7") }
-        if item.title == "Systems Thinking" { return Color(hex: "#D87520") }
-        if item.title == "The Architecture of Attachment" { return Color(hex: "#059669") }
-        if item.title == "Field Notes: Kyoto" { return Color(hex: "#3A8FB7") }
-
-        let colors: [Color] = [Color(hex: "#3A8FB7"), Color(hex: "#D87520"), Color(hex: "#059669"), Color(hex: "#E8553A")]
-        return colors[abs(item.title.hashValue) % colors.count]
+        PremiumGuideStatus(item: item).accentColor
     }
 
     private var emptyState: some View {
@@ -578,6 +564,35 @@ enum PremiumGuideStatus: String {
     case new = "NEW GUIDE"
     case inProgress = "IN PROGRESS"
     case completed = "COMPLETED"
+
+    init(item: LibraryItem) {
+        switch item.title {
+        case "Cognitive Defusion in Practice", "Field Notes: Kyoto": self = .new
+        case "Systems Thinking": self = .inProgress
+        case "The Architecture of Attachment": self = .completed
+        default:
+            if !item.hasGuideBody { self = .inProgress }
+            else if item.audioFileURL != nil { self = .completed }
+            else { self = .new }
+        }
+    }
+
+    /// Row accent for this status.
+    ///
+    /// Library rows previously picked one of four saturated hues via
+    /// `abs(item.title.hashValue) % colors.count`, so a guide's colour was
+    /// stable but arbitrary: the hue carried no information a reader could
+    /// infer, a full list rendered as a rainbow, and one of the four slots was
+    /// the destructive red. Keying on status makes the colour mean something —
+    /// ember for work not yet started, celadon for work underway, muted for
+    /// work finished — and both the list and the card grid read from here.
+    var accentColor: Color {
+        switch self {
+        case .new:        return PremiumUI.ember
+        case .inProgress: return PremiumUI.celadon
+        case .completed:  return PremiumUI.secondaryText
+        }
+    }
 }
 
 struct PremiumLibraryOptionsSheet: View {

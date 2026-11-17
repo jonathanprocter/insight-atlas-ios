@@ -4,7 +4,22 @@ import AVFoundation
 // MARK: - Analysis Detail View
 
 struct AnalysisDetailView: View {
-    let item: LibraryItem
+    /// The item as handed in. Its `summaryContent` is nil because bodies are
+    /// not hydrated at launch; `item` overlays the body loaded in `loadBody()`.
+    private let libraryItem: LibraryItem
+    @State private var loadedBody: String?
+
+    init(item: LibraryItem) {
+        self.libraryItem = item
+    }
+
+    private var item: LibraryItem {
+        guard libraryItem.summaryContent == nil, let loadedBody else { return libraryItem }
+        var hydrated = libraryItem
+        hydrated.summaryContent = loadedBody
+        return hydrated
+    }
+
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     @StateObject private var guideGenerationService = GuideGenerationService()
@@ -102,7 +117,7 @@ struct AnalysisDetailView: View {
                         }
                     }
                     .padding()
-                    .background(Color(.systemGray6))
+                    .background(PremiumUI.chipFill)
                     .cornerRadius(8)
                 }
                 #endif
@@ -205,6 +220,7 @@ struct AnalysisDetailView: View {
         .onAppear {
             parseContent()
         }
+        .task { await loadBody() }
         .onChange(of: guideGenerationService.lastResult?.title) {
             // When backend returns a result, convert it to our format
             if let result = guideGenerationService.lastResult {
@@ -223,10 +239,17 @@ struct AnalysisDetailView: View {
                 .foregroundStyle(.secondary)
             Text("\(Int(score * 100))%")
                 .font(.caption.bold())
-                .foregroundColor(score >= 0.9 ? .green : score >= 0.8 ? .orange : .red)
+                .foregroundColor(score >= 0.9 ? PremiumUI.celadon : score >= 0.8 ? PremiumUI.emberDeep : PremiumUI.destructive)
         }
     }
     #endif
+
+    private func loadBody() async {
+        guard libraryItem.summaryContent == nil, loadedBody == nil else { return }
+        let id = libraryItem.id
+        loadedBody = await Task.detached(priority: .userInitiated) { GuideBodyStore.load(id) }.value
+        parseContent()
+    }
 
     private func parseContent() {
         guard let content = item.summaryContent else { return }
@@ -266,7 +289,7 @@ struct AnalysisDetailView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(Color(.systemGray5))
+                        .fill(PremiumUI.divider)
                         .frame(height: 3)
 
                     Rectangle()
@@ -565,9 +588,12 @@ struct AnalysisDetailView: View {
         dataManager.updateLibraryItem(updatedItem)
     }
 
-    /// Trigger backend-powered guide generation
+    /// Trigger backend-powered guide generation from the persisted manuscript.
     private func generateWithBackend() {
-        guard let sourceText = item.summaryContent ?? item.title as String? else { return }
+        guard let sourceText = SourceTextStore.load(item.id),
+              !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
 
         Task {
             await guideGenerationService.generate(
@@ -1811,6 +1837,11 @@ struct ParsedAnalysisContent {
                     var updatedSection = current
                     updatedSection.blocks = currentBlocks
                     sections.append(updatedSection)
+                } else if !currentBlocks.isEmpty {
+                    // Content ahead of the first heading (e.g. the executive
+                    // summary prose) — keep it as an untitled intro section
+                    // rather than dropping it.
+                    sections.append(AnalysisSection(heading: nil, blocks: currentBlocks))
                 }
 
                 let heading = String(line.dropFirst(3))
@@ -1851,6 +1882,17 @@ struct ParsedAnalysisContent {
                     type: .blockquote,
                     content: quoteLines.joined(separator: " ")
                 ))
+                continue
+            }
+
+            // A section title the model forgot to mark up.
+            if let implicit = ContentBlockParser.implicitHeading(
+                line: line,
+                previousLine: i > 0 ? lines[i - 1] : nil,
+                nextLine: ContentBlockParser.nextNonEmptyLine(in: lines, after: i)
+            ) {
+                currentBlocks.append(AnalysisContentBlock(type: .premiumH2, content: implicit))
+                i += 1
                 continue
             }
 
@@ -2172,21 +2214,7 @@ struct ParsedAnalysisContent {
     }
 
     private static func canonicalVisualTag(_ tag: String) -> String {
-        let upper = tag.uppercased()
-        switch upper {
-        case "VISUAL_TABLE", "VISUAL_COMPARISON", "VISUAL_COMPARISON_TABLE":
-            return InsightVisualType.comparisonMatrix.rawValue
-        case "CONCEPT_MAP":
-            return InsightVisualType.conceptMap.rawValue
-        case "PROCESS_TIMELINE":
-            return InsightVisualType.timeline.rawValue
-        case "HIERARCHY_DIAGRAM":
-            return InsightVisualType.hierarchy.rawValue
-        case "VISUAL_FLOW_DIAGRAM":
-            return InsightVisualType.flowchart.rawValue
-        default:
-            return upper
-        }
+        InsightVisualParser.canonicalizeTag(tag)
     }
 
     /// Parse premium quote content into quote text, attribution, and source
@@ -2250,256 +2278,6 @@ struct ParsedAnalysisContent {
             }
         }
         return urls
-    }
-}
-
-struct QuickGlanceData {
-    let coreMessage: String
-    let keyPoints: [String]
-    let readingTime: Int
-}
-
-struct AnalysisSection {
-    let heading: String?
-    var blocks: [AnalysisContentBlock]
-}
-
-struct AnalysisContentBlock {
-    let type: AnalysisBlockType
-    let content: String
-    var listItems: [String]?
-    var metadata: [String: String]?
-    var visual: GuideVisual?
-    var visualPayload: InsightVisual?
-
-    init(
-        type: AnalysisBlockType,
-        content: String,
-        listItems: [String]? = nil,
-        metadata: [String: String]? = nil,
-        visual: GuideVisual? = nil,
-        visualPayload: InsightVisual? = nil
-    ) {
-        self.type = type
-        self.content = content
-        self.listItems = listItems
-        self.metadata = metadata
-        self.visual = visual
-        self.visualPayload = visualPayload
-    }
-}
-
-enum AnalysisBlockType {
-    case paragraph
-    case heading1
-    case heading2
-    case heading3
-    case heading4
-    case blockquote
-    case insightNote
-    case actionBox
-    case keyTakeaways
-    case foundationalNarrative
-    case exercise
-    case flowchart
-    case bulletList
-    case numberedList
-    case visual
-    case insightVisual
-    case alternativePerspective
-    case researchInsight
-    case processTimeline
-    case conceptMap
-    // Premium block types
-    case premiumQuote
-    case authorSpotlight
-    case premiumDivider
-    case premiumH1
-    case premiumH2
-}
-
-// MARK: - Export Options View
-
-struct AnalysisExportOptionsView: View {
-    let item: LibraryItem
-    let parsedContent: ParsedAnalysisContent?
-    let layoutScore: LayoutScore?
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var dataManager: DataManager
-    @State private var isExporting = false
-    @State private var exportError: String?
-
-    var body: some View {
-        NavigationView {
-            List {
-                Section("Export Format") {
-                    ForEach(ExportFormat.allCases, id: \.self) { format in
-                        Button(action: { exportAs(format) }) {
-                            HStack {
-                                Label(format.rawValue, systemImage: iconFor(format))
-                                Spacer()
-                                // Show warning icon for low layout scores
-                                if let score = layoutScore {
-                                    let formatScore = scoreFor(format: format, from: score)
-                                    if formatScore < 0.85 {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .foregroundColor(.orange)
-                                            .font(.caption)
-                                    }
-                                }
-                            }
-                        }
-                        .disabled(isExporting)
-                    }
-                }
-
-                // Layout quality warning
-                if let score = layoutScore {
-                    let pdfScore = score.pdf
-                    if pdfScore < 0.85 {
-                        Section {
-                            HStack(spacing: 12) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Layout quality may be reduced")
-                                        .font(.subheadline.weight(.medium))
-                                    Text("PDF score: \(Int(pdfScore * 100))%. Some sections may need adjustment.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if let error = exportError {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.red)
-                    }
-                }
-            }
-            .navigationTitle("Export Options")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-            .overlay {
-                if isExporting {
-                    ProgressView("Exporting...")
-                        .padding()
-                        .background(Color(.systemBackground))
-                        .cornerRadius(10)
-                        .shadow(radius: 10)
-                }
-            }
-        }
-    }
-
-    private func iconFor(_ format: ExportFormat) -> String {
-        switch format {
-        case .markdown: return "doc.text"
-        case .plainText: return "doc.plaintext"
-        case .html: return "globe"
-        case .pdf: return "doc.fill"
-        case .docx: return "doc.richtext"
-        }
-    }
-
-    private func scoreFor(format: ExportFormat, from score: LayoutScore) -> Double {
-        switch format {
-        case .pdf: return score.pdf
-        case .docx: return score.docx
-        case .html: return score.html
-        case .markdown, .plainText: return score.overall
-        }
-    }
-
-    private func exportAs(_ format: ExportFormat) {
-        isExporting = true
-        exportError = nil
-
-        Task { @MainActor in
-            do {
-                // For PDF export, prefetch all visual images to ensure they're cached locally
-                if format == .pdf, InsightAtlasConfig.visualsEnabled, let content = parsedContent {
-                    let visualURLs = content.allVisualURLs()
-                    if !visualURLs.isEmpty {
-                        await VisualAssetCache.shared.prefetchAll(urls: visualURLs)
-                    }
-                }
-
-                // Rasterize the structured visuals so the PDF embeds them as images.
-                if format == .pdf, let rawContent = item.summaryContent {
-                    await PDFVisualPrerenderer.prerender(content: rawContent)
-                }
-
-                // Generate the export file (DataManager is @MainActor so this is safe)
-                let url = try dataManager.exportGuide(item, format: format)
-
-                // Verify file exists and is readable before sharing
-                guard FileManager.default.fileExists(atPath: url.path),
-                      FileManager.default.isReadableFile(atPath: url.path) else {
-                    isExporting = false
-                    exportError = "Failed to create export file"
-                    return
-                }
-
-                // Copy to a more stable location to prevent ShareKit background thread issues
-                guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-                    isExporting = false
-                    exportError = "Unable to access documents directory for sharing."
-                    return
-                }
-                let shareURL = documentsDir.appendingPathComponent(url.lastPathComponent)
-
-                // Remove existing file if present
-                try? FileManager.default.removeItem(at: shareURL)
-                try FileManager.default.copyItem(at: url, to: shareURL)
-
-                isExporting = false
-
-                // Present share sheet with the stable URL
-                let activityVC = UIActivityViewController(
-                    activityItems: [shareURL],
-                    applicationActivities: nil
-                )
-
-                // Set completion handler to clean up the copied file after sharing
-                activityVC.completionWithItemsHandler = { _, _, _, _ in
-                    try? FileManager.default.removeItem(at: shareURL)
-                }
-
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first,
-                   let rootVC = window.rootViewController {
-                    var topController = rootVC
-                    while let presented = topController.presentedViewController {
-                        topController = presented
-                    }
-                    // Configure popover for iPad - required to prevent crash
-                    if let popover = activityVC.popoverPresentationController {
-                        popover.sourceView = topController.view
-                        popover.sourceRect = CGRect(
-                            x: topController.view.bounds.midX,
-                            y: topController.view.bounds.midY,
-                            width: 0,
-                            height: 0
-                        )
-                        popover.permittedArrowDirections = []
-                    }
-                    topController.present(activityVC, animated: true)
-                }
-            } catch {
-                isExporting = false
-                exportError = error.localizedDescription
-            }
-        }
     }
 }
 

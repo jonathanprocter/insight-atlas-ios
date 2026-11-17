@@ -25,16 +25,13 @@ final class KokoroModelManagerTests: XCTestCase {
     func testProductionManifestMatchesVerifiedOfficialArchive() throws {
         let manifest = KokoroModelManifest.production
 
-        XCTAssertEqual(manifest.version, "kokoro-int8-multi-lang-v1_0")
-        XCTAssertEqual(
-            manifest.downloadURL.absoluteString,
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
-        )
-        XCTAssertEqual(manifest.archiveByteCount, 131_839_838)
-        XCTAssertEqual(
-            manifest.sha256,
-            "75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3"
-        )
+        XCTAssertEqual(manifest.version, "pocket-tts-int8-2026-01-26-ia1")
+        XCTAssertEqual(manifest.downloadURL.absoluteString, "https://models.procterai.cc/pocket-tts/pocket-tts-int8-2026-01-26-ia1.tar.bz2")
+        // Measured against the uploaded R2 object on 2026-10-12:
+        //   curl -sL <downloadURL> -o a.tar.bz2 && shasum -a 256 a.tar.bz2
+        // Re-measure rather than copying these values forward.
+        XCTAssertEqual(manifest.archiveByteCount, 98_882_041)
+        XCTAssertEqual(manifest.sha256, "9070eac57cd5fb7d09af334ceb9b810f078e0a89c4f9b27143c6e6aea4e1810e")
         XCTAssertGreaterThanOrEqual(manifest.minimumAvailableCapacity, 450 * 1_024 * 1_024)
     }
 
@@ -51,7 +48,7 @@ final class KokoroModelManagerTests: XCTestCase {
     func testMissingCoreAssetInvalidatesInstallation() throws {
         try createRequiredAssets(at: temporaryDirectory)
         try FileManager.default.removeItem(
-            at: temporaryDirectory.appendingPathComponent("voices.bin")
+            at: temporaryDirectory.appendingPathComponent("lm_main.int8.onnx")
         )
 
         XCTAssertFalse(KokoroModelInstallationValidator.isInstalled(at: temporaryDirectory))
@@ -62,21 +59,27 @@ final class KokoroModelManagerTests: XCTestCase {
 
         XCTAssertEqual(
             KokoroArchivePathPolicy.destinationRelativePath(
-                for: "\(root)/model.int8.onnx",
+                for: "\(root)/lm_main.int8.onnx",
                 archiveRoot: root
             ),
-            "model.int8.onnx"
+            "lm_main.int8.onnx"
         )
         XCTAssertEqual(
             KokoroArchivePathPolicy.destinationRelativePath(
-                for: "\(root)/espeak-ng-data/phondata",
+                for: "\(root)/voices/alba.wav",
                 archiveRoot: root
             ),
-            "espeak-ng-data/phondata"
+            "voices/alba.wav"
         )
         XCTAssertNil(
             KokoroArchivePathPolicy.destinationRelativePath(
-                for: "\(root)/dict/jieba.dict.utf8",
+                for: "\(root)/test_wavs/bria.wav",
+                archiveRoot: root
+            )
+        )
+        XCTAssertNil(
+            KokoroArchivePathPolicy.destinationRelativePath(
+                for: "\(root)/voices/nested/alba.wav",
                 archiveRoot: root
             )
         )
@@ -93,28 +96,20 @@ final class KokoroModelManagerTests: XCTestCase {
         )
         XCTAssertNil(
             KokoroArchivePathPolicy.destinationRelativePath(
-                for: "/tmp/model.int8.onnx",
+                for: "/tmp/lm_main.int8.onnx",
                 archiveRoot: root
             )
         )
         XCTAssertNil(
             KokoroArchivePathPolicy.destinationRelativePath(
-                for: "other-root/model.int8.onnx",
+                for: "other-root/lm_main.int8.onnx",
                 archiveRoot: root
             )
         )
     }
 
     private func createRequiredAssets(at root: URL) throws {
-        let requiredFiles = [
-            "model.int8.onnx",
-            "voices.bin",
-            "tokens.txt",
-            "lexicon-us-en.txt",
-            "lexicon-gb-en.txt",
-            "LICENSE",
-            "espeak-ng-data/phondata"
-        ]
+        let requiredFiles = KokoroModelInstallationValidator.requiredRelativePaths
 
         for relativePath in requiredFiles {
             let fileURL = root.appendingPathComponent(relativePath)

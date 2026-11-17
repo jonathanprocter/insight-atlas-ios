@@ -7,8 +7,8 @@
 //  shared local playback controller.
 //
 //  These used to live alongside the Mega Transcript integration. That provider
-//  has been retired -- narration is Kokoro on-device first, with the hosted
-//  Kokoro voice ("Liam") as the fallback -- so the pieces every provider needs
+//  has been retired -- narration is Pocket (Kokoro) on-device, with Apple
+//  system voices as the fallback -- so the pieces every provider needs
 //  live here instead.
 //
 
@@ -237,7 +237,6 @@ enum NarrationPreparationProgress: Sendable, Equatable {
     case synthesizing(narrator: String, completed: Int, total: Int)
     case downloading
     case usingCache
-    case fallingBackToLiam(reason: String)
     case ready(narrator: String)
 
     /// Completion as a percentage when the stage knows it, otherwise nil.
@@ -249,7 +248,7 @@ enum NarrationPreparationProgress: Sendable, Equatable {
             return Int((max(0, min(1, fraction)) * 100).rounded())
         case .ready:
             return 100
-        case .checkingCache, .generating, .loadingModel, .downloading, .usingCache, .fallingBackToLiam:
+        case .checkingCache, .generating, .loadingModel, .downloading, .usingCache:
             return nil
         }
     }
@@ -270,7 +269,6 @@ enum NarrationPreparationProgress: Sendable, Equatable {
         case .synthesizing(let narrator, _, _): return "Generating audio with \(narrator)…"
         case .downloading: return "Downloading narration…"
         case .usingCache: return "Opening cached narration…"
-        case .fallingBackToLiam: return "Switching to the Liam voice…"
         case .ready(let narrator): return "Ready with \(narrator)"
         }
     }
@@ -313,12 +311,33 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     @Published private(set) var currentURL: URL?
     @Published var playbackRate: Float = 1
 
-    private let player = AVPlayer()
+    /// True while narration is being played from chunks that are still being
+    /// rendered. The total duration is not yet known, so the scrubber is
+    /// disabled until the full asset exists.
+    @Published private(set) var isStreaming = false
+    @Published private(set) var streamedSegments = 0
+    @Published private(set) var expectedSegments = 0
+
+    private let player = AVQueuePlayer()
     private var timeObserver: Any?
     private var notificationObservers: [NSObjectProtocol] = []
+    private var itemEndObservers: [NSObjectProtocol] = []
     private var title = ""
     private var author = ""
     private var coverImagePath: String?
+
+    /// Duration of each enqueued segment, in queue order, and how many have
+    /// finished playing — together these turn per-item time into a position
+    /// within the whole narration.
+    private var segmentDurations: [TimeInterval] = []
+    private var finishedSegments = 0
+    /// Distinguishes "the listener paused" from "the queue ran dry while the
+    /// next chunk was still rendering" — only the former must stay stopped.
+    private var isPausedByUser = false
+
+    private var playedSegmentsDuration: TimeInterval {
+        segmentDurations.prefix(finishedSegments).reduce(0, +)
+    }
 
     private override init() {
         super.init()
@@ -330,16 +349,18 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     deinit {
         if let timeObserver { player.removeTimeObserver(timeObserver) }
         notificationObservers.forEach(NotificationCenter.default.removeObserver)
+        itemEndObservers.forEach(NotificationCenter.default.removeObserver)
     }
 
     func play(url: URL, title: String, author: String, coverImagePath: String?) throws {
         try configureAudioSession()
-        if currentURL != url {
+        if currentURL != url || isStreaming {
+            resetQueue()
             currentURL = url
             self.title = title
             self.author = author
             self.coverImagePath = coverImagePath
-            player.replaceCurrentItem(with: AVPlayerItem(url: url))
+            enqueue(url: url)
             currentTime = 0
             duration = 0
         }
@@ -348,17 +369,121 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
         updateNowPlayingInfo()
     }
 
+    // MARK: - Streaming playback
+
+    /// Begin playing a narration whose chunks are still rendering. Call
+    /// `appendStreamingSegment` as each chunk lands and `finishStreaming` when
+    /// the complete asset has been written.
+    func beginStreaming(
+        title: String,
+        author: String,
+        coverImagePath: String?,
+        expectedSegments: Int
+    ) throws {
+        try configureAudioSession()
+        resetQueue()
+        self.title = title
+        self.author = author
+        self.coverImagePath = coverImagePath
+        self.expectedSegments = expectedSegments
+        isStreaming = true
+        isPausedByUser = false
+        currentURL = nil
+        currentTime = 0
+        duration = 0
+        updateNowPlayingInfo()
+    }
+
+    /// Add a freshly rendered chunk. Playback starts on the first one, and
+    /// resumes here if the renderer briefly fell behind and the queue drained.
+    func appendStreamingSegment(url: URL) {
+        guard isStreaming else { return }
+        enqueue(url: url)
+        streamedSegments = segmentDurations.count
+        duration = segmentDurations.reduce(0, +)
+
+        // Start on the first chunk, and resume whenever the queue drained
+        // because rendering briefly fell behind. `isPlaying` cannot gate this:
+        // running dry sets it false, which would then strand playback forever
+        // with chunks still arriving. Only a deliberate pause should stop it.
+        if streamedSegments == 1 || (player.rate == 0 && !isPausedByUser) {
+            player.playImmediately(atRate: playbackRate)
+            isPlaying = true
+        }
+        updateNowPlayingInfo()
+    }
+
+    /// All chunks rendered. `finalURL` is the combined asset that later plays
+    /// are served from; the queue keeps playing, so nothing is interrupted.
+    func finishStreaming(finalURL: URL, duration totalDuration: TimeInterval) {
+        guard isStreaming else { return }
+        isStreaming = false
+        currentURL = finalURL
+        if totalDuration.isFinite, totalDuration > 0 {
+            duration = totalDuration
+        }
+        updateNowPlayingInfo()
+    }
+
+    func cancelStreaming() {
+        guard isStreaming else { return }
+        isStreaming = false
+        stop()
+    }
+
+    private func enqueue(url: URL) {
+        let item = AVPlayerItem(url: url)
+        segmentDurations.append(Self.localDuration(of: url))
+        itemEndObservers.append(
+            NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.finishedSegments = min(self.finishedSegments + 1, self.segmentDurations.count)
+                }
+            }
+        )
+        player.insert(item, after: player.items().last)
+    }
+
+    private func resetQueue() {
+        isPausedByUser = false
+        player.pause()
+        player.removeAllItems()
+        itemEndObservers.forEach(NotificationCenter.default.removeObserver)
+        itemEndObservers.removeAll()
+        segmentDurations.removeAll()
+        finishedSegments = 0
+        streamedSegments = 0
+        expectedSegments = 0
+        isStreaming = false
+    }
+
+    /// Duration of a local audio file, read directly rather than awaited — the
+    /// queue needs it synchronously to keep the position arithmetic right.
+    private static func localDuration(of url: URL) -> TimeInterval {
+        guard let file = try? AVAudioFile(forReading: url), file.fileFormat.sampleRate > 0 else {
+            return 0
+        }
+        return Double(file.length) / file.fileFormat.sampleRate
+    }
+
     func toggle() {
         isPlaying ? pause() : resume()
     }
 
     func pause() {
+        isPausedByUser = true
         player.pause()
         isPlaying = false
         updateNowPlayingInfo()
     }
 
     func resume() {
+        isPausedByUser = false
         guard player.currentItem != nil else { return }
         player.playImmediately(atRate: playbackRate)
         isPlaying = true
@@ -366,8 +491,7 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     }
 
     func stop() {
-        player.pause()
-        player.replaceCurrentItem(with: nil)
+        resetQueue()
         currentURL = nil
         currentTime = 0
         duration = 0
@@ -377,7 +501,9 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     }
 
     func seek(to seconds: TimeInterval) {
-        guard seconds.isFinite else { return }
+        // While chunks are still rendering the queue is incomplete, so a
+        // scrub target cannot be mapped to a position yet.
+        guard !isStreaming, seconds.isFinite else { return }
         let target = max(0, min(seconds, duration > 0 ? duration : seconds))
         player.seek(to: CMTime(seconds: target, preferredTimescale: 600))
         currentTime = target
@@ -407,9 +533,19 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
         ) { [weak self] time in
             Task { @MainActor in
                 guard let self else { return }
-                self.currentTime = time.seconds.isFinite ? max(0, time.seconds) : 0
+                let itemTime = time.seconds.isFinite ? max(0, time.seconds) : 0
+                // A streamed narration plays as a queue of chunks, so position
+                // is everything already played plus the current chunk's time.
+                self.currentTime = self.segmentDurations.count > 1
+                    ? self.playedSegmentsDuration + itemTime
+                    : itemTime
                 let itemDuration = self.player.currentItem?.duration.seconds ?? 0
-                if itemDuration.isFinite && itemDuration > 0 { self.duration = itemDuration }
+                if self.segmentDurations.count > 1 {
+                    let known = self.segmentDurations.reduce(0, +)
+                    if known > 0 { self.duration = known }
+                } else if itemDuration.isFinite && itemDuration > 0 {
+                    self.duration = itemDuration
+                }
                 if self.player.currentItem?.status == .readyToPlay,
                    self.player.rate == 0,
                    self.duration > 0,
@@ -489,14 +625,23 @@ final class NarrationPlaybackController: NSObject, ObservableObject {
     }
 
     private func updateNowPlayingInfo() {
-        guard currentURL != nil else { return }
+        // During first-chunk streaming currentURL is nil until the combined
+        // asset lands — still publish Now Playing so Control Center works.
+        guard currentURL != nil || isStreaming else { return }
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
             MPMediaItemPropertyArtist: author,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? playbackRate : 0
         ]
-        if duration > 0 { info[MPMediaItemPropertyPlaybackDuration] = duration }
+        if duration > 0 {
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+        } else if isStreaming, expectedSegments > 0, streamedSegments > 0 {
+            // Rough remaining estimate from average segment length so the
+            // scrubber is not empty during progressive playback.
+            let average = currentTime / Double(max(streamedSegments, 1))
+            info[MPMediaItemPropertyPlaybackDuration] = average * Double(expectedSegments)
+        }
 
         if let coverImagePath,
            let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,

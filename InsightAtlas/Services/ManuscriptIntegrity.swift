@@ -23,6 +23,7 @@
 //
 
 import Foundation
+import os.log
 
 // MARK: - Canonical name corrections
 
@@ -426,14 +427,53 @@ enum ManuscriptGate {
 
     /// Normalize `rawContent`, log warnings, and throw `GateError` if any
     /// blocking violation remains. Returns the cleaned content to render/write.
-    static func prepareForExport(_ rawContent: String) throws -> String {
+    static func prepareForExport(
+        _ rawContent: String,
+        title: String = "",
+        author: String = ""
+    ) throws -> String {
         let content = ManuscriptNormalizer.normalize(rawContent)
         let report = ManuscriptPreflight.inspect(content: content)
+        #if DEBUG
         for warning in report.warnings { print("[Preflight] \(warning)") }
+        #endif
         guard report.passed else {
+            #if DEBUG
             for violation in report.errors { print("[Preflight] \(violation)") }
+            #endif
             throw GateError(violations: report.errors)
         }
+        logOutputContractIssues(for: content, title: title, author: author)
         return content
+    }
+
+    /// Runs `OutputContractValidator` over the editorial form of the content.
+    /// Soft gate: issues are logged for QA but never block an export, because
+    /// the validator targets normalized blocks and has not been tuned to be a
+    /// hard release criterion. Promote `.error` issues to `GateError` once its
+    /// false-positive rate on real guides is known.
+    private static func logOutputContractIssues(for content: String, title: String, author: String) {
+        let document = SemanticNormalizationService().normalize(
+            content: content,
+            title: title,
+            author: author
+        )
+        let contract = OutputContractValidator().validate(document)
+        guard !contract.isValid else { return }
+        let errorIssues = contract.issues.filter { $0.severity == .error }
+        #if DEBUG
+        print("[OutputContract] \(contract.summary)")
+        for issue in errorIssues {
+            print("[OutputContract] \(issue)")
+        }
+        #endif
+        // Always emit .error issues to the unified logger so Release QA can
+        // still see unclean narration / contract misses without stdout spam.
+        if !errorIssues.isEmpty {
+            let logger = Logger(subsystem: "com.insightatlas", category: "ManuscriptGate")
+            logger.error(
+                "OutputContract soft failures (\(errorIssues.count, privacy: .public)): \(contract.summary, privacy: .public)"
+            )
+        }
     }
 }

@@ -41,26 +41,26 @@ final class SummaryGovernorTests: XCTestCase {
 
         // Professional
         let professional = SummaryTypeGovernor.professional
-        XCTAssertEqual(professional.baseWordCount, 3_000)
-        XCTAssertEqual(professional.maxWordCeiling, 4_000)
-        XCTAssertEqual(professional.maxAudioMinutes, 18)
-        XCTAssertEqual(professional.visualBudget.maxVisuals, 3)
+        XCTAssertEqual(professional.baseWordCount, 9_500)
+        XCTAssertEqual(professional.maxWordCeiling, 12_000)
+        XCTAssertEqual(professional.maxAudioMinutes, 60)
+        XCTAssertEqual(professional.visualBudget.maxVisuals, 8)
         XCTAssertEqual(professional.maxSynthesisPerSection, 2)
 
         // Accessible
         let accessible = SummaryTypeGovernor.accessible
-        XCTAssertEqual(accessible.baseWordCount, 4_500)
-        XCTAssertEqual(accessible.maxWordCeiling, 6_000)
-        XCTAssertEqual(accessible.maxAudioMinutes, 25)
-        XCTAssertEqual(accessible.visualBudget.maxVisuals, 4)
+        XCTAssertEqual(accessible.baseWordCount, 9_000)
+        XCTAssertEqual(accessible.maxWordCeiling, 11_500)
+        XCTAssertEqual(accessible.maxAudioMinutes, 60)
+        XCTAssertEqual(accessible.visualBudget.maxVisuals, 8)
         XCTAssertEqual(accessible.maxSynthesisPerSection, 3)
 
         // Deep Research
         let deepResearch = SummaryTypeGovernor.deepResearch
-        XCTAssertEqual(deepResearch.baseWordCount, 7_000)
-        XCTAssertEqual(deepResearch.maxWordCeiling, 12_000)
-        XCTAssertEqual(deepResearch.maxAudioMinutes, 50)
-        XCTAssertEqual(deepResearch.visualBudget.maxVisuals, 6)
+        XCTAssertEqual(deepResearch.baseWordCount, 11_000)
+        XCTAssertEqual(deepResearch.maxWordCeiling, 15_000)
+        XCTAssertEqual(deepResearch.maxAudioMinutes, 80)
+        XCTAssertEqual(deepResearch.visualBudget.maxVisuals, 10)
         XCTAssertEqual(deepResearch.maxSynthesisPerSection, 4)
     }
 

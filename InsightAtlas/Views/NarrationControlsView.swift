@@ -12,6 +12,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 
 // MARK: - View model
 
@@ -23,6 +24,17 @@ final class NarrationControlViewModel: ObservableObject {
     @Published private(set) var canRetry = false
 
     private var generationTask: Task<Void, Never>?
+    private var isStreamingPlayback = false
+    /// Once streaming fails mid-render, ignore later segments so playback does
+    /// not restart from a middle chunk. Cleared when synthesis ends/cancels.
+    private var streamingAbandoned = false
+
+    /// Retry is offered whenever any on-device engine (Kokoro or an Apple
+    /// system voice) can attempt synthesis again.
+    private var retryAvailable: Bool {
+        let availability = VoiceProviderAvailability.current
+        return availability.kokoro || availability.apple
+    }
 
     var progressLabel: String {
         progress?.statusDescription ?? "Preparing narration…"
@@ -34,10 +46,13 @@ final class NarrationControlViewModel: ObservableObject {
     }
 
     func generate(item: LibraryItem) {
-        guard generationTask == nil, let summary = item.summaryContent, !summary.isEmpty else { return }
+        guard generationTask == nil,
+              let summary = item.summaryContent ?? DataManager.shared.guideBody(for: item.id),
+              !summary.isEmpty else { return }
         isPreparing = true
         errorMessage = nil
         canRetry = false
+        streamingAbandoned = false
         DataManager.shared.setNarrationState(.generating, for: item.id)
 
         generationTask = Task { [weak self] in
@@ -46,12 +61,18 @@ final class NarrationControlViewModel: ObservableObject {
                 let asset = try await NarrationService.shared.synthesize(
                     text: summary,
                     itemId: item.id,
-                    summaryType: item.summaryType
-                ) { [weak self] update in
-                    Task { @MainActor in
-                        self?.progress = update
+                    summaryType: item.summaryType,
+                    progress: { [weak self] update in
+                        Task { @MainActor in
+                            self?.progress = update
+                        }
+                    },
+                    onSegment: { [weak self] url, index, total in
+                        Task { @MainActor in
+                            self?.handleSegment(url: url, index: index, total: total, item: item)
+                        }
                     }
-                }
+                )
                 if Task.isCancelled { throw CancellationError() }
 
                 DataManager.shared.applyNarration(asset, for: item.id)
@@ -59,31 +80,78 @@ final class NarrationControlViewModel: ObservableObject {
                 generationTask = nil
                 progress = .ready(narrator: narratorName(for: asset.voiceID))
                 if let url = Self.audioURL(for: asset.relativeFileName) {
-                    do {
-                        try NarrationPlaybackController.shared.play(
-                            url: url,
-                            title: item.title,
-                            author: item.author,
-                            coverImagePath: item.coverImagePath
+                    if isStreamingPlayback {
+                        // Already playing from the streamed chunks; just hand
+                        // the player the durable asset for scrubbing and for
+                        // every later play.
+                        NarrationPlaybackController.shared.finishStreaming(
+                            finalURL: url,
+                            duration: asset.duration
                         )
-                    } catch {
-                        errorMessage = NarrationPlaybackFailureMessage.message(for: error)
-                        canRetry = KokoroModelStore.isInstalled
+                        isStreamingPlayback = false
+                    } else {
+                        do {
+                            try NarrationPlaybackController.shared.play(
+                                url: url,
+                                title: item.title,
+                                author: item.author,
+                                coverImagePath: item.coverImagePath
+                            )
+                        } catch {
+                            errorMessage = NarrationPlaybackFailureMessage.message(for: error)
+                            canRetry = retryAvailable
+                        }
                     }
                 }
             } catch is CancellationError {
                 isPreparing = false
                 generationTask = nil
                 progress = nil
+                endStreamingPlayback(for: item.id)
                 DataManager.shared.setNarrationState(.notGenerated, for: item.id)
             } catch {
                 isPreparing = false
                 generationTask = nil
+                endStreamingPlayback(for: item.id)
                 DataManager.shared.markNarrationFailed(for: item.id)
                 errorMessage = error.localizedDescription
-                canRetry = KokoroModelStore.isInstalled
+                canRetry = retryAvailable
             }
         }
+    }
+
+    /// Starts playback on the first rendered chunk and feeds in the rest as
+    /// they land, so a 16-minute narration is audible in seconds instead of
+    /// after the whole render.
+    private func handleSegment(url: URL, index: Int, total: Int, item: LibraryItem) {
+        guard !streamingAbandoned else { return }
+        do {
+            if !isStreamingPlayback {
+                try NarrationPlaybackController.shared.beginStreaming(
+                    title: item.title,
+                    author: item.author,
+                    coverImagePath: item.coverImagePath,
+                    expectedSegments: total
+                )
+                isStreamingPlayback = true
+            }
+            NarrationPlaybackController.shared.appendStreamingSegment(url: url)
+        } catch {
+            // Streaming is an accelerator, never a requirement: on failure the
+            // render continues and plays from the combined file at the end.
+            streamingAbandoned = true
+            isStreamingPlayback = false
+            NarrationPlaybackController.shared.cancelStreaming()
+        }
+    }
+
+    private func endStreamingPlayback(for itemId: UUID) {
+        if isStreamingPlayback {
+            NarrationPlaybackController.shared.cancelStreaming()
+            isStreamingPlayback = false
+        }
+        streamingAbandoned = false
+        NarrationService.clearSegments(for: itemId)
     }
 
     func cancel() {
@@ -110,6 +178,12 @@ final class NarrationControlViewModel: ObservableObject {
     }
 
     func play(item: LibraryItem) {
+        // During first-chunk streaming there is no library audioFileURL yet —
+        // pause/resume must toggle the live queue player instead of failing.
+        if NarrationPlaybackController.shared.isStreaming {
+            NarrationPlaybackController.shared.toggle()
+            return
+        }
         guard let filename = item.audioFileURL, let url = Self.audioURL(for: filename) else {
             errorMessage = "The local narration file is missing. Generate it again."
             canRetry = true
@@ -128,14 +202,19 @@ final class NarrationControlViewModel: ObservableObject {
             }
         } catch {
             errorMessage = NarrationPlaybackFailureMessage.message(for: error)
-            canRetry = KokoroModelStore.isInstalled
+            canRetry = retryAvailable
         }
     }
 
     func narratorName(for voiceID: String?) -> String {
         guard let voiceID else { return "Narrator" }
-        if voiceID == KokoroTTSClient.voice { return "Liam" }
-        return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name ?? voiceID
+        if let kokoro = KokoroVoiceRegistry.voice(byVoiceID: voiceID) {
+            return kokoro.name
+        }
+        if let apple = AppleVoiceCatalog.voice(byID: voiceID) {
+            return apple.name
+        }
+        return "Apple Voice"
     }
 
     static func audioURL(for filename: String) -> URL? {
@@ -171,6 +250,21 @@ struct NarrationControlsView: View {
 
     private var kokoroConfigured: Bool { KokoroModelStore.isInstalled }
 
+    /// The engine narration will actually use: the preferred one, or the
+    /// other as fallback (mirrors NarrationFallbackPolicy).
+    private var activeEngine: VoiceProvider {
+        let preferred = VoiceProvider(
+            rawValue: UserDefaults.standard.string(forKey: VoiceProvider.storageKey) ?? ""
+        ) ?? .kokoro
+        if preferred == .kokoro && !kokoroConfigured { return .apple }
+        return preferred
+    }
+
+    /// Whether any on-device engine can synthesize narration right now.
+    private var narrationAvailable: Bool {
+        kokoroConfigured || AppleVoiceCatalog.defaultVoice() != nil
+    }
+
     private var selectedKokoroVoiceName: String {
         guard let voiceID = UserDefaults.standard.string(
             forKey: KokoroVoiceRegistry.selectedVoiceStorageKey
@@ -179,6 +273,13 @@ struct NarrationControlsView: View {
         }
         return KokoroVoiceRegistry.voice(byVoiceID: voiceID)?.name
             ?? KokoroVoiceRegistry.defaultVoice.name
+    }
+
+    private var selectedEngineVoiceName: String {
+        switch activeEngine {
+        case .kokoro: return selectedKokoroVoiceName
+        case .apple: return AppleVoiceCatalog.selectedVoice()?.name ?? "System Voice"
+        }
     }
 
     var body: some View {
@@ -283,13 +384,18 @@ struct NarrationControlsView: View {
                 .accessibilityHint("Collapses the panel to a small button. Playback continues.")
             }
 
-            if model.isPreparing {
+            if playback.isStreaming {
+                // Audio is already playing from rendered chunks; show the
+                // transport plus how much is still being written.
+                playbackControls
+                streamingProgressRow
+            } else if model.isPreparing {
                 preparingRow
             } else if hasAudio {
                 playbackControls
-            } else if !kokoroConfigured {
+            } else if !narrationAvailable {
                 HStack {
-                    Text("Download Kokoro in Settings → Audio & Narration before listening.")
+                    Text("No narration voice is available on this device. Download Pocket in Settings → Audio & Narration, or install an Apple voice in iOS Settings → Accessibility → Spoken Content.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -328,7 +434,7 @@ struct NarrationControlsView: View {
         }
     }
 
-    /// Synthesis progress. Kokoro reports a real fraction per rendered text
+    /// Synthesis progress. Pocket reports a real fraction per rendered text
     /// chunk, so this shows a determinate bar and percentage; stages that
     /// genuinely cannot know their progress fall back to a spinner.
     private var preparingRow: some View {
@@ -368,13 +474,33 @@ struct NarrationControlsView: View {
     }
 
     private var readySubtitle: String {
-        kokoroConfigured
-            ? "Kokoro on-device · \(selectedKokoroVoiceName)"
-            : "Download the Kokoro voice model"
+        guard narrationAvailable else { return "No narration voice available" }
+        switch activeEngine {
+        case .kokoro: return "Pocket on-device · \(selectedKokoroVoiceName)"
+        case .apple: return "Apple voice on-device · \(selectedEngineVoiceName)"
+        }
     }
 
     private var listenButtonTitle: String {
-        "Listen with \(selectedKokoroVoiceName)"
+        "Listen with \(selectedEngineVoiceName)"
+    }
+
+    /// Shown under the transport while later chunks are still rendering.
+    private var streamingProgressRow: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .scaleEffect(0.7)
+            Text(playback.expectedSegments > 0
+                 ? "Still writing audio · part \(playback.streamedSegments) of \(playback.expectedSegments)"
+                 : "Still writing audio…")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Cancel") { model.cancel() }
+                .font(.caption.weight(.semibold))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Narration is playing while the rest is still being written")
     }
 
     private var playbackControls: some View {
@@ -387,6 +513,7 @@ struct NarrationControlsView: View {
                 in: 0...max(max(playback.duration, currentItem.audioDuration ?? 1), 1)
             )
             .tint(PremiumUI.gold)
+            .disabled(playback.isStreaming)
             .accessibilityLabel("Narration position")
             .accessibilityValue("\(timeLabel(playback.currentTime)) of \(timeLabel(max(playback.duration, currentItem.audioDuration ?? 0)))")
 

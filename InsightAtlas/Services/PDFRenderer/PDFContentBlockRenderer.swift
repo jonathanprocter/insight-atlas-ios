@@ -27,7 +27,7 @@ final class PDFContentBlockRenderer {
     // MARK: - Block Height Calculation
 
     /// Calculate height for section heading - accounts for special PART header styling
-    func calculateSectionHeadingHeight(_ text: String, level: Int, maxWidth: CGFloat) -> CGFloat {
+    func calculateSectionHeadingHeight(_ text: String, level: Int, descriptor: String? = nil, maxWidth: CGFloat) -> CGFloat {
         // Check if this is a PART header (PART I, PART II, etc.)
         if text.uppercased().hasPrefix("PART ") {
             // PART header has: padding (20) + ornament (24) + text spacing (8+4) + heading + text spacing (8+4) + ornament (24) + padding (20)
@@ -40,10 +40,47 @@ final class PDFContentBlockRenderer {
             let headingSize = headingAttrString.size()
             return 20 + 24 + 12 + headingSize.height + 12 + 24 + 20
         }
-        // Standard heading
+        // Standard heading (mirrors renderHeading: top margin + text + rule + spacing)
+        return headingHeight(text, level: level, descriptor: descriptor, maxWidth: maxWidth)
+    }
+
+    /// Height of a heading as `renderHeading` draws it, including the top
+    /// margin, numeral treatment, optional descriptor line and trailing spacing.
+    func headingHeight(_ text: String, level: Int, descriptor: String?, maxWidth: CGFloat) -> CGFloat {
+        let topMargin: CGFloat
+        let spacing: CGFloat
+        switch level {
+        case 1, 2:
+            topMargin = PDFStyleConfiguration.Spacing.headingTopMargin
+            spacing = PDFStyleConfiguration.Spacing.sectionSpacing
+        case 3:
+            topMargin = PDFStyleConfiguration.Spacing.md
+            spacing = PDFStyleConfiguration.Spacing.headingBottomMargin + 8
+        default:
+            topMargin = PDFStyleConfiguration.Spacing.sm
+            spacing = PDFStyleConfiguration.Spacing.headingBottomMargin
+        }
+        let (numeral, title) = Self.splitSectionNumeral(text)
         let attributes = PDFStyleConfiguration.headingAttributes(level: level)
-        let spacing = level == 2 ? PDFStyleConfiguration.Spacing.sectionSpacing : PDFStyleConfiguration.Spacing.lg
-        return calculateTextHeight(text, attributes: attributes, maxWidth: maxWidth) + spacing
+        let numeralWidth = numeral == nil ? 0 : Self.numeralColumnWidth
+        let textHeight = calculateTextHeight(title, attributes: attributes, maxWidth: maxWidth - numeralWidth)
+        var total = topMargin + textHeight
+        if let descriptor, !descriptor.isEmpty {
+            total += 2 + calculateTextHeight(descriptor, attributes: PDFStyleConfiguration.descriptorAttributes(), maxWidth: maxWidth - numeralWidth)
+        }
+        return total + spacing
+    }
+
+    /// Width reserved for a section numeral ("3.") hanging left of the title.
+    static let numeralColumnWidth: CGFloat = 34
+
+    /// "3. The Boundary Problem" → ("3.", "The Boundary Problem"); untouched otherwise.
+    static func splitSectionNumeral(_ text: String) -> (String?, String) {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard let match = trimmed.range(of: #"^\d{1,2}\.\s+"#, options: .regularExpression) else { return (nil, trimmed) }
+        let numeral = trimmed[match].trimmingCharacters(in: .whitespaces)
+        let rest = trimmed[match.upperBound...].trimmingCharacters(in: .whitespaces)
+        return rest.isEmpty ? (nil, trimmed) : (numeral, rest)
     }
 
     /// Calculate the height required to render a block
@@ -59,30 +96,78 @@ final class PDFContentBlockRenderer {
         return "\(label) \(number)"
     }
 
-    /// Prefix a diagram title with its assigned figure label, if any.
+    /// The card header for a native diagram. The full "Figure N: title"
+    /// caption is drawn under the card (see renderBlock), so the header only
+    /// needs a short form that never clips mid-word.
     private func titleWithFigureLabel(_ base: String, for block: PDFContentBlock) -> String {
-        guard let fig = figureLabel(for: block) else { return base }
         let trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? fig : "\(fig): \(trimmed)"
+        let short = trimmed.count > 44 ? String(trimmed.prefix(42)).trimmingCharacters(in: .whitespaces) + "…" : trimmed
+        guard let fig = figureLabel(for: block) else { return short }
+        return short.isEmpty ? fig : (trimmed.count > 44 ? short : "\(fig): \(short)")
     }
 
-    /// Fixed height reserved for a standalone "Figure N" / "Table N" caption line.
-    private var figureCaptionHeight: CGFloat { 18 }
+    /// Native diagram block types that get a "Figure N: title" caption under
+    /// the card (elevation spec A5/A7).
+    private static let captionedDiagramTypes: Set<PDFContentBlock.BlockType> = [
+        .flowchart, .conceptMap, .processTimeline, .loopDiagram, .spectrum, .pyramid, .cycle, .funnel, .barChart, .pieChart
+    ]
 
-    /// Draw a standalone figure/table caption line; returns the height consumed.
+    /// "Figure N: title" for a native diagram (nil when unnumbered or untitled).
+    private func diagramCaptionText(for block: PDFContentBlock) -> String? {
+        guard Self.captionedDiagramTypes.contains(block.type), let fig = figureLabel(for: block) else { return nil }
+        let title = (block.metadata?["title"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? fig : "\(fig): \(title)"
+    }
+
+    /// "Table N: Descriptive title" — the label the referential-integrity pass
+    /// assigned plus the author's own title. A bare "TABLE 1" tells the reader
+    /// nothing (elevation spec A7).
+    private func captionText(for block: PDFContentBlock) -> String? {
+        guard let fig = figureLabel(for: block) else { return nil }
+        let title = (block.metadata?["title"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? fig : "\(fig): \(title)"
+    }
+
+    /// Caption attributes: the shared callout label face for the "Figure N"
+    /// run, body-small italic for the descriptive title.
+    private func captionAttributed(_ text: String) -> NSAttributedString {
+        let labelAttributes: [NSAttributedString.Key: Any] = [
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
+            .ligature: 0,
+            .foregroundColor: PDFStyleConfiguration.Colors.primaryGold,
+            .kern: 1.2
+        ]
+        var titleAttributes = PDFStyleConfiguration.bodyAttributes(color: PDFStyleConfiguration.Colors.textSecondary)
+        titleAttributes[.font] = PDFStyleConfiguration.Typography.bodySmallItalic()
+        titleAttributes[.paragraphStyle] = PDFStyleConfiguration.paragraphStyle(lineHeight: 16, alignment: .left, paragraphSpacing: 0)
+        if let colon = text.range(of: ": ") {
+            let out = NSMutableAttributedString(string: String(text[..<colon.lowerBound]).uppercased(), attributes: labelAttributes)
+            out.append(NSAttributedString(string: "  ", attributes: labelAttributes))
+            out.append(parseInlineMarkdown(String(text[colon.upperBound...]), baseAttributes: titleAttributes))
+            return out
+        }
+        return NSAttributedString(string: text.uppercased(), attributes: labelAttributes)
+    }
+
+    /// Height of a figure/table caption line (wraps for long titles).
+    private func figureCaptionHeight(_ text: String, maxWidth: CGFloat) -> CGFloat {
+        measureAttributed(captionAttributed(text), maxWidth: maxWidth) + 4
+    }
+
+    /// Draw a standalone figure/table caption; returns the height consumed.
     @discardableResult
     private func renderFigureCaption(_ text: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
-            .ligature: 0,
-            .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
-        ]
-        NSAttributedString(string: text.uppercased(), attributes: attrs)
-            .draw(at: CGPoint(x: point.x, y: point.y))
-        return figureCaptionHeight
+        let drawn = drawAttributedString(captionAttributed(text), to: context, at: point, maxWidth: maxWidth)
+        return drawn + 4
     }
 
     func calculateBlockHeight(block: PDFContentBlock, maxWidth: CGFloat) -> CGFloat {
+        let core = calculateBlockHeightCore(block: block, maxWidth: maxWidth)
+        guard let caption = diagramCaptionText(for: block) else { return core }
+        return core + figureCaptionHeight(caption, maxWidth: maxWidth)
+    }
+
+    private func calculateBlockHeightCore(block: PDFContentBlock, maxWidth: CGFloat) -> CGFloat {
         switch block.type {
         case .paragraph:
             return calculateTextHeight(block.content, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: maxWidth)
@@ -93,12 +178,10 @@ final class PDFContentBlockRenderer {
                 + PDFStyleConfiguration.Spacing.sectionSpacing * 1.5
 
         case .heading2:
-            return calculateTextHeight(block.content, attributes: PDFStyleConfiguration.headingAttributes(level: 2), maxWidth: maxWidth)
-                + PDFStyleConfiguration.Spacing.sectionSpacing
+            return headingHeight(block.content, level: 2, descriptor: block.metadata?["descriptor"], maxWidth: maxWidth)
 
         case .heading3:
-            return calculateTextHeight(block.content, attributes: PDFStyleConfiguration.headingAttributes(level: 3), maxWidth: maxWidth)
-                + PDFStyleConfiguration.Spacing.lg
+            return headingHeight(block.content, level: 3, descriptor: block.metadata?["descriptor"], maxWidth: maxWidth)
 
         case .heading4:
             return calculateTextHeight(block.content, attributes: PDFStyleConfiguration.headingAttributes(level: 4), maxWidth: maxWidth)
@@ -143,8 +226,7 @@ final class PDFContentBlockRenderer {
             return PDFStyleConfiguration.Spacing.xl2
 
         case .table:
-            let tableCaptionHeight = figureLabel(for: block) != nil ? figureCaptionHeight : 0
-            return calculateTableHeight(tableData: block.tableData ?? [], maxWidth: maxWidth) + tableCaptionHeight
+            return calculateTableHeight(tableData: block.tableData ?? [], maxWidth: maxWidth) + tableCaptionHeight(for: block, maxWidth: maxWidth)
 
         // Premium block types
         case .premiumQuote:
@@ -161,9 +243,8 @@ final class PDFContentBlockRenderer {
                 + PDFStyleConfiguration.Spacing.sectionSpacing
             
         case .premiumH2:
-            return calculateTextHeight(block.content, attributes: PDFStyleConfiguration.headingAttributes(level: 2), maxWidth: maxWidth)
-                + PDFStyleConfiguration.Spacing.sectionSpacing
-                
+            return headingHeight(block.content, level: 2, descriptor: block.metadata?["descriptor"], maxWidth: maxWidth)
+
         // Additional premium block types
         case .alternativePerspective:
             return calculateSpecialBlockHeight(content: block.content, title: "Alternative Perspective", maxWidth: maxWidth)
@@ -193,7 +274,7 @@ final class PDFContentBlockRenderer {
             )
 
         case .spectrum:
-            return diagramRenderer.calculateSpectrumHeight(maxWidth: maxWidth)
+            return diagramRenderer.calculateSpectrumHeight(maxWidth: maxWidth, nodes: Self.spectrumNodes(from: block))
 
         case .pyramid:
             return diagramRenderer.calculatePyramidHeight(levels: block.listItems ?? [], maxWidth: maxWidth)
@@ -240,6 +321,22 @@ final class PDFContentBlockRenderer {
         at point: CGPoint,
         maxWidth: CGFloat
     ) -> CGFloat {
+        let core = renderBlockCore(block, to: context, at: point, maxWidth: maxWidth)
+        guard let caption = diagramCaptionText(for: block) else { return core }
+        // The core includes its trailing blockSpacing; draw the caption inside
+        // that gap's top so it sits tight under the card, and extend by the
+        // caption's own height.
+        let captionY = point.y + core - PDFStyleConfiguration.Spacing.blockSpacing + 2
+        let drawn = renderFigureCaption(caption, to: context, at: CGPoint(x: point.x, y: captionY), maxWidth: maxWidth)
+        return core + drawn
+    }
+
+    private func renderBlockCore(
+        _ block: PDFContentBlock,
+        to context: CGContext,
+        at point: CGPoint,
+        maxWidth: CGFloat
+    ) -> CGFloat {
         switch block.type {
         case .paragraph:
             return renderParagraph(block.content, to: context, at: point, maxWidth: maxWidth)
@@ -248,10 +345,10 @@ final class PDFContentBlockRenderer {
             return renderHeading(block.content, level: 1, icon: block.metadata?["icon"], to: context, at: point, maxWidth: maxWidth)
 
         case .heading2:
-            return renderHeading(block.content, level: 2, icon: block.metadata?["icon"], to: context, at: point, maxWidth: maxWidth)
+            return renderHeading(block.content, level: 2, icon: block.metadata?["icon"], descriptor: block.metadata?["descriptor"], to: context, at: point, maxWidth: maxWidth)
 
         case .heading3:
-            return renderHeading(block.content, level: 3, icon: nil, to: context, at: point, maxWidth: maxWidth)
+            return renderHeading(block.content, level: 3, icon: nil, descriptor: block.metadata?["descriptor"], to: context, at: point, maxWidth: maxWidth)
 
         case .heading4:
             return renderHeading(block.content, level: 4, icon: nil, to: context, at: point, maxWidth: maxWidth)
@@ -330,8 +427,8 @@ final class PDFContentBlockRenderer {
 
         case .table:
             var tableUsed: CGFloat = 0
-            if let fig = figureLabel(for: block) {
-                tableUsed += renderFigureCaption(fig, to: context, at: point, maxWidth: maxWidth)
+            if let caption = captionText(for: block) {
+                tableUsed += renderFigureCaption(caption, to: context, at: point, maxWidth: maxWidth)
             }
             tableUsed += renderTable(
                 tableData: block.tableData ?? [],
@@ -361,7 +458,7 @@ final class PDFContentBlockRenderer {
             return renderHeading(block.content, level: 1, icon: block.metadata?["icon"], to: context, at: point, maxWidth: maxWidth)
             
         case .premiumH2:
-            return renderHeading(block.content, level: 2, icon: block.metadata?["icon"], to: context, at: point, maxWidth: maxWidth)
+            return renderHeading(block.content, level: 2, icon: block.metadata?["icon"], descriptor: block.metadata?["descriptor"], to: context, at: point, maxWidth: maxWidth)
             
         // Additional premium block types
         case .alternativePerspective:
@@ -478,7 +575,8 @@ final class PDFContentBlockRenderer {
                 title: titleWithFigureLabel(block.metadata?["title"] ?? "Spectrum", for: block),
                 leftPole: poles.first ?? "",
                 rightPole: poles.count > 1 ? poles[1] : "",
-                zoneLabel: block.metadata?["zone"] ?? "healthy range",
+                zoneLabel: block.metadata?["zone"] ?? "",
+                nodes: Self.spectrumNodes(from: block),
                 to: context,
                 at: point,
                 maxWidth: maxWidth
@@ -520,12 +618,12 @@ final class PDFContentBlockRenderer {
     
     /// Render a section heading with the specified level
     /// Returns the height consumed
-    func renderSectionHeading(_ text: String, level: Int, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    func renderSectionHeading(_ text: String, level: Int, descriptor: String? = nil, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         // Check if this is a PART header (PART I, PART II, etc.)
         if text.uppercased().hasPrefix("PART ") {
             return renderPartHeader(text, to: context, at: point, maxWidth: maxWidth)
         }
-        return renderHeading(text, level: level, icon: nil, to: context, at: point, maxWidth: maxWidth)
+        return renderHeading(text, level: level, icon: nil, descriptor: descriptor, to: context, at: point, maxWidth: maxWidth)
     }
 
     /// Render a premium PART header with diamond ornaments
@@ -591,7 +689,7 @@ final class PDFContentBlockRenderer {
         return height + PDFStyleConfiguration.Spacing.paragraphSpacing
     }
 
-    private func renderHeading(_ text: String, level: Int, icon: String?, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    private func renderHeading(_ text: String, level: Int, icon: String?, descriptor: String? = nil, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         var currentY = point.y
         let spacing: CGFloat
 
@@ -615,8 +713,22 @@ final class PDFContentBlockRenderer {
             currentY += PDFStyleConfiguration.Spacing.sm
         }
 
-        // Prepare text with optional icon
-        let displayText = icon.map { "\($0) \(text)" } ?? text
+        // A numbered section ("3. The Boundary Problem") hangs its numeral in
+        // the accent colour to the left of the title so a reader flipping in
+        // knows where they are (elevation spec A1/D).
+        let (numeral, bareTitle) = Self.splitSectionNumeral(text)
+        let displayText = icon.map { "\($0) \(bareTitle)" } ?? bareTitle
+        let numeralWidth = numeral == nil ? 0 : Self.numeralColumnWidth
+        if let numeral {
+            let numeralAttributes: [NSAttributedString.Key: Any] = [
+                .font: PDFStyleConfiguration.headingAttributes(level: level)[.font] ?? PDFStyleConfiguration.Typography.displayH2(),
+                .ligature: 0,
+                .foregroundColor: PDFStyleConfiguration.Colors.primaryGold,
+                .paragraphStyle: PDFStyleConfiguration.paragraphStyle(lineHeight: PDFStyleConfiguration.Spacing.headingLineHeight, alignment: .left, paragraphSpacing: 0)
+            ]
+            NSAttributedString(string: numeral, attributes: numeralAttributes)
+                .draw(in: CGRect(x: point.x, y: currentY, width: numeralWidth, height: PDFStyleConfiguration.Spacing.headingLineHeight + 4))
+        }
 
         // Consistent color scheme per heading level.
         // Per brand direction: near-black is the color for ALL primary reading
@@ -638,7 +750,14 @@ final class PDFContentBlockRenderer {
 
         let attributes = PDFStyleConfiguration.headingAttributes(level: level, color: color)
         let attributedText = NSAttributedString(string: displayText, attributes: attributes)
-        let height = drawAttributedString(attributedText, to: context, at: CGPoint(x: point.x, y: currentY), maxWidth: maxWidth)
+        var height = drawAttributedString(attributedText, to: context, at: CGPoint(x: point.x + numeralWidth, y: currentY), maxWidth: maxWidth - numeralWidth)
+
+        // One-line descriptor under the title (section opener, elevation spec D).
+        if let descriptor, !descriptor.isEmpty {
+            let descriptorAttributed = parseInlineMarkdown(descriptor, baseAttributes: PDFStyleConfiguration.descriptorAttributes())
+            let drawn = drawAttributedString(descriptorAttributed, to: context, at: CGPoint(x: point.x + numeralWidth, y: currentY + height + 2), maxWidth: maxWidth - numeralWidth)
+            height += 2 + drawn
+        }
 
         // Draw decorative lines for H1 and H2
         if level == 1 {
@@ -740,11 +859,33 @@ final class PDFContentBlockRenderer {
         case expansion      // extends the idea — distinct accent
         case challenge      // limitation / counterpoint — strongest treatment
 
+        /// Border and accent-bar tint. May be pale: it is only ever a fill.
         var accentColor: UIColor {
             switch self {
-            case .challenge: return PDFStyleConfiguration.Colors.semanticNotes      // deep burgundy/maroon
+            // A challenge is the strongest editorial move in the guide, so it
+            // reads in the brand's deep red. It pointed at `semanticNotes`,
+            // which the palette consolidation repointed to deep indigo — the
+            // comment still said burgundy while shipped PDFs drew navy.
+            case .challenge: return PDFStyleConfiguration.Colors.accentCrimson
             case .expansion: return PDFStyleConfiguration.Colors.primaryGold        // gold
-            case .corroboration: return PDFStyleConfiguration.BlockStyles.insightNoteBorderColor
+            // The rail is a fill, and this one was the pale border wash
+            // (#EDEBE5) — invisible on a cream card, so corroboration notes
+            // rendered with no rail at all while the other two had one. It
+            // carries the brand terracotta like the in-app card; the label
+            // below is what keeps corroboration the quiet variant.
+            case .corroboration: return PDFStyleConfiguration.Colors.terracotta
+            }
+        }
+
+        /// Header label tint. Separate from `accentColor` because corroboration's
+        /// accent is a pale border wash (#EDEBE5) — drawing the label in it put
+        /// near-white text on a cream card (~1.1:1) and made every
+        /// "CORROBORATION" header invisible in shipped PDFs. Corroboration still
+        /// reads as the quiet variant, just legibly so.
+        var labelColor: UIColor {
+            switch self {
+            case .challenge, .expansion: return accentColor
+            case .corroboration: return PDFStyleConfiguration.Colors.textSecondary
             }
         }
 
@@ -803,22 +944,22 @@ final class PDFContentBlockRenderer {
     /// "SEE ALSO") can reuse this verbatim once the generator emits those markers.
     private func buildInsightFooter(label: String, body: String) -> NSAttributedString {
         let labelAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Semibold", size: 9) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
             .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 0.8
         ]
-        var italicAttributes = PDFStyleConfiguration.bodyAttributes()
-        italicAttributes[.font] = PDFStyleConfiguration.Typography.bodyItalic()
+        // Roman body (elevation spec D: the light italic was low-contrast on
+        // the cream ground); only the *Title* run is italic, via markdown.
         let footer = NSMutableAttributedString(string: "\(label) — ", attributes: labelAttributes)
-        footer.append(parseInlineMarkdown(body, baseAttributes: italicAttributes))
+        footer.append(parseInlineMarkdown(Self.normalizedGoDeeper(body), baseAttributes: PDFStyleConfiguration.bodyAttributes()))
         return footer
     }
 
     private func renderInsightNote(content: String, title: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let parsed = parseInsightNoteContent(content)
         let noteType = Self.classifyInsightNote(content: content, title: title)
-        return drawInsightNoteCard(parsed: parsed, accentColor: noteType.accentColor, headerLabel: noteType.label(defaultTitle: title), to: context, at: point, maxWidth: maxWidth)
+        return drawInsightNoteCard(parsed: parsed, accentColor: noteType.accentColor, labelColor: noteType.labelColor, headerLabel: noteType.label(defaultTitle: title), to: context, at: point, maxWidth: maxWidth)
     }
 
     /// Draws one insight-note card — or one fragment of a split note. The caller
@@ -826,7 +967,7 @@ final class PDFContentBlockRenderer {
     /// label; a continuation fragment passes a SUBSET of sections and a
     /// "… (CONTINUED)" label. Total height comes from the shared
     /// insightNoteCardHeight so the drawn card matches every measurer.
-    private func drawInsightNoteCard(parsed: InsightNoteParsed, accentColor: UIColor, headerLabel: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    private func drawInsightNoteCard(parsed: InsightNoteParsed, accentColor: UIColor, labelColor: UIColor, headerLabel: String, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let padding: CGFloat = 14
         let headerHeight: CGFloat = 30
         let sectionSpacing: CGFloat = 8
@@ -865,9 +1006,9 @@ final class PDFContentBlockRenderer {
 
         // Draw header with enhanced label weight, colored by note type.
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
             .ligature: 0,
-            .foregroundColor: accentColor,
+            .foregroundColor: labelColor,
             .kern: 1.2
         ]
         let headerText = NSAttributedString(string: headerLabel, attributes: headerAttributes)
@@ -914,7 +1055,7 @@ final class PDFContentBlockRenderer {
 
             // Enhanced label weight
             let labelAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
+                .font: PDFStyleConfiguration.Typography.calloutLabel(),
                 .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
@@ -947,7 +1088,7 @@ final class PDFContentBlockRenderer {
             context.strokePath()
 
             let labelAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont(name: "Inter-Semibold", size: 10) ?? PDFStyleConfiguration.Typography.captionBold(),
+                .font: PDFStyleConfiguration.Typography.calloutLabel(),
                 .ligature: 0,
                 .foregroundColor: PDFStyleConfiguration.Colors.terracotta
             ]
@@ -989,6 +1130,7 @@ final class PDFContentBlockRenderer {
         let goDeeper: String?
         let headerLabel: String
         let accentColor: UIColor
+        let labelColor: UIColor
         let plannedHeight: CGFloat   // == renderInsightNoteFragment's return (measure==draw)
         var parsed: InsightNoteParsed { (core, keyDistinction, practicalImplication, goDeeper) }
     }
@@ -1023,6 +1165,7 @@ final class PDFContentBlockRenderer {
         let parsed = parseInsightNoteContent(content)
         let baseLabel = noteType.label(defaultTitle: title)
         let accent = noteType.accentColor
+        let labelTint = noteType.labelColor
         let heights = insightNoteSectionHeights(parsed, maxWidth: maxWidth)
 
         enum Sec { case core, keyDist, practical, goDeeper }
@@ -1073,14 +1216,14 @@ final class PDFContentBlockRenderer {
             }
             let label = gi == 0 ? baseLabel : "\(baseLabel) (CONTINUED)"
             let planned = insightNoteCardHeight(fp, maxWidth: maxWidth) + PDFStyleConfiguration.Spacing.blockSpacing
-            fragments.append(InsightNoteFragment(core: fp.coreConnection, keyDistinction: fp.keyDistinction, practicalImplication: fp.practicalImplication, goDeeper: fp.goDeeper, headerLabel: label, accentColor: accent, plannedHeight: planned))
+            fragments.append(InsightNoteFragment(core: fp.coreConnection, keyDistinction: fp.keyDistinction, practicalImplication: fp.practicalImplication, goDeeper: fp.goDeeper, headerLabel: label, accentColor: accent, labelColor: labelTint, plannedHeight: planned))
         }
         return fragments
     }
 
     /// Draw one planned note fragment (used by the paginating renderer).
     func renderInsightNoteFragment(_ fragment: InsightNoteFragment, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
-        drawInsightNoteCard(parsed: fragment.parsed, accentColor: fragment.accentColor, headerLabel: fragment.headerLabel, to: context, at: point, maxWidth: maxWidth)
+        drawInsightNoteCard(parsed: fragment.parsed, accentColor: fragment.accentColor, labelColor: fragment.labelColor, headerLabel: fragment.headerLabel, to: context, at: point, maxWidth: maxWidth)
     }
 
     /// Strip a redundant leading type prefix ("Key Challenge:" / "Key
@@ -1093,6 +1236,42 @@ final class PDFContentBlockRenderer {
         let lower = text.lowercased()
         for prefix in prefixes where lower.hasPrefix(prefix.lowercased()) {
             return String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return text
+    }
+
+    /// Rewrites the legacy Go Deeper shape — `"Title" by Author — reason` or
+    /// `Author, "Title" — reason` — into the fixed `Author, *Title* (Year) — reason`
+    /// pattern (elevation spec A9) so old guides re-export consistently. A line
+    /// already in the new shape is returned unchanged; a year is never invented.
+    static func normalizedGoDeeper(_ raw: String) -> String {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let quoteClass = "[\"“”]"
+        // "Title" by Author — reason
+        if let regex = try? NSRegularExpression(pattern: "^\(quoteClass)([^\"“”]+)\(quoteClass)\\s+(?:by|edited by)\\s+([^—–]+?)\\s*(?:([—–])\\s*(.*))?$"),
+           let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let titleRange = Range(m.range(at: 1), in: text), let authorRange = Range(m.range(at: 2), in: text) {
+            let title = text[titleRange].trimmingCharacters(in: .whitespaces)
+            let author = text[authorRange].trimmingCharacters(in: .whitespaces)
+            var out = "\(author), *\(title)*"
+            if let reasonRange = Range(m.range(at: 4), in: text) {
+                let reason = text[reasonRange].trimmingCharacters(in: .whitespaces)
+                if !reason.isEmpty { out += " — \(reason)" }
+            }
+            return out
+        }
+        // Author, "Title" — reason
+        if let regex = try? NSRegularExpression(pattern: "^([^,\"“”]+),\\s*\(quoteClass)([^\"“”]+)\(quoteClass)\\s*(.*)$"),
+           let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let authorRange = Range(m.range(at: 1), in: text), let titleRange = Range(m.range(at: 2), in: text) {
+            let author = text[authorRange].trimmingCharacters(in: .whitespaces)
+            let title = text[titleRange].trimmingCharacters(in: .whitespaces)
+            var out = "\(author), *\(title)*"
+            if let restRange = Range(m.range(at: 3), in: text) {
+                let rest = text[restRange].trimmingCharacters(in: .whitespaces)
+                if !rest.isEmpty { out += rest.hasPrefix("(") || rest.hasPrefix("—") || rest.hasPrefix("–") ? " \(rest)" : " — \(rest)" }
+            }
+            return out
         }
         return text
     }
@@ -1256,7 +1435,7 @@ final class PDFContentBlockRenderer {
 
         // Draw header label (small terracotta text)
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
             .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 1.1
@@ -1294,7 +1473,7 @@ final class PDFContentBlockRenderer {
         return totalHeight + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
-    private func renderKeyTakeaways(items: [String], to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    private func renderKeyTakeaways(items: [String], continued: Bool = false, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         let padding: CGFloat = 12
         let headerHeight: CGFloat = 28
         let borderRadius = PDFStyleConfiguration.Radius.md
@@ -1324,12 +1503,12 @@ final class PDFContentBlockRenderer {
 
         // Draw header
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
             .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 1.1
         ]
-        let headerText = NSAttributedString(string: "KEY TAKEAWAYS", attributes: headerAttributes)
+        let headerText = NSAttributedString(string: continued ? "KEY TAKEAWAYS (CONTINUED)" : "KEY TAKEAWAYS", attributes: headerAttributes)
         let headerRect = CGRect(x: point.x + padding, y: point.y + 6, width: maxWidth - padding * 2, height: headerHeight - 8)
         headerText.draw(in: headerRect)
 
@@ -1386,7 +1565,7 @@ final class PDFContentBlockRenderer {
     /// Shared exercise-header text attributes (font/kern) — used by BOTH the
     /// wrapped-height measure and the draw so they can't drift.
     private static let exerciseHeaderAttributes: [NSAttributedString.Key: Any] = [
-        .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+        .font: PDFStyleConfiguration.Typography.calloutLabel(),
         .ligature: 0,
         .kern: 1.1
     ]
@@ -1593,7 +1772,7 @@ final class PDFContentBlockRenderer {
 
         // Draw header text and reading time badge
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont(name: "Inter-Semibold", size: 11) ?? PDFStyleConfiguration.Typography.captionBold(),
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
             .ligature: 0,
             .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
             .kern: 1.1
@@ -1778,7 +1957,9 @@ final class PDFContentBlockRenderer {
                     // Unsplittable atom: a single step + chrome already exceeds the
                     // page. Take it anyway (progress) and leave a ⏭️ trace — it
                     // draws past the page edge, the same defined fallback QG uses.
+                    #if DEBUG
                     print("⏭️ [PDF Renderer] exercise step exceeds page budget (chrome+step=\(Int((used + h).rounded()))pt > \(Int(budget.rounded()))pt) — fragment renders with overflow")
+                    #endif
                 }
                 take.append(next)
                 used += h
@@ -1791,7 +1972,9 @@ final class PDFContentBlockRenderer {
         // Tail floor: a lone runt step at the end is only acceptable when the
         // prior fragment was genuinely full — log it so it isn't a silent quirk.
         if groups.count > 1, let last = groups.last, last.count < 2 {
+            #if DEBUG
             print("ℹ️ [PDF Renderer] exercise final fragment has \(last.count) step(s) — unavoidable at these step heights")
+            #endif
         }
 
         var fragments: [ExerciseFragment] = []
@@ -1820,7 +2003,7 @@ final class PDFContentBlockRenderer {
         return exerciseCardHeight(displayTitle: title, content: content, steps: floorSteps, hasTime: false, maxWidth: maxWidth)
     }
 
-    private func renderList(items: [String], numbered: Bool, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    private func renderList(items: [String], numbered: Bool, startNumber: Int = 1, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
         var currentY = point.y
 
         for (index, item) in items.enumerated() {
@@ -1832,7 +2015,7 @@ final class PDFContentBlockRenderer {
                     .ligature: 0,
                     .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
                 ]
-                let numberText = NSAttributedString(string: "\(index + 1).", attributes: numberAttributes)
+                let numberText = NSAttributedString(string: "\(startNumber + index).", attributes: numberAttributes)
                 let numberRect = CGRect(x: point.x, y: currentY, width: bulletWidth, height: 18)
                 numberText.draw(in: numberRect)
             } else {
@@ -1890,32 +2073,137 @@ final class PDFContentBlockRenderer {
     /// Column widths are an EVEN split by column count (content-independent), so
     /// every fragment with the same columnCount + maxWidth aligns identically.
     private func tableRowHeights(_ tableData: [[String]], maxWidth: CGFloat) -> [CGFloat] {
-        let padding: CGFloat = 8
-        let cellPadding: CGFloat = 10
-        let columnCount = tableData.first?.count ?? 1
-        let cellWidth = (maxWidth - padding * 2) / CGFloat(columnCount)
-        let cellContentWidth = cellWidth - cellPadding * 2
+        let layout = tableLayout(tableData, maxWidth: maxWidth)
         return tableData.map { row in
             var maxCellHeight: CGFloat = 20
-            for cell in row {
-                let cellHeight = calculateTextHeight(stripMarkdownSyntax(cell), attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: cellContentWidth)
-                maxCellHeight = max(maxCellHeight, cellHeight + cellPadding * 2)
+            for (colIndex, cell) in row.enumerated() {
+                let width = colIndex < layout.columnWidths.count ? layout.columnWidths[colIndex] : layout.columnWidths.last ?? 60
+                let cellHeight = calculateTextHeight(stripMarkdownSyntax(cell), attributes: layout.bodyAttributes, maxWidth: width - layout.cellPadding * 2)
+                maxCellHeight = max(maxCellHeight, cellHeight + layout.cellPadding * 2)
             }
             return maxCellHeight
         }
     }
 
-    private func renderTable(tableData: [[String]], to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+    /// Resolved geometry for a table: column widths proportional to content
+    /// with a floor at each column's longest single word (so no word ever
+    /// breaks mid-character — elevation spec A6), a table-specific type size,
+    /// and an overhang into the margins so the table may use more than the
+    /// body measure. SINGLE SOURCE OF TRUTH for draw, measure and fragmenting.
+    struct TableLayout {
+        let overhang: CGFloat          // extra width on EACH side beyond maxWidth
+        let tableWidth: CGFloat        // total drawn width (maxWidth + 2*overhang)
+        let columnWidths: [CGFloat]
+        let cellPadding: CGFloat
+        let outerPadding: CGFloat
+        let bodyAttributes: [NSAttributedString.Key: Any]
+        let headerAttributes: [NSAttributedString.Key: Any]
+    }
+
+    /// How far a table may reach into the page margins on each side.
+    private var tableOverhang: CGFloat {
+        max(0, min(36, contentRect.minX - 36))
+    }
+
+    func tableLayout(_ tableData: [[String]], maxWidth: CGFloat) -> TableLayout {
+        let outerPadding: CGFloat = 8
+        let cellPadding: CGFloat = 8
+        let columnCount = max(1, tableData.map(\.count).max() ?? 1)
+
+        // Try the body measure first; widen into the margins only if the
+        // longest words do not fit, then step the type down as a last resort.
+        let faces: [(UIFont, UIFont)] = [
+            (PDFStyleConfiguration.Typography.tableBody(), PDFStyleConfiguration.Typography.tableHeader()),
+            (PDFStyleConfiguration.Typography.tableBodySmall(), PDFStyleConfiguration.Typography.tableHeaderSmall())
+        ]
+        func attrs(_ font: UIFont, header: Bool) -> [NSAttributedString.Key: Any] {
+            var a = PDFStyleConfiguration.bodyAttributes(color: header ? PDFStyleConfiguration.Colors.textHeading : PDFStyleConfiguration.Colors.textBody)
+            a[.font] = font
+            let style = PDFStyleConfiguration.paragraphStyle(lineHeight: font.pointSize + 4, alignment: .left, paragraphSpacing: 0)
+            style.lineBreakMode = .byWordWrapping
+            style.hyphenationFactor = 0
+            a[.paragraphStyle] = style
+            return a
+        }
+
+        for (overhang, facePair) in [(0, faces[0]), (tableOverhang, faces[0]), (tableOverhang, faces[1])] {
+            let bodyAttrs = attrs(facePair.0, header: false)
+            let headerAttrs = attrs(facePair.1, header: true)
+            let available = maxWidth + overhang * 2 - outerPadding * 2 - cellPadding * 2 * CGFloat(columnCount)
+
+            var minWidths = [CGFloat](repeating: 0, count: columnCount)
+            var naturalWidths = [CGFloat](repeating: 0, count: columnCount)
+            for (rowIndex, row) in tableData.enumerated() {
+                for (c, cell) in row.enumerated() where c < columnCount {
+                    let text = stripMarkdownSyntax(cell)
+                    let a = rowIndex == 0 ? headerAttrs : bodyAttrs
+                    let full = NSAttributedString(string: text, attributes: a).size().width + 1
+                    naturalWidths[c] = max(naturalWidths[c], min(full, 260))
+                    for word in text.split(whereSeparator: { $0.isWhitespace }) {
+                        let w = NSAttributedString(string: String(word), attributes: a).size().width + 2
+                        minWidths[c] = max(minWidths[c], w)
+                    }
+                }
+            }
+            let minTotal = minWidths.reduce(0, +)
+            let isLastAttempt = overhang == tableOverhang && facePair.0.pointSize == faces[1].0.pointSize
+            if minTotal > available && !isLastAttempt { continue }
+
+            var widths: [CGFloat]
+            if minTotal >= available {
+                // Even the smallest face cannot fit the longest words at the
+                // floor; scale proportionally (words may then wrap mid-word,
+                // but only in this pathological case).
+                let scale = available / max(1, minTotal)
+                widths = minWidths.map { $0 * scale }
+            } else {
+                let naturalTotal = naturalWidths.reduce(0, +)
+                if naturalTotal <= available {
+                    // Everything fits on one line per cell: share the slack evenly.
+                    let slack = (available - naturalTotal) / CGFloat(columnCount)
+                    widths = naturalWidths.map { $0 + slack }
+                } else {
+                    // Proportional to natural width, floored at the longest word.
+                    widths = naturalWidths.map { max(8, $0 / naturalTotal * available) }
+                    var deficit: CGFloat = 0
+                    for c in 0..<columnCount where widths[c] < minWidths[c] {
+                        deficit += minWidths[c] - widths[c]
+                        widths[c] = minWidths[c]
+                    }
+                    if deficit > 0 {
+                        let flexible = (0..<columnCount).filter { widths[$0] > minWidths[$0] }
+                        let flexTotal = flexible.reduce(0) { $0 + (widths[$1] - minWidths[$1]) }
+                        for c in flexible where flexTotal > 0 {
+                            widths[c] -= deficit * (widths[c] - minWidths[c]) / flexTotal
+                        }
+                    }
+                }
+            }
+            let cellWidths = widths.map { $0 + cellPadding * 2 }
+            return TableLayout(
+                overhang: overhang,
+                tableWidth: maxWidth + overhang * 2,
+                columnWidths: cellWidths,
+                cellPadding: cellPadding,
+                outerPadding: outerPadding,
+                bodyAttributes: bodyAttrs,
+                headerAttributes: headerAttrs
+            )
+        }
+        fatalError("unreachable: the last table layout attempt always returns")
+    }
+
+    private func renderTable(tableData: [[String]], to context: CGContext, at origin: CGPoint, maxWidth: CGFloat) -> CGFloat {
         guard !tableData.isEmpty else { return 0 }
 
-        let padding: CGFloat = 8
+        let layout = tableLayout(tableData, maxWidth: maxWidth)
+        let padding = layout.outerPadding
         let borderRadius = PDFStyleConfiguration.Radius.sm
-        let cellPadding: CGFloat = 10
-
-        // Calculate column widths evenly
-        let columnCount = tableData.first?.count ?? 1
-        let cellWidth = (maxWidth - padding * 2) / CGFloat(columnCount)
-        let cellContentWidth = cellWidth - cellPadding * 2
+        let cellPadding = layout.cellPadding
+        // The table may overhang the body measure symmetrically.
+        let point = CGPoint(x: origin.x - layout.overhang, y: origin.y)
+        let drawnWidth = layout.tableWidth
+        let columnCount = layout.columnWidths.count
 
         // Row heights — shared single source (see tableRowHeights).
         let rowHeights = tableRowHeights(tableData, maxWidth: maxWidth)
@@ -1923,7 +2211,7 @@ final class PDFContentBlockRenderer {
         let totalHeight = rowHeights.reduce(0, +) + padding * 2
 
         // Draw table background
-        let bgRect = CGRect(x: point.x, y: point.y, width: maxWidth, height: totalHeight)
+        let bgRect = CGRect(x: point.x, y: point.y, width: drawnWidth, height: totalHeight)
         let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: borderRadius)
         context.addPath(bgPath.cgPath)
         context.setFillColor(UIColor.white.cgColor)
@@ -1943,34 +2231,33 @@ final class PDFContentBlockRenderer {
 
             // Draw row background for header
             if isHeader {
-                let headerRect = CGRect(x: point.x + padding, y: currentY, width: maxWidth - padding * 2, height: rowHeight)
+                let headerRect = CGRect(x: point.x + padding, y: currentY, width: drawnWidth - padding * 2, height: rowHeight)
                 context.setFillColor(PDFStyleConfiguration.Colors.primaryGold.withAlphaComponent(0.15).cgColor)
                 context.fill(headerRect)
             } else if rowIndex % 2 == 0 {
-                // Alternating row colors
-                let rowRect = CGRect(x: point.x + padding, y: currentY, width: maxWidth - padding * 2, height: rowHeight)
-                context.setFillColor(UIColor(white: 0.98, alpha: 1.0).cgColor)
+                // Alternating row fill. The palette's page ground, not a bare
+                // `white: 0.98` — that was a cool near-white with no counterpart
+                // anywhere else in the document.
+                let rowRect = CGRect(x: point.x + padding, y: currentY, width: drawnWidth - padding * 2, height: rowHeight)
+                context.setFillColor(PDFStyleConfiguration.Colors.bgPrimary.cgColor)
                 context.fill(rowRect)
             }
 
             // Draw cells
             var currentX = point.x + padding
-            for (colIndex, cell) in row.enumerated() {
+            for (colIndex, cell) in row.enumerated() where colIndex < columnCount {
+                let cellWidth = layout.columnWidths[colIndex]
                 let cellText = stripMarkdownSyntax(cell)
-                let attributes: [NSAttributedString.Key: Any] = isHeader ? [
-                    .font: PDFStyleConfiguration.Typography.bodyBold(),
-                    .ligature: 0,
-                    .foregroundColor: PDFStyleConfiguration.Colors.textHeading
-                ] : PDFStyleConfiguration.bodyAttributes()
+                let attributes = isHeader ? layout.headerAttributes : layout.bodyAttributes
 
-                let attributedText = NSAttributedString(string: cellText, attributes: attributes)
+                let attributedText = parseInlineMarkdown(cellText, baseAttributes: attributes)
                 let textRect = CGRect(
                     x: currentX + cellPadding,
                     y: currentY + cellPadding,
-                    width: cellContentWidth,
-                    height: rowHeight - cellPadding * 2
+                    width: cellWidth - cellPadding * 2,
+                    height: rowHeight - cellPadding * 2 + 2
                 )
-                attributedText.draw(in: textRect)
+                attributedText.draw(with: textRect, options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
 
                 // Draw vertical cell border (except last column)
                 if colIndex < columnCount - 1 {
@@ -1991,7 +2278,7 @@ final class PDFContentBlockRenderer {
                 context.setStrokeColor(PDFStyleConfiguration.Colors.borderLight.cgColor)
                 context.setLineWidth(0.5)
                 context.move(to: CGPoint(x: point.x + padding, y: lineY))
-                context.addLine(to: CGPoint(x: point.x + maxWidth - padding, y: lineY))
+                context.addLine(to: CGPoint(x: point.x + drawnWidth - padding, y: lineY))
                 context.strokePath()
             }
 
@@ -2017,14 +2304,15 @@ final class PDFContentBlockRenderer {
     /// Caption ("TABLE N: …") height for a table block — 0 when unnumbered. The
     /// caption rides fragment 1 ONLY; the renderer reserves this from fragment-1's
     /// budget and draws it once.
-    func tableCaptionHeight(for block: PDFContentBlock) -> CGFloat {
-        figureLabel(for: block) != nil ? figureCaptionHeight : 0
+    func tableCaptionHeight(for block: PDFContentBlock, maxWidth: CGFloat) -> CGFloat {
+        guard let caption = captionText(for: block) else { return 0 }
+        return figureCaptionHeight(caption, maxWidth: maxWidth)
     }
 
     /// Draw the table caption once (fragment 1). Returns drawn height (0 if none).
     func renderTableCaption(for block: PDFContentBlock, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
-        guard let fig = figureLabel(for: block) else { return 0 }
-        return renderFigureCaption(fig, to: context, at: point, maxWidth: maxWidth)
+        guard let caption = captionText(for: block) else { return 0 }
+        return renderFigureCaption(caption, to: context, at: point, maxWidth: maxWidth)
     }
 
     /// Split an oversized table at ROW boundaries (never mid-row). Each fragment
@@ -2168,14 +2456,16 @@ final class PDFContentBlockRenderer {
         at point: CGPoint,
         maxWidth: CGFloat
     ) -> CGFloat {
-        let padding: CGFloat = 12
-        let headerHeight: CGFloat = 28
+        // One callout design system (elevation spec A8): identical padding and
+        // header height to the insight-note card, identical label face.
+        let padding: CGFloat = 14
+        let headerHeight: CGFloat = 30
         let borderRadius: CGFloat = 6.0  // Consistent 6pt corner radius
         let borderWidth: CGFloat = 1.0   // Consistent 1pt border
         let leftAccentWidth: CGFloat = 4.0  // Left accent bar for visual hierarchy
         let insetWidth = maxWidth - padding * 2
 
-        let contentHeight = calculateTextHeight(content, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth)
+        let contentHeight = calculateTextHeight(content, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - leftAccentWidth)
         let totalHeight = headerHeight + contentHeight + padding * 2
 
         // Draw background with rounded corners
@@ -2207,13 +2497,14 @@ final class PDFContentBlockRenderer {
 
         // Draw header with icon + uppercase label
         let headerAttributes: [NSAttributedString.Key: Any] = [
-            .font: PDFStyleConfiguration.Typography.blockHeader(),
+            .font: PDFStyleConfiguration.Typography.calloutLabel(),
             .ligature: 0,
-            .foregroundColor: headerBgColor
+            .foregroundColor: headerBgColor,
+            .kern: 1.2
         ]
         let headerString = icon.isEmpty ? title.uppercased() : "\(icon) \(title.uppercased())"
         let headerText = NSAttributedString(string: headerString, attributes: headerAttributes)
-        let headerTextRect = CGRect(x: point.x + padding + leftAccentWidth, y: point.y + 6, width: maxWidth - padding * 2 - leftAccentWidth, height: headerHeight - 8)
+        let headerTextRect = CGRect(x: point.x + padding + leftAccentWidth, y: point.y + 8, width: maxWidth - padding * 2 - leftAccentWidth, height: headerHeight - 10)
         headerText.draw(in: headerTextRect)
 
         // Draw divider line under header
@@ -2289,6 +2580,16 @@ final class PDFContentBlockRenderer {
     }
 
     private func calculateSpecialBlockHeight(content: String, title: String, maxWidth: CGFloat) -> CGFloat {
+        // Mirrors renderSpecialBlock: padding 14, header 30, accent bar 4.
+        let padding: CGFloat = 14
+        let headerHeight: CGFloat = 30
+        let leftAccentWidth: CGFloat = 4
+        let insetWidth = maxWidth - padding * 2
+        let contentHeight = calculateTextHeight(content, attributes: PDFStyleConfiguration.bodyAttributes(), maxWidth: insetWidth - leftAccentWidth)
+        return headerHeight + contentHeight + padding * 2 + PDFStyleConfiguration.Spacing.blockSpacing
+    }
+
+    private func calculateSpecialBlockHeightLegacy(content: String, title: String, maxWidth: CGFloat) -> CGFloat {
         let padding: CGFloat = 12
         let headerHeight: CGFloat = 28
         let insetWidth = maxWidth - padding * 2
@@ -2476,7 +2777,7 @@ final class PDFContentBlockRenderer {
                 if let swiftCaptureRange = Range(captureRange, in: currentString) {
                     let boldText = String(currentString[swiftCaptureRange])
                     var boldAttributes = baseAttributes
-                    boldAttributes[.font] = PDFStyleConfiguration.Typography.bodyBold()
+                    boldAttributes[.font] = Self.emphasisFont(for: baseAttributes, bold: true)
                     let boldAttributed = NSAttributedString(string: boldText, attributes: boldAttributes)
 
                     // Replace the entire match (including markers) with styled content
@@ -2506,7 +2807,7 @@ final class PDFContentBlockRenderer {
                 if let swiftCaptureRange = Range(captureRange, in: currentString) {
                     let italicText = String(currentString[swiftCaptureRange])
                     var italicAttributes = baseAttributes
-                    italicAttributes[.font] = PDFStyleConfiguration.Typography.bodyItalic()
+                    italicAttributes[.font] = Self.emphasisFont(for: baseAttributes, bold: false)
                     let italicAttributed = NSAttributedString(string: italicText, attributes: italicAttributes)
 
                     result.replaceCharacters(in: match.range, with: italicAttributed)
@@ -2516,6 +2817,19 @@ final class PDFContentBlockRenderer {
         }
 
         return result
+    }
+
+    /// Bold/italic face matching the SIZE of the base font, so emphasis inside
+    /// a table cell, caption or descriptor keeps its own type size instead of
+    /// jumping to the 16pt body face (which also broke measure==draw).
+    static func emphasisFont(for baseAttributes: [NSAttributedString.Key: Any], bold: Bool) -> UIFont {
+        let base = (baseAttributes[.font] as? UIFont) ?? PDFStyleConfiguration.Typography.body()
+        let bodySize = PDFStyleConfiguration.Typography.body().pointSize
+        if abs(base.pointSize - bodySize) < 0.5 {
+            return bold ? PDFStyleConfiguration.Typography.bodyBold() : PDFStyleConfiguration.Typography.bodyItalic()
+        }
+        return bold ? PDFStyleConfiguration.Typography.serifBold(size: base.pointSize)
+                    : PDFStyleConfiguration.Typography.serifItalic(size: base.pointSize)
     }
 
     /// Parse content for embedded markdown tables
@@ -2703,16 +3017,12 @@ final class PDFContentBlockRenderer {
     /// Uses local cache only - no network I/O
     private func calculateVisualHeight(block: PDFContentBlock, maxWidth: CGFloat) -> CGFloat {
         // Load image from local cache only (no network access)
+        let captionHeight = visualCaptionText(for: block).map { figureCaptionHeight($0, maxWidth: maxWidth) } ?? 0
         guard let url = block.visualURL,
               let image = VisualAssetCache.shared.cachedImage(for: url) else {
-            // Fallback: render placeholder + caption if image not cached. The
-            // 16pt label slot is always drawn by renderVisual, so reserve it here
-            // too (matches the cached-image path below).
-            let placeholderHeight: CGFloat = 120 // Consistent placeholder size
-            let captionHeight = block.content.isEmpty ? 0 :
-                calculateTextHeight(block.content, attributes: PDFStyleConfiguration.captionAttributes(), maxWidth: maxWidth)
-            let labelHeight: CGFloat = 16
-            return placeholderHeight + captionHeight + labelHeight + PDFStyleConfiguration.Spacing.blockSpacing
+            // Fallback: placeholder + caption if image not cached (mirrors renderVisual).
+            let placeholderHeight: CGFloat = 120
+            return placeholderHeight + PDFStyleConfiguration.Spacing.sm + captionHeight + PDFStyleConfiguration.Spacing.blockSpacing
         }
 
         // Calculate scaled image dimensions maintaining aspect ratio
@@ -2720,15 +3030,7 @@ final class PDFContentBlockRenderer {
         let scaleFactor = min(maxWidth / imageSize.width, 1.0)
         let scaledHeight = imageSize.height * scaleFactor
 
-        // Add caption height if present
-        let captionHeight = block.content.isEmpty ? 0 :
-            calculateTextHeight(block.content, attributes: PDFStyleConfiguration.captionAttributes(), maxWidth: maxWidth)
-                + PDFStyleConfiguration.Spacing.sm
-
-        // Add visual type label height
-        let labelHeight: CGFloat = 16
-
-        return scaledHeight + captionHeight + labelHeight + PDFStyleConfiguration.Spacing.blockSpacing
+        return scaledHeight + PDFStyleConfiguration.Spacing.sm + captionHeight + PDFStyleConfiguration.Spacing.blockSpacing
     }
 
     /// Render a visual block (image with optional caption)
@@ -2820,35 +3122,24 @@ final class PDFContentBlockRenderer {
             yOffset += placeholderHeight + PDFStyleConfiguration.Spacing.sm
         }
 
-        // Render the assigned figure label ("Figure N") alongside the visual
-        // type label, in the 16pt slot that calculateVisualHeight always
-        // reserves. Rendering the figure number here keeps it in sync with the
-        // "Figure N" reference woven into the prose.
-        var labelParts: [String] = []
-        if let fig = figureLabel(for: block) { labelParts.append(fig) }
-        if let visualType = block.visualType { labelParts.append(visualTypeLabel(visualType)) }
-        if !labelParts.isEmpty {
-            let labelAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 10, weight: .medium),
-                .ligature: 0,
-                .foregroundColor: PDFStyleConfiguration.Colors.primaryGold
-            ]
-            let labelString = NSAttributedString(string: labelParts.joined(separator: " · "), attributes: labelAttributes)
-            labelString.draw(at: CGPoint(x: point.x, y: point.y + yOffset))
-        }
-        yOffset += 16
-
-        // Render caption if present
-        if !block.content.isEmpty {
-            let captionAttributes = PDFStyleConfiguration.captionAttributes()
-            let captionRect = CGRect(x: point.x, y: point.y + yOffset, width: maxWidth, height: .greatestFiniteMagnitude)
-            let attributedCaption = NSAttributedString(string: block.content, attributes: captionAttributes)
-            attributedCaption.draw(with: captionRect, options: [.usesLineFragmentOrigin], context: nil)
-            yOffset += calculateTextHeight(block.content, attributes: captionAttributes, maxWidth: maxWidth)
+        // Caption: "Figure N: descriptive title" (the type label — "Process
+        // Flow" — is never shown; elevation spec A5/A7). Kept in sync with
+        // calculateVisualHeight via visualCaptionText/figureCaptionHeight.
+        if let caption = visualCaptionText(for: block) {
+            yOffset += renderFigureCaption(caption, to: context, at: CGPoint(x: point.x, y: point.y + yOffset), maxWidth: maxWidth)
         }
 
         yOffset += PDFStyleConfiguration.Spacing.blockSpacing
         return yOffset
+    }
+
+    /// "Figure N: title" for an image visual; the bare title when unnumbered.
+    private func visualCaptionText(for block: PDFContentBlock) -> String? {
+        let title = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let fig = figureLabel(for: block) {
+            return title.isEmpty ? fig : "\(fig): \(title)"
+        }
+        return title.isEmpty ? nil : title
     }
 
     // MARK: - The Library entry (Citation Spec §4)
@@ -3057,5 +3348,212 @@ struct PDFContentBlock {
         self.tableData = tableData
         self.visualURL = visualURL
         self.visualType = visualType
+    }
+}
+
+
+// MARK: - Pagination helpers (elevation spec A3): paragraph and list fragments,
+// spectrum nodes, and the shared measure==draw contract for fragments.
+
+extension PDFContentBlockRenderer {
+
+    /// A paragraph fragment: an attributed slice that is drawn verbatim.
+    struct ParagraphFragment {
+        let text: NSAttributedString
+        let plannedHeight: CGFloat   // == renderParagraphFragment's return
+    }
+
+    /// Split a paragraph at line boundaries so the first fragment fills
+    /// `firstBudget` and the rest continue on following pages, with a 2-line
+    /// widow/orphan minimum on every fragment. Returns nil when the paragraph
+    /// cannot be split usefully (fewer than 4 lines, or no room for 2 lines).
+    func planParagraphFragments(text: String, maxWidth: CGFloat, firstBudget: CGFloat, pageBudget: CGFloat) -> [ParagraphFragment]? {
+        let attributed = parseInlineMarkdown(text, baseAttributes: PDFStyleConfiguration.bodyAttributes())
+        guard attributed.length > 0 else { return nil }
+        let ranges = Self.lineRanges(of: attributed, maxWidth: maxWidth)
+        guard ranges.count >= 4 else { return nil }
+
+        let spacing = PDFStyleConfiguration.Spacing.paragraphSpacing
+        var fragments: [ParagraphFragment] = []
+        var lineIndex = 0
+        var budget = firstBudget
+        var isFirst = true
+
+        while lineIndex < ranges.count {
+            let remainingLines = ranges.count - lineIndex
+            // How many whole lines fit this budget (measure each candidate for
+            // exactness, since the renderer draws the same slice).
+            var fit = 0
+            var fitHeight: CGFloat = 0
+            var lo = 1
+            while lo <= remainingLines {
+                let slice = Self.slice(attributed, ranges: ranges, from: lineIndex, count: lo)
+                let h = measureAttributed(slice, maxWidth: maxWidth) + spacing
+                if h <= budget { fit = lo; fitHeight = h; lo += 1 } else { break }
+            }
+            if fit == remainingLines {
+                let slice = Self.slice(attributed, ranges: ranges, from: lineIndex, count: fit)
+                fragments.append(ParagraphFragment(text: slice, plannedHeight: fitHeight))
+                break
+            }
+            // Orphan/widow control: never leave fewer than 2 lines on either side.
+            if fit >= remainingLines - 1 { fit = remainingLines - 2 }
+            if fit < 2 {
+                if isFirst { return nil }          // nothing useful fits here
+                // Should not happen against a full page; bail out rather than loop.
+                return fragments.isEmpty ? nil : nil
+            }
+            let slice = Self.slice(attributed, ranges: ranges, from: lineIndex, count: fit)
+            fragments.append(ParagraphFragment(text: slice, plannedHeight: measureAttributed(slice, maxWidth: maxWidth) + spacing))
+            lineIndex += fit
+            budget = pageBudget
+            isFirst = false
+        }
+        return fragments.count >= 2 ? fragments : nil
+    }
+
+    /// Draw a paragraph fragment exactly as planned; returns `plannedHeight`.
+    func renderParagraphFragment(_ fragment: ParagraphFragment, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        _ = drawAttributedString(fragment.text, to: context, at: point, maxWidth: maxWidth)
+        return fragment.plannedHeight
+    }
+
+    /// Character ranges of each laid-out line, using the same word-wrap
+    /// paragraph style as drawAttributedString.
+    private static func lineRanges(of attributed: NSAttributedString, maxWidth: CGFloat) -> [NSRange] {
+        let mutable = NSMutableAttributedString(attributedString: attributed)
+        let full = NSRange(location: 0, length: mutable.length)
+        let style = (mutable.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+        style.lineBreakMode = .byWordWrapping
+        style.hyphenationFactor = 0
+        mutable.addAttribute(.paragraphStyle, value: style, range: full)
+
+        let framesetter = CTFramesetterCreateWithAttributedString(mutable)
+        let path = CGPath(rect: CGRect(x: 0, y: 0, width: maxWidth, height: 100_000), transform: nil)
+        let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
+        let lines = CTFrameGetLines(frame) as! [CTLine]
+        return lines.map { line in
+            let r = CTLineGetStringRange(line)
+            return NSRange(location: r.location, length: r.length)
+        }
+    }
+
+    private static func slice(_ attributed: NSAttributedString, ranges: [NSRange], from start: Int, count: Int) -> NSAttributedString {
+        let first = ranges[start]
+        let last = ranges[start + count - 1]
+        let range = NSRange(location: first.location, length: last.location + last.length - first.location)
+        let out = NSMutableAttributedString(attributedString: attributed.attributedSubstring(from: range))
+        // Trim trailing/leading whitespace so a slice never starts with a space.
+        while out.length > 0, let ch = out.string.last, ch.isWhitespace { out.deleteCharacters(in: NSRange(location: out.length - 1, length: 1)) }
+        while out.length > 0, let ch = out.string.first, ch.isWhitespace { out.deleteCharacters(in: NSRange(location: 0, length: 1)) }
+        return out
+    }
+
+    // MARK: Lists
+
+    struct ListFragment {
+        let items: [String]
+        let startNumber: Int
+        let plannedHeight: CGFloat
+    }
+
+    /// Split a long list at item boundaries (≥ 2 items per fragment).
+    func planListFragments(items: [String], numbered: Bool, maxWidth: CGFloat, firstBudget: CGFloat, pageBudget: CGFloat) -> [ListFragment]? {
+        guard items.count >= 4 else { return nil }
+        var fragments: [ListFragment] = []
+        var index = 0
+        var budget = firstBudget
+        var isFirst = true
+        while index < items.count {
+            var fit = 0
+            var fitHeight: CGFloat = 0
+            var n = 1
+            while index + n <= items.count {
+                let h = calculateListHeight(items: Array(items[index..<index + n]), numbered: numbered, maxWidth: maxWidth)
+                if h <= budget { fit = n; fitHeight = h; n += 1 } else { break }
+            }
+            let remaining = items.count - index
+            if fit == remaining {
+                fragments.append(ListFragment(items: Array(items[index...]), startNumber: index + 1, plannedHeight: fitHeight))
+                break
+            }
+            if fit >= remaining - 1 { fit = remaining - 2 }
+            if fit < 2 { return isFirst ? nil : nil }
+            let slice = Array(items[index..<index + fit])
+            fragments.append(ListFragment(items: slice, startNumber: index + 1,
+                                          plannedHeight: calculateListHeight(items: slice, numbered: numbered, maxWidth: maxWidth)))
+            index += fit
+            budget = pageBudget
+            isFirst = false
+        }
+        return fragments.count >= 2 ? fragments : nil
+    }
+
+    func renderListFragment(_ fragment: ListFragment, numbered: Bool, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        _ = renderList(items: fragment.items, numbered: numbered, startNumber: fragment.startNumber, to: context, at: point, maxWidth: maxWidth)
+        return fragment.plannedHeight
+    }
+
+    // MARK: Spectrum nodes
+
+    /// Ordered, positioned nodes carried in a spectrum block's metadata.
+    static func spectrumNodes(from block: PDFContentBlock) -> [(label: String, position: Double)] {
+        guard let labels = block.metadata?["nodes"], !labels.isEmpty else { return [] }
+        let names = labels.components(separatedBy: "|")
+        let positions = (block.metadata?["positions"] ?? "").components(separatedBy: "|").map { Double($0) ?? 0.5 }
+        return names.enumerated().map { index, name in
+            let fallback = names.count <= 1 ? 0.5 : Double(index) / Double(names.count - 1)
+            let pos = index < positions.count && positions.count == names.count ? positions[index] : fallback
+            return (label: name.trimmingCharacters(in: .whitespaces), position: min(1, max(0, pos)))
+        }
+    }
+}
+
+
+// MARK: - Card-list fragmentation (Key Takeaways) — elevation spec A3
+
+extension PDFContentBlockRenderer {
+
+    struct CardListFragment {
+        let items: [String]
+        let continued: Bool
+        let plannedHeight: CGFloat
+    }
+
+    /// Split a Key Takeaways card at item boundaries (≥ 2 items per card) so
+    /// it fills the page it starts on instead of pushing whole and stranding
+    /// its heading above a 60%-empty page.
+    func planTakeawayFragments(items: [String], maxWidth: CGFloat, firstBudget: CGFloat, pageBudget: CGFloat) -> [CardListFragment]? {
+        guard items.count >= 4 else { return nil }
+        var fragments: [CardListFragment] = []
+        var index = 0
+        var budget = firstBudget
+        while index < items.count {
+            var fit = 0
+            var fitHeight: CGFloat = 0
+            var n = 1
+            while index + n <= items.count {
+                let h = calculateTakeawaysHeight(items: Array(items[index..<index + n]), maxWidth: maxWidth)
+                if h <= budget { fit = n; fitHeight = h; n += 1 } else { break }
+            }
+            let remaining = items.count - index
+            if fit == remaining {
+                fragments.append(CardListFragment(items: Array(items[index...]), continued: index > 0, plannedHeight: fitHeight))
+                break
+            }
+            if fit >= remaining - 1 { fit = remaining - 2 }
+            if fit < 2 { return nil }
+            let slice = Array(items[index..<index + fit])
+            fragments.append(CardListFragment(items: slice, continued: index > 0,
+                                              plannedHeight: calculateTakeawaysHeight(items: slice, maxWidth: maxWidth)))
+            index += fit
+            budget = pageBudget
+        }
+        return fragments.count >= 2 ? fragments : nil
+    }
+
+    func renderTakeawayFragment(_ fragment: CardListFragment, to context: CGContext, at point: CGPoint, maxWidth: CGFloat) -> CGFloat {
+        _ = renderKeyTakeaways(items: fragment.items, continued: fragment.continued, to: context, at: point, maxWidth: maxWidth)
+        return fragment.plannedHeight
     }
 }

@@ -24,13 +24,16 @@ class AppEnvironment: ObservableObject {
 
     // MARK: - Published State
 
+    /// Source of truth for user settings. `DataManager.userSettings` is a
+    /// mirror kept in sync by `init` and `saveSettings()`; write settings
+    /// through this object, not through DataManager.
     @Published var userSettings: UserSettings
     @Published var isLoading: Bool = false
 
     // MARK: - Initialization
 
     init() {
-        self.aiService = AIService()
+        self.aiService = AIService.shared
         self.kokoroAudioService = KokoroAudioService.shared
         self.kokoroModelManager = KokoroModelManager.shared
         self.voiceServiceManager = VoiceServiceManager.shared
@@ -39,6 +42,9 @@ class AppEnvironment: ObservableObject {
 
         // UserSettings performs lossless migration of retired provider values while decoding.
         self.userSettings = Self.loadSettings()
+        // AppEnvironment is the source of truth for settings; DataManager keeps
+        // a mirrored published copy for ObservableObject observers only.
+        self.dataManager.adoptMirroredSettings(self.userSettings)
 
         // Migrate API keys from UserDefaults to Keychain (one-time)
         KeychainService.shared.migrateFromUserDefaults()
@@ -53,8 +59,8 @@ class AppEnvironment: ObservableObject {
     // MARK: - Service Configuration
 
     private func setupServiceDependencies() {
-        // Services are configured internally in their respective classes
-        // BackgroundGenerationCoordinator uses its own AIService instance
+        // Generation and narration script rewrite share AIService.shared with
+        // this environment so sessions, retries, and cancellation stay aligned.
     }
 
     // MARK: - Settings Management
@@ -76,6 +82,7 @@ class AppEnvironment: ObservableObject {
     }
 
     func saveSettings() {
+        dataManager.adoptMirroredSettings(userSettings)
         do {
             let data = try JSONEncoder().encode(userSettings)
             UserDefaults.standard.set(data, forKey: Self.settingsKey)

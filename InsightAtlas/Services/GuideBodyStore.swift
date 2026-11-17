@@ -48,6 +48,41 @@ enum GuideBodyStore {
         return text
     }
 
+    /// Whether a body file exists, without reading it.
+    static func exists(_ id: UUID, fileManager: FileManager = .default) -> Bool {
+        guard let url = url(for: id, fileManager: fileManager) else { return false }
+        return fileManager.fileExists(atPath: url.path)
+    }
+
+    /// IDs with a body on disk, kept in memory so list UI can show "has
+    /// content" without reading bodies or stat-ing files per row. Primed by
+    /// `refreshKnownIDs()` at launch and maintained by `save`, `delete` and
+    /// `pruneOrphans`.
+    private static var knownIDs: Set<UUID> = []
+
+    /// Cheap membership check against the in-memory index.
+    static func hasBody(_ id: UUID) -> Bool {
+        fingerprintLock.lock()
+        defer { fingerprintLock.unlock() }
+        return knownIDs.contains(id)
+    }
+
+    /// Rebuild the in-memory index from a single directory listing.
+    @discardableResult
+    static func refreshKnownIDs(fileManager: FileManager = .default) -> Set<UUID> {
+        var ids = Set<UUID>()
+        if let dir = directory(fileManager: fileManager),
+           let names = try? fileManager.contentsOfDirectory(atPath: dir.path) {
+            for name in names where name.hasSuffix(".md") {
+                if let id = UUID(uuidString: String(name.dropLast(3))) { ids.insert(id) }
+            }
+        }
+        fingerprintLock.lock()
+        knownIDs = ids
+        fingerprintLock.unlock()
+        return ids
+    }
+
     /// Fingerprints of bodies already on disk, so an unchanged body is not
     /// rewritten. Without this, saving the library rewrote every guide's file
     /// on every call — from twelve call sites, synchronously, during
@@ -63,6 +98,7 @@ enum GuideBodyStore {
         let fingerprint = body.hashValue
         fingerprintLock.lock()
         let unchanged = writtenFingerprints[id] == fingerprint
+        if unchanged { knownIDs.insert(id) }
         fingerprintLock.unlock()
         if unchanged { return true }
 
@@ -78,6 +114,7 @@ enum GuideBodyStore {
             }
             fingerprintLock.lock()
             writtenFingerprints[id] = fingerprint
+            knownIDs.insert(id)
             fingerprintLock.unlock()
             return true
         } catch {
@@ -90,6 +127,7 @@ enum GuideBodyStore {
     static func delete(_ id: UUID, fileManager: FileManager = .default) {
         fingerprintLock.lock()
         writtenFingerprints[id] = nil
+        knownIDs.remove(id)
         fingerprintLock.unlock()
         guard let url = url(for: id, fileManager: fileManager) else { return }
         try? fileManager.removeItem(at: url)
@@ -106,6 +144,7 @@ enum GuideBodyStore {
             guard let id = UUID(uuidString: stem), !ids.contains(id) else { continue }
             fingerprintLock.lock()
             writtenFingerprints[id] = nil
+            knownIDs.remove(id)
             fingerprintLock.unlock()
             try? fileManager.removeItem(at: dir.appendingPathComponent(name))
             removed += 1
