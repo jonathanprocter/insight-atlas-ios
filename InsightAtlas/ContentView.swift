@@ -106,19 +106,25 @@ struct ContentView: View {
         }
         .alert("Interrupted generation", isPresented: $showInterruptedGenerationAlert) {
             Button("Resume") {
-                guard let _ = interruptedInfo else { return }
+                guard interruptedInfo != nil else { return }
                 Task {
                     do {
+                        // Coordinator persists LibraryItem + SourceTextStore on success.
                         _ = try await environment.generationCoordinator.resumeInterruptedGeneration(
                             settings: environment.userSettings
                         )
+                        await MainActor.run {
+                            interruptedInfo = nil
+                            selectedTab = .library
+                        }
                     } catch {
-                        // Resume failures leave failed state for a later retry.
+                        // Failed state stays persisted for a later retry.
                     }
                 }
             }
             Button("Discard", role: .destructive) {
                 environment.generationCoordinator.discardInterruptedGeneration()
+                interruptedInfo = nil
             }
             Button("Later", role: .cancel) {}
         } message: {

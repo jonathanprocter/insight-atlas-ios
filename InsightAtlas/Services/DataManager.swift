@@ -471,12 +471,16 @@ class DataManager: ObservableObject {
     }
 
     /// Drop in-memory guide bodies under memory pressure. Bodies remain on disk
-    /// via `GuideBodyStore` and reload when a guide is opened.
+    /// via `GuideBodyStore` and reload when a guide is opened. Never nils a body
+    /// that is not already on disk — and flushes first when needed — so a failed
+    /// `GuideBodyStore` write cannot be erased by jetsam reclaim.
     @discardableResult
     func purgeResidentGuideBodies() -> Int {
         var purged = 0
         for index in libraryItems.indices {
-            if let body = libraryItems[index].summaryContent, !body.isEmpty {
+            guard let body = libraryItems[index].summaryContent, !body.isEmpty else { continue }
+            let id = libraryItems[index].id
+            if GuideBodyStore.exists(id) || GuideBodyStore.save(body, for: id) {
                 libraryItems[index].summaryContent = nil
                 purged += 1
             }

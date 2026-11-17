@@ -64,11 +64,24 @@ public enum LLMActionRouter {
             guard !voiceID.isEmpty else {
                 return .failure("Provide a Pocket voice id after voice_preview_.")
             }
-            Task {
-                _ = try? await environment.kokoroAudioService.generateAudio(
-                    text: "This is a short preview of the selected narration voice.",
-                    voiceID: voiceID
-                )
+            guard KokoroModelStore.isInstalled else {
+                return .failure("Pocket model is not installed.")
+            }
+            // Match Settings preview: synthesize, then play through
+            // AudioPlaybackManager. Discarding GeneratedAudio left automation silent.
+            Task { @MainActor in
+                do {
+                    AudioPlaybackManager.shared.stop()
+                    let audio = try await environment.kokoroAudioService.generateAudio(
+                        text: "This is a short preview of the selected narration voice.",
+                        voiceID: voiceID
+                    )
+                    try AudioPlaybackManager.shared.play(audio)
+                } catch {
+                    #if DEBUG
+                    print("[LLMActionRouter] voice preview failed: \(error.localizedDescription)")
+                    #endif
+                }
             }
             return .success("Previewing voice \(voiceID)")
         }

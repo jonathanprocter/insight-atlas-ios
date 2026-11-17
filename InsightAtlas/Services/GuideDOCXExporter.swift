@@ -809,7 +809,8 @@ static func createDOCXDocument(content: String, title: String, author: String) -
         if line.contains("┌") || line.contains("│") || line.contains("└") || line.contains("─") || line.contains("↓") { continue }
 
         if inSpecialBlock {
-            specialBlockContent += line + " "
+            // Preserve newlines so quote attribution and author/bio splits work.
+            specialBlockContent += line + "\n"
             continue
         }
 

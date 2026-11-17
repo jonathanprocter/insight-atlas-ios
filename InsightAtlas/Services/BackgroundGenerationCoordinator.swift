@@ -773,18 +773,51 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 metadata = nil
             }
 
-            // For resumed generations, cover image is not available (already saved previously)
-            lastResult = .success(content: result, itemId: state.existingItemId, metadata: metadata, coverImagePath: nil)
+            // Resume used to clear the generation cache without writing a
+            // LibraryItem or SourceTextStore, so the guide was lost. Persist
+            // both before discarding the temporary book text.
+            let itemId = state.existingItemId ?? UUID()
+            SourceTextStore.save(bookText, for: itemId)
+
+            if var existing = DataManager.shared.getLibraryItem(id: itemId) {
+                existing.summaryContent = result
+                existing.title = state.title
+                existing.author = state.author
+                existing.summaryType = state.summaryType
+                existing.governedWordCount = metadata?.governedWordCount
+                existing.cutPolicyActivated = metadata?.cutPolicyActivated
+                existing.cutEventCount = metadata?.cutEventCount
+                DataManager.shared.updateLibraryItem(existing)
+            } else {
+                let item = LibraryItem(
+                    id: itemId,
+                    title: state.title,
+                    author: state.author,
+                    fileType: state.fileType,
+                    summaryContent: result,
+                    provider: state.provider,
+                    mode: state.mode,
+                    summaryType: state.summaryType,
+                    governedWordCount: metadata?.governedWordCount,
+                    cutPolicyActivated: metadata?.cutPolicyActivated,
+                    cutEventCount: metadata?.cutEventCount
+                )
+                DataManager.shared.addLibraryItem(item)
+            }
+
+            lastResult = .success(content: result, itemId: itemId, metadata: metadata, coverImagePath: nil)
 
             clearPersistedState()
 
             return result
 
         } catch {
-            var failedState = state
-            failedState.phase = .failed
-            failedState.lastUpdated = Date()
-            persistState(failedState)
+            // Keep the interrupted phase so the next launch can offer Resume
+            // again. Flipping to `.failed` used to make startup scrub the run
+            // instead of retrying.
+            var interruptedState = state
+            interruptedState.lastUpdated = Date()
+            persistState(interruptedState)
 
             endBackgroundTask()
             isGenerating = false

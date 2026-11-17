@@ -68,6 +68,10 @@ actor NarrationScriptService {
             trimmed,
             summaryType: summaryType
         )
+        // Every return path must speak the scrubbed edition. Compare against
+        // this (not raw `safeFallback`) when deciding cache vs skip marker —
+        // otherwise a scrubbed failure looks like a genuine rewrite.
+        let scrubbedFallback = NarrationVisualSpeechScrubber.scrub(safeFallback)
         let targetWords = NarrationListeningEdition.maximumWords(for: summaryType)
 
         let cacheURL = Self.cacheURL(for: itemId, content: trimmed, targetWords: targetWords)
@@ -75,7 +79,7 @@ actor NarrationScriptService {
         // Reuse a previously generated genuine rewrite for identical content.
         // Reject empty files and accidental fallback caches (v2 hangover).
         if let cacheURL, let cached = try? String(contentsOf: cacheURL, encoding: .utf8),
-           !cached.isEmpty, cached != safeFallback {
+           !cached.isEmpty, cached != safeFallback, cached != scrubbedFallback {
             return NarrationVisualSpeechScrubber.scrub(cached)
         }
 
@@ -83,7 +87,7 @@ actor NarrationScriptService {
             scriptLog.info(
                 "Neither MiniMax nor OpenRouter configured — narrating raw guide content for \(itemId.uuidString)"
             )
-            return NarrationVisualSpeechScrubber.scrub(safeFallback)
+            return scrubbedFallback
         }
 
         // A recent timeout/network failure should not re-impose the full
@@ -93,7 +97,7 @@ actor NarrationScriptService {
             scriptLog.info(
                 "Skipping narration rewrite — fresh failure marker for \(itemId.uuidString)"
             )
-            return NarrationVisualSpeechScrubber.scrub(safeFallback)
+            return scrubbedFallback
         }
 
         // Credentials present does not mean the network is. Waiting for
@@ -103,7 +107,7 @@ actor NarrationScriptService {
                 "No network path — narrating listening edition for \(itemId.uuidString)"
             )
             Self.writeSkipMarker(for: itemId, content: trimmed, targetWords: targetWords)
-            return NarrationVisualSpeechScrubber.scrub(safeFallback)
+            return scrubbedFallback
         }
 
         // Coalesce concurrent requests for the same item+content onto one call.
@@ -150,21 +154,21 @@ actor NarrationScriptService {
                     scriptLog.error(
                         "Narration-script rewrite returned \(scriptWords, privacy: .public) words against a target of \(targetWords, privacy: .public) — narrating the full bounded edition instead"
                     )
-                    return NarrationVisualSpeechScrubber.scrub(safeFallback)
+                    return scrubbedFallback
                 }
-                return scrubbed.isEmpty ? NarrationVisualSpeechScrubber.scrub(safeFallback) : scrubbed
+                return scrubbed.isEmpty ? scrubbedFallback : scrubbed
             } catch is CancellationError {
-                return safeFallback
+                return scrubbedFallback
             } catch is NarrationScriptTimeout {
                 scriptLog.error(
                     "Narration-script rewrite exceeded \(Self.rewriteDeadline, privacy: .public) — narrating raw guide content"
                 )
-                return safeFallback
+                return scrubbedFallback
             } catch {
                 scriptLog.error(
                     "Narration-script rewrite failed [\(error.localizedDescription, privacy: .public)] — narrating raw guide content"
                 )
-                return safeFallback
+                return scrubbedFallback
             }
         }
         inFlight[key] = task
@@ -175,7 +179,7 @@ actor NarrationScriptService {
         defer { inFlight[key] = nil }
         let result = await task.value
 
-        if result == safeFallback {
+        if result == scrubbedFallback {
             Self.writeSkipMarker(for: itemId, content: trimmed, targetWords: targetWords)
         } else if let cacheURL {
             // Cache only a genuine rewrite.

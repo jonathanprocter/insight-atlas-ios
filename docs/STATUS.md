@@ -16,6 +16,14 @@ MiniMax generation · Pocket/Kokoro + Apple narration · `AppEnvironment.shared`
 
 Also: `EditorialMarkupCanonicalizer`, `AnalysisDetailModels`, `AnalysisExportOptionsView`.
 
+## Latest Bugbot fixes (PR #9)
+
+- Resume persists `LibraryItem` + `SourceTextStore`; failed resume stays retryable
+- Narration script scrub on every path; cache/skip compares scrubbed fallback
+- Memory purge flushes to `GuideBodyStore` before nilling inline bodies
+- `voice_preview_` plays via `AudioPlaybackManager`
+- DOCX special blocks keep newlines for quote/author splits
+
 ## Deferred
 
 - Inter font swap (brand-locked)
