@@ -31,6 +31,8 @@
 		A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001002 /* KokoroModelManager.swift */; };
 		A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001003 /* KokoroTextChunker.swift */; };
 		7D0B0EB210214DF8A52DD3CA /* EditorialMarkupCanonicalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */; };
+		102128EF658849889EB0314C /* GuideDOCXExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */; };
+		95E13BDD4EBB474CA90FF3EC /* ExportMarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44134526F7B5437391BD90C7 /* ExportMarkdownTable.swift */; };
 		377C740EE58C4FBA885E90E3 /* SourceTextStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B9BD0FA20D3407389CD3E96 /* SourceTextStore.swift */; };
 		2419F7DC6A274E5F94B99203 /* NarrationVisualSpeechScrubber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1FD427826347ADB666FC71 /* NarrationVisualSpeechScrubber.swift */; };
 		0586740FA9E043CFA6F25631 /* NarrationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9B147D578D64310B6EC7853 /* NarrationModels.swift */; };
@@ -91,6 +93,8 @@
 		C21355BA2EE6360100B6662D /* Inter-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559E2EE6360100B6662D /* Inter-Variable.ttf */; };
 		C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */; };
 		C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C12EE63E0800B6662D /* AnalysisComponents.swift */; };
+		03D013BD2C2E45D9B1FE5555 /* AnalysisDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */; };
+		4EEE0273D6A14614B48D2832 /* AnalysisExportOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */; };
 		C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */; };
 		C21355C62EE63E3500B6662D /* AnalysisTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C52EE63E3500B6662D /* AnalysisTheme.swift */; };
 		C22353FB302507090022D852 /* LLMUIRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22353FA302507080022D852 /* LLMUIRegistry.swift */; };
@@ -222,6 +226,8 @@
 		A11C0C0A0000000000001002 /* KokoroModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroModelManager.swift; sourceTree = "<group>"; };
 		A11C0C0A0000000000001003 /* KokoroTextChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTextChunker.swift; sourceTree = "<group>"; };
 		7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialMarkupCanonicalizer.swift; sourceTree = "<group>"; };
+		BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideDOCXExporter.swift; sourceTree = "<group>"; };
+		44134526F7B5437391BD90C7 /* ExportMarkdownTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportMarkdownTable.swift; sourceTree = "<group>"; };
 		8B9BD0FA20D3407389CD3E96 /* SourceTextStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceTextStore.swift; sourceTree = "<group>"; };
 		2C1FD427826347ADB666FC71 /* NarrationVisualSpeechScrubber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationVisualSpeechScrubber.swift; sourceTree = "<group>"; };
 		E9B147D578D64310B6EC7853 /* NarrationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrationModels.swift; sourceTree = "<group>"; };
@@ -286,6 +292,8 @@
 		C21355A52EE6360100B6662D /* Insight Atlas_ Custom Font Installation Guide.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Insight Atlas_ Custom Font Installation Guide.md"; sourceTree = "<group>"; };
 		C21355BE2EE6375A00B6662D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = InsightAtlas/Info.plist; sourceTree = "<group>"; };
 		C21355C12EE63E0800B6662D /* AnalysisComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisComponents.swift; path = InsightAtlas/Views/AnalysisComponents.swift; sourceTree = "<group>"; };
+		EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisDetailModels.swift; sourceTree = "<group>"; };
+		5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisExportOptionsView.swift; sourceTree = "<group>"; };
 		C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailView.swift; path = InsightAtlas/Views/AnalysisDetailView.swift; sourceTree = "<group>"; };
 		C21355C52EE63E3500B6662D /* AnalysisTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisTheme.swift; path = InsightAtlas/Services/AnalysisTheme.swift; sourceTree = "<group>"; };
 		C22353FA302507080022D852 /* LLMUIRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMUIRegistry.swift; sourceTree = "<group>"; };
@@ -608,6 +616,8 @@
 				E9B147D578D64310B6EC7853 /* NarrationModels.swift */,
 				2C1FD427826347ADB666FC71 /* NarrationVisualSpeechScrubber.swift */,
 				8B9BD0FA20D3407389CD3E96 /* SourceTextStore.swift */,
+				44134526F7B5437391BD90C7 /* ExportMarkdownTable.swift */,
+				BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */,
 				7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */,
 				E81AFFF12D00000A007AAAAA /* NarrationSupport.swift */,
 				E81AF0032D00001C007AAAAA /* MemoryPressureCoordinator.swift */,
@@ -656,6 +666,8 @@
 				C21355C52EE63E3500B6662D /* AnalysisTheme.swift */,
 				C21355C12EE63E0800B6662D /* AnalysisComponents.swift */,
 				C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */,
+				5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */,
+				EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */,
 				C21355BE2EE6375A00B6662D /* Info.plist */,
 				C21355A62EE6360100B6662D /* Fonts */,
 				E81AFFF02D000001007AAAAA /* InsightAtlas */,
@@ -940,6 +952,8 @@
 				0586740FA9E043CFA6F25631 /* NarrationModels.swift in Sources */,
 				2419F7DC6A274E5F94B99203 /* NarrationVisualSpeechScrubber.swift in Sources */,
 				377C740EE58C4FBA885E90E3 /* SourceTextStore.swift in Sources */,
+				95E13BDD4EBB474CA90FF3EC /* ExportMarkdownTable.swift in Sources */,
+				102128EF658849889EB0314C /* GuideDOCXExporter.swift in Sources */,
 				7D0B0EB210214DF8A52DD3CA /* EditorialMarkupCanonicalizer.swift in Sources */,
 				E81AFFF22D00000B007AAAAA /* NarrationSupport.swift in Sources */,
 				E81AF0042D00001D007AAAAA /* MemoryPressureCoordinator.swift in Sources */,
@@ -972,6 +986,8 @@
 				E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */,
 				C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */,
 				C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */,
+				4EEE0273D6A14614B48D2832 /* AnalysisExportOptionsView.swift in Sources */,
+				03D013BD2C2E45D9B1FE5555 /* AnalysisDetailModels.swift in Sources */,
 				E81A00302D000018007AAAAB /* RegenerateView.swift in Sources */,
 				A1B2C3D4E5F64789A0B1C2D3 /* PDFTextFixer.swift in Sources */,
 				IAAPI0001AAAAAAAAAAAAAA1 /* InsightAtlasAPI.swift in Sources */,
