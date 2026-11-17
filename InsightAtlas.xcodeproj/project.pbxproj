@@ -31,6 +31,7 @@
 		A11C0C0A0000000000002002 /* KokoroModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001002 /* KokoroModelManager.swift */; };
 		A11C0C0A0000000000002003 /* KokoroTextChunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C0A0000000000001003 /* KokoroTextChunker.swift */; };
 		7D0B0EB210214DF8A52DD3CA /* EditorialMarkupCanonicalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */; };
+		5A3E6D053FDB43839E9176B7 /* GuidePDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D908DE44D28449948ACDEB13 /* GuidePDFExporter.swift */; };
 		A09422001E6C494A9F928927 /* GuideHTMLExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D67B550B67AB481CA4A8D3AD /* GuideHTMLExporter.swift */; };
 		102128EF658849889EB0314C /* GuideDOCXExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */; };
 		16FDC468AA8C46BFBBF21139 /* ExportBrandAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 512634D818DE4E3A8F6210C0 /* ExportBrandAssets.swift */; };
@@ -228,6 +229,7 @@
 		A11C0C0A0000000000001002 /* KokoroModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroModelManager.swift; sourceTree = "<group>"; };
 		A11C0C0A0000000000001003 /* KokoroTextChunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KokoroTextChunker.swift; sourceTree = "<group>"; };
 		7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorialMarkupCanonicalizer.swift; sourceTree = "<group>"; };
+		D908DE44D28449948ACDEB13 /* GuidePDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidePDFExporter.swift; sourceTree = "<group>"; };
 		D67B550B67AB481CA4A8D3AD /* GuideHTMLExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideHTMLExporter.swift; sourceTree = "<group>"; };
 		BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideDOCXExporter.swift; sourceTree = "<group>"; };
 		512634D818DE4E3A8F6210C0 /* ExportBrandAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportBrandAssets.swift; sourceTree = "<group>"; };
@@ -624,6 +626,7 @@
 				512634D818DE4E3A8F6210C0 /* ExportBrandAssets.swift */,
 				BAA0C3D197C145F3BD95D525 /* GuideDOCXExporter.swift */,
 				D67B550B67AB481CA4A8D3AD /* GuideHTMLExporter.swift */,
+				D908DE44D28449948ACDEB13 /* GuidePDFExporter.swift */,
 				7E998736FA1D4F1CA22AB578 /* EditorialMarkupCanonicalizer.swift */,
 				E81AFFF12D00000A007AAAAA /* NarrationSupport.swift */,
 				E81AF0032D00001C007AAAAA /* MemoryPressureCoordinator.swift */,
@@ -962,6 +965,7 @@
 				16FDC468AA8C46BFBBF21139 /* ExportBrandAssets.swift in Sources */,
 				102128EF658849889EB0314C /* GuideDOCXExporter.swift in Sources */,
 				A09422001E6C494A9F928927 /* GuideHTMLExporter.swift in Sources */,
+				5A3E6D053FDB43839E9176B7 /* GuidePDFExporter.swift in Sources */,
 				7D0B0EB210214DF8A52DD3CA /* EditorialMarkupCanonicalizer.swift in Sources */,
 				E81AFFF22D00000B007AAAAA /* NarrationSupport.swift in Sources */,
 				E81AF0042D00001D007AAAAA /* MemoryPressureCoordinator.swift in Sources */,
