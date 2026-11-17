@@ -306,12 +306,14 @@ final class BackgroundGenerationCoordinator: ObservableObject {
                 settings: settings,
                 governorContext: governorContext
             )
+            #if DEBUG
             print(String(
                 format: "[Timing] text generation: %.1fs (%d chars) via %@",
                 Date().timeIntervalSince(textGenStart),
                 rawResult.count,
                 state.provider.displayName
             ))
+            #endif
 
             // Use governor result (streaming enforcement already applied)
             var finalResult = governorResult ?? GovernorEnforcementResult(

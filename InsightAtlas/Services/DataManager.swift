@@ -247,10 +247,10 @@ class DataManager: ObservableObject {
 
     // MARK: - Settings Management
 
-    /// Update user settings
+    /// AppEnvironment is the settings source of truth. This forwards so any
+    /// leftover call site cannot write a divergent UserDefaults blob.
     func updateSettings(_ settings: UserSettings) {
-        userSettings = settings
-        saveSettings()
+        AppEnvironment.shared.updateSettings(settings)
     }
 
     /// Update Claude API key (stored securely in Keychain)
@@ -258,7 +258,8 @@ class DataManager: ObservableObject {
         KeychainService.shared.claudeApiKey = key
     }
 
-    /// Check if API keys are configured (reads from Keychain)
+    /// Check if API keys are configured (reads from Keychain). Uses the
+    /// mirrored settings copy so this never re-enters AppEnvironment.init.
     var hasValidApiKeys: Bool {
         switch userSettings.preferredProvider {
         case .claude:
@@ -274,7 +275,8 @@ class DataManager: ObservableObject {
 
     private func loadData() {
         loadLibrary()
-        loadSettings()
+        // Do not load settings here — AppEnvironment owns UserDefaults and
+        // mirrors into `userSettings` on init/save.
     }
 
     private func loadLibrary() {
@@ -406,27 +408,15 @@ class DataManager: ObservableObject {
         }
     }
 
-    private func loadSettings() {
-        guard let data = UserDefaults.standard.data(forKey: settingsKey) else {
-            // No settings data yet - use defaults
-            return
-        }
-
-        do {
-            userSettings = try JSONDecoder().decode(UserSettings.self, from: data)
-        } catch {
-            logger.error("Failed to decode settings: \(error.localizedDescription)")
-            // Keep default settings rather than crashing
-        }
+    /// Accept a mirrored copy from AppEnvironment. Does not write UserDefaults.
+    func adoptMirroredSettings(_ settings: UserSettings) {
+        userSettings = settings
     }
 
+    /// Deprecated: settings persistence lives on AppEnvironment.
     func saveSettings() {
-        do {
-            let data = try JSONEncoder().encode(userSettings)
-            UserDefaults.standard.set(data, forKey: settingsKey)
-        } catch {
-            logger.error("Failed to encode settings: \(error.localizedDescription)")
-        }
+        AppEnvironment.shared.userSettings = userSettings
+        AppEnvironment.shared.saveSettings()
     }
 
     // MARK: - Export
@@ -450,22 +440,49 @@ class DataManager: ObservableObject {
             progress?(.preparing)
         }
 
-        // Yield to allow UI to update before heavy processing
         await Task.yield()
 
-        await MainActor.run {
-            progress?(.converting(percent: 0.5))
-        }
-        // Rasterize structured visuals into the cache before the (non-isolated) layout.
+        // Rasterize structured visuals into the cache before layout, reporting
+        // real prerender progress instead of a cosmetic 50% jump.
         if format == .pdf, let rawContent = item.summaryContent ?? GuideBodyStore.load(item.id) {
-            await PDFVisualPrerenderer.prerender(content: rawContent)
+            await PDFVisualPrerenderer.prerender(content: rawContent) { done, total in
+                let fraction = total > 0 ? Double(done) / Double(total) : 1
+                // Reserve 0…0.7 for prerender; layout/write takes the rest.
+                progress?(.converting(percent: 0.05 + 0.65 * fraction))
+            }
+        } else {
+            await MainActor.run {
+                progress?(.converting(percent: 0.5))
+            }
         }
-        let url = try exportGuide(item, format: format)
+
+        await MainActor.run {
+            progress?(.writing)
+        }
+
+        // Run export on the main actor so PDF rendering never needs main.sync.
+        let url = try await MainActor.run {
+            try exportGuide(item, format: format)
+        }
 
         await MainActor.run {
             progress?(.complete)
         }
         return url
+    }
+
+    /// Drop in-memory guide bodies under memory pressure. Bodies remain on disk
+    /// via `GuideBodyStore` and reload when a guide is opened.
+    @discardableResult
+    func purgeResidentGuideBodies() -> Int {
+        var purged = 0
+        for index in libraryItems.indices {
+            if let body = libraryItems[index].summaryContent, !body.isEmpty {
+                libraryItems[index].summaryContent = nil
+                purged += 1
+            }
+        }
+        return purged
     }
 
     /// Export a guide to a file with comprehensive error handling
@@ -4494,8 +4511,9 @@ class DataManager: ObservableObject {
             return
         }
 
-        // Off-main callers are async export tasks that never hold the main
-        // thread, so this hop cannot deadlock.
+        // Prefer `exportGuideAsync`, which hops with `await MainActor.run` and
+        // never uses main.sync. Sync off-main callers are rare; keep a last-
+        // resort hop that cannot run while already holding the main thread.
         var renderError: Error?
         DispatchQueue.main.sync {
             do {

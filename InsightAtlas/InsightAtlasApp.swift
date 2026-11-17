@@ -6,7 +6,9 @@ struct InsightAtlasApp: App {
 
     // MARK: - App Environment
 
-    @StateObject private var environment = AppEnvironment()
+    /// Single shared environment — matches `AppEnvironment.shared` used by
+    /// previews and services so settings cannot diverge across instances.
+    @ObservedObject private var environment = AppEnvironment.shared
 
     // MARK: - Initialization
 

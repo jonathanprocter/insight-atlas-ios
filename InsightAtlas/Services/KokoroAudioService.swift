@@ -238,9 +238,13 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         let reference = try referenceAudio(for: speakerID, in: modelDirectory)
         let loadElapsed = Date().timeIntervalSince(loadStart)
         if loadElapsed > 0.1 {
+            #if DEBUG
             print(String(format: "[Timing] Pocket model load: %.1fs", loadElapsed))
+            #endif
         }
+        #if DEBUG
         print("[Timing] Pocket synthesis starting: \(chunks.count) chunk(s), \(text.count) chars")
+        #endif
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("kokoro-\(UUID().uuidString).wav")
         defer { try? FileManager.default.removeItem(at: outputURL) }
@@ -319,16 +323,20 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
                 } catch {
                     // A segment failure must never abort the real render; the
                     // combined file is still authoritative.
+                    #if DEBUG
                     print("[Narration] segment \(chunkIndex) unavailable: \(error.localizedDescription)")
+                    #endif
                 }
             }
 
             onProgress?(chunkIndex + 1, chunks.count)
+            #if DEBUG
             print(String(
                 format: "[Timing] Pocket chunk %d/%d: %.1fs for %d chars",
                 chunkIndex + 1, chunks.count,
                 Date().timeIntervalSince(chunkStart), chunk.count
             ))
+            #endif
         }
 
         guard sampleRate > 0, totalFrames > 0 else {
@@ -342,10 +350,12 @@ actor KokoroSynthesisEngine: KokoroSynthesizing {
         let audioDuration = Double(totalFrames) / Double(sampleRate)
         let elapsed = Date().timeIntervalSince(synthesisStart)
         let rtf = audioDuration > 0 ? elapsed / audioDuration : 0
+        #if DEBUG
         print(String(
             format: "[Timing] Pocket synthesis: %.1fs wall for %.1fs audio across %d chunk(s) — RTF %.2f (threads: %d)",
             elapsed, audioDuration, chunks.count, rtf, Self.synthesisThreadCount
         ))
+        #endif
 
         return KokoroSynthesisResult(
             data: data,
@@ -492,7 +502,9 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
             )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
+            #if DEBUG
             print("[AudioPlaybackManager] Failed to configure audio session: \(error)")
+            #endif
         }
     }
 
@@ -505,7 +517,9 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
             )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
+            #if DEBUG
             print("[AudioPlaybackManager] Failed to activate audio session: \(error)")
+            #endif
         }
     }
 
@@ -615,7 +629,9 @@ final class AudioPlaybackManager: NSObject, AVAudioPlayerDelegate {
                 options: .notifyOthersOnDeactivation
             )
         } catch {
+            #if DEBUG
             print("[AudioPlaybackManager] Failed to deactivate audio session: \(error)")
+            #endif
         }
     }
 }

@@ -1292,6 +1292,7 @@ struct KokoroVoiceSettingsRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("voice_row_\(voice.voiceID)")
 
             Button(action: onPreview) {
                 if isLoading {
@@ -1302,6 +1303,7 @@ struct KokoroVoiceSettingsRow: View {
                         .foregroundStyle(isPreviewing ? PremiumUI.destructive : PremiumUI.gold)
                 }
             }
+            .accessibilityIdentifier("voice_preview_\(voice.voiceID)")
             .buttonStyle(.plain)
             .disabled(!isPreviewEnabled)
             .opacity(isPreviewEnabled ? 1 : 0.5)

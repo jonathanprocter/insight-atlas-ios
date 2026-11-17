@@ -2383,30 +2383,40 @@ enum VisualRasterizer {
 enum PDFVisualPrerenderer {
     private static let maxPrerenderedVisuals = 40
 
-    static func prerender(content: String) async {
+    /// - Parameter progress: `(done, total)` callback after each visual attempt.
+    static func prerender(
+        content: String,
+        progress: ((Int, Int) -> Void)? = nil
+    ) async {
         let allVisuals = PDFAnalysisDocument.extractVisuals(from: content)
-        guard !allVisuals.isEmpty else { return }
+        guard !allVisuals.isEmpty else {
+            progress?(0, 0)
+            return
+        }
         // Bound main-actor work and peak memory; visuals past the cap take their
         // native table/text fallback at draw time.
-        let visuals = allVisuals.prefix(maxPrerenderedVisuals)
+        let visuals = Array(allVisuals.prefix(maxPrerenderedVisuals))
+        let total = visuals.count
+        #if DEBUG
         if allVisuals.count > maxPrerenderedVisuals {
             print("🖼️ [PDF Visual] capping prerender at \(maxPrerenderedVisuals) of \(allVisuals.count) visuals")
         }
+        #endif
 
         let cache = VisualAssetCache.shared
-        for visual in visuals {
+        for (index, visual) in visuals.enumerated() {
+            progress?(index, total)
             let url = PDFAnalysisDocument.visualCacheURL(for: visual)
-            if cache.cachedImage(for: url) != nil { continue }   // already rendered
-            guard let image = VisualRasterizer.image(for: visual) else {
-                // Named signal instead of a silent nil-return: the rasterizer
-                // requires a JSON-decodable payload; if it can't decode, this
-                // visual will miss the cache and take its native fallback at draw
-                // time. Pairs with the draw-time 🖼️ line to make misses self-sorting.
+            if cache.cachedImage(for: url) == nil,
+               let image = VisualRasterizer.image(for: visual),
+               let data = image.pngData() {
+                try? data.write(to: cache.localURL(for: url), options: .atomic)
+            } else if cache.cachedImage(for: url) == nil {
+                #if DEBUG
                 print("🖼️ [PDF Visual] prerender could NOT rasterize type=\(visual.type) title=\(visual.title ?? "—") — payload not decodable")
-                continue
+                #endif
             }
-            guard let data = image.pngData() else { continue }
-            try? data.write(to: cache.localURL(for: url), options: .atomic)
+            progress?(index + 1, total)
             await Task.yield()
         }
     }

@@ -48,8 +48,29 @@ public enum LLMActionRouter {
             UISelectionFeedbackGenerator().selectionChanged()
             return .success("Accent set to \(name)")
         }
-        if identifier.hasPrefix("voice_row_") || identifier.hasPrefix("voice_preview_") {
-            return .failure("Narration voice is fixed (Pocket / Apple Voice); voice selection is unavailable.")
+        if identifier.hasPrefix("voice_row_") {
+            let voiceID = String(identifier.dropFirst("voice_row_".count))
+            guard !voiceID.isEmpty else {
+                return .failure("Provide a Pocket voice id after voice_row_.")
+            }
+            environment.userSettings.selectedVoiceID = voiceID
+            environment.userSettings.voiceProvider = .kokoro
+            environment.updateVoiceProvider(.kokoro)
+            environment.saveSettings()
+            return .success("Narration voice set to \(voiceID)")
+        }
+        if identifier.hasPrefix("voice_preview_") {
+            let voiceID = String(identifier.dropFirst("voice_preview_".count))
+            guard !voiceID.isEmpty else {
+                return .failure("Provide a Pocket voice id after voice_preview_.")
+            }
+            Task {
+                _ = try? await environment.kokoroAudioService.generateAudio(
+                    text: "This is a short preview of the selected narration voice.",
+                    voiceID: voiceID
+                )
+            }
+            return .success("Previewing voice \(voiceID)")
         }
         if identifier.hasPrefix("securefield_toggle_visibility_") {
             return .failure("Visibility toggle is UI-only and requires a tap.")
@@ -81,7 +102,20 @@ public enum LLMActionRouter {
             return .success("Sepia Reading Mode set to \(newValue)")
 
         case "voice_provider_picker":
-            return .failure("Narration voice is fixed (Pocket / Apple Voice); the voice provider is not configurable.")
+            guard let v = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+                  !v.isEmpty else {
+                return .failure("Provide a voice provider value (kokoro/pocket or apple).")
+            }
+            let provider: VoiceProvider
+            if v.contains("apple") {
+                provider = .apple
+            } else if v.contains("kokoro") || v.contains("pocket") {
+                provider = .kokoro
+            } else {
+                return .failure("Unknown voice provider '\(v)'. Use kokoro/pocket or apple.")
+            }
+            environment.updateVoiceProvider(provider)
+            return .success("Voice provider set to \(provider.rawValue)")
 
         case "playback_speed_picker":
             guard let v = value, let speed = parsePlaybackSpeed(v) else {

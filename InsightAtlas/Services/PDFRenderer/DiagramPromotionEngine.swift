@@ -45,7 +45,9 @@ struct DiagramPromotionEngine {
             acc + s.blocks.filter { $0.metadata?["promoted"] != nil }.count
         }
         if promotedCount > 0 {
+            #if DEBUG
             print("🖼️ [PDF Visual] promoted \(promotedCount) arrow-chain diagram(s) (native path)")
+            #endif
         }
         return doc
     }

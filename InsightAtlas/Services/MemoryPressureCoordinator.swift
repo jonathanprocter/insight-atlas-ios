@@ -65,6 +65,13 @@ final class MemoryPressureCoordinator {
     private func releaseReclaimableMemory(reason: String) {
         AnalysisDetailView.clearMarkdownCache()
 
+        // Guide bodies live on disk in GuideBodyStore; drop in-memory copies so
+        // a large library is not held resident while backgrounded.
+        let purged = DataManager.shared.purgeResidentGuideBodies()
+        if purged > 0 {
+            memoryLog.info("\(reason, privacy: .public): purged \(purged, privacy: .public) resident guide body/bodies")
+        }
+
         guard synthesisInFlight == 0 else {
             memoryLog.info("\(reason, privacy: .public): synthesis in flight, keeping the voice model loaded")
             return

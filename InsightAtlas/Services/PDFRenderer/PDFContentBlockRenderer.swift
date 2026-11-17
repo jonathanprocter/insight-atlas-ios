@@ -1957,7 +1957,9 @@ final class PDFContentBlockRenderer {
                     // Unsplittable atom: a single step + chrome already exceeds the
                     // page. Take it anyway (progress) and leave a ⏭️ trace — it
                     // draws past the page edge, the same defined fallback QG uses.
+                    #if DEBUG
                     print("⏭️ [PDF Renderer] exercise step exceeds page budget (chrome+step=\(Int((used + h).rounded()))pt > \(Int(budget.rounded()))pt) — fragment renders with overflow")
+                    #endif
                 }
                 take.append(next)
                 used += h
@@ -1970,7 +1972,9 @@ final class PDFContentBlockRenderer {
         // Tail floor: a lone runt step at the end is only acceptable when the
         // prior fragment was genuinely full — log it so it isn't a silent quirk.
         if groups.count > 1, let last = groups.last, last.count < 2 {
+            #if DEBUG
             print("ℹ️ [PDF Renderer] exercise final fragment has \(last.count) step(s) — unavoidable at these step heights")
+            #endif
         }
 
         var fragments: [ExerciseFragment] = []

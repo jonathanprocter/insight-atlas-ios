@@ -23,6 +23,7 @@
 //
 
 import Foundation
+import os.log
 
 // MARK: - Canonical name corrections
 
@@ -433,9 +434,13 @@ enum ManuscriptGate {
     ) throws -> String {
         let content = ManuscriptNormalizer.normalize(rawContent)
         let report = ManuscriptPreflight.inspect(content: content)
+        #if DEBUG
         for warning in report.warnings { print("[Preflight] \(warning)") }
+        #endif
         guard report.passed else {
+            #if DEBUG
             for violation in report.errors { print("[Preflight] \(violation)") }
+            #endif
             throw GateError(violations: report.errors)
         }
         logOutputContractIssues(for: content, title: title, author: author)
@@ -455,9 +460,20 @@ enum ManuscriptGate {
         )
         let contract = OutputContractValidator().validate(document)
         guard !contract.isValid else { return }
+        let errorIssues = contract.issues.filter { $0.severity == .error }
+        #if DEBUG
         print("[OutputContract] \(contract.summary)")
-        for issue in contract.issues where issue.severity == .error {
+        for issue in errorIssues {
             print("[OutputContract] \(issue)")
+        }
+        #endif
+        // Always emit .error issues to the unified logger so Release QA can
+        // still see unclean narration / contract misses without stdout spam.
+        if !errorIssues.isEmpty {
+            let logger = Logger(subsystem: "com.insightatlas", category: "ManuscriptGate")
+            logger.error(
+                "OutputContract soft failures (\(errorIssues.count, privacy: .public)): \(contract.summary, privacy: .public)"
+            )
         }
     }
 }

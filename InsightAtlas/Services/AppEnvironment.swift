@@ -43,8 +43,8 @@ class AppEnvironment: ObservableObject {
         // UserSettings performs lossless migration of retired provider values while decoding.
         self.userSettings = Self.loadSettings()
         // AppEnvironment is the source of truth for settings; DataManager keeps
-        // a mirrored copy for its own readers (e.g. `hasValidApiKeys`).
-        self.dataManager.userSettings = self.userSettings
+        // a mirrored published copy for ObservableObject observers only.
+        self.dataManager.adoptMirroredSettings(self.userSettings)
 
         // Migrate API keys from UserDefaults to Keychain (one-time)
         KeychainService.shared.migrateFromUserDefaults()
@@ -82,7 +82,7 @@ class AppEnvironment: ObservableObject {
     }
 
     func saveSettings() {
-        dataManager.userSettings = userSettings
+        dataManager.adoptMirroredSettings(userSettings)
         do {
             let data = try JSONEncoder().encode(userSettings)
             UserDefaults.standard.set(data, forKey: Self.settingsKey)

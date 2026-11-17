@@ -1,25 +1,27 @@
 # InsightAtlas Feature Checklist
 
-## ChatGPT Voice (Experimental)
+## ChatGPT Voice / GPT-Live / Liam (REMOVED — historical)
 
-- [x] Confirm direct GPT-Live WebSocket architecture and automatic fallback behavior.
-- [x] Create isolated feature worktree and establish repository baseline.
-- [x] Write and approve the feature design.
-- [x] Write the detailed test-first implementation plan.
-- [x] Add failing tests for provider defaults and fallback ordering.
-- [x] Implement ChatGPT Voice provider modeling and backward-compatible settings.
-- [x] Add failing tests for GPT-Live request/event protocol behavior.
-- [x] Implement the pure GPT-Live protocol core.
-- [x] Add failing tests for streaming orchestration and audio encoding.
-- [x] Implement the OAuth WebSocket transport and PCM-to-M4A encoder.
-- [x] Integrate ChatGPT Voice as primary narration with ordered fallbacks.
-- [x] Update Settings, Generation, voice picker, and automated UI routing for three providers.
-- [x] Add setup, risk, and smoke-testing documentation.
-- [x] Run static verification in Linux.
-- [x] Run or obtain evidence from an Apple-toolchain build and test run.
-- [x] Complete security, reliability, and compatibility review.
-- [x] Push the feature branch for installation and device testing.
-- [ ] Complete the signed-in GPT-Live and stable-fallback smoke test on a physical iPhone.
+> **Status: REMOVED / historical.** ChatGPT Voice, GPT-Live WebSocket narration, and hosted Liam TTS are no longer part of the product. Checklist items below are retained only as an archive of past work; do not resume them. Remaining live work is tracked in `docs/STATUS.md`.
+
+- [x] Confirm direct GPT-Live WebSocket architecture and automatic fallback behavior. *(historical)*
+- [x] Create isolated feature worktree and establish repository baseline. *(historical)*
+- [x] Write and approve the feature design. *(historical)*
+- [x] Write the detailed test-first implementation plan. *(historical)*
+- [x] Add failing tests for provider defaults and fallback ordering. *(historical)*
+- [x] Implement ChatGPT Voice provider modeling and backward-compatible settings. *(historical)*
+- [x] Add failing tests for GPT-Live request/event protocol behavior. *(historical)*
+- [x] Implement the pure GPT-Live protocol core. *(historical)*
+- [x] Add failing tests for streaming orchestration and audio encoding. *(historical)*
+- [x] Implement the OAuth WebSocket transport and PCM-to-M4A encoder. *(historical)*
+- [x] Integrate ChatGPT Voice as primary narration with ordered fallbacks. *(historical)*
+- [x] Update Settings, Generation, voice picker, and automated UI routing for three providers. *(historical)*
+- [x] Add setup, risk, and smoke-testing documentation. *(historical)*
+- [x] Run static verification in Linux. *(historical)*
+- [x] Run or obtain evidence from an Apple-toolchain build and test run. *(historical)*
+- [x] Complete security, reliability, and compatibility review. *(historical)*
+- [x] Push the feature branch for installation and device testing. *(historical)*
+- [x] ~~Complete the signed-in GPT-Live and stable-fallback smoke test on a physical iPhone.~~ **REMOVED — not applicable**
 
 ## Kokoro Offline Narration
 
@@ -70,3 +72,5 @@
 - [ ] Assign the next unique TestFlight build number
 - [ ] Archive, upload, and verify internal TestFlight availability
 - [ ] Tag the accepted build and deliver release evidence
+
+> For current tip status (MiniMax generation + Pocket/Apple narration, audit PR #9 follow-ups), see **`docs/STATUS.md`**.

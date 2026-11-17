@@ -2104,7 +2104,9 @@ extension PDFAnalysisDocument {
         // still degrades to clean bullets on re-export; there is simply no producible
         // type left that degrades, so the DEGRADED label retires as resolved-by-removal.
         // conceptMap likewise renders a real adaptive radial map (fixed 2026-08-10).
+        #if DEBUG
         print("🖼️ [PDF Visual] Prerender miss → native fallback (renders fine): type=\(visual.type) title=\(title ?? "—")")
+        #endif
 
         func addHeadingIfNeeded(useInlineTitle: Bool) {
             if !useInlineTitle, let title, !title.isEmpty {
@@ -2159,7 +2161,9 @@ extension PDFAnalysisDocument {
             // collection upstream (tag-boundary/generator) — not by this parser
             // or the radial renderer. If they're PRESENT here yet missing from
             // the drawn map, the defect is downstream. Reads against the PDF.
+            #if DEBUG
             print("🗺️ [PDF ConceptMap] central=\"\(data.center)\" branches(\(data.branches.count))=\(data.branches)")
+            #endif
             blocks.append(PDFContentBlock(
                 type: .conceptMap,
                 content: "",
@@ -2410,7 +2414,9 @@ extension PDFAnalysisDocument {
             // prose. The export still proceeds (a reader waiting on a file must
             // not get a hard failure), but the defect is visible in the log and
             // the payload is recovered as structure, never as orphan lines.
+            #if DEBUG
             print("❌ [PDF Visual] UNKNOWN component type \(visual.type) (title=\(title ?? "—")) — payload recovered structurally; fix the generator")
+            #endif
             addHeadingIfNeeded(useInlineTitle: false)
             // A visual whose tag the renderer does not recognize degrades to
             // `.generic`, which used to print its payload verbatim — that is how

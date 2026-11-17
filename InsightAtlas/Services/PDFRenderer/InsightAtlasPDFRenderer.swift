@@ -519,7 +519,9 @@ final class InsightAtlasPDFRenderer {
                    (block.listItems?.isEmpty ?? true) &&
                    !hasTableData && !hasVisual && !hasNodes &&
                    !metadataOnlyTypes.contains(block.type) {
+                    #if DEBUG
                     print("⏭️ [PDF Renderer] skipped empty block (type=\(block.type)) — no content/listItems/tableData/visualURL")
+                    #endif
                     continue
                 }
 
@@ -553,7 +555,9 @@ final class InsightAtlasPDFRenderer {
                         estimatedTime: exTime, maxWidth: contentRect.width,
                         firstBudget: firstBudget, pageBudget: contentRect.height)
                     if fragments.count > 1 {
+                        #if DEBUG
                         print("✂️ [PDF Renderer] fragmented exercise \"\(exTitle)\" into \(fragments.count) cards across pages (\(exSteps.count) steps)")
+                        #endif
                     }
                     for (fIndex, frag) in fragments.enumerated() {
                         if fIndex > 0 {
@@ -582,7 +586,9 @@ final class InsightAtlasPDFRenderer {
                             brokeFirst = true
                         }
                         if let frags = fragments, frags.count > 1 {
+                            #if DEBUG
                             print("✂️ [PDF Renderer] fragmented insight note into \(frags.count) cards across pages")
+                            #endif
                             if brokeFirst {
                                 currentY = floatAhead(blocks: blocks, from: index, floated: &floated, currentY: currentY, context: context, minSpace: minFloatAheadSpace)
                                 recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (insight note: insufficient head room to fragment)")
@@ -614,7 +620,9 @@ final class InsightAtlasPDFRenderer {
                         brokeFirst = true
                     }
                     if let frags = fragments, frags.count > 1 {
+                        #if DEBUG
                         print("✂️ [PDF Renderer] fragmented table into \(frags.count) cards across pages (\(max(0, rows.count - 1)) data rows)")
+                        #endif
                         if brokeFirst {
                             currentY = floatAhead(blocks: blocks, from: index, floated: &floated, currentY: currentY, context: context, minSpace: minFloatAheadSpace)
                             recordTrailingGap(at: currentY, cause: debugBlockLabel(block, height: blockHeight) + " (table: insufficient head room to fragment)")
@@ -691,7 +699,9 @@ final class InsightAtlasPDFRenderer {
                         break
                     case .scale(let factor, let target):
                         let drawn = blockRenderer.renderDiagramScaledToFit(block, factor: factor, target: target, to: context.cgContext, at: CGPoint(x: contentRect.minX, y: currentY), maxWidth: contentRect.width)
+                        #if DEBUG
                         print("🔎 [PDF Renderer] scaled \(block.type) to \(Int((factor * 100).rounded()))% to fill remaining space (\(Int(blockHeight.rounded()))pt → \(Int(target.rounded()))pt)")
+                        #endif
                         currentY += drawn
                         continue
                     case .pushWhole:
@@ -792,7 +802,9 @@ final class InsightAtlasPDFRenderer {
             j += 1
         }
         if pulled > 0 {
+            #if DEBUG
             print("↪️ [PDF Renderer] floated \(pulled) paragraph(s) ahead of an atomic block to fill the page")
+            #endif
         }
         return y
     }
