@@ -50,3 +50,7 @@ Device screenshots showed broken charts + mid-word hyphens. Root causes (not OCR
 **Fix:** preserve `VISUAL_*`, rejoin EOL hyphens, strip soft hyphens, accept `→` network links, normalize on reader load.
 
 **Note:** Guides already saved without `VISUAL_*` tags need **Regenerate** (source is in `SourceTextStore`) to restore charts. Soft-hyphen cleanup applies on open without regenerate.
+
+### Structural variation
+
+Guides felt formulaic because every numbered section was prompt-forced into the same six bold-labelled parts. Prompt now uses a **rotating cadence menu** (claim-led / evidence-led / mechanism-first / strain-first / practitioner), optional single orientation page, and lint no longer implies six labelled parts. Regenerate to feel the change.

@@ -759,10 +759,11 @@ enum TagParser {
 
 // MARK: - Guide Skeleton Lint (elevation spec, Parts B, C and F)
 
-/// Pre-emit checks for the fixed Shortform-class skeleton: front matter,
+/// Pre-emit checks for the Shortform-class layer contract: required headings,
 /// numbered sections, back matter, Go Deeper format, and the Quick Glance vs
-/// Key Takeaways overlap rule. Pure functions over the raw tagged guide text so
-/// they can run before any parser and be unit-tested without a renderer.
+/// Key Takeaways overlap rule. Does not require identical per-section labelled
+/// parts — section shape may rotate. Pure functions over the raw tagged guide
+/// text so they can run before any parser and be unit-tested without a renderer.
 enum GuideSkeletonLint {
 
     /// Required back/front-matter headings, matched case-insensitively against
@@ -792,7 +793,7 @@ enum GuideSkeletonLint {
         }
 
         for (title, words) in numberedSectionWordCounts(in: content) where words < 900 {
-            issues.append("Structure: section \"\(title)\" has \(words) words (each numbered section needs ≥ 900 with all six labelled parts)")
+            issues.append("Structure: section \"\(title)\" has \(words) words (each numbered section needs ≥ 900 words of real depth)")
         }
 
         let badGoDeeper = goDeeperLines(in: content).filter { !matchesGoDeeperFormat($0) }

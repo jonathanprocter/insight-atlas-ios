@@ -63,7 +63,7 @@ extension SummaryTypeGovernor {
     /// Professional governor for comprehensive business summaries.
     ///
     /// Target: 9,500-12,000 words (Shortform-class depth: every thematic
-    /// section ≥ 900 words with the six-part skeleton, plus front and back
+    /// section ≥ 900 words with a varied thematic cadence, plus front and back
     /// matter). Narration is bounded separately by NarrationListeningEdition.
     /// Use case: Knowledge workers needing thorough understanding
     static let professional = SummaryTypeGovernor(
