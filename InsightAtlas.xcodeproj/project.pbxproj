@@ -96,6 +96,10 @@
 		C21355BA2EE6360100B6662D /* Inter-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C213559E2EE6360100B6662D /* Inter-Variable.ttf */; };
 		C21355BB2EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C21355912EE6360100B6662D /* CormorantGaramond-BoldItalic.ttf */; };
 		C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C12EE63E0800B6662D /* AnalysisComponents.swift */; };
+		B4E91A2C7F8340D1A9C6E812 /* AnalysisBookReferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E813 /* AnalysisBookReferences.swift */; };
+		B4E91A2C7F8340D1A9C6E814 /* AnalysisChromeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E815 /* AnalysisChromeViews.swift */; };
+		B4E91A2C7F8340D1A9C6E816 /* AnalysisPremiumBlockViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E817 /* AnalysisPremiumBlockViews.swift */; };
+		B4E91A2C7F8340D1A9C6E818 /* AnalysisShapeHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E91A2C7F8340D1A9C6E819 /* AnalysisShapeHelpers.swift */; };
 		03D013BD2C2E45D9B1FE5555 /* AnalysisDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */; };
 		4EEE0273D6A14614B48D2832 /* AnalysisExportOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */; };
 		C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */; };
@@ -298,6 +302,10 @@
 		C21355A52EE6360100B6662D /* Insight Atlas_ Custom Font Installation Guide.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Insight Atlas_ Custom Font Installation Guide.md"; sourceTree = "<group>"; };
 		C21355BE2EE6375A00B6662D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = InsightAtlas/Info.plist; sourceTree = "<group>"; };
 		C21355C12EE63E0800B6662D /* AnalysisComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisComponents.swift; path = InsightAtlas/Views/AnalysisComponents.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E813 /* AnalysisBookReferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisBookReferences.swift; path = InsightAtlas/Views/AnalysisBookReferences.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E815 /* AnalysisChromeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisChromeViews.swift; path = InsightAtlas/Views/AnalysisChromeViews.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E817 /* AnalysisPremiumBlockViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisPremiumBlockViews.swift; path = InsightAtlas/Views/AnalysisPremiumBlockViews.swift; sourceTree = "<group>"; };
+		B4E91A2C7F8340D1A9C6E819 /* AnalysisShapeHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisShapeHelpers.swift; path = InsightAtlas/Views/AnalysisShapeHelpers.swift; sourceTree = "<group>"; };
 		EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailModels.swift; path = InsightAtlas/Views/AnalysisDetailModels.swift; sourceTree = "<group>"; };
 		5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisExportOptionsView.swift; path = InsightAtlas/Views/AnalysisExportOptionsView.swift; sourceTree = "<group>"; };
 		C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisDetailView.swift; path = InsightAtlas/Views/AnalysisDetailView.swift; sourceTree = "<group>"; };
@@ -674,6 +682,10 @@
 			children = (
 				C21355C52EE63E3500B6662D /* AnalysisTheme.swift */,
 				C21355C12EE63E0800B6662D /* AnalysisComponents.swift */,
+				B4E91A2C7F8340D1A9C6E813 /* AnalysisBookReferences.swift */,
+				B4E91A2C7F8340D1A9C6E815 /* AnalysisChromeViews.swift */,
+				B4E91A2C7F8340D1A9C6E817 /* AnalysisPremiumBlockViews.swift */,
+				B4E91A2C7F8340D1A9C6E819 /* AnalysisShapeHelpers.swift */,
 				C21355C22EE63E0800B6662D /* AnalysisDetailView.swift */,
 				5474EDD1052F44AF934554C4 /* AnalysisExportOptionsView.swift */,
 				EC94611937ED49F29CC307A4 /* AnalysisDetailModels.swift */,
@@ -997,6 +1009,10 @@
 				E81A002C2D000016007AAAAA /* InsightAtlasStyle.swift in Sources */,
 				E81A002E2D000017007AAAAA /* QualityAuditService.swift in Sources */,
 				C21355C32EE63E0800B6662D /* AnalysisComponents.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E812 /* AnalysisBookReferences.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E814 /* AnalysisChromeViews.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E816 /* AnalysisPremiumBlockViews.swift in Sources */,
+				B4E91A2C7F8340D1A9C6E818 /* AnalysisShapeHelpers.swift in Sources */,
 				C21355C42EE63E0800B6662D /* AnalysisDetailView.swift in Sources */,
 				4EEE0273D6A14614B48D2832 /* AnalysisExportOptionsView.swift in Sources */,
 				03D013BD2C2E45D9B1FE5555 /* AnalysisDetailModels.swift in Sources */,

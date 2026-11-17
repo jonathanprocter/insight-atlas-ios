@@ -5,28 +5,20 @@
 
 ## Product tip
 
-| Area | State |
-|------|--------|
-| Generation | MiniMax default; OpenRouter fallback only before first token |
-| Narration | Pocket/Kokoro + Apple only |
-| Settings | `AppEnvironment.shared` sole SoT |
+MiniMax generation · Pocket/Kokoro + Apple narration · `AppEnvironment.shared` settings SoT.
 
-## Structure (DataManager god-object resolved)
+## Structure
 
-| File | Role |
-|------|------|
-| `DataManager.swift` | ~680 LOC — library CRUD + export orchestration |
-| `GuideHTMLExporter.swift` | ~3.8k — HTML export |
-| `GuideDOCXExporter.swift` | ~1.3k — DOCX export |
-| `GuidePDFExporter.swift` | ~0.8k — PDF export |
-| `ExportBrandAssets` / `ExportMarkdownTable` | shared helpers |
+| Was | Now |
+|-----|-----|
+| `DataManager` ~6.7k | ~680 + HTML/DOCX/PDF exporters |
+| `AnalysisComponents` ~3.7k | BookReferences / Chrome / PremiumBlocks / ShapeHelpers |
 
-Also extracted: `EditorialMarkupCanonicalizer`, `AnalysisDetailModels`, `AnalysisExportOptionsView`.
+Also: `EditorialMarkupCanonicalizer`, `AnalysisDetailModels`, `AnalysisExportOptionsView`.
 
 ## Deferred
 
 - Inter font swap (brand-locked)
-- Full `AnalysisComponents.swift` (~3.7k) split
 
 ## Device / release
 
