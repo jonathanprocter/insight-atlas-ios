@@ -23,7 +23,6 @@ class DataManager: ObservableObject {
     // MARK: - Private Properties
 
     private let libraryKey = "insight_atlas_library"
-    private let settingsKey = "insight_atlas_settings"
     private let fileManager = FileManager.default
 
     // MARK: - Initialization
