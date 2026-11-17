@@ -1,29 +1,32 @@
 # Insight Atlas — Current Status
 
-**Tip:** `cursor/full-app-fixes-9243` (audit PR **#9** + completion + structure)  
+**Tip:** `cursor/full-app-fixes-9243` (audit PR **#9**)  
 **Date:** 2026-11-17
 
 ## Product tip
 
-MiniMax generation · Pocket/Kokoro + Apple narration · `AppEnvironment.shared` settings SoT.
+| Area | State |
+|------|--------|
+| Generation | MiniMax default; OpenRouter fallback only before first token |
+| Narration | Pocket/Kokoro + Apple only |
+| Settings | `AppEnvironment.shared` sole SoT |
 
-## Structure
+## Structure (DataManager god-object resolved)
 
-| Extract | LOC moved |
-|---------|----------:|
-| `GuideHTMLExporter` | ~3.8k |
-| `GuideDOCXExporter` | ~1.3k |
-| `ExportBrandAssets` / `ExportMarkdownTable` | shared |
-| `EditorialMarkupCanonicalizer` | done |
-| `AnalysisDetailModels` / `AnalysisExportOptionsView` | done |
+| File | Role |
+|------|------|
+| `DataManager.swift` | ~680 LOC — library CRUD + export orchestration |
+| `GuideHTMLExporter.swift` | ~3.8k — HTML export |
+| `GuideDOCXExporter.swift` | ~1.3k — DOCX export |
+| `GuidePDFExporter.swift` | ~0.8k — PDF export |
+| `ExportBrandAssets` / `ExportMarkdownTable` | shared helpers |
 
-`DataManager.swift` is now ~1.5k LOC (was ~6.7k). PDF generation remains in DataManager for a follow-on extract.
+Also extracted: `EditorialMarkupCanonicalizer`, `AnalysisDetailModels`, `AnalysisExportOptionsView`.
 
 ## Deferred
 
 - Inter font swap (brand-locked)
-- PDF exporter extract (`GuidePDFExporter`)
-- Full `AnalysisComponents` split
+- Full `AnalysisComponents.swift` (~3.7k) split
 
 ## Device / release
 
