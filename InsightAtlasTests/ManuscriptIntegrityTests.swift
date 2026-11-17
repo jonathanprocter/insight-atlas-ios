@@ -10,19 +10,23 @@ final class ManuscriptIntegrityTests: XCTestCase {
     // MARK: - A1 · Normalizer (safe repairs)
 
     func testRepairsCorruptedHyphenBetweenWords() {
-        // Both soft-hyphen and replacement-character corruptions become a real
-        // hyphen when they sit inside a hyphenated compound.
-        XCTAssertEqual(ManuscriptNormalizer.normalize("self\u{00AD}constructed"), "self-constructed")
+        // Replacement-character corruptions become a real hyphen when flanked
+        // by word characters. Soft hyphens rejoin instead (see below).
         XCTAssertEqual(ManuscriptNormalizer.normalize("self\u{FFFD}constructed"), "self-constructed")
         XCTAssertEqual(ManuscriptNormalizer.normalize("here-and\u{FFFD}now"), "here-and-now")
-        XCTAssertEqual(ManuscriptNormalizer.normalize("participant\u{00AD}observer"), "participant-observer")
+    }
+
+    func testSoftHyphensRejoinInsteadOfHardening() {
+        // Discretionary soft hyphens must disappear, not become mid-word "-".
+        XCTAssertEqual(ManuscriptNormalizer.normalize("re\u{00AD}vising"), "revising")
+        XCTAssertEqual(ManuscriptNormalizer.normalize("ob\u{00AD}served"), "observed")
+        XCTAssertEqual(ManuscriptNormalizer.normalize("participant\u{00AD}observer"), "participantobserver")
+        XCTAssertEqual(ManuscriptNormalizer.normalize("end\u{00AD} next"), "end next")
     }
 
     func testStripsZeroWidthAndDanglingHyphens() {
-        // BOM/zero-width always removed; a discretionary hyphen not flanked by
-        // word characters is dropped rather than turned into a stray dash.
+        // BOM/zero-width always removed.
         XCTAssertEqual(ManuscriptNormalizer.normalize("word\u{FEFF}"), "word")
-        XCTAssertEqual(ManuscriptNormalizer.normalize("end\u{00AD} next"), "end next")
     }
 
     func testRepairsMissingSentenceSpace() {
@@ -49,7 +53,7 @@ final class ManuscriptIntegrityTests: XCTestCase {
     }
 
     func testNormalizationIsIdempotent() {
-        let input = "self\u{00AD}constructed. them.The Irving Yalom\u{FEFF}"
+        let input = "self\u{FFFD}constructed. them.The Irving Yalom\u{FEFF}"
         let once = ManuscriptNormalizer.normalize(input)
         XCTAssertEqual(ManuscriptNormalizer.normalize(once), once)
     }
@@ -106,7 +110,7 @@ final class ManuscriptIntegrityTests: XCTestCase {
     func testNormalizeThenInspectClearsRepairableDefects() {
         // End-to-end: the export path normalizes first, so repairable defects
         // (glyphs, spaces, names) must NOT survive to become gate errors.
-        let raw = "Irving Yalom on the self\u{00AD}constructed prison. them.The end. In summary, complete."
+        let raw = "Irving Yalom on the self\u{FFFD}constructed prison. them.The end. In summary, complete."
         let report = ManuscriptPreflight.inspect(content: ManuscriptNormalizer.normalize(raw))
         XCTAssertFalse(report.errors.contains { $0.category == .prohibitedGlyph })
         XCTAssertFalse(report.errors.contains { $0.category == .missingSpace })
