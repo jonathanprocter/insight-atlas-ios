@@ -78,6 +78,16 @@ for stub in "${STUBS[@]}"; do
 done
 rmdir "$APP/Frameworks" 2>/dev/null || true
 
+# Fail closed: a stub that survived the strip (e.g. a nested copy, or a
+# non-.framework layout) would be rejected by App Store Connect after a long
+# upload, so catch it here.
+leftover="$(find "$APP/Frameworks" \( -iname 'onnxruntime*' -o -iname 'SherpaOnnxC*' \) 2>/dev/null || true)"
+if [ -n "$leftover" ]; then
+  echo "error: unsupported onnxruntime/SherpaOnnxC stubs remain in the app bundle:" >&2
+  echo "$leftover" >&2
+  exit 1
+fi
+
 # The inference code lives in the app binary, not the stubs. If this is ever
 # zero, the static link broke and Kokoro would fail at runtime.
 symbols="$(strings -a "$APP/InsightAtlas" | grep -ci 'sherpa-onnx\|OfflineTts' || true)"

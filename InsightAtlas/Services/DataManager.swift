@@ -63,7 +63,7 @@ class DataManager: ObservableObject {
         }
     }
 
-    // MARK: - Narration State (Liam / Kokoro)
+    // MARK: - Narration State (Pocket / Kokoro)
 
     /// Persist a durable narration lifecycle state on an item so an in-progress
     /// or failed job survives relaunch.
@@ -100,6 +100,7 @@ class DataManager: ObservableObject {
         cleanupAudioFile(for: item)
         cleanupCoverImage(for: item)
         GuideBodyStore.delete(item.id)
+        SourceTextStore.delete(item.id)
         libraryItems.removeAll { $0.id == item.id }
         saveLibrary()
     }
@@ -112,10 +113,20 @@ class DataManager: ObservableObject {
                 cleanupAudioFile(for: libraryItems[index])
                 cleanupCoverImage(for: libraryItems[index])
                 GuideBodyStore.delete(libraryItems[index].id)
+                SourceTextStore.delete(libraryItems[index].id)
             }
         }
         libraryItems.remove(atOffsets: offsets)
         saveLibrary()
+    }
+
+    /// The guide body for an item: the in-memory copy when present, otherwise
+    /// read from `GuideBodyStore`. Bodies are not hydrated at launch.
+    func guideBody(for id: UUID) -> String? {
+        if let inline = libraryItems.first(where: { $0.id == id })?.summaryContent, !inline.isEmpty {
+            return inline
+        }
+        return GuideBodyStore.load(id)
     }
 
     /// Load all library items from storage
@@ -274,25 +285,18 @@ class DataManager: ObservableObject {
         }
 
         do {
-            var items = try JSONDecoder().decode([LibraryItem].self, from: data)
+            let items = try JSONDecoder().decode([LibraryItem].self, from: data)
 
-            // Rehydrate bodies from disk. Libraries written before the split
-            // still carry their text inline and need migrating to files once.
+            // Bodies stay on disk and load lazily via `guideBody(for:)`. Only
+            // libraries written before the split, which still carry text
+            // inline, need migrating to files once.
             var pendingMigration: [(UUID, String)] = []
-            for index in items.indices {
-                if let inline = items[index].summaryContent, !inline.isEmpty {
-                    pendingMigration.append((items[index].id, inline))
-                } else {
-                    items[index].summaryContent = GuideBodyStore.load(items[index].id)
-                    if items[index].summaryContent == nil {
-                        // Metadata says this guide was generated but its body is
-                        // missing. Surface it rather than showing a blank guide.
-                        logger.error(
-                            "Guide body missing for \(items[index].title, privacy: .public) — the guide will need regenerating"
-                        )
-                    }
+            for item in items {
+                if let inline = item.summaryContent, !inline.isEmpty {
+                    pendingMigration.append((item.id, inline))
                 }
             }
+            GuideBodyStore.refreshKnownIDs()
 
             libraryItems = items.sorted { $0.updatedAt > $1.updatedAt }
             logger.info("Loaded \(items.count) library items")
@@ -301,6 +305,7 @@ class DataManager: ObservableObject {
             if pendingMigration.isEmpty {
                 Task.detached(priority: .utility) {
                     GuideBodyStore.pruneOrphans(keeping: ids)
+                    SourceTextStore.pruneOrphans(keeping: ids)
                 }
             } else {
                 // Writing every body inline blocked launch on a large library,
@@ -312,7 +317,8 @@ class DataManager: ObservableObject {
                         GuideBodyStore.save(body, for: id)
                     }
                     GuideBodyStore.pruneOrphans(keeping: ids)
-                    await MainActor.run { DataManager.shared.persistLibraryMetadata() }
+                    SourceTextStore.pruneOrphans(keeping: ids)
+                    await MainActor.run { DataManager.shared.completeBodyMigration(pendingMigration) }
                 }
             }
         } catch {
@@ -361,6 +367,18 @@ class DataManager: ObservableObject {
     /// Persist metadata after an out-of-band body migration completes.
     func persistLibraryMetadata() {
         saveLibrary()
+    }
+
+    /// Persist the shrunken metadata blob, then release migrated inline bodies
+    /// that are unchanged and safely on disk so they are not held in memory.
+    private func completeBodyMigration(_ migrated: [(UUID, String)]) {
+        persistLibraryMetadata()
+        for (id, body) in migrated {
+            guard let index = libraryItems.firstIndex(where: { $0.id == id }),
+                  libraryItems[index].summaryContent == body,
+                  GuideBodyStore.exists(id) else { continue }
+            libraryItems[index].summaryContent = nil
+        }
     }
 
     private func saveLibrary() {
@@ -439,7 +457,7 @@ class DataManager: ObservableObject {
             progress?(.converting(percent: 0.5))
         }
         // Rasterize structured visuals into the cache before the (non-isolated) layout.
-        if format == .pdf, let rawContent = item.summaryContent {
+        if format == .pdf, let rawContent = item.summaryContent ?? GuideBodyStore.load(item.id) {
             await PDFVisualPrerenderer.prerender(content: rawContent)
         }
         let url = try exportGuide(item, format: format)
@@ -452,14 +470,14 @@ class DataManager: ObservableObject {
 
     /// Export a guide to a file with comprehensive error handling
     nonisolated func exportGuide(_ item: LibraryItem, format: ExportFormat) throws -> URL {
-        guard let rawContent = item.summaryContent, !rawContent.isEmpty else {
+        guard let rawContent = item.summaryContent ?? GuideBodyStore.load(item.id), !rawContent.isEmpty else {
             throw DataManagerError.noContent
         }
 
         // Track A · release gate — applies to every non-PDF format (html/txt/md).
         // Repairs safe defects and blocks export of a manuscript with unshippable
         // defects, so no format can leak a truncated or corrupted guide.
-        let content = try ManuscriptGate.prepareForExport(rawContent)
+        let content = try ManuscriptGate.prepareForExport(rawContent, title: item.title, author: item.author)
 
         // Generate clean, readable filename in Title Case with proper formatting
         let sanitizedTitle = sanitizeFilename(item.title)
@@ -566,40 +584,21 @@ class DataManager: ObservableObject {
     }
 
     /// Get the Insight Atlas logo as a base64-encoded data URL for HTML embedding
+    ///
+    /// `UIImage(named:)` and `pngData()` are thread-safe, so this reads the asset
+    /// directly instead of blocking on the main queue (`main.sync` from a
+    /// background export can deadlock against a main thread that is waiting).
     nonisolated private func getLogoBase64() -> String? {
-        if Thread.isMainThread {
-            guard let logoImage = UIImage(named: "Logo"),
-                  let pngData = logoImage.pngData() else {
-                return nil
-            }
-            let base64 = pngData.base64EncodedString()
-            return "data:image/png;base64,\(base64)"
+        guard let logoImage = UIImage(named: "Logo"),
+              let pngData = logoImage.pngData() else {
+            return nil
         }
-
-        var result: String?
-        DispatchQueue.main.sync {
-            guard let logoImage = UIImage(named: "Logo"),
-                  let pngData = logoImage.pngData() else {
-                result = nil
-                return
-            }
-            let base64 = pngData.base64EncodedString()
-            result = "data:image/png;base64,\(base64)"
-        }
-        return result
+        return "data:image/png;base64,\(pngData.base64EncodedString())"
     }
 
     /// Get the Insight Atlas logo UIImage for PDF rendering
     nonisolated private func getLogoImage() -> UIImage? {
-        if Thread.isMainThread {
-            return UIImage(named: "Logo")
-        }
-
-        var image: UIImage?
-        DispatchQueue.main.sync {
-            image = UIImage(named: "Logo")
-        }
-        return image
+        UIImage(named: "Logo")
     }
 
     nonisolated private func detectBlockStart(_ line: String) -> String? {
@@ -4491,10 +4490,12 @@ class DataManager: ObservableObject {
         }
 
         if Thread.isMainThread {
-            try renderOnMain()
+            try MainActor.assumeIsolated { try renderOnMain() }
             return
         }
 
+        // Off-main callers are async export tasks that never hold the main
+        // thread, so this hop cannot deadlock.
         var renderError: Error?
         DispatchQueue.main.sync {
             do {

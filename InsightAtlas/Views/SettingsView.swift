@@ -32,7 +32,28 @@ struct SettingsView: View {
                 ?? KokoroVoiceRegistry.defaultVoice
             return "Pocket · \(voice.name)"
         }
-        return "Liam"
+        return "Apple Voice"
+    }
+
+    /// Support and App Store links come from Info.plist. Rows stay hidden
+    /// until `InsightAtlasSupportEmail` / `InsightAtlasAppStoreID` are set.
+    private static func infoString(_ key: String) -> String? {
+        guard let value = (Bundle.main.object(forInfoDictionaryKey: key) as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty,
+              !value.hasPrefix("$("),
+              !value.contains("example.com") else { return nil }
+        return value
+    }
+
+    static var supportURL: URL? {
+        infoString("InsightAtlasSupportEmail").flatMap { URL(string: "mailto:\($0)") }
+    }
+
+    static var reviewURL: URL? {
+        guard let id = infoString("InsightAtlasAppStoreID"),
+              id.allSatisfy(\.isNumber), id != "000000000" else { return nil }
+        return URL(string: "itms-apps://itunes.apple.com/app/id\(id)?action=write-review")
     }
 
     private var accentColor: Color {
@@ -266,37 +287,41 @@ struct SettingsView: View {
                                 SystemInfoView()
                             }
 
-                            PremiumSettingsDivider()
+                            if let supportURL = Self.supportURL {
+                                PremiumSettingsDivider()
 
-                            Button {
-                                if let url = URL(string: "mailto:support@example.com") { UIApplication.shared.open(url) }
-                            } label: {
-                                HStack {
-                                    Text("Contact Support")
-                                        .font(PremiumUI.ui(16, .medium))
-                                        .foregroundStyle(PremiumUI.ink)
-                                    Spacer()
-                                    Image(systemName: "envelope")
-                                        .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                Button {
+                                    UIApplication.shared.open(supportURL)
+                                } label: {
+                                    HStack {
+                                        Text("Contact Support")
+                                            .font(PremiumUI.ui(16, .medium))
+                                            .foregroundStyle(PremiumUI.ink)
+                                        Spacer()
+                                        Image(systemName: "envelope")
+                                            .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                    }
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
 
-                            PremiumSettingsDivider()
+                            if let reviewURL = Self.reviewURL {
+                                PremiumSettingsDivider()
 
-                            Button {
-                                if let url = URL(string: "itms-apps://itunes.apple.com/app/id000000000?action=write-review") { UIApplication.shared.open(url) }
-                            } label: {
-                                HStack {
-                                    Text("Rate on the App Store")
-                                        .font(PremiumUI.ui(16, .medium))
-                                        .foregroundStyle(PremiumUI.ink)
-                                    Spacer()
-                                    Image(systemName: "star.fill")
-                                        .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                Button {
+                                    UIApplication.shared.open(reviewURL)
+                                } label: {
+                                    HStack {
+                                        Text("Rate on the App Store")
+                                            .font(PremiumUI.ui(16, .medium))
+                                            .foregroundStyle(PremiumUI.ink)
+                                        Spacer()
+                                        Image(systemName: "star.fill")
+                                            .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                    }
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
 
@@ -320,7 +345,7 @@ struct SettingsView: View {
                     resetAllSettings()
                 }
             } message: {
-                Text("This will restore defaults for appearance, generation, and audio settings. API keys are not removed.")
+                Text("This will restore defaults for appearance, generation, and audio settings, and remove stored API keys and your MiniMax sign-in.")
             }
         }
     }
@@ -399,6 +424,9 @@ struct SettingsView: View {
         // auto-generation setting are user-configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
+
+        KeychainService.shared.clearAllKeys()
+        MiniMaxOAuthService.shared.signOut()
 
         environment.saveSettings()
         UISelectionFeedbackGenerator().selectionChanged()

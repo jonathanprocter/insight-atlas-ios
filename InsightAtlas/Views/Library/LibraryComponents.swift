@@ -334,7 +334,7 @@ struct LibraryRowView: View {
 
     // Derive status from item
     private var status: BookStatus {
-        if item.summaryContent != nil {
+        if item.hasGuideBody {
             return .completed
         } else {
             return .inProgress

@@ -4,7 +4,22 @@ import AVFoundation
 // MARK: - Analysis Detail View
 
 struct AnalysisDetailView: View {
-    let item: LibraryItem
+    /// The item as handed in. Its `summaryContent` is nil because bodies are
+    /// not hydrated at launch; `item` overlays the body loaded in `loadBody()`.
+    private let libraryItem: LibraryItem
+    @State private var loadedBody: String?
+
+    init(item: LibraryItem) {
+        self.libraryItem = item
+    }
+
+    private var item: LibraryItem {
+        guard libraryItem.summaryContent == nil, let loadedBody else { return libraryItem }
+        var hydrated = libraryItem
+        hydrated.summaryContent = loadedBody
+        return hydrated
+    }
+
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var dataManager: DataManager
     @StateObject private var guideGenerationService = GuideGenerationService()
@@ -205,6 +220,7 @@ struct AnalysisDetailView: View {
         .onAppear {
             parseContent()
         }
+        .task { await loadBody() }
         .onChange(of: guideGenerationService.lastResult?.title) {
             // When backend returns a result, convert it to our format
             if let result = guideGenerationService.lastResult {
@@ -227,6 +243,13 @@ struct AnalysisDetailView: View {
         }
     }
     #endif
+
+    private func loadBody() async {
+        guard libraryItem.summaryContent == nil, loadedBody == nil else { return }
+        let id = libraryItem.id
+        loadedBody = await Task.detached(priority: .userInitiated) { GuideBodyStore.load(id) }.value
+        parseContent()
+    }
 
     private func parseContent() {
         guard let content = item.summaryContent else { return }
@@ -565,9 +588,12 @@ struct AnalysisDetailView: View {
         dataManager.updateLibraryItem(updatedItem)
     }
 
-    /// Trigger backend-powered guide generation
+    /// Trigger backend-powered guide generation from the persisted manuscript.
     private func generateWithBackend() {
-        guard let sourceText = item.summaryContent ?? item.title as String? else { return }
+        guard let sourceText = SourceTextStore.load(item.id),
+              !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
 
         Task {
             await guideGenerationService.generate(

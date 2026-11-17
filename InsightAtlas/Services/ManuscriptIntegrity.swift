@@ -426,7 +426,11 @@ enum ManuscriptGate {
 
     /// Normalize `rawContent`, log warnings, and throw `GateError` if any
     /// blocking violation remains. Returns the cleaned content to render/write.
-    static func prepareForExport(_ rawContent: String) throws -> String {
+    static func prepareForExport(
+        _ rawContent: String,
+        title: String = "",
+        author: String = ""
+    ) throws -> String {
         let content = ManuscriptNormalizer.normalize(rawContent)
         let report = ManuscriptPreflight.inspect(content: content)
         for warning in report.warnings { print("[Preflight] \(warning)") }
@@ -434,6 +438,26 @@ enum ManuscriptGate {
             for violation in report.errors { print("[Preflight] \(violation)") }
             throw GateError(violations: report.errors)
         }
+        logOutputContractIssues(for: content, title: title, author: author)
         return content
+    }
+
+    /// Runs `OutputContractValidator` over the editorial form of the content.
+    /// Soft gate: issues are logged for QA but never block an export, because
+    /// the validator targets normalized blocks and has not been tuned to be a
+    /// hard release criterion. Promote `.error` issues to `GateError` once its
+    /// false-positive rate on real guides is known.
+    private static func logOutputContractIssues(for content: String, title: String, author: String) {
+        let document = SemanticNormalizationService().normalize(
+            content: content,
+            title: title,
+            author: author
+        )
+        let contract = OutputContractValidator().validate(document)
+        guard !contract.isValid else { return }
+        print("[OutputContract] \(contract.summary)")
+        for issue in contract.issues where issue.severity == .error {
+            print("[OutputContract] \(issue)")
+        }
     }
 }

@@ -8,6 +8,8 @@ struct ContentView: View {
 
     @State private var selectedTab: AppTab = .library
     @State private var showOverflowMenu = false
+    @State private var showInterruptedGenerationAlert = false
+    @State private var interruptedInfo: (title: String, author: String, startedAt: Date)?
 
     private var isIPad: Bool {
         horizontalSizeClass == .regular
@@ -93,8 +95,39 @@ struct ContentView: View {
                 }
             }
         }
-        // Locked to light mode per user preference (overrides the Theme setting).
         .preferredColorScheme(preferredColorScheme)
+        .task {
+            let coordinator = environment.generationCoordinator
+            if coordinator.hasInterruptedGeneration(),
+               let info = coordinator.getInterruptedGenerationInfo() {
+                interruptedInfo = info
+                showInterruptedGenerationAlert = true
+            }
+        }
+        .alert("Interrupted generation", isPresented: $showInterruptedGenerationAlert) {
+            Button("Resume") {
+                guard let _ = interruptedInfo else { return }
+                Task {
+                    do {
+                        _ = try await environment.generationCoordinator.resumeInterruptedGeneration(
+                            settings: environment.userSettings
+                        )
+                    } catch {
+                        // Resume failures leave failed state for a later retry.
+                    }
+                }
+            }
+            Button("Discard", role: .destructive) {
+                environment.generationCoordinator.discardInterruptedGeneration()
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            if let info = interruptedInfo {
+                Text("“\(info.title)” by \(info.author) was interrupted. Resume where it left off, or discard the partial run.")
+            } else {
+                Text("A previous guide generation was interrupted.")
+            }
+        }
     }
     @ViewBuilder
     private var activeView: some View {

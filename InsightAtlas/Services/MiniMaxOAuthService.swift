@@ -192,7 +192,9 @@ final class MiniMaxOAuthService: ObservableObject {
 
     /// Non-isolated snapshot for use off the main actor (e.g. AIService).
     nonisolated static var hasStoredCredentials: Bool {
-        KeychainService.shared.minimaxAccessToken?.isEmpty == false
+        let keychain = KeychainService.shared
+        return keychain.minimaxAccessToken?.isEmpty == false
+            || keychain.minimaxRefreshToken?.isEmpty == false
     }
 
     // MARK: Sign in / out

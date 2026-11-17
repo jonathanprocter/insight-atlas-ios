@@ -39,13 +39,11 @@ enum NarrationFallbackPolicy {
 }
 
 enum NarrationPreparationPolicy {
-    /// MiniMax writes the bounded, audio-first summary before Pocket speaks it.
-    /// A cached script plays immediately; a fresh one waits for the rewrite
-    /// (bounded by NarrationScriptService.rewriteDeadline), and any failure,
-    /// timeout or too-short rewrite falls back to the listening edition.
-    /// Set to false to always start from the listening edition and only warm
-    /// the script cache in the background.
-    static let rewritesBeforeInitialSynthesis = true
+    /// When true, MiniMax writes the bounded, audio-first summary before Pocket
+    /// speaks it (bounded by NarrationScriptService.rewriteDeadline). When false
+    /// (current default), playback always starts from the listening edition and
+    /// the script cache is only warmed in the background.
+    static let rewritesBeforeInitialSynthesis = false
 }
 
 enum NarrationListeningEdition {

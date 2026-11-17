@@ -29,7 +29,7 @@ actor NarrationScriptService {
 
     static let shared = NarrationScriptService()
 
-    private let aiService = AIService()
+    private let aiService = AIService.shared
 
     /// In-flight rewrites keyed by item + content hash. Concurrent narration
     /// requests (e.g. two providers, or auto-narrate racing a manual tap) share
@@ -76,14 +76,14 @@ actor NarrationScriptService {
         // Reject empty files and accidental fallback caches (v2 hangover).
         if let cacheURL, let cached = try? String(contentsOf: cacheURL, encoding: .utf8),
            !cached.isEmpty, cached != safeFallback {
-            return cached
+            return NarrationVisualSpeechScrubber.scrub(cached)
         }
 
         guard isRewriteAvailable else {
             scriptLog.info(
                 "Neither MiniMax nor OpenRouter configured — narrating raw guide content for \(itemId.uuidString)"
             )
-            return safeFallback
+            return NarrationVisualSpeechScrubber.scrub(safeFallback)
         }
 
         // A recent timeout/network failure should not re-impose the full
@@ -93,7 +93,7 @@ actor NarrationScriptService {
             scriptLog.info(
                 "Skipping narration rewrite — fresh failure marker for \(itemId.uuidString)"
             )
-            return safeFallback
+            return NarrationVisualSpeechScrubber.scrub(safeFallback)
         }
 
         // Credentials present does not mean the network is. Waiting for
@@ -103,7 +103,7 @@ actor NarrationScriptService {
                 "No network path — narrating listening edition for \(itemId.uuidString)"
             )
             Self.writeSkipMarker(for: itemId, content: trimmed, targetWords: targetWords)
-            return safeFallback
+            return NarrationVisualSpeechScrubber.scrub(safeFallback)
         }
 
         // Coalesce concurrent requests for the same item+content onto one call.
@@ -133,12 +133,15 @@ actor NarrationScriptService {
                     script,
                     summaryType: summaryType
                 )
+                let scrubbed = NarrationVisualSpeechScrubber.scrub(clamped)
                 let elapsed = Date().timeIntervalSince(start)
-                let scriptWords = script.split(whereSeparator: { $0.isWhitespace }).count
+                let scriptWords = scrubbed.split(whereSeparator: { $0.isWhitespace }).count
+                #if DEBUG
                 print(String(
                     format: "[Timing] narration script: %.1fs (%d → %d chars, %d words, target %d) for %@",
-                    elapsed, safeFallback.count, clamped.count, scriptWords, targetWords, itemId.uuidString
+                    elapsed, safeFallback.count, scrubbed.count, scriptWords, targetWords, itemId.uuidString
                 ))
+                #endif
                 // A model asked for 2,400 words sometimes returns a few hundred.
                 // That was accepted verbatim and cached, so a 16-minute guide
                 // narrated for 90 seconds and every retry replayed it. Too
@@ -147,9 +150,9 @@ actor NarrationScriptService {
                     scriptLog.error(
                         "Narration-script rewrite returned \(scriptWords, privacy: .public) words against a target of \(targetWords, privacy: .public) — narrating the full bounded edition instead"
                     )
-                    return safeFallback
+                    return NarrationVisualSpeechScrubber.scrub(safeFallback)
                 }
-                return clamped.isEmpty ? safeFallback : clamped
+                return scrubbed.isEmpty ? NarrationVisualSpeechScrubber.scrub(safeFallback) : scrubbed
             } catch is CancellationError {
                 return safeFallback
             } catch is NarrationScriptTimeout {

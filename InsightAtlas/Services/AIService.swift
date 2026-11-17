@@ -29,8 +29,24 @@ enum OpenRouterConfig {
     }
 }
 
+/// Tiny cross-callback flag so MiniMax→OpenRouter fallback can refuse once
+/// the first content token has already streamed (avoids a silent full rebill).
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag = false
+    var value: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return flag
+    }
+    func set() {
+        lock.lock(); flag = true; lock.unlock()
+    }
+}
+
 /// Service for generating Insight Atlas guides using AI providers
 actor AIService {
+
+    static let shared = AIService()
 
     // MARK: - Logging
 
@@ -264,6 +280,14 @@ actor AIService {
             )
 
         case .minimax:
+            // Only fall back to OpenRouter before the first content token.
+            // A late-stream failure would otherwise silently regenerate the
+            // entire guide and double-bill.
+            let receivedContent = LockedFlag()
+            let trackingChunk: (String) -> Void = { chunk in
+                if !chunk.isEmpty { receivedContent.set() }
+                onChunk(chunk)
+            }
             do {
                 let token = try await MiniMaxOAuthService.shared.validAccessToken()
                 return try await streamWithClaude(
@@ -286,24 +310,23 @@ actor AIService {
                     providerLabel: "MiniMax",
                     previousContent: previousContent,
                     improvementHints: improvementHints,
-                    onChunk: onChunk,
+                    onChunk: trackingChunk,
                     onStatus: onStatus,
                     shouldTerminate: shouldTerminate
                 )
             } catch {
                 let openRouterKey = settings.openRouterApiKey ?? ""
-                guard Self.shouldFallBackToOpenRouter(after: error),
+                guard !receivedContent.value,
+                      Self.shouldFallBackToOpenRouter(after: error),
                       shouldTerminate?() != true,
                       !openRouterKey.isEmpty else {
                     throw error
                 }
 
                 Self.logger.warning(
-                    "\(AIProvider.minimax.displayName) generation failed, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
+                    "\(AIProvider.minimax.displayName) failed before first token, retrying on OpenRouter: \(error.localizedDescription, privacy: .public)"
                 )
 
-                // Discard whatever MiniMax streamed before failing so the
-                // OpenRouter attempt does not append to a partial guide.
                 onReset?()
                 onStatus(GenerationStatus(
                     phase: .analyzing,

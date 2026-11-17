@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/chatgpt-voice-experimental
+      - "cursor/**"
   pull_request:
   workflow_dispatch:
 

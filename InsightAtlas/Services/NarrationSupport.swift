@@ -7,8 +7,8 @@
 //  shared local playback controller.
 //
 //  These used to live alongside the Mega Transcript integration. That provider
-//  has been retired -- narration is Kokoro on-device first, with the hosted
-//  Kokoro voice ("Liam") as the fallback -- so the pieces every provider needs
+//  has been retired -- narration is Pocket (Kokoro) on-device, with Apple
+//  system voices as the fallback -- so the pieces every provider needs
 //  live here instead.
 //
 
@@ -237,7 +237,6 @@ enum NarrationPreparationProgress: Sendable, Equatable {
     case synthesizing(narrator: String, completed: Int, total: Int)
     case downloading
     case usingCache
-    case fallingBackToLiam(reason: String)
     case ready(narrator: String)
 
     /// Completion as a percentage when the stage knows it, otherwise nil.
@@ -249,7 +248,7 @@ enum NarrationPreparationProgress: Sendable, Equatable {
             return Int((max(0, min(1, fraction)) * 100).rounded())
         case .ready:
             return 100
-        case .checkingCache, .generating, .loadingModel, .downloading, .usingCache, .fallingBackToLiam:
+        case .checkingCache, .generating, .loadingModel, .downloading, .usingCache:
             return nil
         }
     }
@@ -270,7 +269,6 @@ enum NarrationPreparationProgress: Sendable, Equatable {
         case .synthesizing(let narrator, _, _): return "Generating audio with \(narrator)…"
         case .downloading: return "Downloading narration…"
         case .usingCache: return "Opening cached narration…"
-        case .fallingBackToLiam: return "Switching to the Liam voice…"
         case .ready(let narrator): return "Ready with \(narrator)"
         }
     }

@@ -44,13 +44,6 @@ private func governorLog(_ message: String) {
     #endif
 }
 
-/// Debug logging for audio generation
-private func audioLog(_ message: String) {
-    #if DEBUG
-    logger.debug("[Audio] \(message)")
-    #endif
-}
-
 // MARK: - Generation State
 
 /// Persisted state for in-progress generation
@@ -173,7 +166,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let aiService = AIService()
+    private let aiService = AIService.shared
     private let bookProcessor = BookProcessor()
     private let fileManager = FileManager.default
     private var generationTask: Task<String, Error>?
@@ -359,6 +352,11 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             if hasRoomToGrow && (allIssues.contains(where: isStructuralIssue)
                                  || (wantsDeepResearch && belowProseThreshold)) {
                 qualityIssues = allIssues
+            } else if allIssues.contains(where: isStructuralIssue) {
+                // Near the prose ceiling we still rewrite structural defects
+                // in place (missing visuals, truncation). Never drop those
+                // solely for lack of headroom.
+                qualityIssues = allIssues.filter(isStructuralIssue)
             } else {
                 qualityIssues = []
                 if !allIssues.isEmpty {
@@ -550,7 +548,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             //
             // Narration is intentionally NOT generated here. Doing it inline used
             // to block completion: the guide text was already 100% done, but the
-            // coordinator awaited full Liam (Kokoro) narration before signaling
+            // coordinator awaited full Pocket (Kokoro) narration before signaling
             // completion — so if narration hung or was slow, the UI froze at 100%
             // with nothing shown. The guide now completes on text alone, and the
             // caller (GenerationView) kicks off narration in the background after
@@ -577,6 +575,13 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             endBackgroundTask()
             isGenerating = false
             lastResult = .success(content: finalResult.content, itemId: existingItemId, metadata: metadata, coverImagePath: coverImagePath)
+
+            // Persist the manuscript for future Regenerate before clearing the
+            // temporary generation cache. Without this, Regenerate would have to
+            // re-feed the guide body as if it were the book.
+            if let itemId = existingItemId {
+                SourceTextStore.save(bookText, for: itemId)
+            }
 
             // Clear persisted state after success
             clearPersistedState()
@@ -790,6 +795,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
     /// Discard interrupted generation state
     func discardInterruptedGeneration() {
         clearPersistedState()
+        scrubOrphanBookTexts()
         isGenerating = false
         currentGenerationId = nil
         progress = .initial
@@ -1174,6 +1180,7 @@ final class BackgroundGenerationCoordinator: ObservableObject {
 
     /// Check for interrupted generation on startup
     private func checkForInterruptedGeneration() async {
+        defer { scrubOrphanBookTexts() }
         guard let state = loadPersistedState() else { return }
 
         switch state.phase {
@@ -1298,6 +1305,31 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         }
     }
 
+    /// Deletes `generation_booktext_*` files in Caches that do not belong to the
+    /// currently persisted generation. A crash, a force-quit or a cleared
+    /// state would otherwise strand multi-megabyte manuscripts there forever.
+    func scrubOrphanBookTexts() {
+        // A live generation writes its book text before its state is persisted.
+        guard !isGenerating else { return }
+        let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        guard let names = try? fileManager.contentsOfDirectory(atPath: cachesDir.path) else { return }
+
+        let keep = loadPersistedState().map { $0.bookTextStorageKey }
+        var removed = 0
+        for name in names where name.hasPrefix("generation_booktext_") && name != keep {
+            do {
+                try fileManager.removeItem(at: cachesDir.appendingPathComponent(name))
+                removed += 1
+            } catch {
+                logger.warning("Failed to remove orphaned book text \(name, privacy: .public): \(error.localizedDescription)")
+            }
+        }
+        if removed > 0 {
+            logger.info("Removed \(removed) orphaned book text file(s)")
+        }
+    }
+
     private func bookTextStorageURL(for state: GenerationState) -> URL {
         let cachesDir = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? fileManager.temporaryDirectory
@@ -1388,92 +1420,6 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         return hints
     }
 
-    // MARK: - Audio Generation
-
-    /// Generate audio if the on-device Kokoro voice model is installed
-    /// - Parameters:
-    ///   - content: The text content to convert to audio
-    ///   - title: Title for logging purposes
-    ///   - generationId: UUID for unique file naming
-    ///   - readerProfile: Reader profile to select appropriate voice
-    private func generateAudioIfAvailable(
-        content: String,
-        title: String,
-        generationId: UUID,
-        libraryItemId: UUID? = nil,
-        readerProfile: ReaderProfile = .practitioner,
-        summaryType: SummaryType = .professional
-    ) async -> AudioGenerationResult? {
-
-        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let audioContent = sanitizeAudioContent(trimmedContent)
-        guard !audioContent.isEmpty else {
-            audioLog("⚠️ Skipping audio generation: empty content")
-            return nil
-        }
-
-        let wordCount = audioContent.split(whereSeparator: { $0.isWhitespace }).count
-        if wordCount < 200 {
-            audioLog("⚠️ Skipping audio generation: content too short (\(wordCount) words)")
-            return nil
-        }
-
-        // Narration needs an on-device engine: installed Kokoro or an Apple
-        // system voice. A stale hosted-token entry must not trigger the
-        // unavailable Liam route.
-        let availability = VoiceProviderAvailability.current
-        guard availability.kokoro || availability.apple else {
-            audioLog("⚠️ No narration engine available - skipping audio generation")
-            return nil
-        }
-
-        // The item ID (or generation ID) owns the "audio_<id>.<ext>" file the
-        // service writes into Documents.
-        let audioOwnerId = libraryItemId ?? generationId
-        audioLog("Starting narration for: \(title)")
-
-        do {
-            let asset = try await NarrationService.shared.synthesize(
-                text: content,
-                itemId: audioOwnerId,
-                summaryType: summaryType
-            )
-
-            audioLog("✅ Narration generated successfully")
-            audioLog("Duration: \(String(format: "%.1f", asset.duration)) seconds")
-            audioLog("File: \(asset.relativeFileName)")
-
-            return AudioGenerationResult(
-                fileURL: asset.relativeFileName,
-                voiceID: asset.voiceID,
-                duration: asset.duration
-            )
-        } catch {
-            audioLog("❌ Narration failed: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    /// Calculate audio duration from file
-    private func calculateAudioDuration(from url: URL) async throws -> TimeInterval {
-        let asset = AVURLAsset(url: url)
-        let duration = try await asset.load(.duration)
-        return CMTimeGetSeconds(duration)
-    }
-
-    private func sanitizeAudioContent(_ content: String) -> String {
-        var cleaned = content
-        // Remove bracketed tags (e.g., [PREMIUM_H1], [VISUAL_FLOWCHART], [/VISUAL_FLOWCHART])
-        cleaned = cleaned.replacingOccurrences(
-            of: "\\[[^\\]]+\\]",
-            with: "",
-            options: .regularExpression
-        )
-        // Collapse excessive whitespace
-        cleaned = cleaned.replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
-        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     // MARK: - Cover Image Saving
 
     /// Save cover image data to documents directory
@@ -1555,14 +1501,6 @@ private struct GovernorEnforcementResult {
     let wordCount: Int
     let cutPolicyActivated: Bool
     let cutEventCount: Int
-}
-
-// MARK: - Audio Generation Result
-
-private struct AudioGenerationResult {
-    let fileURL: String
-    let voiceID: String
-    let duration: TimeInterval
 }
 
 // MARK: - Streaming Governor Context

@@ -223,7 +223,15 @@ final class BulkExportCoordinator: ObservableObject {
         }
     }
 
-    private func performExport(items: [LibraryItem], format: ExportFormat) async throws -> BulkExportResult {
+    private func performExport(items rawItems: [LibraryItem], format: ExportFormat) async throws -> BulkExportResult {
+
+        // Bodies are not hydrated in the library list; read them from disk.
+        let items: [LibraryItem] = rawItems.map { item in
+            guard item.summaryContent == nil, let body = GuideBodyStore.load(item.id) else { return item }
+            var hydrated = item
+            hydrated.summaryContent = body
+            return hydrated
+        }
 
         // MARK: DEBUG Assertions - Prevent Misuse
 

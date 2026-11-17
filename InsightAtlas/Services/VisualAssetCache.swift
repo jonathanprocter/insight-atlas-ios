@@ -5,6 +5,7 @@
 //  Caches visual assets locally for offline PDF rendering.
 //
 
+import CryptoKit
 import UIKit
 import os.log
 
@@ -56,11 +57,10 @@ actor VisualAssetCache {
 
     /// Returns the local cache URL for a remote URL
     nonisolated func localURL(for remoteURL: URL) -> URL {
-        // Use a hash of the full URL to avoid collisions
-        let filename = (remoteURL.absoluteString.data(using: .utf8) ?? Data())
-            .base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-            .prefix(64)
+        // SHA-256 of the full URL: a truncated base64 prefix collided for URLs
+        // sharing a long common prefix (e.g. the same host and path stem).
+        let digest = SHA256.hash(data: Data(remoteURL.absoluteString.utf8))
+        let filename = digest.map { String(format: "%02x", $0) }.joined()
         let ext = remoteURL.pathExtension.isEmpty ? "png" : remoteURL.pathExtension
         return cacheDirectory.appendingPathComponent("\(filename).\(ext)")
     }

@@ -46,7 +46,9 @@ final class NarrationControlViewModel: ObservableObject {
     }
 
     func generate(item: LibraryItem) {
-        guard generationTask == nil, let summary = item.summaryContent, !summary.isEmpty else { return }
+        guard generationTask == nil,
+              let summary = item.summaryContent ?? DataManager.shared.guideBody(for: item.id),
+              !summary.isEmpty else { return }
         isPreparing = true
         errorMessage = nil
         canRetry = false
@@ -206,14 +208,13 @@ final class NarrationControlViewModel: ObservableObject {
 
     func narratorName(for voiceID: String?) -> String {
         guard let voiceID else { return "Narrator" }
-        if voiceID == KokoroTTSClient.voice { return "Liam" }
         if let kokoro = KokoroVoiceRegistry.voice(byVoiceID: voiceID) {
             return kokoro.name
         }
         if let apple = AppleVoiceCatalog.voice(byID: voiceID) {
             return apple.name
         }
-        return voiceID
+        return "Apple Voice"
     }
 
     static func audioURL(for filename: String) -> URL? {

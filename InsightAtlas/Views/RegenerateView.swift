@@ -9,7 +9,7 @@ import SwiftUI
 
 struct RegenerateView: View {
 
-    @EnvironmentObject var dataManager: DataManager
+    @EnvironmentObject var environment: AppEnvironment
     @Environment(\.dismiss) private var dismiss
 
     let item: LibraryItem
@@ -23,16 +23,15 @@ struct RegenerateView: View {
     @State private var auditReport: QualityAuditService.AuditReport?
     @State private var errorMessage: String?
     @State private var showingError = false
+    @State private var hasPersistedSource = false
 
     // User-selectable generation options
     @State private var selectedProvider: AIProvider = .minimax
-    @State private var selectedMode: GenerationMode = .deepResearch
+    @State private var selectedMode: GenerationMode = .standard
     @State private var selectedTone: ToneMode = .professional
     @State private var selectedFormat: OutputFormat = .fullGuide
-    @State private var selectedSummaryType: SummaryType = .deepResearch
+    @State private var selectedSummaryType: SummaryType = .professional
 
-    private let aiService = AIService()
-    private let bookProcessor = BookProcessor()
     static let supportedProviders = AIProvider.allCases
     private var availableProviders: [AIProvider] { Self.supportedProviders }
 
@@ -47,6 +46,7 @@ struct RegenerateView: View {
         case improving = "Improving Content..."
         case complete = "Generation Complete"
         case failed = "Generation Failed"
+        case unavailable = "Original manuscript unavailable"
     }
 
     var body: some View {
@@ -56,8 +56,12 @@ struct RegenerateView: View {
                     // Status Header
                     statusHeader
 
+                    if !hasPersistedSource {
+                        sourceMissingBanner
+                    }
+
                     // Generation Options (shown when ready or failed)
-                    if phase == .ready || phase == .failed {
+                    if (phase == .ready || phase == .failed) && hasPersistedSource {
                         generationOptionsSection
                     }
 
@@ -99,15 +103,35 @@ struct RegenerateView: View {
             }
         }
         .onAppear {
-            // Initialize with user's saved settings
-            selectedProvider = availableProviders.contains(dataManager.userSettings.preferredProvider)
-                ? dataManager.userSettings.preferredProvider
-                : .claude
-            selectedMode = dataManager.userSettings.preferredMode
-            selectedTone = dataManager.userSettings.preferredTone
-            selectedFormat = dataManager.userSettings.preferredFormat
-            selectedSummaryType = dataManager.userSettings.preferredSummaryType
+            hasPersistedSource = SourceTextStore.exists(item.id)
+            if !hasPersistedSource {
+                phase = .unavailable
+            }
+            // AppEnvironment is the single settings source of truth.
+            let settings = environment.userSettings
+            selectedProvider = availableProviders.contains(settings.preferredProvider)
+                ? settings.preferredProvider
+                : .minimax
+            selectedMode = settings.preferredMode
+            selectedTone = settings.preferredTone
+            selectedFormat = settings.preferredFormat
+            selectedSummaryType = settings.preferredSummaryType
         }
+    }
+
+    private var sourceMissingBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Original manuscript unavailable")
+                .font(InsightAtlasTypography.h4)
+                .foregroundColor(InsightAtlasColors.heading)
+            Text("This guide was saved before source text was persisted. Re-import the book to regenerate — regenerating from the guide body would paraphrase a summary.")
+                .font(InsightAtlasTypography.bodySmall)
+                .foregroundColor(InsightAtlasColors.muted)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(InsightAtlasColors.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - View Components
@@ -378,7 +402,12 @@ struct RegenerateView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            if phase == .ready {
+            if phase == .unavailable {
+                Text("Re-import the original file to regenerate this guide.")
+                    .font(InsightAtlasTypography.caption)
+                    .foregroundColor(InsightAtlasColors.coral)
+                    .multilineTextAlignment(.center)
+            } else if phase == .ready {
                 Button {
                     startRegeneration()
                 } label: {
@@ -387,6 +416,7 @@ struct RegenerateView: View {
                         .premiumPrimaryCTA()
                 }
                 .buttonStyle(.plain)
+                .disabled(!hasPersistedSource)
             } else if phase == .complete && currentScore >= passingThreshold {
                 Button {
                     onComplete(currentContent, currentScore)
@@ -438,7 +468,7 @@ struct RegenerateView: View {
             return InsightAtlasColors.gold
         case .complete:
             return currentScore >= passingThreshold ? PremiumUI.celadon : PremiumUI.destructive
-        case .failed:
+        case .failed, .unavailable:
             return InsightAtlasColors.coral
         }
     }
@@ -457,7 +487,7 @@ struct RegenerateView: View {
             return "arrow.up.circle"
         case .complete:
             return currentScore >= passingThreshold ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-        case .failed:
+        case .failed, .unavailable:
             return "xmark.circle.fill"
         }
     }
@@ -465,6 +495,12 @@ struct RegenerateView: View {
     // MARK: - Methods
 
     private func startRegeneration() {
+        guard hasPersistedSource else {
+            phase = .unavailable
+            errorMessage = "Original manuscript unavailable. Re-import the book to regenerate."
+            showingError = true
+            return
+        }
         isGenerating = true
         phase = .generating
         iterationCount += 1
@@ -520,8 +556,20 @@ struct RegenerateView: View {
     }
 
     private func generateContent() async throws -> String {
+        guard let bookText = SourceTextStore.load(item.id),
+              !bookText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw NSError(
+                domain: "InsightAtlas.Regenerate",
+                code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Original manuscript unavailable. Re-import the book to regenerate."
+                ]
+            )
+        }
+
         // Create settings with user-selected options from the UI
-        var settings = dataManager.userSettings
+        var settings = environment.userSettings
         settings.preferredProvider = selectedProvider
         settings.preferredMode = selectedMode
         settings.preferredTone = selectedTone
@@ -549,9 +597,9 @@ struct RegenerateView: View {
             currentContent = ""
         }
 
-        // Generate using selected options
-        let result = try await aiService.generateGuide(
-            bookText: item.summaryContent ?? "Book content not available",
+        // Generate from the persisted manuscript — never the guide body.
+        let result = try await environment.aiService.generateGuide(
+            bookText: bookText,
             title: item.title,
             author: item.author,
             settings: settings,
@@ -592,5 +640,5 @@ struct RegenerateView: View {
         ),
         onComplete: { _, _ in }
     )
-    .environmentObject(DataManager())
+    .environmentObject(AppEnvironment.shared)
 }

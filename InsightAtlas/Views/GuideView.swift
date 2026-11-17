@@ -9,7 +9,22 @@ struct GuideView: View {
 
     // MARK: - Properties
 
-    let item: LibraryItem
+    /// The item as handed in by the library. Its `summaryContent` is nil
+    /// because bodies are not hydrated at launch; `item` overlays the body
+    /// loaded from disk in `loadBody()`.
+    private let libraryItem: LibraryItem
+
+    init(item: LibraryItem) {
+        self.libraryItem = item
+        _isLoadingBody = State(initialValue: item.summaryContent == nil && item.hasGuideBody)
+    }
+
+    private var item: LibraryItem {
+        guard libraryItem.summaryContent == nil, let loadedBody else { return libraryItem }
+        var hydrated = libraryItem
+        hydrated.summaryContent = loadedBody
+        return hydrated
+    }
 
     // MARK: - Environment
 
@@ -36,7 +51,11 @@ struct GuideView: View {
     @State private var shareItem: URL?
     @State private var showRegenerateOptions = false
     @State private var isRegeneratingContent = false
+    @State private var loadedBody: String?
+    @State private var isLoadingBody = false
+    #if DEBUG
     @State private var showOnDevicePreview = false  // SPIKE: on-device Foundation Models preview
+    #endif
     
     // MARK: - Computed Properties
     
@@ -71,6 +90,10 @@ struct GuideView: View {
                                 title: item.title,
                                 author: item.author
                             )
+                        } else if isLoadingBody {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 48)
                         } else {
                             emptyContentView
                         }
@@ -83,7 +106,7 @@ struct GuideView: View {
             }
             .background(PremiumUI.background)
             
-            // Shared narration control: on-device Kokoro, then hosted Liam.
+            // Shared narration control: on-device Pocket (Kokoro), then Apple Voice.
             if item.summaryContent != nil {
                 NarrationControlsView(item: item)
                 .padding(.horizontal)
@@ -161,6 +184,7 @@ struct GuideView: View {
             })
                 .environmentObject(environment)
         }
+        #if DEBUG
         .sheet(isPresented: $showOnDevicePreview) {
             NavigationStack {
                 OnDeviceInsightPreviewView(
@@ -175,10 +199,24 @@ struct GuideView: View {
                 }
             }
         }
+        #endif
+        .task { await loadBody() }
         .onAppear {
             generateTableOfContents()
             loadBookmarks()
         }
+    }
+
+    /// Reads the guide body off the main actor, then rebuilds the table of
+    /// contents, which needs the text.
+    private func loadBody() async {
+        guard libraryItem.summaryContent == nil, loadedBody == nil else { return }
+        isLoadingBody = true
+        let id = libraryItem.id
+        let body = await Task.detached(priority: .userInitiated) { GuideBodyStore.load(id) }.value
+        loadedBody = body
+        isLoadingBody = false
+        generateTableOfContents()
     }
 
     // MARK: - Toolbar Content
@@ -207,6 +245,7 @@ struct GuideView: View {
             exportSubmenu
             Divider()
             regenerateSubmenu
+            #if DEBUG
             if item.summaryContent != nil {
                 Divider()
                 Button {
@@ -216,6 +255,7 @@ struct GuideView: View {
                 }
                 .accessibilityIdentifier("guide_ondevice_preview_button")
             }
+            #endif
             Divider()
             deleteButton
         } label: {
@@ -739,7 +779,7 @@ struct GuideView: View {
                         // library items export cleanly, then hard-blocks any
                         // manuscript with unshippable defects (mid-sentence
                         // truncation, brand strings leaking into body prose).
-                        let content = try ManuscriptGate.prepareForExport(rawContent)
+                        let content = try ManuscriptGate.prepareForExport(rawContent, title: item.title, author: item.author)
 
                         // Rasterize structured visuals into the cache BEFORE layout
                         // (else [VISUAL_*] blocks miss the cache and fall back).

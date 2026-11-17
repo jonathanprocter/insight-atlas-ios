@@ -82,7 +82,7 @@ enum DebugGuideSnapshot {
     static func runIfRequested(environment: AppEnvironment) {
         guard ProcessInfo.processInfo.arguments.contains("-ia-render-guide"),
               let item = environment.dataManager.libraryItems.first,
-              let content = item.summaryContent else { return }
+              let content = item.summaryContent ?? GuideBodyStore.load(item.id) else { return }
 
         let view = EditorialContentRenderer(
             content: content,

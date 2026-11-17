@@ -6,7 +6,7 @@
 //
 //  This is the on-device audio path: `AVSpeechSynthesizer`. It is NOT Apple
 //  Intelligence (Foundation Models has no TTS) — it's the classic on-device
-//  speech engine. Quality is well below the Kokoro/Liam pipeline, so this is
+//  speech engine. Quality is well below the Pocket (Kokoro) pipeline, so this is
 //  strictly a *fallback* for when the Kokoro gateway is unreachable, clearly
 //  labeled as such in the UI.
 //

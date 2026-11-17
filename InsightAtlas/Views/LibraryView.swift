@@ -37,14 +37,13 @@ struct LibraryView: View {
                     .prefix(10)
             )
         case .drafts:
-            items = items.filter { $0.summaryContent?.isEmpty != false }
+            items = items.filter { !$0.hasGuideBody }
         }
 
         if !searchText.isEmpty {
             items = items.filter { item in
                 item.title.localizedCaseInsensitiveContains(searchText) ||
-                item.author.localizedCaseInsensitiveContains(searchText) ||
-                (item.summaryContent?.localizedCaseInsensitiveContains(searchText) ?? false)
+                item.author.localizedCaseInsensitiveContains(searchText)
             }
         }
 
@@ -572,7 +571,7 @@ enum PremiumGuideStatus: String {
         case "Systems Thinking": self = .inProgress
         case "The Architecture of Attachment": self = .completed
         default:
-            if item.summaryContent == nil { self = .inProgress }
+            if !item.hasGuideBody { self = .inProgress }
             else if item.audioFileURL != nil { self = .completed }
             else { self = .new }
         }

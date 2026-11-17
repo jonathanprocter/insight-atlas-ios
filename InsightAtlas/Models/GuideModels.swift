@@ -8,6 +8,8 @@ struct LibraryItem: Identifiable, Codable {
     var title: String
     var author: String
     var fileType: FileType
+    /// Guide body. Not hydrated at launch: `nil` here does not mean the guide
+    /// has no content — see `hasGuideBody` and `DataManager.guideBody(for:)`.
     var summaryContent: String?
     var provider: AIProvider
     var mode: GenerationMode
@@ -17,6 +19,12 @@ struct LibraryItem: Identifiable, Codable {
     var isFavorite: Bool?
     var createdAt: Date
     var updatedAt: Date
+
+    /// Whether a body exists, inline or on disk, without loading it.
+    var hasGuideBody: Bool {
+        if let inline = summaryContent, !inline.isEmpty { return true }
+        return GuideBodyStore.hasBody(id)
+    }
 
     // MARK: - Summary Type Governor Metadata (v1.0)
 
@@ -43,7 +51,7 @@ struct LibraryItem: Identifiable, Codable {
     /// Audio duration in seconds
     var audioDuration: TimeInterval?
 
-    /// Durable narration lifecycle state for the Liam (Kokoro) pipeline.
+    /// Durable narration lifecycle state for the Pocket (Kokoro) pipeline.
     /// `nil` on legacy items — see `effectiveNarrationState`.
     var narrationState: NarrationState?
 
@@ -237,7 +245,7 @@ enum FileType: String, Codable {
 
 // MARK: - Narration State
 
-/// Durable lifecycle state for a guide's Liam (Kokoro) narration.
+/// Durable lifecycle state for a guide's Pocket (Kokoro) narration.
 ///
 /// Persisted on `LibraryItem` so an in-progress or failed narration survives a
 /// relaunch. Legacy items saved before this field existed decode as `nil`;
@@ -667,12 +675,12 @@ struct UserSettings: Codable {
 
     init(
         preferredProvider: AIProvider = .minimax,
-        preferredMode: GenerationMode = .deepResearch,
+        preferredMode: GenerationMode = .standard,
         preferredTone: ToneMode = .professional,
         preferredFormat: OutputFormat = .fullGuide,
-        preferredSummaryType: SummaryType = .deepResearch,
+        preferredSummaryType: SummaryType = .professional,
         preferredReaderProfile: ReaderProfile = .practitioner,
-        autoGenerateAudio: Bool = true,
+        autoGenerateAudio: Bool = false,
         selectedVoiceID: String? = nil,
         playbackSpeed: PlaybackSpeed = .normal,
         voiceProvider: VoiceProvider = .kokoro

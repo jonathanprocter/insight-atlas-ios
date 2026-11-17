@@ -23,7 +23,7 @@ struct GenerationView: View {
     @State private var selectedFileType: FileType?
     @State private var cachedFileData: Data?
 
-    // Narration state — voice is fixed (Liam); no selection UI.
+    // Narration state — voice is fixed (Pocket / Apple Voice); no selection UI.
     @State private var audioSpeed: Double = 1.0
 
     // MARK: - Body
@@ -663,7 +663,7 @@ struct GenerationView: View {
     /// persisted item's `narrationState` as it progresses. Any failure/hang
     /// surfaces as `.failed` on the item rather than freezing the UI.
     private func startBackgroundNarration(for item: LibraryItem) {
-        guard let content = item.summaryContent else { return }
+        guard let content = item.summaryContent ?? GuideBodyStore.load(item.id) else { return }
         guard !NarrationTextSanitizer.prepare(content).isEmpty else { return }
         let itemId = item.id
 

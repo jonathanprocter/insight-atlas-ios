@@ -49,7 +49,7 @@ public enum LLMActionRouter {
             return .success("Accent set to \(name)")
         }
         if identifier.hasPrefix("voice_row_") || identifier.hasPrefix("voice_preview_") {
-            return .failure("Narration voice is fixed (Liam); voice selection is unavailable.")
+            return .failure("Narration voice is fixed (Pocket / Apple Voice); voice selection is unavailable.")
         }
         if identifier.hasPrefix("securefield_toggle_visibility_") {
             return .failure("Visibility toggle is UI-only and requires a tap.")
@@ -81,7 +81,7 @@ public enum LLMActionRouter {
             return .success("Sepia Reading Mode set to \(newValue)")
 
         case "voice_provider_picker":
-            return .failure("Narration voice is fixed (Liam); the voice provider is not configurable.")
+            return .failure("Narration voice is fixed (Pocket / Apple Voice); the voice provider is not configurable.")
 
         case "playback_speed_picker":
             guard let v = value, let speed = parsePlaybackSpeed(v) else {
@@ -101,18 +101,18 @@ public enum LLMActionRouter {
             }
 
         case "contact_support_button":
-            if let url = URL(string: "mailto:support@example.com") {
+            if let url = SettingsView.supportURL {
                 UIApplication.shared.open(url)
                 return .success("Opened mail composer")
             }
-            return .failure("Unable to open mail composer")
+            return .failure("Support contact is not configured")
 
         case "rate_app_button":
-            if let url = URL(string: "itms-apps://itunes.apple.com/app/id000000000?action=write-review") {
+            if let url = SettingsView.reviewURL {
                 UIApplication.shared.open(url)
                 return .success("Opened App Store review page")
             }
-            return .failure("Unable to open App Store")
+            return .failure("App Store review link is not configured")
 
         case "securefield_claude":
             guard let v = value else { return .failure("Provide an API key value.") }
@@ -190,7 +190,7 @@ public enum LLMActionRouter {
             environment.saveSettings()
             return .success("Summary type set to \(s.displayName)")
         case "generation_voice_provider_picker":
-            return .failure("Narration voice is fixed (Liam); the voice provider is not configurable.")
+            return .failure("Narration voice is fixed (Pocket / Apple Voice); the voice provider is not configurable.")
         case "generation_audio_speed_slider":
             return .failure("Slider changes require UI context.")
         case "generation_choose_file_button", "generation_generate_button":

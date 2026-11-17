@@ -73,17 +73,18 @@ Audio listeners must receive equivalent conceptual understanding without visual 
 
 **Enforcement:**
 - `AudioVisualBridgeGenerator` produces conceptual bridges
-- `OutputContractValidator.uncleanNarrationText` catches forbidden patterns
+- `NarrationVisualSpeechScrubber` strips forbidden phrases from spoken scripts before cache/speak
+- `OutputContractValidator` + `ManuscriptGate.prepareForExport` soft-check export contracts
 - Review any audio text that references visual elements
 
 ---
 
 ## 🔒 Lock 4: Keychain-Only API Key Storage
 
-**Location:** `KeychainService.swift`, `ElevenLabsAudioService.swift`
+**Location:** `KeychainService.swift`, `MiniMaxOAuthService.swift`
 
 **Invariant:**
-All API keys are stored exclusively in iOS Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`.
+All API keys and OAuth tokens are stored exclusively in iOS Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`.
 
 **Forbidden:**
 - API keys in source code
@@ -95,7 +96,8 @@ All API keys are stored exclusively in iOS Keychain with `kSecAttrAccessibleWhen
 
 **Enforcement:**
 - `KeychainService` is the single source of truth
-- `ElevenLabsAudioService.generateAudio()` retrieves key at request time
+- `clearAllKeys()` also clears MiniMax OAuth tokens
+- Narration is Pocket on-device + Apple system voices (hosted Liam TTS removed)
 - Security comments enforce no-logging policy
 
 ---

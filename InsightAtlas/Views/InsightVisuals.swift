@@ -2366,7 +2366,10 @@ enum VisualRasterizer {
             .environment(\.colorScheme, .light)
 
         let renderer = ImageRenderer(content: content)
-        renderer.scale = 3          // print-quality raster
+        // Scale 2 (~192 dpi at PDF size) is plenty for a page-width figure. 3x
+        // cost ~2.25x the memory per bitmap, and a guide can carry dozens of
+        // visuals rasterized back to back on the main actor.
+        renderer.scale = 2
         renderer.isOpaque = true
         return renderer.uiImage
     }
@@ -2378,9 +2381,17 @@ enum VisualRasterizer {
 /// any visual left uncached simply falls back to its table/text representation.
 @MainActor
 enum PDFVisualPrerenderer {
+    private static let maxPrerenderedVisuals = 40
+
     static func prerender(content: String) async {
-        let visuals = PDFAnalysisDocument.extractVisuals(from: content)
-        guard !visuals.isEmpty else { return }
+        let allVisuals = PDFAnalysisDocument.extractVisuals(from: content)
+        guard !allVisuals.isEmpty else { return }
+        // Bound main-actor work and peak memory; visuals past the cap take their
+        // native table/text fallback at draw time.
+        let visuals = allVisuals.prefix(maxPrerenderedVisuals)
+        if allVisuals.count > maxPrerenderedVisuals {
+            print("🖼️ [PDF Visual] capping prerender at \(maxPrerenderedVisuals) of \(allVisuals.count) visuals")
+        }
 
         let cache = VisualAssetCache.shared
         for visual in visuals {
@@ -2396,6 +2407,7 @@ enum PDFVisualPrerenderer {
             }
             guard let data = image.pngData() else { continue }
             try? data.write(to: cache.localURL(for: url), options: .atomic)
+            await Task.yield()
         }
     }
 }
