@@ -11,7 +11,7 @@ enum GuidePDFExporter {
 // MARK: - PDF Generation
 
 static func generate(content: String, title: String, author: String, to url: URL) throws {
-    let renderOnMain: () throws -> Void = {  in
+    let renderOnMain: () throws -> Void = {
         // Use the new InsightAtlasPDFRenderer for premium PDF generation
         let pdfRenderer = InsightAtlasPDFRenderer()
 

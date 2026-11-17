@@ -88,7 +88,7 @@ struct MarkdownValidationResult {
 }
 
 /// Validates markdown content for proper block marker matching
-func validateMarkdown(_ content: String) -> MarkdownValidationResult {
+static func validateMarkdown(_ content: String) -> MarkdownValidationResult {
     var openBlocks: [(type: String, line: Int)] = []
     var unmatchedEndMarkers: [String] = []
     var warnings: [String] = []
