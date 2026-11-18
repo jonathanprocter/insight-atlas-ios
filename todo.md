@@ -69,8 +69,8 @@
 - [x] Route tagged SPECTRUM / HIERARCHY / LINE/AREA to native PDF diagram blocks
 - [x] Unify visual tag canonicalize across reader, PDF, and HTML
 - [x] Integrate and synchronize local and GitHub branches (audit PR #9 on `cursor/full-app-fixes-9243`)
-- [ ] Assign the next unique TestFlight build number
-- [ ] Archive, upload, and verify internal TestFlight availability
-- [ ] Tag the accepted build and deliver release evidence
+- [x] Assign the next unique TestFlight build number — `2026111702` (Debug + Release)
+- [ ] Archive, upload, and verify internal TestFlight availability — archived + uploaded; ASC `processingState=VALID`. **Remaining:** install `2026111702` from TestFlight on device and confirm charts render, no mid-word hyphens, section cadence varies.
+- [x] Tag the accepted build and deliver release evidence — `build-2026111702` on `1cc1677`, pushed
 
-> Audit backlog is complete on tip — see **`docs/STATUS.md`** and **`docs/audits/2026-11-17-full-app-audit.md`**. Next step is TestFlight via `scripts/release-testflight.sh`.
+> Audit backlog is complete on tip — see **`docs/STATUS.md`** and **`docs/audits/2026-11-17-full-app-audit.md`**. TestFlight **2026111702** is uploaded and VALID — see **`docs/STATUS.md`** for release mechanics (must run in the console session, ASC API key for upload). Next step is on-device verification.

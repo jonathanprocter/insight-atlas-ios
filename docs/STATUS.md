@@ -1,6 +1,6 @@
 # Insight Atlas — Current Status
 
-**Tip:** `cursor/full-app-fixes-9243` (audit PR **#9**)  
+**Tip:** `main` @ `1cc1677` (audit PR **#9** + reader PR **#10**, both merged)  
 **Date:** 2026-11-17
 
 ## Product tip
@@ -38,9 +38,19 @@ Full ranked audit (`docs/audits/2026-11-17-full-app-audit.md`, 40 findings) is i
 
 ## Device / release
 
-TestFlight **2026111701** uploaded from `main` @ `04c18a1` / bump `06061e5`.
+TestFlight **2026111702** uploaded from `main` @ `0f2d9f7` / bump `1cc1677`, tag `build-2026111702`.
+App Store Connect `processingState=VALID` (Apple accepted; onnxruntime/SherpaOnnxC strip held, no ITMS-90208).
+Marketing version stays **1.0**. Previous: **2026111701** from `main` @ `04c18a1` / bump `06061e5`.
 
-### Reader follow-up (`cursor/reader-visuals-hyphens-9243`)
+**Release mechanics:** `scripts/release-testflight.sh` cannot run over plain SSH. `codesign` fails
+`errSecInternalComponent` and `git push` fails on `osxkeychain` because a non-GUI session cannot reach the
+unlocked login keychain. Run it inside the console session instead:
+`sudo launchctl asuser 501 sudo -u jonathanprocter <script>`. Xcode Accounts upload still fails
+“Failed to Use Accounts”, so export with the ASC API key instead: pass `-authenticationKeyPath`,
+`-authenticationKeyID` and `-authenticationKeyIssuerID` to `xcodebuild -exportArchive`. The key and issuer
+live on the release Mac under `~/.appstoreconnect/` (not in this repo).
+
+### Reader follow-up (PR **#10**, `cursor/reader-visuals-hyphens-9243` — merged)
 
 Device screenshots showed broken charts + mid-word hyphens. Root causes (not OCR chrome):
 
