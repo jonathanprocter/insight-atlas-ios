@@ -25,10 +25,12 @@ final class ManuscriptGateExportTests: XCTestCase {
     }
 
     func testRepairsSafeDefectsBeforeExport() throws {
-        // Soft hyphens + missing sentence space are normalized before the hard gate.
-        let dirty = "self\u{00AD}constructed. them.The next idea stands complete. In summary, done."
+        // Soft hyphens rejoin; missing sentence space is normalized before the hard gate.
+        let dirty = "re\u{00AD}vising. them.The next idea stands complete. In summary, done."
         let prepared = try ManuscriptGate.prepareForExport(dirty, title: "T", author: "A")
         XCTAssertFalse(prepared.contains("\u{00AD}"))
+        XCTAssertTrue(prepared.contains("revising"))
+        XCTAssertFalse(prepared.contains("re-vising"))
         XCTAssertTrue(prepared.contains("them. The"))
     }
 }

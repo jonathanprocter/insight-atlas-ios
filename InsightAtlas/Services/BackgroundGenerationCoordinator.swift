@@ -968,7 +968,10 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         return (finalContent, governorResult)
     }
 
-    private func sanitizeGeneratedContent(_ content: String) -> String {
+    /// Strips unknown bare tags while preserving editorial + visual DSL.
+    /// Internal for regression tests — `VISUAL_*` wrappers must survive or the
+    /// reader shows raw payloads instead of charts.
+    func sanitizeGeneratedContent(_ content: String) -> String {
         let canonicalContent = EditorialMarkupCanonicalizer.canonicalize(content)
         let lines = canonicalContent.components(separatedBy: "\n")
         var output: [String] = []
@@ -992,6 +995,18 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             "PROCESS_TIMELINE",
             "CONCEPT_MAP"
         ])
+
+        func isPreservedTag(_ tagName: String) -> Bool {
+            knownTags.contains(tagName)
+                || tagName.hasPrefix("EXERCISE_")
+                || tagName.hasPrefix("VISUAL_")
+        }
+
+        func isClosableTag(_ tagName: String) -> Bool {
+            closableTags.contains(tagName)
+                || tagName.hasPrefix("EXERCISE_")
+                || tagName.hasPrefix("VISUAL_")
+        }
 
         func parseOpenTagName(_ line: String) -> String? {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -1063,16 +1078,16 @@ final class BackgroundGenerationCoordinator: ObservableObject {
             }
 
             if let tagName = parseOpenTagName(trimmed) {
-                if isBareTagLine(trimmed), !knownTags.contains(tagName), !tagName.hasPrefix("EXERCISE_") {
+                // Drop unknown bare tags (model junk). Keep VISUAL_* so charts
+                // still route through InsightVisualParser in the reader.
+                if isBareTagLine(trimmed), !isPreservedTag(tagName) {
                     continue
                 }
-                if tagName.hasPrefix("EXERCISE_") || closableTags.contains(tagName) {
-                    if isBareTagLine(trimmed) {
-                        openTagStack.append(tagName)
-                    }
+                if isClosableTag(tagName), isBareTagLine(trimmed) {
+                    openTagStack.append(tagName)
                 }
             } else if let tagName = parseCloseTagName(trimmed) {
-                if isBareTagLine(trimmed), !knownTags.contains(tagName), !tagName.hasPrefix("EXERCISE_") {
+                if isBareTagLine(trimmed), !isPreservedTag(tagName) {
                     continue
                 }
                 if let top = openTagStack.last, top == tagName {

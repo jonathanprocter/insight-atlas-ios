@@ -247,13 +247,18 @@ struct AnalysisDetailView: View {
     private func loadBody() async {
         guard libraryItem.summaryContent == nil, loadedBody == nil else { return }
         let id = libraryItem.id
-        loadedBody = await Task.detached(priority: .userInitiated) { GuideBodyStore.load(id) }.value
+        loadedBody = await Task.detached(priority: .userInitiated) {
+            guard let raw = GuideBodyStore.load(id) else { return nil as String? }
+            // Soft-hyphen / glyph repair for bodies saved before extract fixes.
+            return ManuscriptNormalizer.normalize(raw)
+        }.value
         parseContent()
     }
 
     private func parseContent() {
         guard let content = item.summaryContent else { return }
-        parsedContent = ParsedAnalysisContent.parse(from: content)
+        // Inline bodies (just-generated) also get soft-hyphen repair before parse.
+        parsedContent = ParsedAnalysisContent.parse(from: ManuscriptNormalizer.normalize(content))
     }
 
     // MARK: - Audio Player UI

@@ -38,4 +38,19 @@ Full ranked audit (`docs/audits/2026-11-17-full-app-audit.md`, 40 findings) is i
 
 ## Device / release
 
-Ready for TestFlight handoff: bump build → `scripts/release-testflight.sh` → physical-iPhone smoke after processing.
+TestFlight **2026111701** uploaded from `main` @ `04c18a1` / bump `06061e5`.
+
+### Reader follow-up (`cursor/reader-visuals-hyphens-9243`)
+
+Device screenshots showed broken charts + mid-word hyphens. Root causes (not OCR chrome):
+
+1. **Generate-time:** `sanitizeGeneratedContent` dropped `[VISUAL_*]` wrappers → raw payloads in reader
+2. **Extract-time:** PDF EOL hyphenation not rejoined; soft hyphens were hardened to `-`
+
+**Fix:** preserve `VISUAL_*`, rejoin EOL hyphens, strip soft hyphens, accept `→` network links, normalize on reader load.
+
+**Note:** Guides already saved without `VISUAL_*` tags need **Regenerate** (source is in `SourceTextStore`) to restore charts. Soft-hyphen cleanup applies on open without regenerate.
+
+### Structural variation
+
+Guides felt formulaic because every numbered section was prompt-forced into the same six bold-labelled parts. Prompt now uses a **rotating cadence menu** (claim-led / evidence-led / mechanism-first / strain-first / practitioner), optional single orientation page, and lint no longer implies six labelled parts. Regenerate to feel the change.

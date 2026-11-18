@@ -50,19 +50,22 @@ enum CanonicalNames {
 enum ManuscriptNormalizer {
 
     /// Scalars that represent a corrupted hard hyphen when they sit between two
-    /// word characters (`self￾constructed`, `here-and￾now`). Replaced with `-`
-    /// in that position; removed everywhere else.
+    /// Corrupted hyphen stand-ins between word characters become `-`
+    /// (`self￾constructed` → `self-constructed`). Soft hyphens are not here —
+    /// they are discretionary breaks and must rejoin (see `alwaysStripScalars`).
     private static let corruptedHyphenScalars: Set<Unicode.Scalar> = [
-        "\u{00AD}", // soft hyphen
         "\u{FFFD}", // replacement character
         "\u{FFFE}", // noncharacter
         "\u{FFFF}", // noncharacter
     ]
 
-    /// Zero-width / byte-order scalars that are always removed.
+    /// Zero-width / byte-order / discretionary scalars that are always removed.
+    /// Soft hyphen (U+00AD) must rejoin (`re\u{00AD}vising` → `revising`), matching
+    /// `PDFTextFixer` — hardening it to `-` produced mid-word fragments on device.
     private static let alwaysStripScalars: Set<Unicode.Scalar> = [
         "\u{FEFF}", // BOM / zero-width no-break space
         "\u{200B}", // zero-width space
+        "\u{00AD}", // soft hyphen
     ]
 
     /// Repair the assembled manuscript in place. Idempotent: running it twice

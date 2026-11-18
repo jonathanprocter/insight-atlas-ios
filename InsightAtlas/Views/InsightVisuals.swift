@@ -602,6 +602,20 @@ struct InsightVisualParser {
         }
     }
 
+    /// Split an edge line on ASCII `->` or Unicode `→` (models emit both).
+    private static func splitArrowEdge(_ payload: String) -> (String, String)? {
+        let separators = ["->", "→"]
+        for separator in separators {
+            let parts = payload.components(separatedBy: separator)
+            guard parts.count == 2 else { continue }
+            let left = parts[0].trimmingCharacters(in: .whitespaces)
+            let right = parts[1].trimmingCharacters(in: .whitespaces)
+            guard !left.isEmpty, !right.isEmpty else { continue }
+            return (left, right)
+        }
+        return nil
+    }
+
     /// Splits one pipe-delimited table row into cells.
     ///
     /// Only the artifacts of the optional leading/trailing edge pipes are
@@ -714,10 +728,7 @@ struct InsightVisualParser {
                     }
                 } else if line.lowercased().hasPrefix("link:") {
                     let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
-                    let parts = payload.components(separatedBy: "->")
-                    if parts.count == 2 {
-                        let left = parts[0].trimmingCharacters(in: .whitespaces)
-                        let right = parts[1].trimmingCharacters(in: .whitespaces)
+                    if let (left, right) = Self.splitArrowEdge(payload) {
                         connections.append(NetworkGraphData.Connection(from: left, to: right, type: nil, strength: nil))
                     }
                 }
@@ -876,10 +887,8 @@ struct InsightVisualParser {
 
         case .sankeyDiagram:
             let flows = trimmed.compactMap { line -> SankeyData.Flow? in
-                let parts = line.components(separatedBy: "->")
-                guard parts.count == 2 else { return nil }
-                let left = parts[0].trimmingCharacters(in: .whitespaces)
-                let rightParts = parts[1].split(separator: ":", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+                guard let (left, rightSide) = Self.splitArrowEdge(line) else { return nil }
+                let rightParts = rightSide.split(separator: ":", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
                 guard rightParts.count == 2, let value = Double(rightParts[1]) else { return nil }
                 return SankeyData.Flow(from: left, to: rightParts[0], value: value)
             }

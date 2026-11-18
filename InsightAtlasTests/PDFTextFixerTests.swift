@@ -270,6 +270,16 @@ final class PDFTextFixerTests: XCTestCase {
 
     // MARK: - Page Break Tests
 
+    func testEndOfLineHyphenationIsRejoined() {
+        XCTAssertEqual(fixer.fix("ob-\nserved"), "observed")
+        XCTAssertEqual(fixer.fix("re-\nvising"), "revising")
+        XCTAssertEqual(fixer.fix("ac-\ntion"), "action")
+        // Real compounds without a newline keep their hyphen.
+        XCTAssertEqual(fixer.fix("self-constructed"), "self-constructed")
+        // Soft hyphens rejoin via typography normalization.
+        XCTAssertEqual(fixer.fix("ob\u{00AD}served"), "observed")
+    }
+
     func testPageBreakArtifacts() {
         // Form feed followed by orphaned continuation
         XCTAssertEqual(fixer.fix("\u{000C} is allows"), "\u{000C}This allows")

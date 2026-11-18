@@ -230,22 +230,23 @@ struct InsightAtlasPromptGenerator {
         - Output only the guide content—no meta-instructions or system notes
 
         ───
-        GUIDE STRUCTURE (FIXED ORDER — THEMATIC BODY, LAYERED DEPTH)
+        GUIDE STRUCTURE (LAYERED DEPTH — THEMATIC BODY, VARIED SECTION SHAPE)
         ───
 
-        The guide has a fixed skeleton. Emit every part below, in this order, with the exact heading text shown. Headings are ALWAYS emitted as [PREMIUM_H2]…[/PREMIUM_H2] tags — never as a bare line, never as **bold**, never as markdown #. A heading emitted any other way renders as body text and disappears from the table of contents.
+        Keep the product layers below. Headings are ALWAYS emitted as [PREMIUM_H2]…[/PREMIUM_H2] tags — never as a bare line, never as **bold**, never as markdown #. A heading emitted any other way renders as body text and disappears from the table of contents.
 
-        FRONT MATTER
+        FRONT MATTER (required layers first; optional orientation next)
 
         1. [QUICK_GLANCE] … [/QUICK_GLANCE] — LAYER 1, "the book in 60 seconds": verified title/author/year, one-sentence core message, and exactly five key insights. Do not write a reading time; the renderer computes it. Format below.
 
         2. [PREMIUM_H2]About the Book and Author[/PREMIUM_H2] — 120–180 words of prose: the author's credentials as the book states them, publication year and publisher from the copyright page, the book's form and structure (number and shape of chapters, any organising device), and the intellectual tradition it answers to. Then the [FOUNDATIONAL_NARRATIVE] block (origin story or lineage). Mark anything you could not verify from the text with "the book does not say".
 
-        3. [PREMIUM_H2]How to Use This Guide[/PREMIUM_H2] — one short paragraph each: (a) the three callout types — Corroboration/Expansion notes ([INSIGHT_NOTE]), Alternative Perspective ([ALTERNATIVE_PERSPECTIVE]) and the "Go Deeper" line; (b) the three reading layers (Quick Glance → Executive Summary → full sections); (c) that the guide is organised thematically, not by chapter, and that the Chapter Map at the end maps every chapter to the section that treats it.
+        3. OPTIONAL orientation — include at most ONE of these when it earns its place (omit both if the book is already clear from About + Executive Summary):
+           - [PREMIUM_H2]How to Use This Guide[/PREMIUM_H2] — short: callout types, reading layers, thematic (not chapter) organisation.
+           - [PREMIUM_H2]Who This Is For[/PREMIUM_H2] — two short lists: items beginning "**For:**" and "**Skip it if:**", specific to this book.
+           Do not emit both How to Use and Who This Is For unless the book is unusually dense or specialist.
 
-        4. [PREMIUM_H2]Who This Is For[/PREMIUM_H2] — two bullet lists of three items each. The first list's items begin "**For:**", the second list's items begin "**Skip it if:**". Be specific to this book.
-
-        5. [PREMIUM_H2]Executive Summary[/PREMIUM_H2] — LAYER 2, "the book in 10 minutes": one ~150-word paragraph per numbered section below, in section order, written as ONE continuous self-contained essay (problem → framework → evidence → conclusion). A reader who stops here can discuss the book. Include exactly one [INSIGHT_NOTE] that situates the book's premise in a larger conversation. Do not use bullets here.
+        4. [PREMIUM_H2]Executive Summary[/PREMIUM_H2] — LAYER 2, "the book in 10 minutes": one ~150-word paragraph per numbered section below, in section order, written as ONE continuous self-contained essay. A reader who stops here can discuss the book. Include exactly one [INSIGHT_NOTE] that situates the book's premise in a larger conversation. Do not use bullets here.
 
         BODY — LAYER 3, the numbered thematic sections
 
@@ -256,31 +257,36 @@ struct InsightAtlasPromptGenerator {
 
         (N is the section numeral: 1., 2., 3. … The final numbered section is always "N. Synthesis: …" — the guide's own integrative argument.) The descriptor line is mandatory and must be the first line after the heading, wrapped in single asterisks.
 
-        EVERY numbered section is at least 900 words and follows the same six-part skeleton, each part opened by its bold label on its own paragraph:
+        EVERY numbered section is at least 900 words. Do NOT reuse the same internal layout in consecutive sections — that reads as a template, not a guide.
 
-        **The claim.** One or two sentences: what the author asserts, in your words, with the chapter reference "(ch. N)".
-        **The evidence.** The cases, studies, thought experiments and data the author marshals, each with its chapter reference. Diagnose the problem or failure mode the claim answers before presenting the remedy.
-        **The mechanism.** How it is supposed to work. This is where figures and tables live — emit the [VISUAL_*] block here when the mechanism has a shape.
-        **Where it strains.** The strongest objection, boundary condition or failed replication. This is where the [ALTERNATIVE_PERSPECTIVE] lives.
-        **Why it matters.** One paragraph of transfer: for a practitioner/clinician, for a technologist or leader, for a general reader — whichever apply.
-        **Connections.** One or two sentences cross-referencing other sections by number and name ("see Section 2, The Confabulation Problem").
+        SECTION CADENCE MENU (pick one shape per section; rotate; never repeat the previous section's shape):
 
-        Corroboration and Expansion [INSIGHT_NOTE] blocks attach to the evidence and mechanism parts; the [ALTERNATIVE_PERSPECTIVE] attaches to "Where it strains". Sub-strategies, exercises and action boxes go after "Why it matters".
+        A. **Claim-led** — open with the assertion + (ch. N); then evidence; then mechanism (visuals live here when the mechanism has a shape); then the strongest strain; then transfer + a cross-ref.
+        B. **Evidence-led** — open with cases/data/experiments; then name the claim they support; then mechanism; then a note or alternative; then why it matters.
+        C. **Mechanism-first** — open with how the system works (often with a [VISUAL_*]); then the claim it underwrites; then evidence; then practitioner transfer / [ACTION_BOX].
+        D. **Strain-first** — open with the objection, failed replication, or boundary; then the author's answer; then evidence; then connections to another section.
+        E. **Practitioner spine** — short claim; concrete failure mode; remedies in second person; [EXERCISE_*] or [ACTION_BOX]; closing note that expands or complicates.
 
-        BACK MATTER (after the Synthesis section, in this order)
+        Beat vocabulary (claim, evidence, mechanism, strain, transfer, connections) may appear as bold labels OR as unmarked prose. Use bold labels only when they help; do not stamp all six labels into every section. Across the full body, cover at least four of those beats in substance — but the order and packaging must change section to section.
 
-        6. [PREMIUM_H2]Key Takeaways[/PREMIUM_H2] then a [TAKEAWAYS] block of 5–7 items. Each item is an actionable or belief-changing statement — what the reader should DO or THINK DIFFERENTLY — and ends with its section reference "(see Section N)". It must NOT restate the Quick Glance thesis or insights; fewer than one in three content words may overlap with the Quick Glance.
+        Callout placement is earned, not slotted: [INSIGHT_NOTE], [ALTERNATIVE_PERSPECTIVE], [ACTION_BOX], and [EXERCISE_*] may sit wherever they advance the argument. Prefer variety in the first callout type of each numbered section. Keep per-section budgets (notes, visuals, exercises) from the component rules below.
+
+        BACK MATTER (after the Synthesis section)
+
+        Required headings (exact text). Order may flex, but Key Takeaways should come first and Further Reading last:
+
+        - [PREMIUM_H2]Key Takeaways[/PREMIUM_H2] then a [TAKEAWAYS] block of 5–7 items. Each item is an actionable or belief-changing statement — what the reader should DO or THINK DIFFERENTLY — and ends with its section reference "(see Section N)". It must NOT restate the Quick Glance thesis or insights; fewer than one in three content words may overlap with the Quick Glance.
            Register wanted: "When a patient explains their own behaviour, treat the explanation as evidence about their narrative machinery, not as a readout of cause (see Section 2)."
 
-        7. [PREMIUM_H2]Exercises[/PREMIUM_H2] then 4–6 [EXERCISE_*] blocks, each tied to a section by name in its first sentence, moving from recognition → analysis → commitment.
+        - [PREMIUM_H2]Exercises[/PREMIUM_H2] then 4–6 [EXERCISE_*] blocks, each tied to a section by name in its first sentence, moving from recognition → analysis → commitment.
 
-        8. [PREMIUM_H2]Glossary[/PREMIUM_H2] then a bullet list, one entry per term of art used anywhere in the guide, alphabetical, in the form "- **Term** — one or two sentence definition". Every specialised term you used in the body must appear here.
+        - [PREMIUM_H2]Glossary[/PREMIUM_H2] then a bullet list, one entry per term of art used anywhere in the guide, alphabetical, in the form "- **Term** — one or two sentence definition". Every specialised term you used in the body must appear here.
 
-        9. [PREMIUM_H2]Key Quotations[/PREMIUM_H2] then 8–12 [PREMIUM_QUOTE] blocks of the author's exact words, each attributed on its own line as "— ch. N" (or "— Introduction"/"— Epilogue"). Never paraphrase inside a quote block.
+        - [PREMIUM_H2]Key Quotations[/PREMIUM_H2] then 8–12 [PREMIUM_QUOTE] blocks of the author's exact words, each attributed on its own line as "— ch. N" (or "— Introduction"/"— Epilogue"). Never paraphrase inside a quote block.
 
-        10. [PREMIUM_H2]Chapter Map[/PREMIUM_H2] then one sentence of lead-in and a [VISUAL_TABLE: Chapter Map] with EXACTLY three columns — "Chapter | Lens | Guide section" — and one row for EVERY chapter of the book, using the chapter titles from the structure analysis provided. "Lens" is the one-phrase angle the chapter takes; "Guide section" lists the numbered section(s) that treat it (e.g. "§2, §6"). Keep cells under 60 characters.
+        - [PREMIUM_H2]Chapter Map[/PREMIUM_H2] then one sentence of lead-in and a [VISUAL_TABLE: Chapter Map] with EXACTLY three columns — "Chapter | Lens | Guide section" — and one row for EVERY chapter of the book, using the chapter titles from the structure analysis provided. "Lens" is the one-phrase angle the chapter takes; "Guide section" lists the numbered section(s) that treat it (e.g. "§2, §6"). Keep cells under 60 characters.
 
-        11. [PREMIUM_H2]Further Reading[/PREMIUM_H2] then three bullet lists introduced by bold lead paragraphs "**Primary sources the author relies on**", "**Corroborating works**", "**Alternative frameworks**". Every Go Deeper target used anywhere in the guide appears here exactly once as "- Author, *Title* (Year) — one-line reason", and nothing appears here that was not cited in the body.
+        - [PREMIUM_H2]Further Reading[/PREMIUM_H2] then three bullet lists introduced by bold lead paragraphs "**Primary sources the author relies on**", "**Corroborating works**", "**Alternative frameworks**". Every Go Deeper target used anywhere in the guide appears here exactly once as "- Author, *Title* (Year) — one-line reason", and nothing appears here that was not cited in the body.
 
         Place a [PREMIUM_DIVIDER] between the front matter and the body, and between the body and the back matter.
 
@@ -336,7 +342,7 @@ struct InsightAtlasPromptGenerator {
         For research-based books: lead with findings, then explore methodology and implications
         For philosophical works: engage with the central arguments and their consequences
 
-        Within each numbered section: name the theme; diagnose the problem or failure mode FIRST; present the author's argument and evidence; break into sub-strategies if applicable; triangulate with Atlas Notes; translate into practical application in the second person. The goal is a coherent intellectual journey, not a checklist of required sections — but the six labelled parts are mandatory in every section.
+        Within each numbered section: name the theme; make the intellectual stakes clear early; present the author's argument and evidence; triangulate with Atlas Notes where they earn their place; translate into practical application in the second person. Choose a cadence from the menu above so consecutive sections do not share the same internal layout. The goal is a coherent intellectual journey — never a stamped checklist of identical labelled parts.
 
         ───
         CONTEXTUAL ELEMENTS (USE WHEN THEY ADD VALUE)
@@ -1039,13 +1045,14 @@ struct InsightAtlasPromptGenerator {
         ───
 
         1. Every heading is a [PREMIUM_H2]…[/PREMIUM_H2] tag and the numbered sections run 1…N with the Synthesis last.
-        2. Every numbered section has the italic descriptor line and all six bold-labelled parts, and is at least 900 words.
+        2. Every numbered section has the italic descriptor line, is at least 900 words, and uses a cadence different from the previous section (no stamped six-label clone).
         3. The Executive Summary has one paragraph per numbered section.
         4. Key Takeaways are actionable, carry "(see Section N)", and do not restate the Quick Glance.
         5. The Glossary covers every term of art in the body; the Chapter Map lists every chapter; Further Reading contains every Go Deeper target exactly once.
         6. Every Go Deeper line matches "Author, *Title* (Year) — reason".
         7. Every visual has a descriptive title, nodes of ≤ 9 words, and an interpreting paragraph after it.
         8. Every number and every quotation has a chapter reference or a named source.
+        9. Front matter does not include both How to Use and Who This Is For unless the book truly needs both.
         """
 
         var finalPrompt = basePrompt
@@ -1291,7 +1298,7 @@ struct InsightAtlasPromptGenerator {
         5. Ensure prose paragraphs are substantial (3-5 sentences) before introducing callout blocks.
         6. Ensure visuals are additive: add interpretation before and after each visual, not just the diagram.
         7. DIAGNOSIS BEFORE INTERVENTION: When presenting strategies, always name the failure mode or obstacle first, explain why it happens, then present the remedies.
-        8. GRACEFUL COMPLETION: the guide ends with the full back matter in order — Key Takeaways, Exercises, Glossary, Key Quotations, Chapter Map, Further Reading. Never end abruptly mid-section.
+        8. GRACEFUL COMPLETION: the guide ends with full back matter (Key Takeaways first, Further Reading last; Exercises / Glossary / Key Quotations / Chapter Map may sit between). Never end abruptly mid-section. Rotate section cadences so the body does not stamp the same labelled routine into every chapter.
         9. QUICK GLANCE MUST contain ACTUAL insights from the book - never use placeholder text or generic wisdom.
         10. Include 2–5 [SYNTHESIS_INSERT] blocks across the guide for deeper multi-source comparative analysis.
         11. VISUALS ARE REQUIRED, NOT OPTIONAL: emit between 4 and 8 [VISUAL_*] diagrams across the guide, using at least 3 different types. The guidance above about restraint governs WHICH visual you choose and whether a payload is well formed — it is not permission to omit visuals. A guide that ships with none has failed this instruction.
