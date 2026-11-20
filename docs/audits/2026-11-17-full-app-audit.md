@@ -5,7 +5,7 @@
 **Scope:** All major subsystems (not audio/visuals only)  
 **Method:** Static code inspection across `InsightAtlas/` + tests, CI, docs, release scripts
 
-**Implementation status (2026-11-17):** Closed on `cursor/full-app-fixes-9243` (PR **#9**). See `docs/STATUS.md` for executive decisions (Inter kept as brand; support URLs stay hidden until configured; megaview leftovers post-ship).
+**Implementation status (2026-11-17):** Closed on `cursor/full-app-fixes-9243` (PR **#9**). Follow-ups for charts/hyphens/cadence on PR **#10**. See `docs/STATUS.md` for executive decisions (Inter kept as brand; support URLs stay hidden until configured; megaview leftovers post-ship).
 
 Findings are ranked by severity (impact × likelihood), with effort awareness in the ranking rationale. Aim: actionable, evidence-backed items — not generic advice.
 
