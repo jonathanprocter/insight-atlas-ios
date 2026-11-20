@@ -190,6 +190,35 @@ final class ElevationSpecParsingTests: XCTestCase {
         XCTAssertEqual(refs.first?.title, "The Coordination and Regulation of Movements")
     }
 
+    /// Go Deeper is scarce: require ≥1 across a guide with enough notes, but
+    /// reject a stamped footer on every note (cap 6).
+    func testGoDeeperValidationIsScarceNotMandatoryPerNote() {
+        func notes(_ n: Int, goDeeper: Int) -> String {
+            (0..<n).map { i in
+                var body = "[INSIGHT_NOTE]\n**Author \(i)** (*Title \(i)*, 2020) corroborates this claim. Prose triangulation without stamped labels.\n"
+                if i < goDeeper {
+                    body += "**Go Deeper:** Other Author, *Other Title* (2019) — a chapter the note did not cover\n"
+                }
+                return body + "[/INSIGHT_NOTE]\n"
+            }.joined()
+        }
+
+        let missing = OutputQualityValidator.validate(content: notes(3, goDeeper: 0), summaryType: .professional)
+        XCTAssertTrue(
+            missing.issues.contains { $0.localizedCaseInsensitiveContains("at least one Go Deeper") },
+            "expected scarcity floor, got: \(missing.issues)"
+        )
+
+        let ok = OutputQualityValidator.validate(content: notes(3, goDeeper: 1), summaryType: .professional)
+        XCTAssertFalse(ok.issues.contains { $0.localizedCaseInsensitiveContains("Go Deeper") })
+
+        let tooMany = OutputQualityValidator.validate(content: notes(8, goDeeper: 7), summaryType: .professional)
+        XCTAssertTrue(
+            tooMany.issues.contains { $0.localizedCaseInsensitiveContains("Too many Go Deeper") },
+            "expected cap, got: \(tooMany.issues)"
+        )
+    }
+
     // MARK: - Skeleton lint
 
     func testSkeletonLintFlagsMissingBackMatterAndUnnumberedSections() {

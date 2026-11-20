@@ -2474,10 +2474,10 @@ static func generatePremiumHTML(content: String, title: String, author: String, 
             }
             .insight-note .insight-section {
                 margin-top: 0.875rem;
-                padding: 0.75rem 1rem;
-                background: rgba(var(--ember-mark-rgb), 0.05);
-                border-radius: var(--radius-md);
-                border-left: 3px solid var(--accent-coral);
+                padding: 0.75rem 0 0.25rem 0;
+                background: transparent;
+                border-radius: 0;
+                border-left: none;
             }
             .insight-note .insight-label {
                 display: block;
@@ -2486,7 +2486,7 @@ static func generatePremiumHTML(content: String, title: String, author: String, 
                 font-weight: 700;
                 text-transform: uppercase;
                 letter-spacing: 0.08em;
-                color: var(--accent-coral-text);
+                color: var(--accent-teal);
                 margin-bottom: 0.375rem;
             }
             .insight-note .insight-text {
@@ -2495,17 +2495,24 @@ static func generatePremiumHTML(content: String, title: String, author: String, 
                 line-height: 1.6;
                 color: var(--text-body);
             }
+            /* Cool indigo footer — distinct from the note's ember rail and from celadon KD/PI labels */
             .insight-note .go-deeper {
-                background: rgba(var(--ember-mark-rgb), 0.08);
-                border-left-color: var(--accent-coral);
+                margin-top: 1rem;
+                padding: 0.85rem 0 0 0.85rem;
+                background: transparent;
+                border-top: 1px solid var(--border-light);
+                border-left: 3px solid rgb(var(--indigo-rgb));
+            }
+            .insight-note .go-deeper .insight-label {
+                color: rgb(var(--indigo-rgb));
             }
             .insight-note .go-deeper .insight-text {
-                font-style: italic;
+                font-style: normal;
             }
             .insight-note .go-deeper .insight-text em {
-                font-style: normal;
+                font-style: italic;
                 font-weight: 600;
-                color: var(--accent-coral-text);
+                color: var(--text-heading);
             }
 
             /* ═══ ALTERNATIVE PERSPECTIVE ═══ */
