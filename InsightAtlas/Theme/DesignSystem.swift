@@ -44,32 +44,32 @@ enum DesignSystem {
         // Primary Interactive Color
         /// `#C85A3A` - Interactive elements, key borders
         /// WARNING: MUST NOT be used for text on light backgrounds
-        static let primaryOrange = Color(hex: "#C85A3A")
-        static let primaryOrangeHover = Color(hex: "#B44D2F")  // 10% darker for hover
+        static let primaryOrange = PremiumUI.emberMark
+        static let primaryOrangeHover = PremiumUI.ember  // 10% darker for hover
 
         // Accent Colors
         /// `#4A7C59` - "Apply It" section backgrounds
-        static let accentGreen = Color(hex: "#4A7C59")
+        static let accentGreen = PremiumUI.celadon
 
         // Background Colors
         /// `#F8F8F8` - Main app background
-        static let uiBackground = Color(hex: "#F8F8F8")
+        static let uiBackground = PremiumUI.background
         /// `#FFFFFF` - Default card surface
-        static let cardBackground = Color(hex: "#FFFFFF")
+        static let cardBackground = PremiumUI.card
 
         // Text Colors (WCAG AA Compliant)
         /// `#1A1A1A` - Headings (Ratio on #FFFFFF: 15.28:1 - Passes AAA)
-        static let textPrimary = Color(hex: "#1A1A1A")
+        static let textPrimary = PremiumUI.ink
         /// `#333333` - Body text (Ratio on #FFFFFF: 10.97:1 - Passes AAA)
-        static let textSecondary = Color(hex: "#333333")
+        static let textSecondary = PremiumUI.ink
         /// `#666666` - Captions (Ratio on #FFFFFF: 4.68:1 - Passes AA)
-        static let textTertiary = Color(hex: "#666666")
+        static let textTertiary = PremiumUI.secondaryText
         /// Pure white for inverse text
         static let textInverse = Color.white
 
         // UI Colors
         /// `#EAEAEA` - Dividers, inactive borders
-        static let uiBorder = Color(hex: "#EAEAEA")
+        static let uiBorder = PremiumUI.divider
 
         // Scrim Gradients for text protection on images
         static let scrimGradientDark = LinearGradient(
@@ -244,7 +244,7 @@ struct DSPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DesignSystem.Typography.buttonLabel())
-            .foregroundColor(isEnabled ? DesignSystem.Colors.textInverse : Color(hex: "#999999"))
+            .foregroundColor(isEnabled ? DesignSystem.Colors.textInverse : PremiumUI.secondaryText)
             .frame(height: DesignSystem.Components.buttonHeight)
             .frame(maxWidth: .infinity)
             .background(
@@ -267,7 +267,7 @@ struct DSSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DesignSystem.Typography.buttonLabel())
-            .foregroundColor(isEnabled ? DesignSystem.Colors.primaryOrange : Color(hex: "#999999"))
+            .foregroundColor(isEnabled ? DesignSystem.Colors.primaryOrange : PremiumUI.secondaryText)
             .frame(height: DesignSystem.Components.buttonHeight)
             .frame(maxWidth: .infinity)
             .background(Color.clear)
@@ -317,7 +317,7 @@ struct DSStickyHeaderStyle: ViewModifier {
             .frame(height: DesignSystem.Components.headerHeight)
             .frame(maxWidth: .infinity)
             .background(
-                Color(hex: "#F8F8F8").opacity(0.85)
+                PremiumUI.background.opacity(0.85)
                     .background(.ultraThinMaterial)
             )
             .overlay(alignment: .bottom) {

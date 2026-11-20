@@ -48,8 +48,42 @@ public enum LLMActionRouter {
             UISelectionFeedbackGenerator().selectionChanged()
             return .success("Accent set to \(name)")
         }
-        if identifier.hasPrefix("voice_row_") || identifier.hasPrefix("voice_preview_") {
-            return .failure("Narration voice is fixed (Liam); voice selection is unavailable.")
+        if identifier.hasPrefix("voice_row_") {
+            let voiceID = String(identifier.dropFirst("voice_row_".count))
+            guard !voiceID.isEmpty else {
+                return .failure("Provide a Pocket voice id after voice_row_.")
+            }
+            environment.userSettings.selectedVoiceID = voiceID
+            environment.userSettings.voiceProvider = .kokoro
+            environment.updateVoiceProvider(.kokoro)
+            environment.saveSettings()
+            return .success("Narration voice set to \(voiceID)")
+        }
+        if identifier.hasPrefix("voice_preview_") {
+            let voiceID = String(identifier.dropFirst("voice_preview_".count))
+            guard !voiceID.isEmpty else {
+                return .failure("Provide a Pocket voice id after voice_preview_.")
+            }
+            guard KokoroModelStore.isInstalled else {
+                return .failure("Pocket model is not installed.")
+            }
+            // Match Settings preview: synthesize, then play through
+            // AudioPlaybackManager. Discarding GeneratedAudio left automation silent.
+            Task { @MainActor in
+                do {
+                    AudioPlaybackManager.shared.stop()
+                    let audio = try await environment.kokoroAudioService.generateAudio(
+                        text: "This is a short preview of the selected narration voice.",
+                        voiceID: voiceID
+                    )
+                    try AudioPlaybackManager.shared.play(audio)
+                } catch {
+                    #if DEBUG
+                    print("[LLMActionRouter] voice preview failed: \(error.localizedDescription)")
+                    #endif
+                }
+            }
+            return .success("Previewing voice \(voiceID)")
         }
         if identifier.hasPrefix("securefield_toggle_visibility_") {
             return .failure("Visibility toggle is UI-only and requires a tap.")
@@ -81,7 +115,20 @@ public enum LLMActionRouter {
             return .success("Sepia Reading Mode set to \(newValue)")
 
         case "voice_provider_picker":
-            return .failure("Narration voice is fixed (Liam); the voice provider is not configurable.")
+            guard let v = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+                  !v.isEmpty else {
+                return .failure("Provide a voice provider value (kokoro/pocket or apple).")
+            }
+            let provider: VoiceProvider
+            if v.contains("apple") {
+                provider = .apple
+            } else if v.contains("kokoro") || v.contains("pocket") {
+                provider = .kokoro
+            } else {
+                return .failure("Unknown voice provider '\(v)'. Use kokoro/pocket or apple.")
+            }
+            environment.updateVoiceProvider(provider)
+            return .success("Voice provider set to \(provider.rawValue)")
 
         case "playback_speed_picker":
             guard let v = value, let speed = parsePlaybackSpeed(v) else {
@@ -101,18 +148,18 @@ public enum LLMActionRouter {
             }
 
         case "contact_support_button":
-            if let url = URL(string: "mailto:support@example.com") {
+            if let url = SettingsView.supportURL {
                 UIApplication.shared.open(url)
                 return .success("Opened mail composer")
             }
-            return .failure("Unable to open mail composer")
+            return .failure("Support contact is not configured")
 
         case "rate_app_button":
-            if let url = URL(string: "itms-apps://itunes.apple.com/app/id000000000?action=write-review") {
+            if let url = SettingsView.reviewURL {
                 UIApplication.shared.open(url)
                 return .success("Opened App Store review page")
             }
-            return .failure("Unable to open App Store")
+            return .failure("App Store review link is not configured")
 
         case "securefield_claude":
             guard let v = value else { return .failure("Provide an API key value.") }
@@ -190,7 +237,9 @@ public enum LLMActionRouter {
             environment.saveSettings()
             return .success("Summary type set to \(s.displayName)")
         case "generation_voice_provider_picker":
-            return .failure("Narration voice is fixed (Liam); the voice provider is not configurable.")
+            // Generation screen has no local voice UI; alias to Settings APIs.
+            return handleSettings(identifier: "voice_provider_picker", value: value, environment: environment)
+                ?? .failure("Provide a voice provider value (kokoro/pocket or apple).")
         case "generation_audio_speed_slider":
             return .failure("Slider changes require UI context.")
         case "generation_choose_file_button", "generation_generate_button":
@@ -255,10 +304,11 @@ public enum LLMActionRouter {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults — narration order is fixed; only playback speed and the
-        // auto-generate toggle are configurable.
+        // Audio defaults — Pocket/Apple providers stay selectable in Settings.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
+        environment.userSettings.voiceProvider = .kokoro
+        environment.updateVoiceProvider(.kokoro)
 
         environment.saveSettings()
         UISelectionFeedbackGenerator().selectionChanged()

@@ -33,9 +33,9 @@ The installer requires at least 450 MiB of available capacity before downloading
 
 ## Provider and Fallback Behavior
 
-Kokoro is the default automatic narrator for new and migrated installations. Full-guide narration follows one stable order: **offline Kokoro → Mega Transcript → OpenAI Audio API → Liam**. Only configured routes are attempted, and cancellation never starts a paid fallback request. ChatGPT Voice remains available solely for optional experimental previews and is not used for automatic narration.
+Pocket / Kokoro is the default automatic narrator for new and migrated installations. Full-guide narration uses on-device voices only, in this order: **Pocket / Kokoro → Apple system voices**. There is no hosted or cloud TTS fallback.
 
-If no provider can generate audio, guide creation still completes without narration. A voice failure never discards the generated reading guide.
+If neither Pocket nor an Apple voice can generate audio, guide creation still completes without narration. A voice failure never discards the generated reading guide.
 
 ## Voice Selection
 
@@ -50,7 +50,7 @@ The full Kokoro v1.0 English catalog is available under **Settings → Audio & N
 | Preview is disabled | Complete the model download under Audio & Narration. |
 | Model does not load | Remove the downloaded model, reinstall it, and retry the preview. |
 | Device becomes warm during a long guide | Let generation finish in the foreground and avoid other compute-heavy tasks. |
-| Audio is absent but the guide exists | Check model readiness or configure an optional cloud fallback. |
+| Audio is absent but the guide exists | Check Pocket model readiness, or switch to an installed Apple system voice in Settings → Audio & Narration. |
 
 ## Validation Status
 

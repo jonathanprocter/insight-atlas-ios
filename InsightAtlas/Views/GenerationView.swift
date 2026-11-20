@@ -23,7 +23,7 @@ struct GenerationView: View {
     @State private var selectedFileType: FileType?
     @State private var cachedFileData: Data?
 
-    // Narration state — voice is fixed (Liam); no selection UI.
+    // Narration state — voice selection lives in Settings (Pocket / Apple).
     @State private var audioSpeed: Double = 1.0
 
     // MARK: - Body
@@ -268,10 +268,12 @@ struct GenerationView: View {
                         Text("Audio provider")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
-                        Text("Kokoro on-device · selected voice")
+                        Text(environment.userSettings.voiceProvider == .apple
+                            ? "Apple voice on-device · selected voice"
+                            : "Pocket on-device · selected voice")
                             .font(.analysisUI())
                             .foregroundColor(AnalysisTheme.textHeading)
-                        Text("MiniMax M3 writes the guide; it does not synthesize audio.")
+                        Text("MiniMax writes the guide; it does not synthesize audio.")
                             .font(.analysisUISmall())
                             .foregroundColor(AnalysisTheme.textMuted)
                     }
@@ -283,7 +285,7 @@ struct GenerationView: View {
                 .accessibilityIdentifier("generation_voice_liam_label")
 
                 if !KokoroModelStore.isInstalled {
-                    Text("Download Kokoro in Settings → Audio & Narration before listening.")
+                    Text("Pocket isn't installed yet — narration will use an Apple system voice. Download Pocket in Settings → Audio & Narration for premium audio.")
                         .font(.analysisUISmall())
                         .foregroundColor(AnalysisTheme.accentHighlight)
                 }
@@ -624,8 +626,10 @@ struct GenerationView: View {
 
                     // Narration is generated in the background (never inline), so the
                     // completed guide shows immediately. Mark it pending when the user
-                    // has auto-narration on and the on-device model is installed.
-                    let hasNarrationProvider = KokoroModelStore.isInstalled
+                    // has auto-narration on and any engine (Pocket or an Apple system
+                    // voice) can speak it.
+                    let availability = VoiceProviderAvailability.current
+                    let hasNarrationProvider = availability.kokoro || availability.apple
                     let willNarrate = environment.userSettings.autoGenerateAudio && hasNarrationProvider
                     if willNarrate {
                         item.narrationState = .generating
@@ -659,7 +663,7 @@ struct GenerationView: View {
     /// persisted item's `narrationState` as it progresses. Any failure/hang
     /// surfaces as `.failed` on the item rather than freezing the UI.
     private func startBackgroundNarration(for item: LibraryItem) {
-        guard let content = item.summaryContent else { return }
+        guard let content = item.summaryContent ?? GuideBodyStore.load(item.id) else { return }
         guard !NarrationTextSanitizer.prepare(content).isEmpty else { return }
         let itemId = item.id
 
@@ -705,7 +709,21 @@ struct GenerationView: View {
         switch result {
         case .success(_, let itemId, _, _):
             if let itemId = itemId,
-               let item = environment.dataManager.getLibraryItem(id: itemId) {
+               var item = environment.dataManager.getLibraryItem(id: itemId) {
+                // Resume and other coordinator completions surface here. Match the
+                // primary generate path: never block on synthesis, but do kick off
+                // deferred narration when auto-audio is on and no asset exists yet.
+                let availability = VoiceProviderAvailability.current
+                let hasNarrationProvider = availability.kokoro || availability.apple
+                let needsNarration = environment.userSettings.autoGenerateAudio
+                    && hasNarrationProvider
+                    && item.audioFileURL == nil
+                    && item.narrationState != .generating
+                if needsNarration {
+                    item.narrationState = .generating
+                    environment.updateLibraryItem(item)
+                    startBackgroundNarration(for: item)
+                }
                 generatedItem = item
             }
             generationState = .completed

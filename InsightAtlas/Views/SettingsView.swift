@@ -1,8 +1,14 @@
 import SwiftUI
 import UIKit
+import AVFoundation
 
 struct SettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
+
+    // Observed (not read) so the AI Provider row's value label refreshes when
+    // the MiniMax model is changed on the API Configuration screen —
+    // `AIProvider.displayName` resolves that model.
+    @AppStorage(MiniMaxOAuthConfig.modelStorageKey) private var minimaxModel = MiniMaxOAuthConfig.defaultModel
     @ObservedObject private var kokoroModelManager = KokoroModelManager.shared
 
     @AppStorage(PremiumUI.themeStorageKey) private var themePreference = PremiumTheme.system.rawValue
@@ -24,9 +30,30 @@ struct SettingsView: View {
             ) ?? KokoroVoiceRegistry.defaultVoice.voiceID
             let voice = KokoroVoiceRegistry.voice(byVoiceID: voiceID)
                 ?? KokoroVoiceRegistry.defaultVoice
-            return "Kokoro · \(voice.name)"
+            return "Pocket · \(voice.name)"
         }
-        return "Liam"
+        return "Apple Voice"
+    }
+
+    /// Support and App Store links come from Info.plist. Rows stay hidden
+    /// until `InsightAtlasSupportEmail` / `InsightAtlasAppStoreID` are set.
+    private static func infoString(_ key: String) -> String? {
+        guard let value = (Bundle.main.object(forInfoDictionaryKey: key) as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty,
+              !value.hasPrefix("$("),
+              !value.contains("example.com") else { return nil }
+        return value
+    }
+
+    static var supportURL: URL? {
+        infoString("InsightAtlasSupportEmail").flatMap { URL(string: "mailto:\($0)") }
+    }
+
+    static var reviewURL: URL? {
+        guard let id = infoString("InsightAtlasAppStoreID"),
+              id.allSatisfy(\.isNumber), id != "000000000" else { return nil }
+        return URL(string: "itms-apps://itunes.apple.com/app/id\(id)?action=write-review")
     }
 
     private var accentColor: Color {
@@ -260,37 +287,41 @@ struct SettingsView: View {
                                 SystemInfoView()
                             }
 
-                            PremiumSettingsDivider()
+                            if let supportURL = Self.supportURL {
+                                PremiumSettingsDivider()
 
-                            Button {
-                                if let url = URL(string: "mailto:support@example.com") { UIApplication.shared.open(url) }
-                            } label: {
-                                HStack {
-                                    Text("Contact Support")
-                                        .font(PremiumUI.ui(16, .medium))
-                                        .foregroundStyle(PremiumUI.ink)
-                                    Spacer()
-                                    Image(systemName: "envelope")
-                                        .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                Button {
+                                    UIApplication.shared.open(supportURL)
+                                } label: {
+                                    HStack {
+                                        Text("Contact Support")
+                                            .font(PremiumUI.ui(16, .medium))
+                                            .foregroundStyle(PremiumUI.ink)
+                                        Spacer()
+                                        Image(systemName: "envelope")
+                                            .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                    }
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
 
-                            PremiumSettingsDivider()
+                            if let reviewURL = Self.reviewURL {
+                                PremiumSettingsDivider()
 
-                            Button {
-                                if let url = URL(string: "itms-apps://itunes.apple.com/app/id000000000?action=write-review") { UIApplication.shared.open(url) }
-                            } label: {
-                                HStack {
-                                    Text("Rate on the App Store")
-                                        .font(PremiumUI.ui(16, .medium))
-                                        .foregroundStyle(PremiumUI.ink)
-                                    Spacer()
-                                    Image(systemName: "star.fill")
-                                        .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                Button {
+                                    UIApplication.shared.open(reviewURL)
+                                } label: {
+                                    HStack {
+                                        Text("Rate on the App Store")
+                                            .font(PremiumUI.ui(16, .medium))
+                                            .foregroundStyle(PremiumUI.ink)
+                                        Spacer()
+                                        Image(systemName: "star.fill")
+                                            .foregroundStyle(PremiumUI.secondaryText.opacity(0.7))
+                                    }
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
 
@@ -314,7 +345,7 @@ struct SettingsView: View {
                     resetAllSettings()
                 }
             } message: {
-                Text("This will restore defaults for appearance, generation, and audio settings. API keys are not removed.")
+                Text("This will restore defaults for appearance, generation, and audio settings, and remove stored API keys and your MiniMax sign-in.")
             }
         }
     }
@@ -389,10 +420,13 @@ struct SettingsView: View {
         if let format = OutputFormat.allCases.first { environment.userSettings.preferredFormat = format }
         if let summary = SummaryType.allCases.first { environment.userSettings.preferredSummaryType = summary }
 
-        // Audio defaults — the installed Kokoro voice, playback speed, and
+        // Audio defaults — the installed Pocket voice, playback speed, and
         // auto-generation setting are user-configurable.
         if let speed = PlaybackSpeed.allCases.first { environment.userSettings.playbackSpeed = speed }
         environment.userSettings.autoGenerateAudio = false
+
+        KeychainService.shared.clearAllKeys()
+        MiniMaxOAuthService.shared.signOut()
 
         environment.saveSettings()
         UISelectionFeedbackGenerator().selectionChanged()
@@ -573,6 +607,10 @@ struct PremiumSettingsDivider: View {
 struct AIProviderSettingsView: View {
     @EnvironmentObject private var environment: AppEnvironment
 
+    // Observed (not read) so provider titles refresh when the MiniMax model
+    // changes — `AIProvider.displayName` resolves that model.
+    @AppStorage(MiniMaxOAuthConfig.modelStorageKey) private var minimaxModel = MiniMaxOAuthConfig.defaultModel
+
     var body: some View {
         PremiumChoiceList(
             title: "AI Provider",
@@ -747,6 +785,7 @@ struct APIConfigurationView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @ObservedObject private var minimax = MiniMaxOAuthService.shared
     @AppStorage(OpenRouterConfig.modelStorageKey) private var openRouterModel = OpenRouterConfig.defaultModel
+    @AppStorage(MiniMaxOAuthConfig.modelStorageKey) private var minimaxModel = MiniMaxOAuthConfig.defaultModel
     @State private var minimaxError: String?
 
     private func savedSuffix(for key: String?) -> String? {
@@ -886,10 +925,49 @@ struct APIConfigurationView: View {
                     }
                     .listRowBackground(PremiumUI.card)
                 }
+
+                // MiniMax model selector — one sign-in serves several models;
+                // pick a suggestion or type any valid identifier.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("MiniMax Model")
+                        .font(PremiumUI.ui(13, .semibold))
+                        .foregroundStyle(PremiumUI.secondaryText)
+
+                    HStack(spacing: 8) {
+                        TextField(MiniMaxOAuthConfig.defaultModel, text: $minimaxModel)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .submitLabel(.done)
+                            .font(PremiumUI.ui(15, .regular))
+                            .foregroundStyle(PremiumUI.ink)
+
+                        Menu {
+                            ForEach(MiniMaxOAuthConfig.candidateModels, id: \.self) { model in
+                                Button {
+                                    minimaxModel = model
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                } label: {
+                                    if minimaxModel == model {
+                                        Label(model, systemImage: "checkmark")
+                                    } else {
+                                        Text(model)
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(PremiumUI.gold)
+                                .frame(width: 32, height: 32)
+                        }
+                        .accessibilityLabel("Choose a MiniMax model")
+                    }
+                }
+                .listRowBackground(PremiumUI.card)
             } header: {
                 Text("MiniMax (OAuth)")
             } footer: {
-                Text("Sign in with MiniMax to generate guides with the \(MiniMaxOAuthConfig.defaultModel) model. Sign-in opens MiniMax in your browser to approve a code — no password is entered in the app. Then select MiniMax under Generation → AI Provider. Tokens are stored in the iOS Keychain.")
+                Text("Sign in with MiniMax to generate guides. MiniMax M3 is the default and has a 1M-token context window; the M2.x models are kept for fallback. Sign-in opens MiniMax in your browser to approve a code — no password is entered in the app. Then select MiniMax under Generation → AI Provider. Tokens are stored in the iOS Keychain.")
             }
         }
         .premiumSettingsList(title: "API Configuration")
@@ -916,13 +994,54 @@ struct AudioSettingsView: View {
     @AppStorage(KokoroVoiceRegistry.selectedVoiceStorageKey)
     private var kokoroVoiceID = KokoroVoiceRegistry.defaultVoice.voiceID
 
+    @AppStorage(AppleVoiceCatalog.selectedVoiceStorageKey)
+    private var appleVoiceID = ""
+
     private var selectedKokoroVoice: KokoroVoice {
         KokoroVoiceRegistry.voice(byVoiceID: kokoroVoiceID)
             ?? KokoroVoiceRegistry.defaultVoice
     }
 
+    private var selectedAppleVoice: AVSpeechSynthesisVoice? {
+        AppleVoiceCatalog.voice(byID: appleVoiceID) ?? AppleVoiceCatalog.defaultVoice()
+    }
+
+    private var engine: VoiceProvider { environment.userSettings.voiceProvider }
+
     var body: some View {
         List {
+            Section {
+                Picker("Narration Engine", selection: Binding(
+                    get: { environment.userSettings.voiceProvider },
+                    set: { environment.updateVoiceProvider($0) }
+                )) {
+                    ForEach(VoiceProvider.allCases) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+            } header: {
+                Text("Narration Engine")
+            } footer: {
+                Text(engine == .apple
+                    ? "Apple voices synthesize instantly with no model download. For the best quality, download a Premium or Enhanced voice in iOS Settings → Accessibility → Spoken Content → Voices → English, then pick it below."
+                    : "Pocket generates premium narration privately on this iPhone after a one-time 99 MB model download.")
+            }
+
+            if engine == .apple {
+                Section {
+                    Picker("Apple Voice", selection: $appleVoiceID) {
+                        ForEach(AppleVoiceCatalog.installedVoices(), id: \.identifier) { voice in
+                            Text("\(voice.name) (\(AppleVoiceCatalog.qualityLabel(for: voice)))")
+                                .tag(voice.identifier)
+                        }
+                    }
+                } header: {
+                    Text("Apple Voice")
+                } footer: {
+                    Text("Voices marked Premium or Enhanced sound far better than Standard. Newly downloaded voices appear here after installing them in iOS Settings.")
+                }
+            }
+
             Section {
                 kokoroModelStatus
 
@@ -940,9 +1059,9 @@ struct AudioSettingsView: View {
                     }
                 }
             } header: {
-                Text("Kokoro On-Device Voice (Primary)")
+                Text(engine == .kokoro ? "Pocket On-Device Voice (Primary)" : "Pocket On-Device Voice")
             } footer: {
-                Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The installed model uses about 182 MB.")
+                Text("Download once, then generate premium narration privately on this iPhone with no API key or per-use charge. The download is about 132 MB and uses about 186 MB once installed.")
             }
 
 
@@ -958,7 +1077,9 @@ struct AudioSettingsView: View {
             } header: {
                 Text("Playback")
             } footer: {
-                Text("New narration is generated privately on this device with the selected Kokoro voice, \(selectedKokoroVoice.name).")
+                Text(engine == .apple
+                    ? "New narration is generated privately on this device with the selected Apple voice, \(selectedAppleVoice?.name ?? "the system default")."
+                    : "New narration is generated privately on this device with the selected Pocket voice, \(selectedKokoroVoice.name).")
             }
 
             Section {
@@ -971,10 +1092,18 @@ struct AudioSettingsView: View {
                     environment.saveSettings()
                 }
             } footer: {
-                Text("When on, narration starts after a guide finishes using the installed on-device Kokoro model. MiniMax M3 generates written guides and is not an audio provider.")
+                Text("When on, narration starts automatically after a guide finishes, using the selected on-device engine. MiniMax generates written guides and is not an audio provider.")
             }
         }
         .premiumSettingsList(title: "Audio & Narration")
+        .onAppear {
+            // An empty stored id leaves the Apple Voice picker with no row
+            // selected; materialize the effective default so the UI shows it.
+            if appleVoiceID.isEmpty,
+               let fallback = AppleVoiceCatalog.defaultVoice() {
+                appleVoiceID = fallback.identifier
+            }
+        }
     }
 
     @ViewBuilder
@@ -982,7 +1111,7 @@ struct AudioSettingsView: View {
         switch kokoroModelManager.state {
         case .notInstalled:
             Label("Not downloaded", systemImage: "arrow.down.circle")
-            Button("Download Kokoro Model") {
+            Button("Download Pocket Model") {
                 kokoroModelManager.install()
             }
 
@@ -1016,7 +1145,7 @@ struct AudioSettingsView: View {
 
         case .failed(let message):
             Label("Download failed", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.red)
+                .foregroundStyle(PremiumUI.destructive)
             Text(message)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -1027,7 +1156,7 @@ struct AudioSettingsView: View {
     }
 }
 
-// MARK: - Kokoro Voice Selection
+// MARK: - Pocket Voice Selection
 
 struct KokoroVoiceSelectionView: View {
     @EnvironmentObject private var environment: AppEnvironment
@@ -1054,11 +1183,11 @@ struct KokoroVoiceSelectionView: View {
                     )
                 }
             } header: {
-                Text("Kokoro On-Device Voices")
+                Text("Pocket On-Device Voices")
             } footer: {
                 Text(KokoroModelStore.isInstalled
                      ? "Tap a voice to select it, then play a completely offline preview."
-                     : "Download the Kokoro model in Audio Settings to enable previews.")
+                     : "Download the Pocket model in Audio Settings to enable previews.")
             }
         }
         .premiumSettingsList(title: "Offline Voice")
@@ -1163,6 +1292,7 @@ struct KokoroVoiceSettingsRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("voice_row_\(voice.voiceID)")
 
             Button(action: onPreview) {
                 if isLoading {
@@ -1170,9 +1300,10 @@ struct KokoroVoiceSettingsRow: View {
                 } else {
                     Image(systemName: isPreviewing ? "stop.circle.fill" : "play.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(isPreviewing ? Color.red : PremiumUI.gold)
+                        .foregroundStyle(isPreviewing ? PremiumUI.destructive : PremiumUI.gold)
                 }
             }
+            .accessibilityIdentifier("voice_preview_\(voice.voiceID)")
             .buttonStyle(.plain)
             .disabled(!isPreviewEnabled)
             .opacity(isPreviewEnabled ? 1 : 0.5)
@@ -1194,10 +1325,9 @@ struct KokoroVoiceSettingsRow: View {
 struct ThemeSettingsView: View {
     @AppStorage(PremiumUI.themeStorageKey) private var selection = PremiumTheme.system.rawValue
 
-    // The app is currently locked to light mode (see ContentView's
-    // `.preferredColorScheme(.light)`), so Dark and System would be no-ops.
-    // Only surface the option that actually takes effect to avoid misleading
-    // the user; dark-mode tokens already exist for when the lock is lifted.
+    // Light, Dark, and System are all live: ContentView derives its
+    // preferredColorScheme from this stored preference, and every PremiumUI
+    // token ships a dark variant.
     private let availableThemes: [PremiumTheme] = PremiumTheme.allCases
 
     var body: some View {

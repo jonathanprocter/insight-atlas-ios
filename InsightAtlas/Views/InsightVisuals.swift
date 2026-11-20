@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Insight Visual Models
 
-enum InsightVisualType: String {
+enum InsightVisualType: String, CaseIterable {
     case timeline = "VISUAL_TIMELINE"
     case flowchart = "VISUAL_FLOWCHART"
     case comparisonMatrix = "VISUAL_COMPARISON_MATRIX"
@@ -41,6 +41,54 @@ struct InsightVisual {
     let type: InsightVisualType
     let title: String?
     let payload: InsightVisualPayload
+
+    /// Stable fingerprint for PDF prerender cache keys. Encodes Codable payload
+    /// data (CodingKeys already omit ephemeral `UUID`s) so re-parsing the same
+    /// visual hits the same cache entry.
+    var stablePayloadFingerprint: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        func encode<T: Encodable>(_ value: T) -> String {
+            guard let data = try? encoder.encode(value),
+                  let text = String(data: data, encoding: .utf8) else {
+                return String(describing: value)
+            }
+            return text
+        }
+        switch payload {
+        case .spectrum(let data): return encode(data)
+        case .timeline(let data): return encode(data)
+        case .flowchart(let data): return encode(data)
+        case .comparison(let data), .table(let data): return encode(data)
+        case .conceptMap(let data): return encode(data)
+        case .radar(let data): return encode(data)
+        case .hierarchy(let data): return encode(data)
+        case .network(let data): return encode(data)
+        case .barChart(let data): return encode(data)
+        case .quadrant(let data): return encode(data)
+        case .pieChart(let data): return encode(data)
+        case .lineChart(let data): return encode(data)
+        case .areaChart(let data): return encode(data)
+        case .scatterPlot(let data): return encode(data)
+        case .vennDiagram(let data): return encode(data)
+        case .ganttChart(let data): return encode(data)
+        case .funnelDiagram(let data): return encode(data)
+        case .pyramidDiagram(let data): return encode(data)
+        case .cycleDiagram(let data): return encode(data)
+        case .fishboneDiagram(let data): return encode(data)
+        case .swotMatrix(let data): return encode(data)
+        case .sankeyDiagram(let data): return encode(data)
+        case .treemap(let data): return encode(data)
+        case .heatmap(let data): return encode(data)
+        case .bubbleChart(let data): return encode(data)
+        case .infographic(let data): return encode(data)
+        case .storyboard(let data): return encode(data)
+        case .journeyMap(let data): return encode(data)
+        case .barChartStacked(let data): return encode(data)
+        case .barChartGrouped(let data): return encode(data)
+        case .generic(let text): return text
+        }
+    }
 }
 
 enum InsightVisualPayload {
@@ -399,8 +447,25 @@ struct InsightVisualParser {
         "VISUAL_LADDER": "VISUAL_PYRAMID"                  // progressive levels
     ]
 
+    /// Single source of truth for prompt / legacy / alias tag resolution.
+    /// PDF, HTML, and reader parsers must call this instead of private maps so
+    /// the same guide cannot resolve a tag to different diagram types.
+    static func canonicalizeTag(_ tag: String) -> String {
+        let upper = tag.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        switch upper {
+        case "PROCESS_TIMELINE":
+            return InsightVisualType.timeline.rawValue
+        case "HIERARCHY_DIAGRAM":
+            return InsightVisualType.hierarchy.rawValue
+        case "CONCEPT_MAP":
+            return InsightVisualType.conceptMap.rawValue
+        default:
+            return tagAliases[upper] ?? upper
+        }
+    }
+
     static func parse(tag: String, title: String?, lines: [String]) -> InsightVisual? {
-        let canonicalTag = tagAliases[tag] ?? tag
+        let canonicalTag = canonicalizeTag(tag)
         guard let type = InsightVisualType(rawValue: canonicalTag) else {
             return nil
         }
@@ -537,6 +602,41 @@ struct InsightVisualParser {
         }
     }
 
+    /// Split an edge line on ASCII `->` or Unicode `→` (models emit both).
+    private static func splitArrowEdge(_ payload: String) -> (String, String)? {
+        let separators = ["->", "→"]
+        for separator in separators {
+            let parts = payload.components(separatedBy: separator)
+            guard parts.count == 2 else { continue }
+            let left = parts[0].trimmingCharacters(in: .whitespaces)
+            let right = parts[1].trimmingCharacters(in: .whitespaces)
+            guard !left.isEmpty, !right.isEmpty else { continue }
+            return (left, right)
+        }
+        return nil
+    }
+
+    /// Splits one pipe-delimited table row into cells.
+    ///
+    /// Only the artifacts of the optional leading/trailing edge pipes are
+    /// dropped; interior empty cells are preserved in position. Filtering all
+    /// empties out instead left-shifted every cell after a blank one, so
+    /// `| A |  | C |` rendered C under the second column's header.
+    private static func tableCells(in row: String) -> [String] {
+        var cells = row
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        if cells.first?.isEmpty == true { cells.removeFirst() }
+        if cells.last?.isEmpty == true { cells.removeLast() }
+        return cells
+    }
+
+    /// Whether a row is a markdown alignment/separator row (`|---|---|`).
+    private static func isSeparatorRow(_ cells: [String]) -> Bool {
+        let joined = cells.joined()
+        return !joined.isEmpty && joined.allSatisfy { $0 == "-" || $0 == ":" }
+    }
+
     private static func parseLineFormat(type: InsightVisualType, title: String?, lines: [String]) -> InsightVisual? {
         let trimmed = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
 
@@ -562,14 +662,10 @@ struct InsightVisualParser {
         case .comparisonMatrix:
             let tableLines = trimmed.filter { $0.contains("|") }
             guard tableLines.count >= 2 else { return nil }
-            let header = tableLines[0].split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let header = tableCells(in: tableLines[0])
             let rows = tableLines.dropFirst(1).compactMap { row -> [String]? in
-                let cells = row.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                let joined = cells.joined()
-                if !joined.isEmpty && joined.allSatisfy({ $0 == "-" }) {
-                    return nil
-                }
-                return cells
+                let cells = tableCells(in: row)
+                return isSeparatorRow(cells) ? nil : cells
             }
             guard !header.isEmpty else { return nil }
             return InsightVisual(type: type, title: title, payload: .comparison(ComparisonMatrixData(columns: header, rows: rows)))
@@ -577,14 +673,10 @@ struct InsightVisualParser {
         case .table:
             let tableLines = trimmed.filter { $0.contains("|") }
             guard tableLines.count >= 2 else { return nil }
-            let header = tableLines[0].split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let header = tableCells(in: tableLines[0])
             let rows = tableLines.dropFirst(1).compactMap { row -> [String]? in
-                let cells = row.split(separator: "|").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                let joined = cells.joined()
-                if !joined.isEmpty && joined.allSatisfy({ $0 == "-" }) {
-                    return nil
-                }
-                return cells
+                let cells = tableCells(in: row)
+                return isSeparatorRow(cells) ? nil : cells
             }
             guard !header.isEmpty else { return nil }
             return InsightVisual(type: type, title: title, payload: .table(ComparisonMatrixData(columns: header, rows: rows)))
@@ -636,10 +728,7 @@ struct InsightVisualParser {
                     }
                 } else if line.lowercased().hasPrefix("link:") {
                     let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
-                    let parts = payload.components(separatedBy: "->")
-                    if parts.count == 2 {
-                        let left = parts[0].trimmingCharacters(in: .whitespaces)
-                        let right = parts[1].trimmingCharacters(in: .whitespaces)
+                    if let (left, right) = Self.splitArrowEdge(payload) {
                         connections.append(NetworkGraphData.Connection(from: left, to: right, type: nil, strength: nil))
                     }
                 }
@@ -798,10 +887,8 @@ struct InsightVisualParser {
 
         case .sankeyDiagram:
             let flows = trimmed.compactMap { line -> SankeyData.Flow? in
-                let parts = line.components(separatedBy: "->")
-                guard parts.count == 2 else { return nil }
-                let left = parts[0].trimmingCharacters(in: .whitespaces)
-                let rightParts = parts[1].split(separator: ":", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+                guard let (left, rightSide) = Self.splitArrowEdge(line) else { return nil }
+                let rightParts = rightSide.split(separator: ":", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
                 guard rightParts.count == 2, let value = Double(rightParts[1]) else { return nil }
                 return SankeyData.Flow(from: left, to: rightParts[0], value: value)
             }
@@ -849,18 +936,36 @@ struct InsightVisualParser {
             var stats: [InfographicData.Stat] = []
             var highlights: [String] = []
             for line in trimmed {
-                if line.lowercased().hasPrefix("title:") {
+                let lower = line.lowercased()
+                if lower.hasPrefix("title:") {
                     titleValue = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                } else if line.lowercased().hasPrefix("stat:") {
+                } else if lower.hasPrefix("highlight:") {
+                    highlights.append(String(line.dropFirst(10)).trimmingCharacters(in: .whitespaces))
+                } else if lower.hasPrefix("stat:") {
+                    // Explicit machine format: `stat: Label | 62`
                     let parts = line.dropFirst(5).split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }
                     if parts.count == 2 {
                         stats.append(InfographicData.Stat(label: parts[0], value: parts[1]))
                     }
-                } else if line.lowercased().hasPrefix("highlight:") {
-                    highlights.append(String(line.dropFirst(10)).trimmingCharacters(in: .whitespaces))
+                } else if let colon = line.firstIndex(of: ":") {
+                    // Prompt catalogue shape for INFOGRAPHIC and aliased GAUGE:
+                    // `Adults reporting impostor feelings: 62`
+                    // `Current distress rating: 72`
+                    let label = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
+                    let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+                    guard !label.isEmpty, !value.isEmpty else { continue }
+                    stats.append(InfographicData.Stat(label: label, value: value))
                 }
             }
-            return InsightVisual(type: type, title: titleValue, payload: .infographic(InfographicData(title: titleValue, stats: stats, highlights: highlights)))
+            // Highlights-only used to produce a typed card with an empty stats
+            // grid (and an always-on "Highlights" header). Require at least one
+            // real statistic so the visual reads as an infographic, not a box.
+            guard !stats.isEmpty else { return nil }
+            return InsightVisual(
+                type: type,
+                title: titleValue,
+                payload: .infographic(InfographicData(title: titleValue, stats: stats, highlights: highlights))
+            )
 
         case .storyboard:
             let scenes = trimmed.compactMap { line -> StoryboardData.Scene? in
@@ -1411,23 +1516,70 @@ private struct PieChartCardView: View {
     let data: PieChartData
 
     var body: some View {
+        let total = max(data.segments.map(\.value).reduce(0, +), 0.001)
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Distribution", icon: "chart.pie")
-            let total = data.segments.map { $0.value }.reduce(0, +)
-            ForEach(Array(data.segments.enumerated()), id: \.offset) { index, segment in
-                HStack(spacing: 10) {
-                    Circle()
-                        .fill(colorForIndex(index))
-                        .frame(width: 10, height: 10)
-                    Text(segment.label)
-                        .font(.analysisUI())
-                    Spacer()
-                    Text(String(format: "%.1f%%", total > 0 ? (segment.value / total) * 100 : 0))
-                        .font(.analysisUISmall())
-                        .foregroundColor(AnalysisTheme.textMuted)
+            HStack(alignment: .center, spacing: AnalysisTheme.Spacing.lg) {
+                ZStack {
+                    ForEach(Array(wedgeRanges(total: total).enumerated()), id: \.offset) { index, range in
+                        PieWedge(start: range.lowerBound, end: range.upperBound)
+                            .fill(colorForIndex(index))
+                    }
+                }
+                .frame(width: 120, height: 120)
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(data.segments.enumerated()), id: \.offset) { index, segment in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(colorForIndex(index))
+                                .frame(width: 10, height: 10)
+                            Text(segment.label)
+                                .font(.analysisUI())
+                                .foregroundColor(AnalysisTheme.textHeading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Text(String(format: "%.0f%%", (segment.value / total) * 100))
+                                .font(.analysisUISmall())
+                                .foregroundColor(AnalysisTheme.textMuted)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private func wedgeRanges(total: Double) -> [Range<Double>] {
+        var cursor = 0.0
+        return data.segments.map { segment in
+            let start = cursor
+            cursor += segment.value / total
+            return start..<cursor
+        }
+    }
+}
+
+private struct PieWedge: Shape {
+    let start: Double
+    let end: Double
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let startAngle = Angle(degrees: -90 + start * 360)
+        let endAngle = Angle(degrees: -90 + end * 360)
+        path.move(to: center)
+        path.addArc(
+            center: center,
+            radius: radius,
+            startAngle: startAngle,
+            endAngle: endAngle,
+            clockwise: false
+        )
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -1789,7 +1941,9 @@ private struct InfographicCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
-            VisualHeader(label: data.title, icon: "doc.text.image")
+            // Outer InsightVisualView already prints visual.title — keep the
+            // inner header as a type label to avoid duplicating the title.
+            VisualHeader(label: "Infographic", icon: "doc.text.image")
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: AnalysisTheme.Spacing.md) {
                 ForEach(Array(data.stats.enumerated()), id: \.offset) { _, stat in
                     VStack(spacing: 4) {
@@ -1805,14 +1959,16 @@ private struct InfographicCardView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Highlights")
-                    .font(.analysisUIBold())
-                    .foregroundColor(AnalysisTheme.textHeading)
-                ForEach(data.highlights, id: \.self) { highlight in
-                    Text("• \(highlight)")
-                        .font(.analysisUI())
-                        .foregroundColor(AnalysisTheme.textBody)
+            if !data.highlights.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Highlights")
+                        .font(.analysisUIBold())
+                        .foregroundColor(AnalysisTheme.textHeading)
+                    ForEach(data.highlights, id: \.self) { highlight in
+                        Text("• \(highlight)")
+                            .font(.analysisUI())
+                            .foregroundColor(AnalysisTheme.textBody)
+                    }
                 }
             }
         }
@@ -2219,7 +2375,10 @@ enum VisualRasterizer {
             .environment(\.colorScheme, .light)
 
         let renderer = ImageRenderer(content: content)
-        renderer.scale = 3          // print-quality raster
+        // Scale 2 (~192 dpi at PDF size) is plenty for a page-width figure. 3x
+        // cost ~2.25x the memory per bitmap, and a guide can carry dozens of
+        // visuals rasterized back to back on the main actor.
+        renderer.scale = 2
         renderer.isOpaque = true
         return renderer.uiImage
     }
@@ -2231,24 +2390,65 @@ enum VisualRasterizer {
 /// any visual left uncached simply falls back to its table/text representation.
 @MainActor
 enum PDFVisualPrerenderer {
-    static func prerender(content: String) async {
-        let visuals = PDFAnalysisDocument.extractVisuals(from: content)
-        guard !visuals.isEmpty else { return }
+    private static let maxPrerenderedVisuals = 40
+    /// Soft peak for rasterized PNG bytes written during one export pass.
+    private static let maxPrerenderBytes = 24 * 1024 * 1024
+
+    /// Types with strong native PDF diagram/table paths. Skipping ImageRenderer
+    /// for these cuts main-actor time and memory without blank figures.
+    private static let prefersNativePDF: Set<InsightVisualType> = [
+        .table, .comparisonMatrix, .swotMatrix,
+        .spectrum, .hierarchy, .pyramidDiagram, .cycleDiagram,
+        .flowchart, .timeline, .funnelDiagram
+    ]
+
+    /// - Parameter progress: `(done, total)` callback after each visual attempt.
+    static func prerender(
+        content: String,
+        progress: ((Int, Int) -> Void)? = nil
+    ) async {
+        let allVisuals = PDFAnalysisDocument.extractVisuals(from: content)
+        guard !allVisuals.isEmpty else {
+            progress?(0, 0)
+            return
+        }
+        // Prefer SwiftUI raster only where native PDF fallback is weaker.
+        let candidates = allVisuals.filter { !prefersNativePDF.contains($0.type) }
+        let visuals = Array(candidates.prefix(maxPrerenderedVisuals))
+        let total = visuals.count
+        #if DEBUG
+        if allVisuals.count != candidates.count {
+            print("🖼️ [PDF Visual] skipping \(allVisuals.count - candidates.count) native-preferred visuals")
+        }
+        if candidates.count > maxPrerenderedVisuals {
+            print("🖼️ [PDF Visual] capping prerender at \(maxPrerenderedVisuals) of \(candidates.count) visuals")
+        }
+        #endif
 
         let cache = VisualAssetCache.shared
-        for visual in visuals {
-            let url = PDFAnalysisDocument.visualCacheURL(for: visual)
-            if cache.cachedImage(for: url) != nil { continue }   // already rendered
-            guard let image = VisualRasterizer.image(for: visual) else {
-                // Named signal instead of a silent nil-return: the rasterizer
-                // requires a JSON-decodable payload; if it can't decode, this
-                // visual will miss the cache and take its native fallback at draw
-                // time. Pairs with the draw-time 🖼️ line to make misses self-sorting.
-                print("🖼️ [PDF Visual] prerender could NOT rasterize type=\(visual.type) title=\(visual.title ?? "—") — payload not decodable")
-                continue
+        var writtenBytes = 0
+        for (index, visual) in visuals.enumerated() {
+            progress?(index, total)
+            if writtenBytes >= maxPrerenderBytes {
+                #if DEBUG
+                print("🖼️ [PDF Visual] byte budget reached (\(writtenBytes) bytes); remaining visuals use native PDF")
+                #endif
+                progress?(total, total)
+                return
             }
-            guard let data = image.pngData() else { continue }
-            try? data.write(to: cache.localURL(for: url), options: .atomic)
+            let url = PDFAnalysisDocument.visualCacheURL(for: visual)
+            if cache.cachedImage(for: url) == nil,
+               let image = VisualRasterizer.image(for: visual),
+               let data = image.pngData() {
+                try? data.write(to: cache.localURL(for: url), options: .atomic)
+                writtenBytes += data.count
+            } else if cache.cachedImage(for: url) == nil {
+                #if DEBUG
+                print("🖼️ [PDF Visual] prerender could NOT rasterize type=\(visual.type) title=\(visual.title ?? "—") — payload not decodable")
+                #endif
+            }
+            progress?(index + 1, total)
+            await Task.yield()
         }
     }
 }

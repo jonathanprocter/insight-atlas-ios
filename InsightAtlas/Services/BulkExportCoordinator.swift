@@ -223,7 +223,15 @@ final class BulkExportCoordinator: ObservableObject {
         }
     }
 
-    private func performExport(items: [LibraryItem], format: ExportFormat) async throws -> BulkExportResult {
+    private func performExport(items rawItems: [LibraryItem], format: ExportFormat) async throws -> BulkExportResult {
+
+        // Bodies are not hydrated in the library list; read them from disk.
+        let items: [LibraryItem] = rawItems.map { item in
+            guard item.summaryContent == nil, let body = GuideBodyStore.load(item.id) else { return item }
+            var hydrated = item
+            hydrated.summaryContent = body
+            return hydrated
+        }
 
         // MARK: DEBUG Assertions - Prevent Misuse
 
@@ -302,10 +310,8 @@ final class BulkExportCoordinator: ObservableObject {
             )
 
             do {
-                // Call existing export method off the MainActor to avoid UI blocking
-                let exportedURL = try await Task.detached(priority: .userInitiated) { [dataManager] in
-                    try dataManager.exportGuide(item, format: format)
-                }.value
+                // Async export hops to MainActor for PDF layout without main.sync.
+                let exportedURL = try await dataManager.exportGuideAsync(item, format: format)
 
                 // Copy to our export directory with unique name
                 let destinationURL = exportDir.appendingPathComponent(exportedURL.lastPathComponent)

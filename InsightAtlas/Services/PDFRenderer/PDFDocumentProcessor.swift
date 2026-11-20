@@ -58,17 +58,23 @@ struct PDFDocumentProcessor {
         #else
         (checked, report) = validator.process(reclassified, repairViolations: true)
         if !report.isValid {
+            #if DEBUG
             print("⚠️ [PDF Referential Integrity] auto-repaired in Release build\n\(report.summary)")
+            #endif
         }
         #endif
 
         // Builds-stage triage — always logged (independent of violations) so the
         // manifest/distance checklist is available on any real export.
         if !report.visualManifest.isEmpty {
+            #if DEBUG
             print("📊 [PDF Visual Manifest]\n  " + report.visualManifest.joined(separator: "\n  "))
+            #endif
         }
         if !report.referenceDistances.isEmpty {
+            #if DEBUG
             print("📏 [PDF Reference Distances — farthest first]\n  " + report.referenceDistances.joined(separator: "\n  "))
+            #endif
         }
 
         // Additive structure pass: section-opener chips + pull quotes (Phase 6).
@@ -112,7 +118,9 @@ struct FlowchartReclassifier {
             return s
         }
         if converted > 0 {
+            #if DEBUG
             print("🖼️ [PDF Visual] reclassified \(converted) hub-flowchart(s) → concept map (structural)")
+            #endif
         }
         return doc
     }

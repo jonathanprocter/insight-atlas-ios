@@ -23,6 +23,7 @@
 //
 
 import Foundation
+import os.log
 
 // MARK: - Canonical name corrections
 
@@ -49,19 +50,22 @@ enum CanonicalNames {
 enum ManuscriptNormalizer {
 
     /// Scalars that represent a corrupted hard hyphen when they sit between two
-    /// word characters (`self￾constructed`, `here-and￾now`). Replaced with `-`
-    /// in that position; removed everywhere else.
+    /// Corrupted hyphen stand-ins between word characters become `-`
+    /// (`self￾constructed` → `self-constructed`). Soft hyphens are not here —
+    /// they are discretionary breaks and must rejoin (see `alwaysStripScalars`).
     private static let corruptedHyphenScalars: Set<Unicode.Scalar> = [
-        "\u{00AD}", // soft hyphen
         "\u{FFFD}", // replacement character
         "\u{FFFE}", // noncharacter
         "\u{FFFF}", // noncharacter
     ]
 
-    /// Zero-width / byte-order scalars that are always removed.
+    /// Zero-width / byte-order / discretionary scalars that are always removed.
+    /// Soft hyphen (U+00AD) must rejoin (`re\u{00AD}vising` → `revising`), matching
+    /// `PDFTextFixer` — hardening it to `-` produced mid-word fragments on device.
     private static let alwaysStripScalars: Set<Unicode.Scalar> = [
         "\u{FEFF}", // BOM / zero-width no-break space
         "\u{200B}", // zero-width space
+        "\u{00AD}", // soft hyphen
     ]
 
     /// Repair the assembled manuscript in place. Idempotent: running it twice
@@ -426,14 +430,53 @@ enum ManuscriptGate {
 
     /// Normalize `rawContent`, log warnings, and throw `GateError` if any
     /// blocking violation remains. Returns the cleaned content to render/write.
-    static func prepareForExport(_ rawContent: String) throws -> String {
+    static func prepareForExport(
+        _ rawContent: String,
+        title: String = "",
+        author: String = ""
+    ) throws -> String {
         let content = ManuscriptNormalizer.normalize(rawContent)
         let report = ManuscriptPreflight.inspect(content: content)
+        #if DEBUG
         for warning in report.warnings { print("[Preflight] \(warning)") }
+        #endif
         guard report.passed else {
+            #if DEBUG
             for violation in report.errors { print("[Preflight] \(violation)") }
+            #endif
             throw GateError(violations: report.errors)
         }
+        logOutputContractIssues(for: content, title: title, author: author)
         return content
+    }
+
+    /// Runs `OutputContractValidator` over the editorial form of the content.
+    /// Soft gate: issues are logged for QA but never block an export, because
+    /// the validator targets normalized blocks and has not been tuned to be a
+    /// hard release criterion. Promote `.error` issues to `GateError` once its
+    /// false-positive rate on real guides is known.
+    private static func logOutputContractIssues(for content: String, title: String, author: String) {
+        let document = SemanticNormalizationService().normalize(
+            content: content,
+            title: title,
+            author: author
+        )
+        let contract = OutputContractValidator().validate(document)
+        guard !contract.isValid else { return }
+        let errorIssues = contract.issues.filter { $0.severity == .error }
+        #if DEBUG
+        print("[OutputContract] \(contract.summary)")
+        for issue in errorIssues {
+            print("[OutputContract] \(issue)")
+        }
+        #endif
+        // Always emit .error issues to the unified logger so Release QA can
+        // still see unclean narration / contract misses without stdout spam.
+        if !errorIssues.isEmpty {
+            let logger = Logger(subsystem: "com.insightatlas", category: "ManuscriptGate")
+            logger.error(
+                "OutputContract soft failures (\(errorIssues.count, privacy: .public)): \(contract.summary, privacy: .public)"
+            )
+        }
     }
 }

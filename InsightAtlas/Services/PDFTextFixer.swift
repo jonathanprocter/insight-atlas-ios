@@ -673,6 +673,24 @@ public final class PDFTextFixer: @unchecked Sendable {
     func fixPageBreakArtifacts(_ text: String) -> String {
         var result = text
 
+        // End-of-line hyphenation from PDF extract: "ob-\nserved" → "observed".
+        // Soft hyphens are already stripped in typography; hard hyphen + newline
+        // is the remaining discretionary break PDFKit leaves in page.string.
+        // Only rejoin across a newline — never "pre- and" suspended compounds.
+        let eolHyphenPattern = "(\\p{L})-\\r?\\n\\s*(\\p{L})"
+        if let regex = getOrCreateRegex(eolHyphenPattern) {
+            let before = result
+            result = regex.stringByReplacingMatches(
+                in: result,
+                options: [],
+                range: NSRange(result.startIndex..., in: result),
+                withTemplate: "$1$2"
+            )
+            if result != before {
+                recordPatternHit(eolHyphenPattern, category: "EOLHyphen")
+            }
+        }
+
         // Form feed followed by orphaned word continuation
         let pageBreakPatterns: [(String, String)] = [
             ("\u{000C}\\s*is\\s+", "\u{000C}This "),

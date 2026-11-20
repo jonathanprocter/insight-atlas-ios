@@ -316,11 +316,12 @@ struct ListenPlayerView: View {
 private struct ListenTranscriptSheet: View {
     @Environment(\.dismiss) private var dismiss
     let item: LibraryItem
+    @State private var loadedBody: String?
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(item.summaryContent ?? "No transcript available.")
+                Text(item.summaryContent ?? loadedBody ?? "No transcript available.")
                     .font(PremiumUI.display(17, .regular, relativeTo: .body))
                     .foregroundStyle(PremiumUI.ink)
                     .lineSpacing(6)
@@ -336,6 +337,11 @@ private struct ListenTranscriptSheet: View {
                         .foregroundStyle(PremiumUI.slate)
                 }
             }
+        }
+        .task {
+            guard item.summaryContent == nil else { return }
+            let id = item.id
+            loadedBody = await Task.detached(priority: .userInitiated) { GuideBodyStore.load(id) }.value
         }
     }
 }

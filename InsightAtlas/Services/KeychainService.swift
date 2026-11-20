@@ -128,6 +128,7 @@ final class KeychainService {
         delete(key: Keys.claudeApiKey)
         delete(key: Keys.openaiApiKey)
         delete(key: Keys.openRouterApiKey)
+        clearMiniMaxAuth()
     }
 
     // MARK: - Private Keychain Operations
@@ -228,6 +229,7 @@ final class KeychainService {
 
         var claudeKeyMigrated = false
         var openaiKeyPurged = false
+        var claudeSaveFailed = false
 
         // Try to load old settings
         guard let data = defaults.data(forKey: settingsKey) else {
@@ -258,6 +260,7 @@ final class KeychainService {
                     claudeKeyMigrated = true
                     logger.info("Claude API key migrated successfully")
                 } else {
+                    claudeSaveFailed = true
                     logger.error("Failed to migrate Claude API key to Keychain")
                 }
             }
@@ -276,7 +279,9 @@ final class KeychainService {
 
             // Remove API keys from UserDefaults (keep other settings)
             var mutableJson = json
-            mutableJson.removeValue(forKey: "claudeApiKey")
+            if !claudeSaveFailed {
+                mutableJson.removeValue(forKey: "claudeApiKey")
+            }
             mutableJson.removeValue(forKey: "openaiApiKey")
 
             let updatedData = try JSONSerialization.data(withJSONObject: mutableJson)
@@ -293,7 +298,16 @@ final class KeychainService {
             )
         }
 
-        // Mark migration as complete
+        if claudeSaveFailed {
+            logger.error("Keychain migration incomplete: Claude key could not be saved; will retry on next launch")
+            return MigrationResult(
+                claudeKeyMigrated: false,
+                openaiKeyPurged: openaiKeyPurged,
+                alreadyCompleted: false,
+                error: "Failed to save Claude API key to Keychain"
+            )
+        }
+
         defaults.set(true, forKey: "keychain_migration_completed")
         logger.info("Keychain migration completed. Claude migrated: \(claudeKeyMigrated), legacy OpenAI key purged: \(openaiKeyPurged)")
 

@@ -2,17 +2,17 @@
 
 > Transform how you learn - Where Understanding Illuminates the World
 
-Insight Atlas is an iOS application that generates comprehensive, beautifully formatted reading guides from PDF and EPUB books using AI (Claude and OpenAI).
+Insight Atlas is an iOS application that generates comprehensive, beautifully formatted reading guides from PDF and EPUB books using AI (MiniMax primary, with Claude and OpenRouter).
 
 ## Features
 
 - **AI-Powered Guide Generation**: Transform any book into an insightful, structured guide
-- **Multiple AI Providers**: Support for Claude (Anthropic) and OpenAI
+- **Multiple AI Providers**: MiniMax (OAuth), Claude (Anthropic), and OpenRouter
 - **Beautiful Export Formats**: Export guides as Markdown, PDF, HTML, DOCX, or plain text
 - **Premium UI Design**: Elegant, book-inspired interface with custom typography
-- **Secure API Key Storage**: API keys stored securely in iOS Keychain
+- **Secure API Key Storage**: API keys and OAuth tokens stored securely in iOS Keychain
 - **Offline Library**: All guides stored locally for offline access
-- **Premium Offline Narration**: Kokoro generates natural-sounding speech on-device with no voice API key or per-use fee
+- **Premium Offline Narration**: Pocket/Kokoro on-device speech, with Apple system voices as fallback (no hosted Liam TTS)
 - **Accessibility Support**: VoiceOver and Dynamic Type compatible
 
 ## Requirements
@@ -38,85 +38,84 @@ open InsightAtlas.xcodeproj
 
 ## Configuration
 
-### API Keys
+### API Keys / Auth
 
-Insight Atlas requires API keys from either Anthropic (Claude) or OpenAI to generate guides:
+Insight Atlas generates guides with:
 
-1. **Claude API Key**: Get from [console.anthropic.com](https://console.anthropic.com/)
-2. **OpenAI API Key**: Get from [platform.openai.com](https://platform.openai.com/)
+1. **MiniMax** (default): Sign in via OAuth in Settings
+2. **Claude API Key**: From [console.anthropic.com](https://console.anthropic.com/)
+3. **OpenRouter API Key**: From [openrouter.ai](https://openrouter.ai/) (optional fallback)
 
-Configure your API keys in the app's Settings > Manage API Keys section.
+Configure providers in Settings. OpenAI is not a supported provider.
 
-> **Security Note**: API keys are stored securely in the iOS Keychain and are never transmitted to any server except the respective AI providers.
+> **Security Note**: API keys and MiniMax tokens are stored securely in the iOS Keychain and are never transmitted to any server except the respective AI providers. Reset All Settings clears MiniMax tokens as well.
 
 ### Offline Narration
 
-Kokoro is the default narration provider. In the app, open **Settings → Audio & Narration**, then download the verified on-device model once. The download is approximately 126 MiB and uses approximately 182 MiB after installation; subsequent narration works without a network connection or speech API credentials. See [Kokoro Offline Narration](docs/KOKORO_OFFLINE_NARRATION.md) for model integrity, privacy, fallbacks, and troubleshooting.
+Pocket/Kokoro is the default narration provider, with Apple system voices as fallback. In the app, open **Settings → Audio & Narration**, then download the verified on-device model once. The download is approximately 126 MiB and uses approximately 182 MiB after installation; subsequent narration works without a network connection or speech API credentials. See [Kokoro Offline Narration](docs/KOKORO_OFFLINE_NARRATION.md) for model integrity, privacy, fallbacks, and troubleshooting.
 
 ## Architecture
 
-The app follows a clean architecture pattern with SwiftUI:
+The app follows a SwiftUI + service-container pattern:
 
 ```
 InsightAtlas/
 ├── Models/
-│   └── GuideModels.swift       # Data models
+│   └── GuideModels.swift            # Library item + generation models
 ├── Views/
-│   ├── LibraryView.swift       # Main library screen
-│   ├── GenerationView.swift    # Guide generation UI
-│   ├── AnalysisDetailView.swift # Guide reader
-│   ├── SettingsView.swift      # Settings & configuration
-│   └── AnalysisComponents.swift # Reusable UI components
+│   ├── LibraryView.swift            # Library
+│   ├── GenerationView.swift         # Guide generation
+│   ├── AnalysisDetailView.swift     # Guide reader
+│   ├── SettingsView.swift           # Providers, Pocket voices, theme
+│   ├── AnalysisBookReferences.swift # Split from AnalysisComponents
+│   └── …
 ├── Services/
-│   ├── AIService.swift         # AI API integration
-│   ├── BookProcessor.swift     # PDF/EPUB processing
-│   ├── DataManager.swift       # Main data management
-│   ├── KeychainService.swift   # Secure key storage
-│   ├── KokoroModelManager.swift # Verified model download and lifecycle
-│   ├── KokoroAudioService.swift # On-device neural speech synthesis
-│   ├── LibraryService.swift    # Library management
-│   ├── SettingsService.swift   # Settings management
-│   ├── ExportService.swift     # Export functionality
-│   └── PDFTextFixer.swift      # Text extraction fixes
-├── Extensions/
-│   ├── String+Localization.swift
-│   └── View+Accessibility.swift
-└── Resources/
-    └── en.lproj/
-        └── Localizable.strings # Localization
+│   ├── AIService.swift              # Shared MiniMax / Claude / OpenRouter client
+│   ├── AppEnvironment.swift         # Settings source of truth + DI facade
+│   ├── DataManager.swift            # Library CRUD + export orchestration
+│   ├── GuideHTMLExporter.swift      # HTML export
+│   ├── GuideDOCXExporter.swift      # DOCX export
+│   ├── GuidePDFExporter.swift       # PDF export (MainActor)
+│   ├── SourceTextStore.swift        # Manuscripts for Regenerate
+│   ├── GuideBodyStore.swift         # Lazy guide bodies on disk
+│   ├── NarrationService.swift       # Pocket + Apple narration
+│   ├── KokoroAudioService.swift     # On-device sherpa-onnx TTS
+│   ├── KokoroModelManager.swift     # Model download / install
+│   ├── BookProcessor.swift          # PDF/EPUB extract
+│   └── KeychainService.swift        # API keys + MiniMax OAuth tokens
+└── PrivacyInfo.xcprivacy
 ```
 
 ### Key Services
 
 | Service | Responsibility |
 |---------|---------------|
-| `AIService` | Handles communication with AI providers (Claude, OpenAI) |
-| `BookProcessor` | Extracts text from PDF and EPUB files |
-| `DataManager` | Main coordinator for data persistence |
-| `KeychainService` | Secure storage for API keys |
-| `KokoroModelManager` | Downloads, verifies, installs, and removes the offline voice model |
-| `KokoroAudioService` | Generates 24 kHz narration locally through sherpa-onnx |
-| `LibraryService` | CRUD operations for library items |
-| `ExportService` | Export guides to various formats |
-| `PDFTextFixer` | Fixes ligatures and encoding issues from PDFs |
+| `AIService.shared` | MiniMax (default), Claude, OpenRouter |
+| `AppEnvironment.shared` | Single settings SoT + service wiring |
+| `DataManager` | Library metadata, body flush, export entry points |
+| `Guide*Exporter` | HTML / DOCX / PDF writers |
+| `SourceTextStore` | Original book text for Regenerate |
+| `NarrationService` | Pocket (Kokoro) + Apple Voice orchestration |
+| `KokoroAudioService` | Local 24 kHz synthesis via sherpa-onnx |
+| `KeychainService` | Claude/OpenRouter keys + MiniMax OAuth |
+
+Release uploads **must** use `scripts/release-testflight.sh` (strips unused onnxruntime/SherpaOnnxC dynamic stubs).
 
 ## Testing
 
 Run the test suite:
 
 ```bash
-xcodebuild test -scheme InsightAtlas -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme InsightAtlas -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
-Test files:
-- `PDFTextFixerTests.swift` - Text extraction tests
-- `AIServiceTests.swift` - AI service tests
-- `BookProcessorTests.swift` - Book processing tests
-- `KeychainServiceTests.swift` - Keychain storage tests
-- `KokoroModelManagerTests.swift` - Manifest, installation, and archive-path safety tests
-- `KokoroTextChunkerTests.swift` - Long-narration chunking tests
-- `KokoroVoiceRegistryTests.swift` - Official voice mapping and default tests
-- `LibraryServiceTests.swift` - Library management tests
+Representative tests:
+- `SettingsSourceOfTruthTests.swift` — AppEnvironment ↔ DataManager settings mirror
+- `SourceTextStoreTests.swift` — Regenerate source persistence
+- `ManuscriptGateExportTests.swift` — export integrity gate
+- `MiniMaxCredentialHelperTests.swift` — OAuth credential helpers
+- `KokoroModelManagerTests.swift` / `KokoroTextChunkerTests.swift` / `KokoroVoiceRegistryTests.swift`
+- PDF redesign + governor suites under `InsightAtlasTests/`
 
 ## Localization
 

@@ -6,7 +6,9 @@ struct InsightAtlasApp: App {
 
     // MARK: - App Environment
 
-    @StateObject private var environment = AppEnvironment()
+    /// Single shared environment — matches `AppEnvironment.shared` used by
+    /// previews and services so settings cannot diverge across instances.
+    @ObservedObject private var environment = AppEnvironment.shared
 
     // MARK: - Initialization
 
@@ -31,6 +33,11 @@ struct InsightAtlasApp: App {
             ContentView()
                 .environmentObject(environment)
                 .environmentObject(environment.dataManager)
+                .task {
+                    #if DEBUG
+                    DebugGuideSnapshot.runIfRequested(environment: environment)
+                    #endif
+                }
         }
     }
     
@@ -38,9 +45,9 @@ struct InsightAtlasApp: App {
 
     private func configureAppearance() {
         // Use adaptive colors from asset catalog for proper dark mode support
-        let bgSecondary = UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#111111") : UIColor(hex: "#FAF9F6") }
-        let bgCard = UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#242424") : UIColor(hex: "#FFFFFF") }
-        let textHeading = UIColor { t in t.userInterfaceStyle == .dark ? UIColor(hex: "#FAF9F6") : UIColor(hex: "#111111") }
+        let bgSecondary = PremiumUI.UI.background
+        let bgCard = PremiumUI.UI.card
+        let textHeading = PremiumUI.UI.ink
 
         // Navigation Bar
         let navAppearance = UINavigationBarAppearance()
@@ -56,7 +63,7 @@ struct InsightAtlasApp: App {
         UINavigationBar.appearance().standardAppearance = navAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
         UINavigationBar.appearance().compactAppearance = navAppearance
-        UINavigationBar.appearance().tintColor = UIColor(hex: "#2C3E50")
+        UINavigationBar.appearance().tintColor = PremiumUI.UI.indigo
 
         // Tab Bar
         let tabAppearance = UITabBarAppearance()
@@ -67,3 +74,45 @@ struct InsightAtlasApp: App {
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
     }
 }
+
+#if DEBUG
+/// `-ia-render-guide` launch argument: render the first library guide through
+/// the real reader renderer into Documents/debug-guide.png. Lets the reader be
+/// reviewed headlessly in a simulator that has no Simulator.app window.
+@MainActor
+enum DebugGuideSnapshot {
+    static func runIfRequested(environment: AppEnvironment) {
+        guard ProcessInfo.processInfo.arguments.contains("-ia-render-guide"),
+              let item = environment.dataManager.libraryItems.first,
+              let content = item.summaryContent ?? GuideBodyStore.load(item.id) else { return }
+
+        let view = EditorialContentRenderer(
+            content: content,
+            searchQuery: "",
+            title: item.title,
+            author: item.author
+        )
+        .padding(.horizontal, 20)
+        .frame(width: 430, alignment: .leading)
+        .background(AnalysisTheme.paper)
+        .environment(\.colorScheme, .light)
+        .environmentObject(environment)
+        .environmentObject(environment.dataManager)
+
+        let renderer = ImageRenderer(content: view)
+        renderer.proposedSize = ProposedViewSize(width: 430, height: 16_000)
+        renderer.scale = 2
+        guard let image = renderer.uiImage,
+              let data = image.pngData(),
+              let documents = FileManager.default.urls(
+                for: .documentDirectory, in: .userDomainMask
+              ).first else {
+            print("[DebugGuideSnapshot] render failed")
+            return
+        }
+        let url = documents.appendingPathComponent("debug-guide.png")
+        try? data.write(to: url)
+        print("[DebugGuideSnapshot] wrote \(Int(image.size.width))x\(Int(image.size.height)) to \(url.path)")
+    }
+}
+#endif

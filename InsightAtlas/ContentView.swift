@@ -8,6 +8,8 @@ struct ContentView: View {
 
     @State private var selectedTab: AppTab = .library
     @State private var showOverflowMenu = false
+    @State private var showInterruptedGenerationAlert = false
+    @State private var interruptedInfo: (title: String, author: String, startedAt: Date)?
 
     private var isIPad: Bool {
         horizontalSizeClass == .regular
@@ -53,7 +55,7 @@ struct ContentView: View {
                     HStack {
                         HStack(spacing: 8) {
                             Image(systemName: "safari")
-                                .foregroundColor(Color(hex: "#E8553A"))
+                                .foregroundColor(PremiumUI.ember)
                                 .font(.system(size: 21))
                             Text("Insight Atlas".uppercased())
                                 .font(PremiumUI.ui(14, .bold, relativeTo: .caption))
@@ -93,8 +95,45 @@ struct ContentView: View {
                 }
             }
         }
-        // Locked to light mode per user preference (overrides the Theme setting).
         .preferredColorScheme(preferredColorScheme)
+        .task {
+            let coordinator = environment.generationCoordinator
+            if coordinator.hasInterruptedGeneration(),
+               let info = coordinator.getInterruptedGenerationInfo() {
+                interruptedInfo = info
+                showInterruptedGenerationAlert = true
+            }
+        }
+        .alert("Interrupted generation", isPresented: $showInterruptedGenerationAlert) {
+            Button("Resume") {
+                guard interruptedInfo != nil else { return }
+                Task {
+                    do {
+                        // Coordinator persists LibraryItem + SourceTextStore on success.
+                        _ = try await environment.generationCoordinator.resumeInterruptedGeneration(
+                            settings: environment.userSettings
+                        )
+                        await MainActor.run {
+                            interruptedInfo = nil
+                            selectedTab = .library
+                        }
+                    } catch {
+                        // Failed state stays persisted for a later retry.
+                    }
+                }
+            }
+            Button("Discard", role: .destructive) {
+                environment.generationCoordinator.discardInterruptedGeneration()
+                interruptedInfo = nil
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            if let info = interruptedInfo {
+                Text("“\(info.title)” by \(info.author) was interrupted. Resume where it left off, or discard the partial run.")
+            } else {
+                Text("A previous guide generation was interrupted.")
+            }
+        }
     }
     @ViewBuilder
     private var activeView: some View {

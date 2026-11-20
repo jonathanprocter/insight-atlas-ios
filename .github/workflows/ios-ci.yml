@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/chatgpt-voice-experimental
+      - "cursor/**"
   pull_request:
   workflow_dispatch:
 
@@ -13,6 +14,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-stub-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Guard TestFlight stub strip (onnxruntime / SherpaOnnxC)
+        run: |
+          set -euo pipefail
+          SCRIPT=scripts/release-testflight.sh
+          test -f "$SCRIPT"
+          # STUBS array must name both dynamic framework stubs SPM may embed.
+          grep -q 'STUBS=(onnxruntime SherpaOnnxC)' "$SCRIPT"
+          # Fail-closed assert: leftover Frameworks copies must abort the release.
+          grep -q "find \"\$APP/Frameworks\"" "$SCRIPT"
+          grep -q "unsupported onnxruntime/SherpaOnnxC stubs remain" "$SCRIPT"
+          echo "release-stub-guard: OK"
+
   test:
     runs-on: macos-15
     timeout-minutes: 45

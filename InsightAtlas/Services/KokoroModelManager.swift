@@ -18,14 +18,18 @@ struct KokoroModelManifest: Equatable, Sendable {
     let sha256: String
     let minimumAvailableCapacity: Int64
 
+    /// Kyutai Pocket TTS (int8 ONNX export packaged by sherpa-onnx) plus the
+    /// reference voice clips, hosted on our own R2 bucket. The upstream GitHub
+    /// release asset was re-uploaded in place on 2026-09-08, which silently
+    /// broke the size/checksum gate; a bucket we control cannot change under us.
+    /// Size and hash measured on the uploaded archive (2026-10-12):
+    ///   curl -sL <downloadURL> -o a.tar.bz2 && shasum -a 256 a.tar.bz2
     static let production = KokoroModelManifest(
-        version: "kokoro-int8-multi-lang-v1_0",
-        archiveRootName: "kokoro-int8-multi-lang-v1_0",
-        downloadURL: URL(
-            string: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2"
-        )!,
-        archiveByteCount: 131_839_838,
-        sha256: "75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3",
+        version: "pocket-tts-int8-2026-01-26-ia1",
+        archiveRootName: "pocket-tts-int8-2026-01-26-ia1",
+        downloadURL: URL(string: "https://models.procterai.cc/pocket-tts/pocket-tts-int8-2026-01-26-ia1.tar.bz2")!,
+        archiveByteCount: 98_882_041,
+        sha256: "9070eac57cd5fb7d09af334ceb9b810f078e0a89c4f9b27143c6e6aea4e1810e",
         minimumAvailableCapacity: 450 * 1_024 * 1_024
     )
 }
@@ -39,7 +43,7 @@ enum KokoroModelStore {
 
         return applicationSupport
             .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent("Kokoro", isDirectory: true)
+            .appendingPathComponent("Pocket", isDirectory: true)
     }
 
     static func modelDirectory(
@@ -59,14 +63,15 @@ enum KokoroModelStore {
 
 enum KokoroModelInstallationValidator {
     static let requiredRelativePaths = [
-        "model.int8.onnx",
-        "voices.bin",
-        "tokens.txt",
-        "lexicon-us-en.txt",
-        "lexicon-gb-en.txt",
-        "LICENSE",
-        "espeak-ng-data/phondata"
-    ]
+        "lm_main.int8.onnx",
+        "lm_flow.int8.onnx",
+        "encoder.onnx",
+        "decoder.int8.onnx",
+        "text_conditioner.onnx",
+        "vocab.json",
+        "token_scores.json",
+        "LICENSE"
+    ] + KokoroVoiceRegistry.allVoices.map(\.referenceAudioRelativePath)
 
     static func isInstalled(
         at directory: URL,
@@ -94,12 +99,15 @@ enum KokoroModelInstallationValidator {
 
 enum KokoroArchivePathPolicy {
     private static let exactAllowedPaths: Set<String> = [
-        "model.int8.onnx",
-        "voices.bin",
-        "tokens.txt",
-        "lexicon-us-en.txt",
-        "lexicon-gb-en.txt",
-        "LICENSE"
+        "lm_main.int8.onnx",
+        "lm_flow.int8.onnx",
+        "encoder.onnx",
+        "decoder.int8.onnx",
+        "text_conditioner.onnx",
+        "vocab.json",
+        "token_scores.json",
+        "LICENSE",
+        "NOTICE.md"
     ]
 
     static func destinationRelativePath(
@@ -127,7 +135,10 @@ enum KokoroArchivePathPolicy {
             return relativePath
         }
 
-        if relativeComponents.first == "espeak-ng-data", relativeComponents.count > 1 {
+        // Reference voice clips: flat `voices/<name>.wav`, nothing deeper.
+        if relativeComponents.count == 2,
+           relativeComponents[0] == "voices",
+           relativeComponents[1].hasSuffix(".wav") {
             return relativePath
         }
 
@@ -167,17 +178,17 @@ enum KokoroModelError: LocalizedError {
         case .insufficientStorage(let required, let available):
             let formatter = ByteCountFormatter()
             formatter.countStyle = .file
-            return "Kokoro needs at least \(formatter.string(fromByteCount: required)) free. This device currently reports \(formatter.string(fromByteCount: available))."
+            return "Pocket needs at least \(formatter.string(fromByteCount: required)) free. This device currently reports \(formatter.string(fromByteCount: available))."
         case .invalidResponse:
-            return "The Kokoro model download did not return a valid response."
+            return "The Pocket model download did not return a valid response."
         case .unexpectedArchiveSize:
-            return "The Kokoro model download was incomplete. Please try again."
+            return "The Pocket model download was incomplete. Please try again."
         case .checksumMismatch:
-            return "The downloaded Kokoro model failed its integrity check and was discarded."
+            return "The downloaded Pocket model failed its integrity check and was discarded."
         case .extractionFailed:
-            return "The Kokoro model archive could not be safely extracted."
+            return "The Pocket model archive could not be safely extracted."
         case .incompleteInstallation:
-            return "The Kokoro model is missing one or more required files."
+            return "The Pocket model is missing one or more required files."
         }
     }
 }
@@ -310,6 +321,7 @@ private enum KokoroModelInstaller {
             manifest.downloadURL,
             to: archiveURL,
             expectedByteCount: manifest.archiveByteCount,
+            fileManager: fileManager,
             progress: progress
         )
         try Task.checkCancellation()
@@ -345,6 +357,7 @@ private enum KokoroModelInstaller {
         ) else {
             throw KokoroModelError.incompleteInstallation
         }
+        removeSupersededVersions(in: root, keeping: manifest.version, fileManager: fileManager)
 
         let finalModel = KokoroModelStore.modelDirectory(
             manifest: manifest,
@@ -374,35 +387,76 @@ private enum KokoroModelInstaller {
         }
     }
 
+    /// Where partial-download resume data survives between attempts. Lives at
+    /// the models root (not the per-install staging dir, which is deleted on
+    /// every failure) so a retry can continue instead of refetching 131 MB.
+    private static func resumeDataURL(fileManager: FileManager) -> URL {
+        KokoroModelStore.modelsRoot(fileManager: fileManager)
+            .appendingPathComponent(".model-download.resume")
+    }
+
     private static func download(
         _ sourceURL: URL,
         to destinationURL: URL,
         expectedByteCount: Int64,
+        fileManager: FileManager,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws {
-        let delegate = KokoroDownloadDelegate(
-            destinationURL: destinationURL,
-            expectedByteCount: expectedByteCount,
-            progress: progress
-        )
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 60
-        configuration.timeoutIntervalForResource = 900
-        let session = URLSession(
-            configuration: configuration,
-            delegate: delegate,
-            delegateQueue: nil
-        )
-        defer { session.finishTasksAndInvalidate() }
+        configuration.timeoutIntervalForRequest = 60      // per-stall, not total
+        configuration.timeoutIntervalForResource = 7_200  // 131 MB on a slow link needs more than the old 15 min
+        configuration.waitsForConnectivity = true
+        let resumeFile = resumeDataURL(fileManager: fileManager)
 
-        try await withTaskCancellationHandler {
-            try await delegate.download(
-                using: session,
-                from: sourceURL
+        var lastError: Error?
+        for attempt in 1...3 {
+            try Task.checkCancellation()
+
+            let resumeData = try? Data(contentsOf: resumeFile)
+            let delegate = KokoroDownloadDelegate(
+                destinationURL: destinationURL,
+                expectedByteCount: expectedByteCount,
+                progress: progress
             )
-        } onCancel: {
-            session.invalidateAndCancel()
+            let session = URLSession(
+                configuration: configuration,
+                delegate: delegate,
+                delegateQueue: nil
+            )
+
+            do {
+                try await withTaskCancellationHandler {
+                    try await delegate.download(
+                        using: session,
+                        from: sourceURL,
+                        resumeData: resumeData
+                    )
+                } onCancel: {
+                    session.invalidateAndCancel()
+                }
+                session.finishTasksAndInvalidate()
+                try? fileManager.removeItem(at: resumeFile)
+                return
+            } catch {
+                session.finishTasksAndInvalidate()
+                if error is CancellationError { throw error }
+
+                if resumeData != nil {
+                    // A resumed attempt failed — the embedded URL has likely
+                    // expired (GitHub's release CDN signs redirects). Start
+                    // the next attempt fresh.
+                    try? fileManager.removeItem(at: resumeFile)
+                } else if let captured = delegate.capturedResumeData {
+                    try? captured.write(to: resumeFile)
+                }
+
+                lastError = error
+                if attempt < 3 {
+                    try await Task.sleep(nanoseconds: UInt64(attempt) * 2_000_000_000)
+                }
+            }
         }
+        throw lastError ?? KokoroModelError.incompleteInstallation
     }
 
     private static func verifyArchive(
@@ -435,6 +489,23 @@ private enum KokoroModelInstaller {
         let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
         guard digest == manifest.sha256 else {
             throw KokoroModelError.checksumMismatch
+        }
+    }
+
+    /// Earlier engines (the Pocket installs) live beside the current version
+    /// under the same root; once a new version is verified they are dead weight.
+    private static func removeSupersededVersions(
+        in root: URL,
+        keeping version: String,
+        fileManager: FileManager
+    ) {
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey]
+        ) else { return }
+        for entry in entries {
+            let name = entry.lastPathComponent
+            guard name != version, !name.hasPrefix(".") else { continue }
+            try? fileManager.removeItem(at: entry)
         }
     }
 
@@ -529,6 +600,10 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
     private var task: URLSessionDownloadTask?
     private var result: Result<Void, Error>?
 
+    /// Resume data captured from a failed transfer, for continuing the
+    /// download on the next attempt instead of restarting it.
+    private(set) var capturedResumeData: Data?
+
     init(
         destinationURL: URL,
         expectedByteCount: Int64,
@@ -541,12 +616,14 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
 
     func download(
         using session: URLSession,
-        from sourceURL: URL
+        from sourceURL: URL,
+        resumeData: Data? = nil
     ) async throws {
         try await withCheckedThrowingContinuation { continuation in
             lock.withLock {
                 self.continuation = continuation
-                let task = session.downloadTask(with: sourceURL)
+                let task = resumeData.map { session.downloadTask(withResumeData: $0) }
+                    ?? session.downloadTask(with: sourceURL)
                 self.task = task
                 task.resume()
             }
@@ -572,6 +649,14 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
+        // A CDN error page (404/503 HTML) must never be mistaken for the
+        // model archive; the checksum would reject it later, but failing here
+        // gives the user an accurate error instead of "incomplete download".
+        if let http = downloadTask.response as? HTTPURLResponse,
+           !(200...299).contains(http.statusCode) {
+            finish(.failure(KokoroModelError.invalidResponse))
+            return
+        }
         do {
             try? FileManager.default.removeItem(at: destinationURL)
             try FileManager.default.moveItem(at: location, to: destinationURL)
@@ -587,6 +672,10 @@ private final class KokoroDownloadDelegate: NSObject, URLSessionDownloadDelegate
         didCompleteWithError error: Error?
     ) {
         if let error {
+            let nsError = error as NSError
+            lock.withLock {
+                capturedResumeData = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+            }
             finish(.failure(error))
         }
     }

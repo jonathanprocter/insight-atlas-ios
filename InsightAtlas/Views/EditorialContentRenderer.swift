@@ -18,7 +18,17 @@ struct EditorialContentRenderer: View {
     let title: String
     let author: String
 
-    @State private var blocks: [ParsedContentBlock] = []
+    @State private var blocks: [ParsedContentBlock]
+
+    init(content: String, searchQuery: String, title: String, author: String) {
+        self.content = content
+        self.searchQuery = searchQuery
+        self.title = title
+        self.author = author
+        // Parse eagerly so the first frame already has content (and so
+        // offscreen renders that never fire onAppear still show the guide).
+        _blocks = State(initialValue: ContentBlockParser.parse(content))
+    }
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: AnalysisTheme.Spacing.xl) {
@@ -184,98 +194,7 @@ struct ParsedContentBlock: Identifiable {
     }
 }
 
-// MARK: - Editorial Markup Canonicalization
-
-/// Repairs formatting mistakes in generated editorial markup without inventing,
-/// deleting, or reordering semantic prose. The reader parser is line-oriented,
-/// so each control tag is normalized onto its own structural line.
-enum EditorialMarkupCanonicalizer {
-    private static let tagPattern = #"\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]"#
-    private static let fullTagPattern = #"^\[/?[A-Z][A-Z0-9_]*(?::[^\]]*)?\]$"#
-
-    static func canonicalize(_ content: String) -> String {
-        let normalized = content
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-        guard let regex = try? NSRegularExpression(pattern: tagPattern) else {
-            return normalized
-        }
-
-        let separated = regex.stringByReplacingMatches(
-            in: normalized,
-            range: NSRange(normalized.startIndex..., in: normalized),
-            withTemplate: "\n$0\n"
-        )
-        let lines = separated.components(separatedBy: "\n").map {
-            $0.trimmingCharacters(in: .whitespaces)
-        }
-
-        var output: [String] = []
-        var previousWasEmpty = false
-        for line in lines {
-            if line.isEmpty {
-                if !previousWasEmpty, !output.isEmpty { output.append("") }
-                previousWasEmpty = true
-            } else {
-                if isEditorialTagLine(line),
-                   output.last?.isEmpty == true,
-                   output.count >= 2,
-                   isEditorialTagLine(output[output.count - 2]) {
-                    output.removeLast()
-                }
-                output.append(line)
-                previousWasEmpty = false
-            }
-        }
-        while output.last?.isEmpty == true { output.removeLast() }
-
-        // Generated headings are semantically one line. If the model omits the
-        // closing tag, terminate the heading after its first non-empty text line
-        // so following prose cannot become a multi-paragraph TOC entry.
-        var repaired: [String] = []
-        var index = 0
-        while index < output.count {
-            let line = output[index]
-            let upper = line.uppercased()
-            let headerName: String? = upper == "[PREMIUM_H1]" ? "PREMIUM_H1"
-                : (upper == "[PREMIUM_H2]" ? "PREMIUM_H2" : nil)
-            guard let headerName else {
-                repaired.append(line)
-                index += 1
-                continue
-            }
-
-            repaired.append(line)
-            index += 1
-            while index < output.count, output[index].isEmpty {
-                repaired.append(output[index])
-                index += 1
-            }
-            if index < output.count, !isEditorialTagLine(output[index]) {
-                repaired.append(output[index])
-                index += 1
-            }
-            if index < output.count, isClosingTagLine(output[index], named: headerName) {
-                repaired.append(output[index])
-                index += 1
-            } else {
-                repaired.append("[/\(headerName)]")
-            }
-        }
-        while repaired.last?.isEmpty == true { repaired.removeLast() }
-        return repaired.joined(separator: "\n")
-    }
-
-    static func isEditorialTagLine(_ line: String) -> Bool {
-        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.range(of: fullTagPattern, options: .regularExpression) != nil
-    }
-
-    static func isClosingTagLine(_ line: String, named name: String) -> Bool {
-        line.trimmingCharacters(in: .whitespacesAndNewlines)
-            .caseInsensitiveCompare("[/\(name)]") == .orderedSame
-    }
-}
+// Markup canonicalization lives in EditorialMarkupCanonicalizer.swift
 
 // MARK: - Reader Content Adaptation
 
@@ -415,6 +334,83 @@ struct ContentBlockParser {
         guard !text.isEmpty else { return nil }
 
         return (min(level, 3), text)
+    }
+
+    // MARK: - Implicit headings
+
+    /// A section title the model emitted WITHOUT heading markup — a bare
+    /// Title-Case line ("The Boundary Problem") or a bold-only line
+    /// ("**The Boundary Problem**") standing alone between paragraphs.
+    ///
+    /// A shipped 29-page guide rendered all eight of its section titles in
+    /// body type with no table-of-contents entry because they arrived in this
+    /// shape. Every parser (reader, PDF, legacy export) promotes them here so
+    /// the three surfaces agree. Returns the heading text, or nil.
+    ///
+    /// Deliberately conservative: the line must be short, free of terminal
+    /// punctuation, not a list/tag/table/quote line, and either bold-wrapped
+    /// or in Title Case; it must stand alone (previous line empty or a tag)
+    /// and be followed by real prose or a block tag.
+    static func implicitHeading(line rawLine: String, previousLine: String?, nextLine: String?) -> String? {
+        var line = rawLine.trimmingCharacters(in: .whitespaces)
+        guard !line.isEmpty, line.count <= 90 else { return nil }
+
+        var boldWrapped = false
+        if line.hasPrefix("**"), line.hasSuffix("**"), line.count > 4 {
+            let inner = String(line.dropFirst(2).dropLast(2))
+            guard !inner.contains("**") else { return nil }
+            line = inner.trimmingCharacters(in: .whitespaces)
+            boldWrapped = true
+        } else if line.hasPrefix("__"), line.hasSuffix("__"), line.count > 4 {
+            line = String(line.dropFirst(2).dropLast(2)).trimmingCharacters(in: .whitespaces)
+            boldWrapped = true
+        }
+        guard let first = line.first, first.isLetter || first.isNumber else { return nil }
+        guard !line.contains("|"), !line.contains("["), !line.contains("]"), !line.contains("*"),
+              !line.contains(" — "), !line.contains(" – "), !line.contains("→") else { return nil }
+        if let last = line.last, ".!?;:,".contains(last) { return nil }
+        if line.range(of: #"^(\d+[.)]|[-*•])\s"#, options: .regularExpression) != nil { return nil }
+        if line.range(of: #"^(figure|table|go deeper|key distinction|practical implication)\b"#,
+                      options: [.regularExpression, .caseInsensitive]) != nil { return nil }
+
+        let words = line.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        guard (2...12).contains(words.count) else { return nil }
+        guard let firstScalar = words[0].unicodeScalars.first, CharacterSet.uppercaseLetters.contains(firstScalar) || firstScalar.properties.numericType != nil else { return nil }
+
+        // Title Case: most substantive words are capitalised. Required for
+        // bold-only lines too — "**Primary sources the author relies on**" is
+        // a list lead-in, not a heading.
+        let substantive = words.filter { $0.filter(\.isLetter).count >= 4 }
+        guard !substantive.isEmpty else { return nil }
+        let capitalised = substantive.filter { word in
+            guard let scalar = word.unicodeScalars.first else { return false }
+            return CharacterSet.uppercaseLetters.contains(scalar)
+        }
+        guard Double(capitalised.count) / Double(substantive.count) >= (boldWrapped ? 0.5 : 0.6) else { return nil }
+
+        // Must stand alone: nothing but whitespace or a tag line above it.
+        if let prev = previousLine?.trimmingCharacters(in: .whitespaces), !prev.isEmpty {
+            guard EditorialMarkupCanonicalizer.isEditorialTagLine(prev) || prev.hasPrefix("#") || prev == "---" else { return nil }
+        }
+        // Must introduce something: prose at least a sentence long, or a block.
+        guard let next = nextLine?.trimmingCharacters(in: .whitespaces), !next.isEmpty else { return nil }
+        // A list or table directly below means this line introduces it.
+        if next.range(of: #"^([-*•]|\d+[.)])\s"#, options: .regularExpression) != nil || next.hasPrefix("|") { return nil }
+        if EditorialMarkupCanonicalizer.isEditorialTagLine(next) || next.hasPrefix("[") { return line }
+        let nextWords = next.split(whereSeparator: { $0.isWhitespace }).count
+        guard nextWords >= 12 || next.count >= line.count + 40 else { return nil }
+        return line
+    }
+
+    /// The next non-empty line after `index`, within a short window.
+    static func nextNonEmptyLine(in lines: [String], after index: Int, window: Int = 3) -> String? {
+        var j = index + 1
+        while j < lines.count, j <= index + window {
+            let t = lines[j].trimmingCharacters(in: .whitespaces)
+            if !t.isEmpty { return t }
+            j += 1
+        }
+        return nil
     }
 
     /// Remove editorial markup that escaped block parsing so it is never shown
@@ -1125,6 +1121,21 @@ struct ContentBlockParser {
                     type: .textDiagram,
                     content: diagramLines.joined(separator: "\n")
                 ))
+                continue
+            }
+
+            // A section title the model forgot to mark up.
+            if currentParagraph.isEmpty,
+               let implicit = implicitHeading(
+                    line: trimmed,
+                    previousLine: i > 0 ? lines[i - 1] : nil,
+                    nextLine: nextNonEmptyLine(in: lines, after: i)
+               ) {
+                flushParagraph()
+                let thisSectionIndex = currentSectionIndex
+                currentSectionIndex += 1
+                blocks.append(ParsedContentBlock(type: .subsectionHeader, content: implicit, sectionIndex: thisSectionIndex))
+                i += 1
                 continue
             }
 

@@ -68,7 +68,7 @@ struct OnDeviceInsightPreviewView: View {
     private var availabilityRow: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(status == .available ? Color.green : Color.orange)
+                .fill(status == .available ? PremiumUI.celadon : PremiumUI.emberDeep)
                 .frame(width: 8, height: 8)
             Text(status.userMessage)
                 .font(.footnote)
@@ -155,7 +155,7 @@ struct OnDeviceInsightPreviewView: View {
         (4,096-token window). It's built for short, bounded output — TL;DRs, \
         themes, tags — not the full 15,000-word guide. The read-aloud button \
         uses the on-device AVSpeechSynthesizer voice, a labeled fallback for \
-        the Kokoro/Liam pipeline.
+        the Pocket (Kokoro) pipeline.
         """)
         .font(.caption2)
         .foregroundStyle(.tertiary)

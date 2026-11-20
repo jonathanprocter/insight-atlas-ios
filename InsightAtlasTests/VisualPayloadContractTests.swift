@@ -83,6 +83,67 @@ final class VisualPayloadContractTests: XCTestCase {
         )
     }
 
+    /// INFOGRAPHIC / GAUGE used to accept the prompt's `Label: 62` shape as a
+    /// typed-but-empty card (not `.generic`), so contract tests passed while the
+    /// reader showed a blank "basic" visual. Require real stats.
+    func testInfographicAndGaugePromptShapesProduceStats() {
+        let cases: [(String, [String])] = [
+            ("VISUAL_INFOGRAPHIC", ["Adults reporting impostor feelings: 62", "Who never disclose it: 75"]),
+            ("VISUAL_GAUGE", ["Current distress rating: 72", "Target range: 40"]),
+            ("VISUAL_INFOGRAPHIC", ["stat: Practice adherence | 84", "highlight: Gains held at 6 weeks"])
+        ]
+
+        for (tag, lines) in cases {
+            let visual = InsightVisualParser.parse(tag: tag, title: "Title", lines: lines)
+            guard case .infographic(let data)? = visual?.payload else {
+                return XCTFail("\(tag) should parse to an infographic payload")
+            }
+            XCTAssertFalse(data.stats.isEmpty, "\(tag) produced an empty stats card")
+        }
+
+        // Highlights without stats must not become a typed empty grid.
+        let highlightsOnly = InsightVisualParser.parse(
+            tag: "VISUAL_INFOGRAPHIC",
+            title: "Title",
+            lines: ["highlight: Gains held at 6 weeks"]
+        )
+        XCTAssertTrue(
+            highlightsOnly == nil || {
+                if case .generic = highlightsOnly?.payload { return true }
+                return false
+            }(),
+            "highlights-only payloads must not produce a blank infographic card"
+        )
+    }
+
+    func testCanonicalizeTagUnifiesReaderPDFAndAliases() {
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_MATRIX"), "VISUAL_TABLE")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_GAUGE"), "VISUAL_INFOGRAPHIC")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_SPECTRUM"), "VISUAL_SPECTRUM")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("process_timeline"), "VISUAL_TIMELINE")
+        XCTAssertEqual(InsightVisualParser.canonicalizeTag("VISUAL_TABLE"), "VISUAL_TABLE")
+    }
+
+    /// Timeline/network/etc regenerate UUIDs on every parse. Cache keys must
+    /// ignore those so PDF prerender writes and layout reads hit the same URL.
+    func testVisualCacheURLIsStableAcrossReparse() {
+        let lines = [
+            "1952: Existential therapy emerges — May publishes on anxiety",
+            "1979: Cognitive turn — Beck formalises schema work"
+        ]
+        let first = InsightVisualParser.parse(tag: "VISUAL_TIMELINE", title: "Title", lines: lines)
+        let second = InsightVisualParser.parse(tag: "VISUAL_TIMELINE", title: "Title", lines: lines)
+        guard let first, let second else {
+            return XCTFail("timeline should parse")
+        }
+        XCTAssertEqual(
+            PDFAnalysisDocument.visualCacheURL(for: first),
+            PDFAnalysisDocument.visualCacheURL(for: second)
+        )
+        XCTAssertEqual(first.stablePayloadFingerprint, second.stablePayloadFingerprint)
+        XCTAssertFalse(first.stablePayloadFingerprint.contains("UUID"))
+    }
+
     /// Every documented tag must resolve to a renderer, directly or by alias.
     func testEveryDocumentedTagResolves() {
         for (tag, _) in Self.documentedPayloads {

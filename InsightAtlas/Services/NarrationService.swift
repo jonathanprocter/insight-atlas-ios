@@ -18,17 +18,32 @@ private let narrationLog = Logger(subsystem: "com.insightatlas", category: "Narr
 
 enum NarrationProviderRoute: String, Equatable, Sendable {
     case kokoro
+    case appleVoice
 }
 
 enum NarrationFallbackPolicy {
-    static func orderedRoutes(kokoroConfigured: Bool) -> [NarrationProviderRoute] {
-        kokoroConfigured ? [.kokoro] : []
+    /// The preferred engine first, the other as fallback. Apple system voices
+    /// are always installed, so narration can no longer hard-fail for lack of
+    /// a provider — at worst it falls back to the default system voice.
+    static func orderedRoutes(
+        preferred: VoiceProvider,
+        kokoroConfigured: Bool
+    ) -> [NarrationProviderRoute] {
+        switch preferred {
+        case .apple:
+            return [.appleVoice] + (kokoroConfigured ? [.kokoro] : [])
+        case .kokoro:
+            return (kokoroConfigured ? [.kokoro] : []) + [.appleVoice]
+        }
     }
 }
 
 enum NarrationPreparationPolicy {
-    /// MiniMax writes the bounded, audio-first summary before Kokoro speaks it.
-    static let rewritesBeforeInitialSynthesis = true
+    /// When true, MiniMax writes the bounded, audio-first summary before Pocket
+    /// speaks it (bounded by NarrationScriptService.rewriteDeadline). When false
+    /// (current default), playback always starts from the listening edition and
+    /// the script cache is only warmed in the background.
+    static let rewritesBeforeInitialSynthesis = false
 }
 
 enum NarrationListeningEdition {
@@ -165,13 +180,17 @@ private actor ProgressHeartbeat {
 struct NarrationStalled: LocalizedError {
     let stage: String
     var errorDescription: String? {
-        "Narration stopped responding while \(stage). Retry or choose another installed Kokoro voice."
+        "Narration stopped responding while \(stage). Retry, or choose a different voice in Settings → Audio & Narration."
     }
 }
 
 actor NarrationService {
 
     static let shared = NarrationService()
+
+    /// Concurrent Listen + auto-narrate for the same item share one synthesis
+    /// instead of racing segment directories and WAV writes.
+    private var inFlightSynthesis: [UUID: Task<NarrationAsset, Error>] = [:]
 
     /// Longest narration may go without any observable progress before the
     /// route is abandoned. On-device synthesis reports per chunk, so healthy
@@ -203,16 +222,62 @@ actor NarrationService {
         }
     }
 
-    /// Synthesize narration for `itemId`: MiniMax M2.7 writes the bounded
-    /// audio-summary script, then installed on-device Kokoro speaks it.
+    /// Directory holding the per-chunk files of an in-flight streamed
+    /// narration. Cleared when synthesis finishes or fails.
+    static func segmentDirectory(for itemId: UUID) -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("narration-segments", isDirectory: true)
+            .appendingPathComponent(itemId.uuidString, isDirectory: true)
+    }
+
+    /// Discards an item's streamed chunks. Safe to call once playback has moved
+    /// to the combined asset or been stopped.
+    static func clearSegments(for itemId: UUID) {
+        try? FileManager.default.removeItem(at: segmentDirectory(for: itemId))
+    }
+
+    /// Synthesize narration for `itemId`: MiniMax writes the bounded
+    /// audio-summary script (see NarrationPreparationPolicy), then installed
+    /// on-device Pocket speaks it.
+    ///
+    /// - Parameter onSegment: when supplied, each rendered chunk is reported as
+    ///   a playable file the moment it lands, so a long narration can start
+    ///   playing on chunk 1 instead of after the whole render. Only the
+    ///   on-device Pocket route streams; other routes simply never call it.
     func synthesize(
         text: String,
         itemId: UUID,
         summaryType: SummaryType? = nil,
-        progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in }
+        progress: @escaping @Sendable (NarrationPreparationProgress) -> Void = { _ in },
+        onSegment: (@Sendable (URL, Int, Int) -> Void)? = nil
     ) async throws -> NarrationAsset {
-        // Keep a deterministic bounded edition as the safe fallback, but let
-        // MiniMax create the actual audio-first summary when it is configured.
+        if let existing = inFlightSynthesis[itemId] {
+            return try await existing.value
+        }
+
+        let task = Task {
+            try await self.synthesizeUniquely(
+                text: text,
+                itemId: itemId,
+                summaryType: summaryType,
+                progress: progress,
+                onSegment: onSegment
+            )
+        }
+        inFlightSynthesis[itemId] = task
+        defer { inFlightSynthesis[itemId] = nil }
+        return try await task.value
+    }
+
+    private func synthesizeUniquely(
+        text: String,
+        itemId: UUID,
+        summaryType: SummaryType?,
+        progress: @escaping @Sendable (NarrationPreparationProgress) -> Void,
+        onSegment: (@Sendable (URL, Int, Int) -> Void)?
+    ) async throws -> NarrationAsset {
+        // Keep a deterministic bounded edition as the safe fallback, and let
+        // MiniMax write the actual audio-first summary when it is configured.
         // Hold a background assertion for the whole attempt so leaving the app
         // does not suspend an in-flight render.
         let assertion = await NarrationBackgroundAssertion()
@@ -229,19 +294,52 @@ actor NarrationService {
             text,
             summaryType: summaryType
         )
-        let spokenText = await NarrationScriptService.shared.spokenScript(
-            for: itemId,
-            guideContent: text,
-            summaryType: summaryType,
-            fallbackContent: fallbackText,
-            progress: progress
-        )
+        let spokenText: String
+        if NarrationPreparationPolicy.rewritesBeforeInitialSynthesis {
+            spokenText = await NarrationScriptService.shared.spokenScript(
+                for: itemId,
+                guideContent: text,
+                summaryType: summaryType,
+                fallbackContent: fallbackText,
+                progress: progress
+            )
+        } else {
+            spokenText = fallbackText
+            // Warm the script cache off the critical path so a later regenerate
+            // can pick up a richer MiniMax edition without delaying this listen.
+            Task {
+                _ = await NarrationScriptService.shared.spokenScript(
+                    for: itemId,
+                    guideContent: text,
+                    summaryType: summaryType,
+                    fallbackContent: fallbackText
+                )
+            }
+        }
         guard !spokenText.isEmpty else { throw NarrationServiceError.emptyText }
 
+        let preferredProvider = VoiceProvider(
+            rawValue: UserDefaults.standard.string(forKey: VoiceProvider.storageKey) ?? ""
+        ) ?? .kokoro
         let routes = NarrationFallbackPolicy.orderedRoutes(
+            preferred: preferredProvider,
             kokoroConfigured: KokoroModelStore.isInstalled
         )
         guard !routes.isEmpty else { throw NarrationServiceError.noConfiguredProvider }
+
+        // Per-chunk files live only for the duration of this render; the
+        // combined asset in Documents remains the durable one.
+        let segmentRoot: URL? = onSegment == nil ? nil : Self.segmentDirectory(for: itemId)
+        if let segmentRoot {
+            try? FileManager.default.removeItem(at: segmentRoot)
+            try? FileManager.default.createDirectory(
+                at: segmentRoot, withIntermediateDirectories: true
+            )
+        }
+        // Deliberately not cleaned up here: playback continues from these files
+        // after this call returns, so removing them would pull audio out from
+        // under the player. The next render for this item clears them, and the
+        // caller clears them when playback is replaced or stopped.
 
         var lastFailure: Error?
 
@@ -251,7 +349,7 @@ actor NarrationService {
             switch route {
             case .kokoro:
                 let voice = Self.selectedKokoroVoice()
-                let narrator = "Kokoro · \(voice.name)"
+                let narrator = "Pocket · \(voice.name)"
                 progress(.generating(narrator: narrator))
                 let heartbeat = ProgressHeartbeat()
                 do {
@@ -262,6 +360,7 @@ actor NarrationService {
                         try await KokoroAudioService.shared.generateAudio(
                             text: spokenText,
                             voiceID: voice.voiceID,
+                            segmentDirectory: segmentRoot,
                             onModelLoadStart: {
                                 progress(.loadingModel(narrator: narrator))
                                 Task { await heartbeat.beat() }
@@ -269,13 +368,14 @@ actor NarrationService {
                             onProgress: { completed, total in
                                 progress(.synthesizing(narrator: narrator, completed: completed, total: total))
                                 Task { await heartbeat.beat() }
-                            }
+                            },
+                            onSegment: onSegment
                         )
                     }
                     let asset = try await persist(audio: audio, itemId: itemId)
                     progress(.ready(narrator: narrator))
                     narrationLog.info(
-                        "Narration via on-device Kokoro (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
+                        "Narration via on-device Pocket (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
                     )
                     return asset
                 } catch is CancellationError {
@@ -283,7 +383,50 @@ actor NarrationService {
                 } catch {
                     lastFailure = error
                     narrationLog.error(
-                        "On-device Kokoro could not complete narration [\(error.localizedDescription, privacy: .public)]"
+                        "On-device Pocket could not complete narration [\(error.localizedDescription, privacy: .public)]"
+                    )
+                }
+
+            case .appleVoice:
+                guard let voice = AppleVoiceCatalog.selectedVoice() else {
+                    lastFailure = AppleSpeechAudioError.noVoiceAvailable
+                    continue
+                }
+                let narrator = "Apple · \(voice.name)"
+                progress(.generating(narrator: narrator))
+                let heartbeat = ProgressHeartbeat()
+                do {
+                    let audio = try await withStallDetection(
+                        stage: "generating audio with the system voice",
+                        heartbeat: heartbeat
+                    ) {
+                        try await AppleSpeechAudioService.shared.generateAudio(
+                            text: spokenText,
+                            voiceID: voice.identifier,
+                            onProgress: { completed, total in
+                                progress(.synthesizing(narrator: narrator, completed: completed, total: total))
+                                Task { await heartbeat.beat() }
+                            },
+                            // A single chunk can take minutes to render on a
+                            // phone, longer than the stall timeout; every
+                            // sentence boundary proves the voice is alive.
+                            onActivity: {
+                                Task { await heartbeat.beat() }
+                            }
+                        )
+                    }
+                    let asset = try await persist(audio: audio, itemId: itemId)
+                    progress(.ready(narrator: narrator))
+                    narrationLog.info(
+                        "Narration via Apple system voice (\(voice.name, privacy: .public)) for \(itemId.uuidString)"
+                    )
+                    return asset
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    lastFailure = error
+                    narrationLog.error(
+                        "Apple system voice could not complete narration [\(error.localizedDescription, privacy: .public)]"
                     )
                 }
             }
