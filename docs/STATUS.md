@@ -38,9 +38,11 @@ Full ranked audit (`docs/audits/2026-11-17-full-app-audit.md`, 40 findings) is i
 
 ## Device / release
 
-TestFlight **2026111702** uploaded from `main` @ `0f2d9f7` / bump `1cc1677`, tag `build-2026111702`.
+TestFlight **2026112001** uploaded 2026-11-20 from `main` @ `a61e8e5` (includes PR #11 `4da26b0`: indigo
+Go Deeper footers, scarce next-reads, honest visual failures) / bump `c589b89`, tag `build-2026112001`.
 App Store Connect `processingState=VALID` (Apple accepted; onnxruntime/SherpaOnnxC strip held, no ITMS-90208).
-Marketing version stays **1.0**. Previous: **2026111701** from `main` @ `04c18a1` / bump `06061e5`.
+Marketing version stays **1.0**. Previous: **2026111702** from `main` @ `0f2d9f7` / bump `1cc1677`;
+**2026111701** from `main` @ `04c18a1` / bump `06061e5`.
 
 **Release mechanics:** `scripts/release-testflight.sh` cannot run over plain SSH. `codesign` fails
 `errSecInternalComponent` and `git push` fails on `osxkeychain` because a non-GUI session cannot reach the
@@ -48,7 +50,8 @@ unlocked login keychain. Run it inside the console session instead:
 `sudo launchctl asuser 501 sudo -u jonathanprocter <script>`. Xcode Accounts upload still fails
 “Failed to Use Accounts”, so export with the ASC API key instead: pass `-authenticationKeyPath`,
 `-authenticationKeyID` and `-authenticationKeyIssuerID` to `xcodebuild -exportArchive`. The key and issuer
-live on the release Mac under `~/.appstoreconnect/` (not in this repo).
+live on the release Mac under `~/.appstoreconnect/` (not in this repo). Since `a61e8e5` the script discovers
+them there automatically (override with `ASC_KEY_PATH` / `ASC_KEY_ID` / `ASC_ISSUER_ID`).
 
 ### Reader follow-up (PR **#10**, `cursor/reader-visuals-hyphens-9243` — merged)
 
