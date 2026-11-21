@@ -130,24 +130,23 @@ struct InsightNoteView: View {
                 }
             }
 
-            // Go Deeper
+            // Go Deeper — indigo footer, no nested wash card
             if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Go Deeper")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                    }
-
+                VStack(alignment: .leading, spacing: 8) {
+                    Divider()
                     HStack(alignment: .top, spacing: 8) {
-                        Text(goDeeper)
-                            .font(.body)
-                            .italic()
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(PremiumUI.indigo)
+                            .frame(width: 3)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Go Deeper")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(PremiumUI.indigoDeep)
+                            Text(goDeeper)
+                                .font(.body)
+                        }
                     }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AnalysisTheme.warmGray)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
         }

@@ -379,38 +379,40 @@ struct InsightAtlasPromptGenerator {
         **Atlas Notes** — The primary mechanism for external triangulation:
 
         [INSIGHT_NOTE]
-        **[Author Name]** (*[Title]*, [Year]) [verb: corroborates / complicates / extends / challenges] this claim. *What the source shows:* [1–3 sentences stating only what the source itself reports or argues.] *How it bears on the claim:* [1–2 sentences drawing the connection to the book — and when the inference is yours rather than the source's, say so: "The inference from this to the author's claim is ours, not Wolman's."]
-        **Go Deeper:** [Author Name], *[Title]* ([Year]) — [One sentence on what the reader will gain]
+        **[Author Name]** (*[Title]*, [Year]) [verb: corroborates / complicates / extends / challenges] this claim. [1–4 sentences of real triangulation — what the source argues, and how it bears on THIS book's claim. When the inference is yours rather than the source's, say so.]
         [/INSIGHT_NOTE]
 
-        HONESTY MARKERS (MANDATORY): every [INSIGHT_NOTE] and every [ALTERNATIVE_PERSPECTIVE] contains BOTH an italic "*What the source shows:*" sentence and an italic "*How it bears on the claim:*" sentence. Never let a source appear to assert an inference that is actually the guide's own synthesis.
+        HONESTY (required in substance, optional as labels): make clear what the external source itself shows versus what the guide infers. You MAY use italic "*What the source shows:*" / "*How it bears on the claim:*" markers when they help; do NOT stamp both into every note. Prose that already draws the distinction is enough.
 
-        GO DEEPER FORMAT (MANDATORY, machine-checked): exactly "**Go Deeper:** Author, *Title* (Year) — reason". Author first, title in single-asterisk italics (never in quotation marks), publication year in parentheses, then an em dash and one line on why it is the next read. Use at most 6 Go Deeper lines in the whole guide, and collect all of them in Further Reading.
+        GO DEEPER (OPTIONAL, scarce, must actually deepen):
+        - Include a Go Deeper line only when you have a DISTINCT next read — a different work from the note's primary cited source.
+        - Format (machine-checked when present): "**Go Deeper:** Author, *Title* (Year) — reason".
+        - The reason must name what the reader gains that the note did not already cover (chapter, method, counter-argument, dataset) — never a restatement of the note.
+        - At most 6 Go Deeper lines in the whole guide; collect them in Further Reading.
+        - Prefer fewer, better next-reads over a footer on every note. Notes without Go Deeper are fine.
 
-        INSIGHT NOTE VARIATIONS (USE ALL AS NEEDED):
+        INSIGHT NOTE VARIATIONS (USE ALL AS NEEDED — vary verbs and shape; do not clone the same note anatomy):
 
         CORROBORATION NOTE:
         [INSIGHT_NOTE]
-        **Barbara Oakley** (*A Mind for Numbers*) corroborates this claim. Her research on neural pathway formation confirms that changing your physical environment forces your brain to retrieve information using slightly different neural pathways, allowing you to see that information from alternative perspectives. The effect is strongest when the new environment shares no contextual cues with the original learning setting.
-        **Go Deeper:** Barbara Oakley, *A Mind for Numbers* (2014) — How learning science validates deliberate practice strategies
+        **Barbara Oakley** (*A Mind for Numbers*, 2014) corroborates this claim. Her research on neural pathway formation shows that changing your physical environment forces retrieval along slightly different pathways, so the same material can be seen from another angle — strongest when the new setting shares no contextual cues with the original.
+        **Go Deeper:** Anders Ericsson, *Peak* (2016) — Ch. 4 on deliberate practice conditions that go beyond Oakley's environment cue, including feedback loops the guide's claim leaves implicit
         [/INSIGHT_NOTE]
 
         COMPLICATION NOTE:
         [INSIGHT_NOTE]
-        **Key Limitation:** Malcolm Gladwell (*Blink*) complicates this claim by arguing that autopilot mode isn't always a mental drawback but an essential tool for efficiently managing mental resources and decision-making. He warns that constant conscious thinking can inhibit natural pattern-recognition mechanisms, resulting in mental stagnation. The implication: conscious override is valuable for high-stakes decisions but counterproductive for well-practiced skills.
-        **Go Deeper:** Malcolm Gladwell, *Blink* (2005) — When rapid cognition outperforms deliberate analysis
+        **Malcolm Gladwell** (*Blink*, 2005) complicates this claim: autopilot is not always a drawback but a way to manage cognitive load. Constant conscious override can inhibit pattern recognition that experts rely on. Conscious control helps for high-stakes novelty; it can hurt well-practiced skill.
         [/INSIGHT_NOTE]
 
         EXPANSION NOTE:
         [INSIGHT_NOTE]
-        **Chris Bailey** (*Hyperfocus*) expands this principle into the domain of working memory and attention management. Bailey explains that mindfulness increases working memory capacity, enabling you to focus on more complex tasks while simultaneously improving decision efficiency. This suggests the author's framework applies not just to observation but to the entire cognitive pipeline from perception to judgment.
-        **Go Deeper:** Chris Bailey, *Hyperfocus* (2018) — The neuroscience of attention and creative insight
+        **Chris Bailey** (*Hyperfocus*, 2018) extends the principle into working memory: mindfulness increases capacity for complex tasks while improving decision efficiency, so the author's frame reaches the full pipeline from perception to judgment — not only observation.
+        **Go Deeper:** Daniel Levitin, *The Organized Mind* (2014) — Externalizing decisions (checklists, notes) as working-memory offload; pairs with Bailey where the note stops at attention
         [/INSIGHT_NOTE]
 
         CONTRADICTION NOTE:
         [INSIGHT_NOTE]
-        **Key Challenge:** The authors of *Critical Thinking, Logic & Problem Solving* challenge this claim, arguing that giving equal consideration to all information may waste time and energy. Not all information is equally useful, relevant, or reliable — speculations based on unproven trends are irrelevant noise. They recommend questioning each piece of information's relevance and source reliability before investing cognitive resources. This represents a meaningful limitation rather than a fatal flaw.
-        **Go Deeper:** Bigrocks Thinking, *Critical Thinking, Logic & Problem Solving* (2023) — When selective attention outperforms exhaustive analysis
+        **Bigrocks Thinking** (*Critical Thinking, Logic & Problem Solving*, 2023) challenges equal consideration of all information: relevance and source reliability must be filtered first, or energy is wasted on noise. Treat this as a meaningful limitation of exhaustive openness, not a fatal flaw in the author's method.
         [/INSIGHT_NOTE]
 
         IMPORTANT: When referencing other books in prose, give the author's full name and the title in *italics* (e.g. Daniel Kahneman's *Thinking, Fast and Slow*). Titles are never wrapped in quotation marks; quotation marks are reserved for the author's exact words. This enables automatic linking to purchase/learn more pages.
@@ -436,7 +438,7 @@ struct InsightAtlasPromptGenerator {
 
         **Alternative Views** - When intellectual honesty requires noting disagreement:
         [ALTERNATIVE_PERSPECTIVE]
-        **[Author Name]** (*[Title]*, [Year]) [objects / complicates]. *What the source shows:* [the objection as the source makes it]. *How it bears on the claim:* [severity — fatal flaw, meaningful limitation, or minor quibble — and whether the book answers it]
+        **[Author Name]** (*[Title]*, [Year]) [objects / complicates]. State the objection as the source makes it, then say how it bears on the claim (fatal flaw, meaningful limitation, or minor quibble — and whether the book answers it). Italic honesty labels are optional when the prose already draws that line.
         [/ALTERNATIVE_PERSPECTIVE]
 
         **Research Context** - When empirical evidence enriches the discussion:
@@ -563,7 +565,7 @@ struct InsightAtlasPromptGenerator {
         - application (something the reader performs) → [ACTION_BOX] or [EXERCISE_*]
         - person (background on an author) → [AUTHOR_SPOTLIGHT], max 1 per person per guide
         - data (study results, real numbers) → [RESEARCH_INSIGHT] or the matching chart visual
-        - a source worth naming but not worth a component → a Go Deeper line, never its own block
+        - a distinct next read the note did not already cover → an optional Go Deeper line (never a second copy of the note's primary source)
 
         If you cannot state in one sentence why THIS component fits THIS
         insight's function, the material belongs in body text. "It adds
@@ -584,9 +586,9 @@ struct InsightAtlasPromptGenerator {
           disguise — reclassify them.
         - The same component type may not appear in more than 3 consecutive
           sections.
-        - Go Deeper recommendations: at most 6 in the whole guide, reserved for
-          works load-bearing to the central argument; every one of them is
-          collected in Further Reading.
+        - Go Deeper recommendations: at most 6; only when they name a new work
+          and a concrete gain; every one is collected in Further Reading. Do not
+          attach a Go Deeper footer to every Insight Note.
 
         MOBILE LAYOUT (the guide is read on a 390pt-wide phone):
         - Never emit a table wider than 3 columns. Prefer 2.

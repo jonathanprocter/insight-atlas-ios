@@ -75,95 +75,76 @@ struct PremiumInsightNoteView: View {
                     .font(.analysisBody())
             }
 
-            // Key Distinction
+            // Key Distinction — label + prose, no nested card (avoids stamped boxes)
             if let keyDistinction = parsed.keyDistinction, !keyDistinction.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 11))
-                            .foregroundColor(AnalysisTheme.accentCoralText)
+                            .foregroundColor(AnalysisTheme.accentTeal)
                         Text("Key Distinction")
                             .font(.analysisUIBold())
-                            .foregroundColor(AnalysisTheme.accentCoralText)
+                            .foregroundColor(AnalysisTheme.accentTeal)
                     }
                     Text(parseMarkdownInline(keyDistinction, foregroundColor: boxMutedColor))
                         .font(.analysisBody())
                 }
-                .padding(AnalysisTheme.Spacing.md)
-                .background(
-                    ZStack {
-                        PremiumUI.card
-                        AnalysisTheme.accentCoralSubtle.opacity(0.5)
-                    }
-                )
-                .cornerRadius(AnalysisTheme.Radius.md)
             }
 
-            // Practical Implication
+            // Practical Implication — same flat treatment
             if let practical = parsed.practicalImplication, !practical.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Image(systemName: "lightbulb.fill")
+                        Image(systemName: "lightbulb")
                             .font(.system(size: 11))
-                            .foregroundColor(AnalysisTheme.accentOrange)
+                            .foregroundColor(AnalysisTheme.accentTeal)
                         Text("Practical Implication")
                             .font(.analysisUIBold())
-                            .foregroundColor(AnalysisTheme.accentOrange)
+                            .foregroundColor(AnalysisTheme.accentTeal)
                     }
                     Text(parseMarkdownInline(practical, foregroundColor: boxMutedColor))
                         .font(.analysisBody())
                 }
-                .padding(AnalysisTheme.Spacing.md)
-                .background(
-                    ZStack {
-                        PremiumUI.card
-                        AnalysisTheme.accentOrangeSubtle.opacity(0.5)
-                    }
-                )
-                .cornerRadius(AnalysisTheme.Radius.md)
             }
 
-            // Go Deeper - with clickable book links
+            // Go Deeper — cool indigo footer (not a nested wash inside the ember note)
             if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
                 let bookRefs = parseBookReferences(from: goDeeper)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(AnalysisTheme.accentTeal)
-                        Text("Go Deeper")
-                            .font(.analysisUIBold())
-                            .foregroundColor(AnalysisTheme.accentTeal)
-                    }
+                    Rectangle()
+                        .fill(PremiumUI.divider)
+                        .frame(height: 1)
+                        .padding(.top, 4)
 
-                    // Show parsed book references as clickable links
-                    if !bookRefs.isEmpty {
-                        ForEach(bookRefs) { ref in
-                            BookReferenceLink(reference: ref)
-                        }
+                    HStack(alignment: .top, spacing: 10) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(PremiumUI.indigo)
+                            .frame(width: 3)
 
-                        // Show any remaining description text
-                        let descriptionText = extractDescriptionFromGoDeeper(goDeeper, excluding: bookRefs)
-                        if !descriptionText.isEmpty {
-                            Text(parseMarkdownInline(descriptionText, foregroundColor: boxMutedColor))
-                                .font(.analysisBody())
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Go Deeper")
+                                .font(.analysisUIBold())
+                                .foregroundColor(PremiumUI.indigoDeep)
+                                .tracking(1)
+
+                            if !bookRefs.isEmpty {
+                                ForEach(bookRefs) { ref in
+                                    BookReferenceLink(reference: ref)
+                                }
+
+                                let descriptionText = extractDescriptionFromGoDeeper(goDeeper, excluding: bookRefs)
+                                if !descriptionText.isEmpty {
+                                    Text(parseMarkdownInline(descriptionText, foregroundColor: boxMutedColor))
+                                        .font(.analysisBody())
+                                }
+                            } else {
+                                Text(parseMarkdownInline(goDeeper, foregroundColor: boxTextColor))
+                                    .font(.analysisBody())
+                            }
                         }
-                    } else {
-                        // Fallback: show as plain text if no book references found
-                        Text(parseMarkdownInline(goDeeper, foregroundColor: boxMutedColor))
-                            .font(.analysisBody())
-                            .italic()
                     }
                 }
-                .padding(AnalysisTheme.Spacing.md)
-                .background(
-                    ZStack {
-                        PremiumUI.card
-                        AnalysisTheme.accentTealSubtle.opacity(0.5)
-                    }
-                )
-                .cornerRadius(AnalysisTheme.Radius.md)
             }
         }
         .padding(AnalysisTheme.Spacing.lg)

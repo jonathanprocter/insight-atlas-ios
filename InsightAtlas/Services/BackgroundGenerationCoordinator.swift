@@ -1446,7 +1446,9 @@ final class BackgroundGenerationCoordinator: ObservableObject {
         - DO NOT regenerate the entire guide from scratch
         - Keep ALL existing content that is already good
         - Only add visuals when they materially improve clarity (do NOT add visuals to hit a quota)
-        - ADD cross-discipline INSIGHT_NOTEs with Key Distinction, Practical Implication, and Go Deeper
+        - ADD cross-discipline INSIGHT_NOTEs that triangulate with named sources
+        - Add Key Distinction / Practical Implication only when they earn a line; do not stamp both into every note
+        - Add Go Deeper only when it names a DIFFERENT next read (not the note's primary source) and says what chapter/argument the reader gets
         - Ensure visual variety - use different visual types in consecutive sections
         - Insert new elements at appropriate locations within the existing structure
 

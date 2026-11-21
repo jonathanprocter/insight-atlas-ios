@@ -166,31 +166,34 @@ struct InsightNoteBlockView: View {
                 }
 
                 if let goDeeper = parsed.goDeeper, !goDeeper.isEmpty {
-                    // Inset "Go Deeper" card with gold accent bar
-                    HStack(alignment: .top, spacing: 12) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(AnalysisTheme.primaryGold)
-                            .frame(width: 3)
+                    // Footer treatment (matches PDF): cool indigo accent so it
+                    // does not nest a second ember card inside the note.
+                    VStack(alignment: .leading, spacing: 8) {
+                        Rectangle()
+                            .fill(PremiumUI.divider)
+                            .frame(height: 1)
+                            .padding(.top, 4)
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("GO DEEPER")
-                                .font(.analysisUISmall())
-                                .fontWeight(.semibold)
-                                .tracking(1.5)
-                                .foregroundColor(AnalysisTheme.primaryGoldText)
+                        HStack(alignment: .top, spacing: 10) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(PremiumUI.indigo)
+                                .frame(width: 3)
 
-                            Text(parseMarkdownBold(goDeeper))
-                                .font(.analysisBody())
-                                .italic()
-                                .foregroundColor(AnalysisTheme.textBody)
-                                .lineSpacing(5)
-                                .fixedSize(horizontal: false, vertical: true)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("GO DEEPER")
+                                    .font(.analysisUISmall())
+                                    .fontWeight(.semibold)
+                                    .tracking(1.5)
+                                    .foregroundColor(PremiumUI.indigoDeep)
+
+                                Text(parseMarkdownBold(goDeeper))
+                                    .font(.analysisBody())
+                                    .foregroundColor(AnalysisTheme.textBody)
+                                    .lineSpacing(5)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(PremiumUI.emberWash)
-                    .clipShape(RoundedRectangle(cornerRadius: AnalysisTheme.Radius.sm))
                 }
             }
             .padding(24)

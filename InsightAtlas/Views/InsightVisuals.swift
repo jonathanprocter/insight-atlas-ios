@@ -476,21 +476,25 @@ struct InsightVisualParser {
         let looksLikeJSON = payloadText.hasPrefix("{") || payloadText.hasPrefix("[")
 
         if looksLikeJSON {
-            // Try JSON parsing first
             if let visual = parseJSON(type: type, title: title, text: payloadText) {
                 return visual
             }
-            // If JSON parsing failed but content is JSON-like, return a generic visual
-            // rather than trying to parse malformed JSON as line format
-            return InsightVisual(type: type, title: title ?? "Visual", payload: .generic("Unable to render visual content"))
+            // Malformed JSON used to short-circuit into a fake "being prepared"
+            // placeholder. Prefer line-format recovery, then raw payload.
+            if let visual = parseLineFormat(type: type, title: title, lines: lines) {
+                return visual
+            }
+            return InsightVisual(
+                type: type,
+                title: title ?? "Visual",
+                payload: .generic(payloadText.isEmpty ? "Unable to render this figure" : payloadText)
+            )
         }
 
-        // For non-JSON content, try line format parsing
         if let visual = parseLineFormat(type: type, title: title, lines: lines) {
             return visual
         }
 
-        // Fallback: return a generic visual with the raw content
         return InsightVisual(type: type, title: title ?? "Visual", payload: .generic(payloadText))
     }
 
@@ -2189,14 +2193,20 @@ private struct GenericVisualCardView: View {
         VStack(alignment: .leading, spacing: AnalysisTheme.Spacing.md) {
             VisualHeader(label: "Visual", icon: "sparkles")
 
-            if data == "Unable to render visual content" || lines.isEmpty {
+            if data == "Unable to render visual content"
+                || data == "Unable to render this figure"
+                || lines.isEmpty {
                 VStack(spacing: 8) {
-                    Image(systemName: "photo.artframe")
-                        .font(.system(size: 32))
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 28))
                         .foregroundColor(AnalysisTheme.textMuted)
-                    Text("Visual content is being prepared")
+                    Text("Couldn’t render this figure")
                         .font(.analysisUI())
                         .foregroundColor(AnalysisTheme.textMuted)
+                    Text("The visual payload could not be decoded. Regenerate the guide to refresh it.")
+                        .font(.analysisUISmall())
+                        .foregroundColor(AnalysisTheme.textMuted)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, AnalysisTheme.Spacing.lg)

@@ -74,4 +74,28 @@ final class VisualSanitizePreservationTests: XCTestCase {
         XCTAssertEqual(data.connections.first?.from, "a")
         XCTAssertEqual(data.connections.first?.to, "b")
     }
+
+    /// Malformed JSON must not become a fake "being prepared" placeholder —
+    /// recover via line format or an honest generic failure payload.
+    func testMalformedJSONFallsBackHonestly() {
+        let visual = InsightVisualParser.parse(
+            tag: "VISUAL_TABLE",
+            title: "Broken",
+            lines: ["{ not-json", "Dimension | A | B", "Focus | X | Y"]
+        )
+        XCTAssertNotNil(visual)
+        switch visual?.payload {
+        case .table, .comparison:
+            break // line-format recovery succeeded
+        case .generic(let text):
+            XCTAssertFalse(text.localizedCaseInsensitiveContains("being prepared"))
+            XCTAssertTrue(
+                text == "Unable to render this figure"
+                    || text.contains("Dimension")
+                    || !text.isEmpty
+            )
+        default:
+            XCTFail("Unexpected payload: \(String(describing: visual?.payload))")
+        }
+    }
 }

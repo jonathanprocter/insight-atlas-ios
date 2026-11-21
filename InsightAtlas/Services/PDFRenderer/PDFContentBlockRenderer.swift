@@ -943,10 +943,12 @@ final class PDFContentBlockRenderer {
     /// `label` is a parameter so per-note-type footers ("THE OTHER SIDE",
     /// "SEE ALSO") can reuse this verbatim once the generator emits those markers.
     private func buildInsightFooter(label: String, body: String) -> NSAttributedString {
+        // Indigo (not terracotta) so Go Deeper reads as a cool next-read footer
+        // against the note's warm ember rail — matches reader + HTML.
         let labelAttributes: [NSAttributedString.Key: Any] = [
             .font: PDFStyleConfiguration.Typography.calloutLabel(),
             .ligature: 0,
-            .foregroundColor: PDFStyleConfiguration.Colors.terracotta,
+            .foregroundColor: PDFStyleConfiguration.Colors.brandBlue,
             .kern: 0.8
         ]
         // Roman body (elevation spec D: the light italic was low-contrast on

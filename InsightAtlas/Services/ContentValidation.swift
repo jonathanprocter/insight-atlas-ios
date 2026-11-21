@@ -64,7 +64,7 @@ enum ContentMarkers {
 
     // MARK: - Insight Note Components
 
-    /// Required components within INSIGHT_NOTE blocks
+    /// Optional Insight Note section markers (scarce; not required on every note)
     static let insightNoteComponents: [String] = [
         "**key distinction:**",
         "**practical implication:**",
@@ -315,22 +315,25 @@ struct OutputQualityValidator {
                 issues.append("Insufficient cross-discipline connections: found \(insightNoteCount) INSIGHT_NOTEs, need at least 3")
             }
 
-            // Always require Go Deeper in each Insight Note
+            // Go Deeper is optional and scarce — at most one per note, not required
+            // on every note. Require at least one genuine next-read across the guide
+            // (non–quick-reference), but never force a shallow citation footer.
             let goDeeperCount = lowercased.markerCount("**go deeper:**")
-            if goDeeperCount < insightNoteCount {
-                issues.append("INSIGHT_NOTEs missing Go Deeper sections")
+            if insightNoteCount >= 3, goDeeperCount < 1 {
+                issues.append("Guide needs at least one Go Deeper next-read across its Insight Notes")
+            }
+            if goDeeperCount > 6 {
+                issues.append("Too many Go Deeper lines (\(goDeeperCount)); keep at most 6 and only when they name a new work")
             }
 
-            // Allow simplified Insight Notes, but require full structure in at least half
-            let fullStructureTarget = max(1, (insightNoteCount + 1) / 2)
+            // KD / PI remain useful but optional. Soften the half-quota so notes
+            // can stay prose-led when labels would feel stamped.
+            let structureFloor = max(1, insightNoteCount / 3)
             let keyDistCount = lowercased.markerCount("**key distinction:**")
             let practicalCount = lowercased.markerCount("**practical implication:**")
 
-            if keyDistCount < fullStructureTarget {
-                issues.append("Too few INSIGHT_NOTEs include Key Distinction sections")
-            }
-            if practicalCount < fullStructureTarget {
-                issues.append("Too few INSIGHT_NOTEs include Practical Implication sections")
+            if insightNoteCount >= 3, keyDistCount + practicalCount < structureFloor {
+                issues.append("Too few Insight Notes carry a Key Distinction or Practical Implication when one would earn its place")
             }
         }
 

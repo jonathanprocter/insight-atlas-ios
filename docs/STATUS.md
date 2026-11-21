@@ -1,7 +1,7 @@
 # Insight Atlas — Current Status
 
-**Tip:** `main` @ `1cc1677` (audit PR **#9** + reader PR **#10**, both merged)  
-**Date:** 2026-11-17
+**Tip:** `main` @ `b522b96` (audit PR **#8**/#**9** + reader PR **#10**, both merged)  
+**Date:** 2026-11-20
 
 ## Product tip
 
@@ -64,3 +64,10 @@ Device screenshots showed broken charts + mid-word hyphens. Root causes (not OCR
 ### Structural variation
 
 Guides felt formulaic because every numbered section was prompt-forced into the same six bold-labelled parts. Prompt now uses a **rotating cadence menu** (claim-led / evidence-led / mechanism-first / strain-first / practitioner), optional single orientation page, and lint no longer implies six labelled parts. Regenerate to feel the change.
+
+### Insight Note / Go Deeper / visuals (branch `cursor/note-go-deeper-visuals-9243`)
+
+- **Color clash:** Go Deeper is an indigo footer (reader, Premium note, HTML, PDF) — not a second ember/coral wash nested inside the note.
+- **Substance:** Go Deeper is optional and scarce; must name a *different* next read and a concrete gain. KD/PI no longer half-quota stamped.
+- **Visuals:** Malformed JSON no longer shows “Visual content is being prepared”; line-format recovery or honest “Couldn’t render this figure”.
+- Existing guides need **Regenerate** for new note shape / next-reads; color fixes apply on open for already-tagged content.
