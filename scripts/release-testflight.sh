@@ -125,12 +125,32 @@ if [ "${SKIP_UPLOAD:-0}" = "1" ]; then
   exit 0
 fi
 
+# Authenticate the upload with an App Store Connect API key. Xcode Accounts
+# fails here ("Failed to Use Accounts"), so read the key from ASC_DIR
+# (default ~/.appstoreconnect: private_keys/AuthKey_<KEYID>.p8 + issuer_id).
+# ASC_KEY_PATH / ASC_KEY_ID / ASC_ISSUER_ID override the discovered values.
+ASC_DIR="${ASC_DIR:-$HOME/.appstoreconnect}"
+ASC_KEY_PATH="${ASC_KEY_PATH:-$(find "$ASC_DIR/private_keys" -name 'AuthKey_*.p8' 2>/dev/null | head -1)}"
+AUTH_ARGS=()
+if [ -n "$ASC_KEY_PATH" ]; then
+  ASC_KEY_ID="${ASC_KEY_ID:-$(basename "$ASC_KEY_PATH" .p8 | sed 's/^AuthKey_//')}"
+  ASC_ISSUER_ID="${ASC_ISSUER_ID:-$(tr -d '[:space:]' < "$ASC_DIR/issuer_id")}"
+  AUTH_ARGS=(
+    -authenticationKeyPath "$ASC_KEY_PATH"
+    -authenticationKeyID "$ASC_KEY_ID"
+    -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+  )
+  echo "==> Using App Store Connect API key $ASC_KEY_ID"
+else
+  echo "warning: no ASC API key in $ASC_DIR; falling back to Xcode Accounts." >&2
+fi
 echo "==> Uploading $BUILD_NUMBER to App Store Connect"
 xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportOptionsPlist "$EXPORT_OPTIONS" \
   -exportPath "$BUILD_DIR/export" \
-  -allowProvisioningUpdates
+  -allowProvisioningUpdates \
+  "${AUTH_ARGS[@]}"
 
 echo
 echo "==> Uploaded build $BUILD_NUMBER."
